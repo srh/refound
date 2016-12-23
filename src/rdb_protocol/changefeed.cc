@@ -38,9 +38,8 @@ struct indexed_datum_t {
     }
     datum_t val;
     optional<std::string> btree_index_key;
-    // This should be true, but older versions of boost don't support `move`
-    // well in optionals.
-    // MOVABLE_BUT_NOT_COPYABLE(indexed_datum_t);
+
+    // TODO: It'd be nice if this was non-copyable.
 };
 
 struct stamped_range_t {
@@ -53,10 +52,7 @@ struct stamped_range_t {
     uint64_t next_expected_stamp;
     lower_key_bound left_fencepost;
     std::deque<std::pair<lower_key_bound_range, uint64_t> > ranges;
-    // This should be true, but it breaks with GCC 4.6's STL.  (The cost of
-    // copying is low because if you look below we only ever copy
-    // `stamped_range_t` before populating `ranges`.)
-    // MOVABLE_BUT_NOT_COPYABLE(stamped_range_t);
+    MOVABLE_BUT_NOT_COPYABLE(stamped_range_t);
 };
 
 void debug_print(printf_buffer_t *buf, const stamped_range_t &rng) {
@@ -89,7 +85,8 @@ struct change_val_t {
     }
     std::pair<uuid_u, uint64_t> source_stamp;
     store_key_t pkey;
-    optional<indexed_datum_t> old_val, new_val;
+    optional<indexed_datum_t> old_val;
+    optional<indexed_datum_t> new_val;
     DEBUG_ONLY(optional<std::string> sindex;);
 
     MOVABLE_BUT_NOT_COPYABLE(change_val_t);
@@ -1585,8 +1582,8 @@ public:
             queue->add(change_val_t(
                 std::make_pair(shard_uuid, stamp),
                 pkey,
-                old_val,
-                new_val
+                std::move(old_val),
+                std::move(new_val)
                 DEBUG_ONLY(, sindex)));
             if (queue->size() > limits.changefeed_queue_size()) {
                 skipped += queue->size();
