@@ -36,5 +36,4 @@ void throttler_acq_t::mark_dirty_pages_written() {
 
 
 
-
 }  // namespace alt
