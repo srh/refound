@@ -17,6 +17,18 @@ std::set<server_id_t> table_config_t::shard_t::voting_replicas() const {
     return s;
 }
 
+// We start with an empty object, not null -- because a good user would set fields of
+// that object.
+user_data_t default_user_data() {
+    return user_data_t{ql::datum_t::empty_object()};
+}
+
+RDB_MAKE_SERIALIZABLE_1(user_data_t, datum);
+
+RDB_IMPL_EQUALITY_COMPARABLE_1(user_data_t, datum);
+
+RDB_DECLARE_SERIALIZABLE(table_config_t);
+
 
 key_range_t table_shard_scheme_t::get_shard_range(size_t i) const {
     guarantee(i < num_shards());
@@ -120,7 +132,6 @@ bool  table_config_and_shards_change_t::name_and_database_equal(const table_basi
 }
 
 
-
 RDB_IMPL_SERIALIZABLE_3_SINCE_v2_1(table_basic_config_t,
     name, database, primary_key);
 RDB_IMPL_EQUALITY_COMPARABLE_3(table_basic_config_t,
@@ -131,11 +142,11 @@ RDB_IMPL_SERIALIZABLE_3_SINCE_v2_1(table_config_t::shard_t,
 RDB_IMPL_EQUALITY_COMPARABLE_3(table_config_t::shard_t,
     all_replicas, nonvoting_replicas, primary_replica);
 
-RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(table_config_t,
-    basic, shards, sindexes, write_hook, write_ack_config, durability);
+RDB_IMPL_SERIALIZABLE_7_SINCE_v2_5(table_config_t,
+    basic, shards, sindexes, write_hook, write_ack_config, durability, user_data);
 
-RDB_IMPL_EQUALITY_COMPARABLE_6(table_config_t,
-    basic, shards, write_hook, sindexes, write_ack_config, durability);
+RDB_IMPL_EQUALITY_COMPARABLE_7(table_config_t,
+    basic, shards, write_hook, sindexes, write_ack_config, durability, user_data);
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(table_shard_scheme_t, split_points);
 RDB_IMPL_EQUALITY_COMPARABLE_1(table_shard_scheme_t, split_points);

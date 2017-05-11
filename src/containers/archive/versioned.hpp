@@ -205,5 +205,4 @@ size_t serialized_size_for_version(cluster_version_t version,
 
 
 
-
 #endif  // CONTAINERS_ARCHIVE_VERSIONED_HPP_
