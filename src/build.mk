@@ -2,12 +2,15 @@
 
 ##### Build parameters
 
+ROCKSDB_STATIC_LIB := $(BUILD_DIR)/rocksdb/librocksdb.a
+ROCKSDB_LIBS := $(ROCKSDB_STATIC_LIB) -lbz2
+
 # We assemble path directives.
 LDFLAGS ?=
 CXXFLAGS ?=
 RT_LDFLAGS = $(LDFLAGS) $(RE2_LIBS) $(TERMCAP_LIBS) $(QUICKJS_LIBS) $(CURL_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(Z_LIBS)
-RT_LDFLAGS += $(PROTOBUF_LIBS) $(PTHREAD_LIBS) $(MALLOC_LIBS)
-RT_CXXFLAGS := $(CXXFLAGS) $(RE2_INCLUDE) $(PROTOBUF_INCLUDE) $(BOOST_INCLUDE) $(QUICKJS_INCLUDE) $(CURL_INCLUDE) $(CRYPTO_INCLUDE) $(Z_INCLUDE)
+RT_LDFLAGS += $(PROTOBUF_LIBS) $(PTHREAD_LIBS) $(MALLOC_LIBS) $(ROCKSDB_LIBS)
+RT_CXXFLAGS := $(CXXFLAGS) $(RE2_INCLUDE) $(PROTOBUF_INCLUDE) $(BOOST_INCLUDE) $(QUICKJS_INCLUDE) $(CURL_INCLUDE) $(CRYPTO_INCLUDE) $(Z_INCLUDE) -I$(TOP)/rocksdb/include
 ALL_INCLUDE_DEPS := $(RE2_INCLUDE_DEP) $(PROTOBUF_INCLUDE_DEP) $(BOOST_INCLUDE_DEP) $(QUICKJS_INCLUDE_DEP) $(CURL_INCLUDE_DEP) $(SSL_INCLUDE_DEP) $(CRYPTO_INCLUDE_DEP) $(Z_INCLUDE_DEP)
 
 ifeq ($(USE_CCACHE),1)
@@ -131,7 +134,7 @@ ifeq ($(COMPILER), INTEL)
 else ifeq ($(COMPILER), CLANG)
   RT_CXXFLAGS += -Wformat=2 -Wswitch-enum -Wswitch-default # -Wno-unneeded-internal-declaration
   RT_CXXFLAGS += -Wused-but-marked-unused -Wundef -Wvla -Wshadow
-  RT_CXXFLAGS += -Wconditional-uninitialized -Wmissing-noreturn
+  RT_CXXFLAGS += -Wconditional-uninitialized # -Wmissing-noreturn
 else ifeq ($(COMPILER), GCC)
   ifeq ($(LEGACY_GCC), 1)
     RT_CXXFLAGS += -Wformat=2 -Wswitch-enum -Wswitch-default
@@ -321,7 +324,7 @@ generate-headers: $(TOP)/src/rpc/semilattice/joins/macros.hpp $(TOP)/src/rpc/ser
 .PHONY: rethinkdb
 rethinkdb: $(BUILD_DIR)/$(SERVER_EXEC_NAME)
 
-RETHINKDB_DEPENDENCIES_LIBS := $(MALLOC_LIBS_DEP) $(PROTOBUF_LIBS_DEP) $(RE2_LIBS_DEP) $(Z_LIBS_DEP) $(CURL_LIBS_DEP) $(CRYPTO_LIBS_DEP) $(SSL_LIBS_DEP) $(QUICKJS_LIBS_DEP)
+RETHINKDB_DEPENDENCIES_LIBS := $(MALLOC_LIBS_DEP) $(PROTOBUF_LIBS_DEP) $(RE2_LIBS_DEP) $(Z_LIBS_DEP) $(CURL_LIBS_DEP) $(CRYPTO_LIBS_DEP) $(SSL_LIBS_DEP) $(QUICKJS_LIBS_DEP) $(ROCKSDB_STATIC_LIB)
 
 MAYBE_CHECK_STATIC_MALLOC =
 ifeq ($(STATIC_MALLOC),1) # if the allocator is statically linked
@@ -340,6 +343,11 @@ ifneq (1,$(SYMBOLS))
     $(error Conflicting build flags: SYMBOLS=0 and SPLIT_SYMBOLS=1)
   endif
 endif
+
+$(ROCKSDB_STATIC_LIB): | $(BUILD_DIR)/.
+	$P ROCKSDB
+	cp -R $(TOP)/rocksdb $(BUILD_DIR)/rocksdb
+	MAKEFLAGS="$(PKG_MAKEFLAGS)" CXXFLAGS="$(CXXFLAGS) -Wno-error" $(MAKE) -C $(BUILD_DIR)/rocksdb static_lib
 
 $(BUILD_DIR)/$(SERVER_EXEC_NAME): $(SERVER_EXEC_OBJS) | $(BUILD_DIR)/. $(RETHINKDB_DEPENDENCIES_LIBS)
 	$P LD $@
