@@ -7,9 +7,6 @@
 #include "containers/binary_blob.hpp"
 #include "rockstore/store.hpp"
 
-// TODO: Remove
-// Run backfilling at a reduced priority
-#define BACKFILL_CACHE_PRIORITY 10
 
 void btree_slice_t::init_real_superblock(real_superblock_lock *superblock,
                                          rockshard rocksh,
@@ -24,10 +21,8 @@ btree_slice_t::btree_slice_t(cache_t *c, perfmon_collection_t *parent,
                              const std::string &identifier,
                              index_type_t index_type)
     : stats(parent,
-            (index_type == index_type_t::SECONDARY ? "index-" : "") + identifier,
-            get_num_threads()),
-      cache_(c),
-      backfill_account_(cache()->create_cache_account(BACKFILL_CACHE_PRIORITY)) { }
+            (index_type == index_type_t::SECONDARY ? "index-" : "") + identifier),
+      cache_(c) { }
 
 btree_slice_t::~btree_slice_t() { }
 
