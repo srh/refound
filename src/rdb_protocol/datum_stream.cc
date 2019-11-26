@@ -1840,7 +1840,7 @@ private:
                     || (parent->coro_env->return_empty_normal_batches
                         == return_empty_normal_batches_t::YES)
                     || (bs.get_batch_type() == batch_type_t::NORMAL_FIRST));
-                parent->queue.push(std::move(batch));
+                parent->queue.push_back(std::move(batch));
                 parent->data_available->pulse_if_not_already_pulsed();
             }
         } catch (const interrupted_exc_t &) {
@@ -2035,7 +2035,7 @@ union_datum_stream_t::next_batch_impl(env_t *env, const batchspec_t &batchspec) 
         try {
             // The client is already doing prefetching, so we don't want to do
             // *double* prefetching by prefetching on the server as well.
-            while (queue.size() == 0) {
+            while (queue.empty()) {
                 std::exception_ptr exc;
                 if (abort_exc.try_get_value(&exc)) std::rethrow_exception(exc);
                 if (active == 0) {
@@ -2060,7 +2060,7 @@ union_datum_stream_t::next_batch_impl(env_t *env, const batchspec_t &batchspec) 
             if (abort_exc.try_get_value(&exc)) std::rethrow_exception(exc);
             throw;
         }
-        r_sanity_check(queue.size() != 0);
+        r_sanity_check(!queue.empty());
         std::vector<datum_t> data;
         if (ready_needed > 0) {
             data.reserve(queue.front().size());
@@ -2084,8 +2084,8 @@ union_datum_stream_t::next_batch_impl(env_t *env, const batchspec_t &batchspec) 
         } else {
             data = std::move(queue.front());
         }
-        queue.pop();
-        if (data.size() == 0) {
+        queue.pop_front();
+        if (data.empty()) {
             // We should only ever get empty batches if one of our streams is a
             // changefeed.
             r_sanity_check(union_type != feed_type_t::not_feed);
@@ -2096,7 +2096,9 @@ union_datum_stream_t::next_batch_impl(env_t *env, const batchspec_t &batchspec) 
                 continue;
             }
         }
-        if (active == 0 && queue.size() == 0) coros_exhausted = true;
+        if (active == 0 && queue.empty()) {
+            coros_exhausted = true;
+        }
         return data;
     }
 }
