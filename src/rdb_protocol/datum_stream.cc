@@ -356,7 +356,7 @@ raw_stream_t rget_response_reader_t::unshard(
             }
         }
         active_ranges.set(new_active_ranges(
-            stream, readgen->original_keyrange(res.reql_version), opt_shard_ids,
+            stream, readgen->original_keyrange(), opt_shard_ids,
             readgen->sindex_name() ? is_secondary_t::YES : is_secondary_t::NO));
         readgen->restrict_active_ranges(sorting, &*active_ranges);
         reql_version.set(res.reql_version);
@@ -675,7 +675,7 @@ void rget_reader_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     started = true;
     batchspec_t batchspec = batchspec_t::all();
     read_t read = readgen->next_read(
-        active_ranges, reql_version, stamp, transforms, batchspec);
+        active_ranges, stamp, transforms, batchspec);
     rget_read_response_t resp = do_read(env, std::move(read));
 
     auto *rr = boost::get<rget_read_t>(&read.read);
@@ -715,7 +715,7 @@ bool rget_reader_t::load_items(env_t *env, const batchspec_t &batchspec) {
         items = do_range_read(
             env,
             readgen->next_read(
-                active_ranges, reql_version, stamp, transforms, batchspec));
+                active_ranges, stamp, transforms, batchspec));
         r_sanity_check(active_ranges);
         readgen->sindex_sort(&items, batchspec);
     }
@@ -732,7 +732,7 @@ void intersecting_reader_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     started = true;
     batchspec_t batchspec = batchspec_t::all();
     read_t read = readgen->next_read(
-        active_ranges, reql_version, stamp, transforms, batchspec);
+        active_ranges, stamp, transforms, batchspec);
     rget_read_response_t resp = do_read(env, std::move(read));
 
     auto *stream = boost::get<grouped_t<stream_t> >(&resp.result);
@@ -790,7 +790,7 @@ bool intersecting_reader_t::load_items(env_t *env, const batchspec_t &batchspec)
     started = true;
     while (items_index >= items.size() && !shards_exhausted()) { // read some more
         read_t read = readgen->next_read(
-                active_ranges, reql_version, stamp, transforms, batchspec);
+                active_ranges, stamp, transforms, batchspec);
 
         intersecting_geo_read_t *gr = boost::get<intersecting_geo_read_t>(&read.read);
         r_sanity_check(gr != nullptr);
@@ -900,14 +900,12 @@ rget_readgen_t::rget_readgen_t(
 
 read_t rget_readgen_t::next_read(
     const optional<active_ranges_t> &active_ranges,
-    const optional<reql_version_t> &reql_version,
     optional<changefeed_stamp_t> stamp,
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
     return read_t(
         next_read_impl(
             active_ranges,
-            reql_version,
             std::move(stamp),
             std::move(transforms),
             batchspec),
@@ -926,7 +924,6 @@ read_t rget_readgen_t::terminal_read(
     const batchspec_t &batchspec) const {
     rget_read_t read = next_read_impl(
         r_nullopt, // No active ranges, just use the original range.
-        r_nullopt, // No reql version yet.
         optional<changefeed_stamp_t>(), // No need to stamp terminals.
         transforms,
         batchspec);
@@ -1030,7 +1027,6 @@ scoped_ptr_t<readgen_t> primary_readgen_t::make(
 
 rget_read_t primary_readgen_t::next_read_impl(
     const optional<active_ranges_t> &active_ranges,
-    const optional<reql_version_t> &,
     optional<changefeed_stamp_t> stamp,
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
@@ -1058,7 +1054,7 @@ void primary_readgen_t::sindex_sort(
     return;
 }
 
-key_range_t primary_readgen_t::original_keyrange(reql_version_t) const {
+key_range_t primary_readgen_t::original_keyrange() const {
     return datumspec.covering_range().to_primary_keyrange();
 }
 
@@ -1130,7 +1126,6 @@ void sindex_readgen_t::sindex_sort(
 
 rget_read_t sindex_readgen_t::next_read_impl(
     const optional<active_ranges_t> &active_ranges,
-    const optional<reql_version_t> &reql_version,
     optional<changefeed_stamp_t> stamp,
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
@@ -1140,8 +1135,7 @@ rget_read_t sindex_readgen_t::next_read_impl(
     if (active_ranges) {
         // TODO: Maybe make region a lower_key_bound_range.
         region.set(to_key_range(active_ranges_to_range(*active_ranges)));
-        r_sanity_check(reql_version);
-        ds = datumspec.trim_secondary(*region, *reql_version);
+        ds = datumspec.trim_secondary(*region);
     } else {
         ds = datumspec;
         // We should send at most one read before we're able to calculate the
@@ -1171,8 +1165,8 @@ rget_read_t sindex_readgen_t::next_read_impl(
         sorting(batchspec));
 }
 
-key_range_t sindex_readgen_t::original_keyrange(reql_version_t rv) const {
-    return datumspec.covering_range().to_sindex_keyrange(rv);
+key_range_t sindex_readgen_t::original_keyrange() const {
+    return datumspec.covering_range().to_sindex_keyrange();
 }
 
 optional<std::string> sindex_readgen_t::sindex_name() const {
@@ -1219,14 +1213,12 @@ scoped_ptr_t<readgen_t> intersecting_readgen_t::make(
 
 read_t intersecting_readgen_t::next_read(
     const optional<active_ranges_t> &active_ranges,
-    const optional<reql_version_t> &reql_version,
     optional<changefeed_stamp_t> stamp,
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
     return read_t(
         next_read_impl(
             active_ranges,
-            reql_version,
             std::move(stamp),
             std::move(transforms),
             batchspec),
@@ -1241,7 +1233,6 @@ read_t intersecting_readgen_t::terminal_read(
     intersecting_geo_read_t read =
         next_read_impl(
             r_nullopt,
-            r_nullopt,
             optional<changefeed_stamp_t>(), // No need to stamp terminals.
             transforms,
             batchspec);
@@ -1251,7 +1242,6 @@ read_t intersecting_readgen_t::terminal_read(
 
 intersecting_geo_read_t intersecting_readgen_t::next_read_impl(
     const optional<active_ranges_t> &active_ranges,
-    const optional<reql_version_t> &,
     optional<changefeed_stamp_t> stamp,
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
@@ -1287,10 +1277,10 @@ void intersecting_readgen_t::sindex_sort(
     // support any specific ordering.
 }
 
-key_range_t intersecting_readgen_t::original_keyrange(reql_version_t rv) const {
+key_range_t intersecting_readgen_t::original_keyrange() const {
     // This is always universe for intersection reads.
     // The real query is in the query geometry.
-    return datum_range_t::universe().to_sindex_keyrange(rv);
+    return datum_range_t::universe().to_sindex_keyrange();
 }
 
 optional<std::string> intersecting_readgen_t::sindex_name() const {
@@ -1427,8 +1417,6 @@ eager_datum_stream_t::done_t eager_datum_stream_t::next_grouped_batch(
 void eager_datum_stream_t::accumulate(
     env_t *env, eager_acc_t *acc, const terminal_variant_t &) {
     batchspec_t bs = batchspec_t::user(batch_type_t::TERMINAL, env);
-    // I'm guessing reql_version doesn't matter here, but why think about it?  We use
-    // th env's reql_version.
     groups_t data;
     while (next_grouped_batch(env, bs, &data) == done_t::NO) {
         (*acc)(env, &data);
