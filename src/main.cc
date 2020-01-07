@@ -13,6 +13,67 @@
 #include "config/args.hpp"
 #include "extproc/extproc_spawner.hpp"
 
+void *fdb_thread(void *ctx) {
+    (void)ctx;
+    fdb_error_t err = fdb_run_network();
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("ERROR: fdb_run_network failed: %s", msg);
+        return (void *)1;
+    }
+
+    printf("fdb_run_network completed.\n");
+    return nullptr;
+}
+
+bool setup_fdb(pthread_t *thread) {
+    fdb_error_t err = fdb_select_api_version(FDB_API_VERSION);
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("ERROR: Could not initialize FoundationDB client library: %s", msg);
+        return false;
+    }
+    err = fdb_setup_network();
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("ERROR: fdb_setup_network failed: %s", msg);
+        return false;
+    }
+
+    int result = pthread_create(thread, nullptr, fdb_thread, nullptr);
+    guarantee_xerr(result == 0, result, "Could not create thread: %d", result);
+    return true;
+}
+
+bool join_fdb(pthread_t thread) {
+    fdb_error_t err = fdb_stop_network();
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("ERROR: fdb_stop_network failed: %s", msg);
+        return false;
+    }
+
+    void *thread_return;
+    int res = pthread_join(thread, &thread_return);
+    guarantee_xerr(res == 0, res, "Could not join thread.");
+    printf("fdb network thread has been joined.\n");
+    return true;
+}
+
+struct fdb_startup_shutdown {
+    fdb_startup_shutdown() {
+        guarantee(setup_fdb(&fdb_network_thread),
+            "Failed to setup FoundationDB");
+    }
+    ~fdb_startup_shutdown() {
+        guarantee(join_fdb(fdb_network_thread),
+            "Failed to join FoundationDB network thread");
+    }
+
+    pthread_t fdb_network_thread;
+};
+
+
 int main(int argc, char *argv[]) {
 
     startup_shutdown_t startup_shutdown;
@@ -22,14 +83,7 @@ int main(int argc, char *argv[]) {
     extproc_maybe_run_worker(argc, argv);
 #endif
 
-    {
-        fdb_error_t err = fdb_select_api_version(FDB_API_VERSION);
-        if (err != 0) {
-            const char *msg = fdb_get_error(err);
-            printf("ERROR: Could not initialize FoundationDB client library: %s", msg);
-            return 1;
-        }
-    }
+    fdb_startup_shutdown fdb_startup_shutdown;
 
     std::set<std::string> subcommands_that_look_like_flags;
     subcommands_that_look_like_flags.insert("--version");
