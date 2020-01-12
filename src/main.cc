@@ -93,9 +93,73 @@ struct fdb_database {
     DISABLE_COPYING(fdb_database);
 };
 
-void check_fdb_version(const fdb_database &db) {
-    // TODO: Implement, or something.
-    (void)db;
+struct fdb_transaction {
+    explicit fdb_transaction(FDBDatabase *db) : txn(nullptr) {
+        fdb_error_t err = fdb_database_create_transaction(db, &txn);
+        if (err != 0) {
+            const char *msg = fdb_get_error(err);
+            printf("ERROR: fdb_database_create_transaction failed: %s", msg);
+            abort();  // TODO: abort?
+        }
+    }
+
+    ~fdb_transaction() {
+        fdb_transaction_destroy(txn);
+    }
+
+    FDBTransaction *txn;
+    DISABLE_COPYING(fdb_transaction);
+};
+
+struct fdb_future {
+    fdb_future() : fut(nullptr) {}
+    explicit fdb_future(FDBFuture *_fut) : fut(_fut) {}
+    ~fdb_future() {
+        if (fut != nullptr) {
+            fdb_future_destroy(fut);
+        }
+    }
+
+    fdb_future(fdb_future &&movee) : fut(movee.fut) {
+        movee.fut = nullptr;
+    }
+    fdb_future &operator=(fdb_future &&movee) {
+        fdb_future tmp{std::move(movee)};
+        std::swap(fut, tmp.fut);
+        return *this;
+    }
+
+    FDBFuture *fut;
+    DISABLE_COPYING(fdb_future);
+};
+
+void check_fdb_version(FDBDatabase *db) {
+    fdb_transaction txn(db);
+
+    fdb_future fut{fdb_transaction_get(txn.txn, reinterpret_cast<const uint8_t *>("version"), 7, false)};
+
+    fdb_error_t err = fdb_future_block_until_ready(fut.fut);
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("ERROR: fdb_future_block_until_ready failed: %s", msg);
+        abort();  // TODO: Don't abort?
+    }
+
+    fdb_bool_t present;
+    const uint8_t *value;
+    int value_length;
+    err = fdb_future_get_value(fut.fut, &present, &value, &value_length);
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("Error getting fdb version.  Check fdb version failed: %s\n", msg);
+        return;
+    }
+
+    if (!present) {
+        printf("Version is not present\n");
+    } else {
+        printf("Version: '%.*s'\n", value_length, value);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -108,11 +172,11 @@ int main(int argc, char *argv[]) {
 #endif
 
     fdb_startup_shutdown fdb_startup_shutdown;
-    fdb_database fdb_db;
+    fdb_database db;
 
     // TODO: Don't do this before --version/--help flags.
     // TODO: Update --version/--help for reqlfdb.
-    check_fdb_version(fdb_db);
+    check_fdb_version(db.db);
 
     std::set<std::string> subcommands_that_look_like_flags;
     subcommands_that_look_like_flags.insert("--version");
