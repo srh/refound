@@ -69,10 +69,34 @@ struct fdb_startup_shutdown {
         guarantee(join_fdb(fdb_network_thread),
             "Failed to join FoundationDB network thread");
     }
-
     pthread_t fdb_network_thread;
+
+    DISABLE_COPYING(fdb_startup_shutdown);
 };
 
+struct fdb_database {
+    fdb_database() : db(nullptr) {
+        // nullptr as the cluster file path means the default cluster file gets used.
+        fdb_error_t err = fdb_create_database(nullptr, &db);
+        if (err != 0) {
+            const char *msg = fdb_get_error(err);
+            printf("ERROR: fdb_create_database failed: %s", msg);
+            abort();  // TODO: abort?
+        }
+    }
+    ~fdb_database() {
+        fdb_database_destroy(db);
+    }
+
+    FDBDatabase *db;
+
+    DISABLE_COPYING(fdb_database);
+};
+
+void check_fdb_version(const fdb_database &db) {
+    // TODO: Implement, or something.
+    (void)db;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -84,6 +108,11 @@ int main(int argc, char *argv[]) {
 #endif
 
     fdb_startup_shutdown fdb_startup_shutdown;
+    fdb_database fdb_db;
+
+    // TODO: Don't do this before --version/--help flags.
+    // TODO: Update --version/--help for reqlfdb.
+    check_fdb_version(fdb_db);
 
     std::set<std::string> subcommands_that_look_like_flags;
     subcommands_that_look_like_flags.insert("--version");
