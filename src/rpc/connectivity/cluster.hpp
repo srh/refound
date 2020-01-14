@@ -133,7 +133,7 @@ public:
 
         /* Returns `true` if this is the loopback connection */
         bool is_loopback() const {
-            return conn == nullptr;
+            return true;
         }
 
         /* Drops the connection. */
@@ -148,24 +148,13 @@ public:
             run_t *,
             const peer_id_t &peer_id,
             const server_id_t &server_id,
-            keepalive_tcp_conn_stream_t *,
             const peer_address_t &peer_address) THROWS_NOTHING;
         ~connection_t() THROWS_NOTHING;
-
-        /* NULL for the loopback connection (i.e. our "connection" to ourself) */
-        keepalive_tcp_conn_stream_t *conn;
 
         /* `connection_t` contains the addresses so that we can call
         `get_peers_list()` on any thread. Otherwise, we would have to go
         cross-thread to access the routing table. */
         peer_address_t peer_address;
-
-        /* Unused for our connection to ourself */
-        mutex_t send_mutex;
-
-        /* Calls `conn->flush_buffer()`. Can be used for making sure that a
-        buffered write makes it to the TCP stack. */
-        pump_coro_t flusher;
 
         perfmon_collection_t pm_collection;
         perfmon_sampler_t pm_bytes_sent;
@@ -234,22 +223,6 @@ public:
             DISABLE_COPYING(variable_setter_t);
         };
 
-        void on_new_connection(const scoped_ptr_t<tcp_conn_descriptor_t> &nconn,
-                const int join_delay_secs,
-                auto_drainer_t::lock_t lock) THROWS_NOTHING;
-
-        /* `connect_to_peer` is spawned for each known ip address of a peer which we want
-        to connect to, all but one should fail */
-        join_result_t connect_to_peer(const peer_address_t *address,
-                             ip_and_port_t selected_addr,
-                             int index,
-                             optional<peer_id_t> expected_id,
-                             optional<server_id_t> expected_server_id,
-                             auto_drainer_t::lock_t drainer_lock,
-                             bool *successful_join_inout,
-                             const int join_delay_secs,
-                             co_semaphore_t *rate_control) THROWS_NOTHING;
-
         /* `join_blocking()` is spawned in a new coroutine by `join()`. It's also run by
         `handle()` when we hear about a new peer from a peer we are connected to, and
         directly by the auto_reconnector_t. For cases where it is used directly, it
@@ -259,28 +232,6 @@ public:
                            optional<server_id_t> expected_server_id,
                            const int join_delay_secs,
                            auto_drainer_t::lock_t) THROWS_NOTHING;
-
-        // Normal routing table isn't serializable, so we send just the hosts/ports
-        bool get_routing_table_to_send_and_add_peer(const peer_id_t &other_peer_id,
-                                                    const peer_address_t &other_peer_addr,
-                                                    object_buffer_t<map_insertion_sentry_t<peer_id_t, peer_address_t> > *routing_table_entry_sentry,
-                                                    std::map<peer_id_t, std::set<host_and_port_t> > *result);
-
-        /* `handle()` takes an `auto_drainer_t::lock_t` so that we never shut
-        down while there are still running instances of `handle()`. It's
-        responsible for the entire lifetime of an intra-cluster TCP connection.
-        It handles the handshake, exchanging node maps, sending out the
-        connect-notification, receiving messages from the peer until it
-        disconnects or we are shut down, and sending out the
-        disconnect-notification. It returns a join_result_t indicating the outcome
-        of the attempted join. */
-        join_result_t handle(keepalive_tcp_conn_stream_t *c,
-            optional<peer_id_t> expected_id,
-            optional<peer_address_t> expected_address,
-            optional<server_id_t> expected_server_id,
-            auto_drainer_t::lock_t,
-            bool *successful_join_inout,
-            const int join_delay_secs) THROWS_NOTHING;
 
         connectivity_cluster_t *parent;
 
@@ -308,7 +259,7 @@ public:
 
         /* Writes to `routing_table` are protected by this mutex so we never get
         redundant connections to the same peer. */
-        mutex_t new_connection_mutex;
+        // mutex_t new_connection_mutex;
 
         scoped_ptr_t<tcp_bound_socket_t> cluster_listener_socket;
         int cluster_listener_port;
@@ -326,9 +277,6 @@ public:
             auth_sl_view;
 
         auto_drainer_t drainer;
-
-        /* This must be destroyed before `drainer` is. */
-        scoped_ptr_t<tcp_listener_t> listener;
     };
 
     connectivity_cluster_t() THROWS_NOTHING;

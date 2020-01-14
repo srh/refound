@@ -119,33 +119,14 @@ void connectivity_cluster_t::connection_t::kill_connection() {
     /* `heartbeat_manager_t` assumes this doesn't block as long as it's called on the
     home thread. */
     guarantee(!is_loopback(), "Attempted to kill connection to myself.");
-    on_thread_t thread_switcher(conn->home_thread());
-
-    if (conn->is_read_open()) {
-        conn->shutdown_read();
-    }
-    if (conn->is_write_open()) {
-        conn->shutdown_write();
-    }
 }
 
 connectivity_cluster_t::connection_t::connection_t(
         run_t *_parent,
         const peer_id_t &_peer_id,
         const server_id_t &_server_id,
-        keepalive_tcp_conn_stream_t *_conn,
         const peer_address_t &_peer_address) THROWS_NOTHING :
-    conn(_conn),
     peer_address(_peer_address),
-    flusher([&](signal_t *) {
-        guarantee(this->conn != nullptr);
-        // We need to acquire the send_mutex because flushing the buffer
-        // must not interleave with other writes (restriction of linux_tcp_conn_t).
-        mutex_t::acq_t acq(&this->send_mutex);
-        // We ignore the return value of flush_buffer(). Closed connections
-        // must be handled elsewhere.
-        this->conn->flush_buffer();
-    }, 1),
     pm_collection(),
     pm_bytes_sent(secs_to_ticks(1), true, get_num_threads()),
     pm_collection_membership(
@@ -173,9 +154,6 @@ connectivity_cluster_t::connection_t::~connection_t() THROWS_NOTHING {
         parent->parent->connections.get()->delete_key(peer_id);
         drainers.get()->drain();
     });
-
-    /* The drainers have been destroyed, so nothing can be holding the `send_mutex`. */
-    guarantee(!send_mutex.is_locked());
 }
 
 // Helper function for the `run_t` constructor's initialization list
@@ -256,15 +234,11 @@ connectivity_cluster_t::run_t::run_t(
     `connection_map` on each thread and notifying any listeners that we're now
     connected to ourself. The destructor will remove us from the
     `connection_map` and again notify any listeners. */
-    connection_to_ourself(this, parent->me, _server_id, nullptr, routing_table[parent->me]),
+    connection_to_ourself(this, parent->me, _server_id, routing_table[parent->me]),
 
-    auth_sl_view(_auth_sl_view),
-
-    listener(new tcp_listener_t(
-        cluster_listener_socket.get(),
-        std::bind(&connectivity_cluster_t::run_t::on_new_connection,
-                 this, ph::_1, join_delay_secs, auto_drainer_t::lock_t(&drainer))))
+    auth_sl_view(_auth_sl_view)
 {
+    (void)join_delay_secs;  // TODO: Unused.
     parent->assert_thread();
 }
 
@@ -297,87 +271,14 @@ void connectivity_cluster_t::run_t::join(
         auto_drainer_t::lock_t(&drainer)));
 }
 
-void connectivity_cluster_t::run_t::on_new_connection(
-        const scoped_ptr_t<tcp_conn_descriptor_t> &nconn,
-        const int join_delay_secs,
-        auto_drainer_t::lock_t lock) THROWS_NOTHING {
-    parent->assert_thread();
-
-    // conn gets owned by the keepalive_tcp_conn_stream_t.
-    tcp_conn_t *conn;
-
-    try {
-        nconn->make_server_connection(tls_ctx, &conn, lock.get_drain_signal());
-    } catch (const interrupted_exc_t &) {
-        // TLS handshake was interrupted.
-        return;
-    } catch (const crypto::openssl_error_t &err) {
-        // TLS handshake failed.
-        logERR("Cluster server connection TLS handshake failed: %s", err.what());
-        return;
-    }
-
-    keepalive_tcp_conn_stream_t conn_stream(conn);
-
-    handle(&conn_stream, r_nullopt, r_nullopt, r_nullopt, lock, nullptr, join_delay_secs);
-}
-
-join_result_t connectivity_cluster_t::run_t::connect_to_peer(
-        const peer_address_t *address,
-        ip_and_port_t selected_addr,
-        int index,
-        optional<peer_id_t> expected_id,
-        optional<server_id_t> expected_server_id,
-        auto_drainer_t::lock_t drainer_lock,
-        bool *successful_join_inout,
-        const int join_delay_secs,
-        co_semaphore_t *rate_control) THROWS_NOTHING {
-    // Wait to start the connection attempt, max time is one second per address
-    signal_timer_t timeout;
-    timeout.start(index * 1000);
-
-    try {
-        wait_any_t interrupt(&timeout, drainer_lock.get_drain_signal());
-        rate_control->co_lock_interruptible(&interrupt);
-    } catch (const interrupted_exc_t &) {
-        // Stop if interrupted externally, keep going if we timed out waiting
-        if (drainer_lock.get_drain_signal()->is_pulsed()) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-        rassert(timeout.is_pulsed());
-    }
-
-    // Don't bother if there's already a connection
-    join_result_t join_result = join_result_t::TEMPORARY_ERROR;
-    if (!*successful_join_inout) {
-        try {
-            keepalive_tcp_conn_stream_t conn(
-                tls_ctx, selected_addr.ip(), selected_addr.port().value(),
-                drainer_lock.get_drain_signal(), cluster_client_port);
-
-            join_result = handle(
-                &conn, expected_id, optional<peer_address_t>(*address),
-                expected_server_id, drainer_lock, successful_join_inout, join_delay_secs);
-        } catch (const tcp_conn_t::connect_failed_exc_t &) {
-            /* Ignore */
-        } catch (const crypto::openssl_error_t &) {
-            /* Ignore */
-        } catch (const interrupted_exc_t &) {
-            /* Ignore */
-        }
-    }
-
-    // Allow the next address attempt to run
-    rate_control->unlock(1);
-    return join_result;
-}
-
 join_results_t connectivity_cluster_t::run_t::join_blocking(
         const peer_address_t &peer,
         optional<peer_id_t> expected_id,
         optional<server_id_t> expected_server_id,
         const int join_delay_secs,
         auto_drainer_t::lock_t drainer_lock) THROWS_NOTHING {
+    (void)expected_id;  // TODO
+    (void)join_delay_secs;  // TODO
     drainer_lock.assert_is_holding(&parent->current_run->drainer);
     parent->assert_thread();
     join_results_t join_results; // Used to determine the the join results across all individual connection attempts
@@ -394,7 +295,6 @@ join_results_t connectivity_cluster_t::run_t::join_blocking(
 
     // Attempt to connect to all known ip addresses of the peer
 
-    bool successful_join = false; // Variable so that handle() can check that only one connection succeeds
     static_semaphore_t rate_control(peer.ips().size()); // Mutex to control the rate that connection attempts are made
     rate_control.co_lock(peer.ips().size() - 1); // Start with only one coroutine able to run
 
@@ -408,17 +308,8 @@ join_results_t connectivity_cluster_t::run_t::join_blocking(
             ++selected_addr, --find_index) { }
         guarantee(find_index == 0);
 
-        join_result_t result =
-            connectivity_cluster_t::run_t::connect_to_peer(
-                &peer,
-                *selected_addr,
-                index,
-                expected_id,
-                expected_server_id,
-                drainer_lock,
-                &successful_join,
-                join_delay_secs,
-                &rate_control);
+        // TODO: Remove the entire function join_blocking.
+        join_result_t result = join_result_t::PERMANENT_ERROR;
 
         join_results.insert(std::make_pair(*selected_addr, result));
     });
@@ -499,6 +390,8 @@ bool deserialize_universal_and_check(keepalive_tcp_conn_stream_t *c,
     }
 }
 
+// TODO: Check if keepalive_tcp_conn_stream_t is used anymore.
+
 // Reads a chunk of data off of the connection, buffer must have at least 'size' bytes
 //  available to write into
 bool read_header_chunk(keepalive_tcp_conn_stream_t *conn, char *buffer, int64_t size,
@@ -539,42 +432,6 @@ bool deserialize_compatible_string(keepalive_tcp_conn_stream_t *conn,
     }
 
     str_out->assign(buffer.data(), size);
-    return true;
-}
-
-// Critical section: we must check for conflicts and register ourself
-//  without the interference of any other connections. This ensures that
-//  any conflicts are resolved consistently. It also ensures that if we get
-//  two connections from different nodes, one will find out about the other.
-bool connectivity_cluster_t::run_t::get_routing_table_to_send_and_add_peer(
-        const peer_id_t &other_peer_id,
-        const peer_address_t &other_peer_addr,
-        object_buffer_t<map_insertion_sentry_t<peer_id_t, peer_address_t> > *routing_table_entry_sentry,
-        std::map<peer_id_t, std::set<host_and_port_t> > *result) {
-    mutex_t::acq_t acq(&new_connection_mutex);
-
-    // Here's how this situation can happen:
-    // 1. We are connected to another node.
-    // 2. The connection is interrupted.
-    // 3. The other node gives up on the original TCP connection, but we have not given up on it yet.
-    // 4. The other node tries to reconnect, and the new TCP connection gets through and this node ends up here.
-    // 5. We now have a duplicate connection to the other node.
-    if (routing_table.find(other_peer_id) != routing_table.end()) {
-        // In this case, just exit this function, which will close the connection
-        // This will happen until the old connection dies
-        // TODO: ensure that the old connection shuts down?
-        return false;
-    }
-
-    // Make a serializable copy of `routing_table` before exiting the critical section
-    result->clear();
-    for (auto it = routing_table.begin(); it != routing_table.end(); ++it) {
-        result->insert(std::make_pair(it->first, it->second.hosts()));
-    }
-
-    // Register ourselves while in the critical section, so that whoever comes next will see us
-    routing_table_entry_sentry->create(&routing_table, other_peer_id, other_peer_addr);
-
     return true;
 }
 
@@ -709,529 +566,6 @@ void fail_handshake(keepalive_tcp_conn_stream_t *conn,
     }
 }
 
-// We log error conditions as follows:
-// - silent: network error; conflict between parallel connections
-// - warning: invalid header
-// - error: id or address don't match expected id or address; deserialization range error; unknown error
-// In all cases we close the connection and quit.
-join_result_t connectivity_cluster_t::run_t::handle(
-        /* `conn` should remain valid until `handle()` returns.
-         * `handle()` does not take ownership of `conn`. */
-        keepalive_tcp_conn_stream_t *conn,
-        optional<peer_id_t> expected_id,
-        optional<peer_address_t> expected_address,
-        optional<server_id_t> expected_server_id,
-        auto_drainer_t::lock_t drainer_lock,
-        bool *successful_join_inout,
-        const int join_delay_secs) THROWS_NOTHING
-{
-    parent->assert_thread();
-
-    bool has_admin_password = false;
-    {
-        auth_semilattice_metadata_t auth = auth_sl_view->get();
-        auto admin_user_it = auth.m_users.find(auth::username_t("admin"));
-        if (admin_user_it != auth.m_users.end()
-            && admin_user_it->second.get_ref()
-            && !admin_user_it->second.get_ref()->get_password().is_empty()) {
-            has_admin_password = true;
-        }
-    }
-
-    /* TODO: If the other peer mysteriously stops talking to us, but doesn't close the
-    connection, during the initialization process but before we construct the
-    `heartbeat_manager_t`, then we might get stuck. Maybe we should add a timeout? It
-    could just be a `signal_timer_t` that is wired into `conn_closer_1` but not
-    `conn_closer_2`. */
-
-    // Get the name of our peer, for error reporting.
-    ip_and_port_t peer_addr;
-    std::string peerstr = "(unknown)";
-    if (conn->get_underlying_conn()->getpeername(&peer_addr))
-        peerstr = peer_addr.to_string();
-    const char *peername = peerstr.c_str();
-
-    // Make sure that if we're ordered to shut down, any pending read
-    // or write gets interrupted.
-    cluster_conn_closing_subscription_t conn_closer_1(conn);
-    conn_closer_1.reset(drainer_lock.get_drain_signal());
-
-    // Each side sends a header followed by its own ID and address, then receives and checks the
-    // other side's.
-    {
-        write_message_t wm;
-        wm.append(cluster_proto_header.c_str(), cluster_proto_header.length());
-        // TODO: Make some serialize_compatible_string function (matching the name of
-        // deserialize_compatible_string).
-        serialize_universal(&wm, static_cast<uint64_t>(cluster_version_string.length()));
-        wm.append(cluster_version_string.data(), cluster_version_string.length());
-
-        // Everything after we send the version string COULD be moved _below_ the
-        // point where we resolve the version string.  That would mean adding another
-        // back and forth to the handshake?
-        serialize_universal(&wm, server_id);
-        serialize_universal(&wm, static_cast<uint64_t>(cluster_arch_bitsize.length()));
-        wm.append(cluster_arch_bitsize.data(), cluster_arch_bitsize.length());
-        serialize_universal(&wm, static_cast<uint64_t>(cluster_build_mode.length()));
-        wm.append(cluster_build_mode.data(), cluster_build_mode.length());
-        serialize_universal(&wm, has_admin_password);
-        serialize_universal(&wm, parent->me);
-        serialize_universal(&wm, routing_table[parent->me].hosts());
-        if (send_write_message(conn, &wm)) {
-            return join_result_t::TEMPORARY_ERROR; // network error.
-        }
-    }
-
-    // Receive & check header.
-    {
-        for (size_t i = 0; i < cluster_proto_header.length(); ++i) {
-            // We read one byte at a time so we can bail out early if the header doesn't
-            // match. This is ok performance-wise because `read` is buffered.
-            char buffer;
-            int64_t r = conn->read(&buffer, 1);
-            if (-1 == r) {
-                return join_result_t::TEMPORARY_ERROR; // network error.
-            }
-            rassert(r >= 0);
-            rassert(r <= 1);
-            // If EOF or remote_header does not match header, terminate connection.
-            if (0 == r || cluster_proto_header[i] != buffer) {
-                logWRN("Received invalid clustering header from %s, closing connection -- something might be connecting to the wrong port.", peername);
-                return join_result_t::PERMANENT_ERROR;
-            }
-        }
-    }
-
-    // Check version number (e.g. 1.9.0-466-gadea67)
-    {
-        cluster_version_t resolved_version;
-        std::string remote_version_string;
-
-        if (!deserialize_compatible_string(conn, &remote_version_string, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        if (!resolve_protocol_version(remote_version_string, &resolved_version)) {
-            auto reason = handshake_result_t::error(
-                handshake_result_code_t::UNRECOGNIZED_VERSION,
-                strprintf("local: %s, remote: %s",
-                          cluster_version_string.c_str(), remote_version_string.c_str()));
-            // Peers before 1.14 don't support receiving a handshake error message.
-            // So we must not send one.
-            bool handshake_error_supported = false;
-            std::vector<int64_t> parts;
-            if (split_version_string(remote_version_string, &parts)) {
-                if ((parts.size() >= 1 && parts[0] > 1)
-                    || (parts.size() >= 2 && parts[0] == 1 && parts[1] >= 14)) {
-                    handshake_error_supported = true;
-                }
-            }
-            fail_handshake(conn, peername, reason, handshake_error_supported);
-            return join_result_t::PERMANENT_ERROR;
-        }
-
-        guarantee(resolved_version == cluster_version_t::CLUSTER);
-    }
-
-    server_id_t remote_server_id;
-    {
-        if (deserialize_universal_and_check(conn, &remote_server_id, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        if (expected_server_id && *expected_server_id != remote_server_id) {
-            if (peer_addr.ip().is_loopback()) {
-                return join_result_t::TEMPORARY_ERROR;
-            }
-
-            auto reason = handshake_result_t::error(
-                handshake_result_code_t::UNEXPECTED_SERVER_ID,
-                strprintf("actual: %s, expected: %s",
-                          remote_server_id.print().c_str(),
-                          expected_server_id->print().c_str()));
-            fail_handshake(conn, peername, reason);
-            return join_result_t::PERMANENT_ERROR;
-        }
-
-        if (servers.count(remote_server_id) != 0) {
-            // There currently is another connection open to the server
-            logINF("Rejected a connection from server %s since one is open already.",
-                   remote_server_id.print().c_str());
-            return join_result_t::TEMPORARY_ERROR;
-        }
-    }
-
-    set_insertion_sentry_t<server_id_t> remote_server_id_sentry(
-        &servers, remote_server_id);
-
-    // Check bitsize (e.g. 32bit or 64bit)
-    {
-        std::string remote_arch_bitsize;
-
-        if (!deserialize_compatible_string(conn, &remote_arch_bitsize, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        if (remote_arch_bitsize != cluster_arch_bitsize) {
-            auto reason = handshake_result_t::error(
-                handshake_result_code_t::INCOMPATIBLE_ARCH,
-                strprintf("local: %s, remote: %s",
-                          cluster_arch_bitsize.c_str(), remote_arch_bitsize.c_str()));
-            fail_handshake(conn, peername, reason);
-            return join_result_t::PERMANENT_ERROR;
-        }
-
-    }
-
-    // Check build mode (e.g. debug or release)
-    {
-        std::string remote_build_mode;
-
-        if (!deserialize_compatible_string(conn, &remote_build_mode, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        if (remote_build_mode != cluster_build_mode) {
-            logWRN("Connecting nodes with different build modes, local: %s, remote: %s",
-                   cluster_build_mode.c_str(),
-                   remote_build_mode.c_str());
-        }
-    }
-
-    // Check whether the other server has an admin password
-    {
-        bool remote_has_admin_password;
-
-        if (deserialize_universal_and_check(conn, &remote_has_admin_password, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        // It's enough to do this check on one side. The handshake failure we send
-        // will cause a corresponding message to be printed on the other end.
-        if (!has_admin_password && remote_has_admin_password) {
-            auto reason = handshake_result_t::error(
-                handshake_result_code_t::PASSWORD_MISMATCH,
-                "The remote peer has an admin password configured, but we don't. "
-                "Connecting to it could make the cluster insecure. You can run this "
-                "server with the `--initial-password auto` option to allow joining "
-                "the password-protected cluster.");
-            fail_handshake(conn, peername, reason);
-            return join_result_t::TEMPORARY_ERROR;
-        }
-    }
-
-    // Receive id, host/ports.
-    peer_id_t other_id;
-    std::set<host_and_port_t> other_peer_addr_hosts;
-    if (deserialize_universal_and_check(conn, &other_id, peername) ||
-        deserialize_universal_and_check(conn, &other_peer_addr_hosts, peername)) {
-        return join_result_t::TEMPORARY_ERROR;
-    }
-
-    {
-        // Tell the other node that we are happy to connect with it
-        write_message_t wm;
-        serialize_universal(&wm, handshake_result_t::success());
-        if (send_write_message(conn, &wm)) {
-            return join_result_t::TEMPORARY_ERROR; // network error.
-        }
-
-        // Check if there was an issue with the connection initiation
-        handshake_result_t handshake_result;
-        if (deserialize_universal_and_check(conn, &handshake_result, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-        if (handshake_result.get_code() != handshake_result_code_t::SUCCESS) {
-            logWRN("Remote node refused to connect with us, peer: %s, reason: \"%s\"",
-                   peername,
-                   sanitize_for_logger(handshake_result.get_error_reason()).c_str());
-
-            if (handshake_result.get_code() == handshake_result_code_t::PASSWORD_MISMATCH)
-                return join_result_t::TEMPORARY_ERROR;
-            return join_result_t::PERMANENT_ERROR;
-        }
-    }
-
-    // Look up the ip addresses for the other host
-    object_buffer_t<peer_address_t> other_peer_addr;
-
-    try {
-        other_peer_addr.create(other_peer_addr_hosts);
-    } catch (const host_lookup_exc_t &) {
-        printf_buffer_t hostnames;
-        for (auto const &host_and_port : other_peer_addr_hosts) {
-            hostnames.appendf("%s%s", hostnames.size() > 0 ? ", " : "",
-                              host_and_port.host().c_str());
-        }
-        logERR("Connected to peer with unresolvable hostname%s: %s, closing "
-               "connection.  Consider using the '--canonical-address' launch option.",
-               other_peer_addr_hosts.size() > 1 ? "s" : "", hostnames.c_str());
-        return join_result_t::TEMPORARY_ERROR;
-    }
-
-    /* Sanity checks */
-    if (other_id == parent->me) {
-        // TODO: report this on command-line in some cases. see issue 546 on github.
-        return join_result_t::PERMANENT_ERROR;
-    }
-
-    if (other_id.is_nil()) {
-        logERR("Received nil peer id from %s, closing connection.", peername);
-        return join_result_t::TEMPORARY_ERROR;
-    }
-
-    if (expected_id && other_id != *expected_id) {
-        // This is only a problem if we're not using a loopback address
-        if (!peer_addr.ip().is_loopback()) {
-            logERR("Received inconsistent routing information (wrong ID) from %s, "
-                   "closing connection.", peername);
-        }
-        return join_result_t::PERMANENT_ERROR;
-    }
-
-    if (expected_address && !is_similar_peer_address(*other_peer_addr.get(),
-                                                     *expected_address)) {
-        printf_buffer_t buf;
-        buf.appendf("expected_address = ");
-        debug_print(&buf, *expected_address);
-        buf.appendf(", other_peer_addr = ");
-        debug_print(&buf, *other_peer_addr.get());
-
-        logERR("Received inconsistent routing information (wrong address) from %s (%s), "
-               "closing connection.  Consider using the '--canonical-address' launch "
-               "option.", peername, buf.c_str());
-        return join_result_t::TEMPORARY_ERROR;
-    }
-
-    // Just saying that we're still on the rpc listener thread.
-    parent->assert_thread();
-
-    /* The trickiest case is when there are two or more parallel connections
-    that are trying to be established between the same two servers. We can get
-    this when e.g. server A and server B try to connect to each other at the
-    same time. It's important that exactly one of the connections actually gets
-    established. When there are multiple connections trying to be established,
-    this is referred to as a "conflict". */
-
-    object_buffer_t<map_insertion_sentry_t<peer_id_t, peer_address_t> >
-        routing_table_entry_sentry;
-
-    /* We pick one side of the connection to be the "leader" and the other side
-    to be the "follower". These roles are only relevant in the initial startup
-    process. The leader registers the connection locally. If there's a conflict,
-    it drops the connection. If not, it sends its routing table to the follower.
-    Then the follower registers itself locally. There shouldn't be a conflict
-    because any duplicate connection would have been detected by the leader.
-    Then the follower sends its routing table to the leader. */
-    bool we_are_leader = parent->me < other_id;
-
-    // Just saying: Still on rpc listener thread, for
-    // sending/receiving routing table
-    parent->assert_thread();
-    std::map<peer_id_t, std::set<host_and_port_t> > other_routing_table;
-
-    if (we_are_leader) {
-        std::map<peer_id_t, std::set<host_and_port_t> > routing_table_to_send;
-        if (!get_routing_table_to_send_and_add_peer(other_id,
-                                                    *other_peer_addr.get(),
-                                                    &routing_table_entry_sentry,
-                                                    &routing_table_to_send)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        /* We're good to go! Transmit the routing table to the follower, so it
-        knows we're in. */
-        {
-            write_message_t wm;
-            serialize_for_cluster(&wm, routing_table_to_send);
-            if (send_write_message(conn, &wm)) {
-                return join_result_t::TEMPORARY_ERROR;         // network error
-            }
-        }
-
-        /* Receive the follower's routing table */
-        if (deserialize_and_check(cluster_version_t::CLUSTER, conn,
-                                  &other_routing_table, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-    } else {
-        /* Receive the leader's routing table. (If our connection has lost a
-        conflict, then the leader will close the connection instead of sending
-        the routing table. */
-        if (deserialize_and_check(cluster_version_t::CLUSTER, conn,
-                                  &other_routing_table, peername)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        std::map<peer_id_t, std::set<host_and_port_t> > routing_table_to_send;
-        if (!get_routing_table_to_send_and_add_peer(other_id,
-                                                    *other_peer_addr.get(),
-                                                    &routing_table_entry_sentry,
-                                                    &routing_table_to_send)) {
-            return join_result_t::TEMPORARY_ERROR;
-        }
-
-        /* Send our routing table to the leader */
-        {
-            write_message_t wm;
-            serialize_for_cluster(&wm, routing_table_to_send);
-            if (send_write_message(conn, &wm)) {
-                return join_result_t::TEMPORARY_ERROR;         // network error
-            }
-        }
-    }
-
-    // Just saying: We haven't left the RPC listener thread.
-    parent->assert_thread();
-
-    // This check is so that when trying multiple connections to a peer in parallel, we can
-    //  make sure only one of them succeeds
-    if (successful_join_inout != nullptr) {
-        if (*successful_join_inout) {
-            logWRN("Somehow ended up with two successful joins to a peer, closing one");
-            return join_result_t::TEMPORARY_ERROR;
-        }
-        *successful_join_inout = true;
-    }
-
-    /* For each peer that our new friend told us about that we don't already
-    know about, start a new connection. If the cluster is shutting down, skip
-    this step. */
-    if (!drainer_lock.get_drain_signal()->is_pulsed()) {
-        for (auto it = other_routing_table.begin(); it != other_routing_table.end(); ++it) {
-            if (routing_table.find(it->first) == routing_table.end()) {
-                try {
-                    // This is where we resolve the peer's ip addresses
-                    peer_address_t next_peer_addr(it->second);
-
-                    // `it->first` is the ID of a peer that our peer is connected
-                    //  to, but we aren't connected to.
-                    coro_t::spawn_now_dangerously(std::bind(
-                        &connectivity_cluster_t::run_t::join_blocking, this,
-                        next_peer_addr,
-                        optional<peer_id_t>(it->first),
-                        r_nullopt,
-                        join_delay_secs,
-                        drainer_lock));
-                } catch (const host_lookup_exc_t &ex) {
-                    printf_buffer_t hostnames;
-                    for (auto const &host_and_port : it->second) {
-                        hostnames.appendf("%s%s", hostnames.size() > 0 ? ", " : "",
-                                          host_and_port.host().c_str());
-                    }
-                    logERR("Informed of peer with unresolvable hostname%s: %s. We will not be "
-                           "able to connect to this peer, which could result in diminished "
-                           "availability.  Consider using the '--canonical-address' launch option.",
-                           it->second.size() > 1 ? "s" : "", hostnames.c_str());
-                }
-            }
-        }
-    }
-
-    /* Now that we're about to switch threads, it's not safe to try to close
-    the connection from this thread anymore. This is safe because we won't do
-    anything that permanently blocks before setting up `conn_closer_2`. */
-    conn_closer_1.reset();
-
-    thread_allocation_t chosen_thread(&parent->thread_allocator);
-
-    cross_thread_signal_t connection_thread_drain_signal(
-        drainer_lock.get_drain_signal(),
-        chosen_thread.get_thread());
-
-    rethread_tcp_conn_stream_t unregister_conn(conn, INVALID_THREAD);
-    on_thread_t conn_threader(chosen_thread.get_thread());
-    rethread_tcp_conn_stream_t reregister_conn(conn, get_thread_id());
-
-    // Make sure that if we're ordered to shut down, any pending read
-    // or write gets interrupted.
-    cluster_conn_closing_subscription_t conn_closer_2(conn);
-    conn_closer_2.reset(&connection_thread_drain_signal);
-
-    // Wait a certain amount to make sure that the connection is table. Only then
-    // add it to the connectivity cluster and start processing messages.
-    if (join_delay_secs > 0) {
-        logINF("Delaying the join with server %s for %d seconds.",
-               remote_server_id.print().c_str(),
-               join_delay_secs);
-        try {
-            nap(static_cast<int64_t>(join_delay_secs) * 1000,
-                &connection_thread_drain_signal);
-        } catch (const interrupted_exc_t &) {
-            // Ignore this here. We will bail out below.
-        }
-    }
-
-    {
-        /* `connection_t` is the public interface of this coroutine. Its
-        constructor registers it in the `connectivity_cluster_t`'s connection
-        map. */
-        connection_t conn_structure(
-            this, other_id, remote_server_id, conn, *other_peer_addr.get());
-
-        /* Main message-handling loop: read messages off the connection until
-        it's closed, which may be due to network events, or the other end
-        shutting down, or us shutting down. */
-        try {
-            int messages_handled_since_yield = 0;
-            while (true) {
-                message_tag_t tag;
-                archive_result_t res = deserialize_universal(conn, &tag);
-                if (bad(res)) { throw fake_archive_exc_t(); }
-
-                /* Ignore messages tagged with the heartbeat tag. The
-                `keepalive_tcp_conn_stream_t` will have already notified the
-                `heartbeat_manager_t` as soon as the heartbeat arrived. */
-                if (tag != heartbeat_tag) {
-                    cluster_message_handler_t *handler = parent->message_handlers[tag];
-                    guarantee(handler != nullptr, "Got a message for an unfamiliar tag. "
-                        "Apparently we aren't compatible with the cluster on the other "
-                        "end.");
-
-                    handler->on_message(
-                        &conn_structure,
-                        auto_drainer_t::lock_t(conn_structure.drainers.get()),
-                        conn); // might raise fake_archive_exc_t
-                }
-
-                ++messages_handled_since_yield;
-                if (messages_handled_since_yield >= MESSAGE_HANDLER_MAX_BATCH_SIZE) {
-                    coro_t::yield();
-                    messages_handled_since_yield = 0;
-                }
-            }
-        } catch (const fake_archive_exc_t &) {
-            /* The exception broke us out of the loop, and that's what we
-            wanted. This could either be because we lost contact with the peer
-            or because the cluster is shutting down and `close_conn()` got
-            called. */
-        }
-
-        if (conn->is_read_open()) {
-            logWRN("Received invalid data on a cluster connection. Disconnecting.");
-            conn->shutdown_read();
-        }
-        if (conn->is_write_open()) {
-            /* Shutdown the write direction as well, to make sure that any active
-            `send_message` calls get interrupted and don't stop us from destructing
-            the `conn_structure`. */
-            conn->shutdown_write();
-        }
-
-        /* The `conn_structure` destructor removes us from the connection map. It also
-        blocks until all references to `conn_structure` have been released (using its
-        `auto_drainer_t`s). */
-    }
-
-    /* Before we destruct the `rethread_tcp_conn_stream_t`s, we must make sure that
-    any pending network writes have either been transmitted or aborted.
-    `shutdown_write()` which we call above initiates aborting pending writes, but it
-    doesn't wait until the process is done. */
-    conn->flush_buffer();
-    return join_result_t::SUCCESS;
-}
-
 connectivity_cluster_t::connectivity_cluster_t() THROWS_NOTHING :
     me(peer_id_t(generate_uuid())),
     /* We assign threads from the highest thread number downwards. This is to reduce the
@@ -1363,62 +697,7 @@ void connectivity_cluster_t::send_message(connection_t *connection,
         message_handlers[tag]->on_local_message(connection, connection_keepalive,
             std::move(buffer.vector()));
     } else {
-        on_thread_t threader(connection->conn->home_thread());
-
-        /* Acquire the send-mutex so we don't collide with other things trying
-        to send on the same connection. */
-        {
-            /* The `true` is for eager waiting, which is a significant performance
-            optimization in this case. */
-            mutex_t::acq_t acq(&connection->send_mutex, true);
-
-            /* Write the tag to the network */
-            {
-                // All cluster versions use a uint8_t tag here.
-                write_message_t wm;
-                static_assert(std::is_same<message_tag_t, uint8_t>::value,
-                              "We expect to be serializing a uint8_t -- if this has "
-                              "changed, the cluster communication format has changed and "
-                              "you need to ask yourself whether live cluster upgrades work."
-                              );
-                serialize_universal(&wm, tag);
-                make_buffered_tcp_conn_stream_wrapper_t buffered_conn(connection->conn);
-                int res = send_write_message(&buffered_conn, &wm);
-                if (res == -1) {
-                    /* Close the other half of the connection to make sure that
-                       `connectivity_cluster_t::run_t::handle()` notices that something is
-                       up */
-                    if (connection->conn->is_read_open()) {
-                        connection->conn->shutdown_read();
-                    }
-                    return;
-                }
-            }
-
-            /* Write the message itself to the network */
-            {
-                int64_t res = connection->conn->write_buffered(buffer.vector().data(),
-                                                               buffer.vector().size());
-                if (res == -1) {
-                    if (connection->conn->is_read_open()) {
-                        connection->conn->shutdown_read();
-                    }
-                    return;
-                } else {
-                    guarantee(res == static_cast<int64_t>(buffer.vector().size()));
-                }
-            }
-        } /* Releases the send_mutex */
-
-        connection->flusher.notify();
-        cond_t dummy_interruptor;
-        connection->flusher.flush(&dummy_interruptor);
-        if (!connection->conn->is_write_open()) {
-            if (connection->conn->is_read_open()) {
-                connection->conn->shutdown_read();
-            }
-            return;
-        }
+        crash("Connection is always loopback.");
     }
 
     connection->pm_bytes_sent.record(bytes_sent);
