@@ -171,13 +171,6 @@ int main(int argc, char *argv[]) {
     extproc_maybe_run_worker(argc, argv);
 #endif
 
-    fdb_startup_shutdown fdb_startup_shutdown;
-    fdb_database db;
-
-    // TODO: Don't do this before --version/--help flags.
-    // TODO: Update --version/--help for reqlfdb.
-    check_fdb_version(db.db);
-
     std::set<std::string> subcommands_that_look_like_flags;
     subcommands_that_look_like_flags.insert("--version");
     subcommands_that_look_like_flags.insert("-v");
@@ -185,38 +178,17 @@ int main(int argc, char *argv[]) {
     subcommands_that_look_like_flags.insert("-h");
 
     if (argc == 1 || (argv[1][0] == '-' && subcommands_that_look_like_flags.count(argv[1]) == 0)) {
+        fdb_startup_shutdown fdb_startup_shutdown;
+        fdb_database db;
+
+        check_fdb_version(db.db);
+
         return main_rethinkdb_porcelain(argc, argv);
 
     } else {
         std::string subcommand = argv[1];
 
-        if (subcommand == "create") {
-            return main_rethinkdb_create(argc, argv);
-        } else if (subcommand == "serve") {
-            return main_rethinkdb_serve(argc, argv);
-        } else if (subcommand == "proxy") {
-            return main_rethinkdb_proxy(argc, argv);
-        } else if (subcommand == "export") {
-            return main_rethinkdb_export(argc, argv);
-        } else if (subcommand == "import") {
-            return main_rethinkdb_import(argc, argv);
-        } else if (subcommand == "dump") {
-            return main_rethinkdb_dump(argc, argv);
-        } else if (subcommand == "restore") {
-            return main_rethinkdb_restore(argc, argv);
-        } else if (subcommand == "index-rebuild") {
-            return main_rethinkdb_index_rebuild(argc, argv);
-        } else if (subcommand == "repl") {
-            return main_rethinkdb_repl(argc, argv);
-#ifdef _WIN32
-        } else if (subcommand == "run-service") {
-            return main_rethinkdb_run_service(argc, argv);
-        } else if (subcommand == "install-service") {
-            return main_rethinkdb_install_service(argc, argv);
-        } else if (subcommand == "remove-service") {
-            return main_rethinkdb_remove_service(argc, argv);
-#endif /* _WIN32 */
-        } else if (subcommand == "--version" || subcommand == "-v") {
+        if (subcommand == "--version" || subcommand == "-v") {
             if (argc != 2) {
                 printf("WARNING: Ignoring extra parameters after '%s'.", subcommand.c_str());
             }
@@ -224,7 +196,6 @@ int main(int argc, char *argv[]) {
             return 0;
 
         } else if (subcommand == "help" || subcommand == "-h" || subcommand == "--help") {
-
             if (argc == 2) {
                 help_rethinkdb_porcelain();
                 return 0;
@@ -267,8 +238,42 @@ int main(int argc, char *argv[]) {
             }
 
         } else {
-            printf("ERROR: Unrecognized subcommand '%s'. Try 'rethinkdb help'.\n", subcommand.c_str());
-            return 1;
+            fdb_startup_shutdown fdb_startup_shutdown;
+            fdb_database db;
+
+            // TODO: Update --version/--help for reqlfdb.
+            check_fdb_version(db.db);
+
+            if (subcommand == "create") {
+                return main_rethinkdb_create(argc, argv);
+            } else if (subcommand == "serve") {
+                return main_rethinkdb_serve(argc, argv);
+            } else if (subcommand == "proxy") {
+                return main_rethinkdb_proxy(argc, argv);
+            } else if (subcommand == "export") {
+                return main_rethinkdb_export(argc, argv);
+            } else if (subcommand == "import") {
+                return main_rethinkdb_import(argc, argv);
+            } else if (subcommand == "dump") {
+                return main_rethinkdb_dump(argc, argv);
+            } else if (subcommand == "restore") {
+                return main_rethinkdb_restore(argc, argv);
+            } else if (subcommand == "index-rebuild") {
+                return main_rethinkdb_index_rebuild(argc, argv);
+            } else if (subcommand == "repl") {
+                return main_rethinkdb_repl(argc, argv);
+    #ifdef _WIN32
+            } else if (subcommand == "run-service") {
+                return main_rethinkdb_run_service(argc, argv);
+            } else if (subcommand == "install-service") {
+                return main_rethinkdb_install_service(argc, argv);
+            } else if (subcommand == "remove-service") {
+                return main_rethinkdb_remove_service(argc, argv);
+    #endif /* _WIN32 */
+            } else {
+                printf("ERROR: Unrecognized subcommand '%s'. Try 'rethinkdb help'.\n", subcommand.c_str());
+                return 1;
+            }
         }
     }
 }
