@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
 
         check_fdb_version_blocking_pthread(db.db);
 
-        return main_rethinkdb_porcelain(argc, argv);
+        return main_rethinkdb_serve(db.db, argc - 1, argv + 1);
 
     } else {
         std::string subcommand = argv[1];
@@ -186,9 +186,9 @@ int main(int argc, char *argv[]) {
             check_fdb_version_blocking_pthread(db.db);
 
             if (subcommand == "create") {
-                return main_rethinkdb_create(argc, argv);
+                return main_rethinkdb_create(db.db, argc - 2, argv + 2);
             } else if (subcommand == "serve") {
-                return main_rethinkdb_serve(argc, argv);
+                return main_rethinkdb_serve(db.db, argc - 2, argv + 2);
             } else if (subcommand == "proxy") {
                 return main_rethinkdb_proxy(argc, argv);
             } else if (subcommand == "export") {

@@ -1761,6 +1761,8 @@ options::help_section_t get_help_options(std::vector<options::option_t> *options
     return help;
 }
 
+// TODO: check all options for fdb (in all these options functions.
+
 void get_rethinkdb_create_options(std::vector<options::help_section_t> *help_out,
                                   std::vector<options::option_t> *options_out) {
     help_out->push_back(get_file_options(options_out));
@@ -1894,13 +1896,13 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
         file_direct_io_mode_t::buffered_desired;
 }
 
-int main_rethinkdb_create(int argc, char *argv[]) {
+int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_create_options(&help, &options);
 
     try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc - 2, argv + 2, options);
+        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options);
 
         if (handle_help_or_version_option(opts, &help_rethinkdb_create)) {
             return EXIT_SUCCESS;
@@ -2014,13 +2016,13 @@ bool maybe_daemonize(const std::map<std::string, options::values_t> &opts) {
     return true;
 }
 
-int main_rethinkdb_serve(int argc, char *argv[]) {
+int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_serve_options(&help, &options);
 
     try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc - 2, argv + 2, options);
+        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options);
 
         if (handle_help_or_version_option(opts, &help_rethinkdb_serve)) {
             return EXIT_SUCCESS;
@@ -2283,145 +2285,8 @@ int main_rethinkdb_repl(int, char *argv[]) {
     return EXIT_FAILURE;
 }
 
-int main_rethinkdb_porcelain(int argc, char *argv[]) {
-    std::vector<options::option_t> options;
-    std::vector<options::help_section_t> help;
-    get_rethinkdb_porcelain_options(&help, &options);
-
-    try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc - 1, argv + 1, options);
-
-        if (handle_help_or_version_option(opts, help_rethinkdb_porcelain)) {
-            return EXIT_SUCCESS;
-        }
-
-        options::verify_option_counts(options, opts);
-
-        base_path_t base_path(get_single_option(opts, "--directory"));
-
-        std::set<name_string_t> server_tag_names = parse_server_tag_options(opts);
-
-        std::string initial_password = parse_initial_password_option(opts);
-
-        std::vector<host_and_port_t> joins = parse_join_options(opts, port_defaults::peer_port);
-
-        const service_address_ports_t address_ports = get_service_address_ports(opts);
-
-        std::string web_path = get_web_path(opts);
-
-        int num_workers;
-        if (!parse_cores_option(opts, &num_workers)) {
-            return EXIT_FAILURE;
-        }
-
-        int max_concurrent_io_requests;
-        if (!parse_io_threads_option(opts, &max_concurrent_io_requests)) {
-            return EXIT_FAILURE;
-        }
-
-        optional<int> join_delay_secs = parse_join_delay_secs_option(opts);
-        optional<int> node_reconnect_timeout_secs =
-            parse_node_reconnect_timeout_secs_option(opts);
-
-        // Attempt to create the directory early so that the log file can use it.
-        // If we create the file, it will be cleaned up unless directory_initialized()
-        // is called on it.  This will be done after the metadata files have been created.
-        bool is_new_directory = false;
-        directory_lock_t data_directory_lock(base_path, true, &is_new_directory);
-
-#ifndef _WIN32
-        if (is_new_directory) {
-            get_and_set_user_group_and_directory(opts, &data_directory_lock);
-        } else {
-            get_and_set_user_group(opts);
-        }
-#endif
-
-        base_path.make_absolute();
-        initialize_logfile(opts, base_path);
-
-        recreate_temporary_directory(base_path);
-
-        name_string_t server_name;
-        if (is_new_directory) {
-            server_name = parse_server_name_option(opts);
-        } else {
-            if (static_cast<bool>(get_optional_option(opts, "--server-name"))) {
-                fprintf(stderr, "WARNING: ignoring --server-name because this server "
-                    "already has a name.\n");
-            }
-        }
-
-        optional<optional<uint64_t> > total_cache_size =
-            parse_total_cache_size_option(opts);
-
-        if (check_pid_file(opts) != EXIT_SUCCESS) {
-            return EXIT_FAILURE;
-        }
-
-        if (!maybe_daemonize(opts)) {
-            // This is the parent process of the daemon, just exit
-            // Make sure the parent process doesn't remove the directory,
-            //  the child process will handle it from here
-            data_directory_lock.directory_initialized();
-            return EXIT_SUCCESS;
-        }
-
-        if (write_pid_file(opts) != EXIT_SUCCESS) {
-            return EXIT_FAILURE;
-        }
-
-        extproc_spawner_t extproc_spawner;
-
-        tls_configs_t tls_configs;
-#ifdef ENABLE_TLS
-        if (!configure_tls(opts, &tls_configs)) {
-            return EXIT_FAILURE;
-        }
-#endif
-
-        serve_info_t serve_info(std::move(joins),
-                                get_reql_http_proxy_option(opts),
-                                std::move(web_path),
-                                address_ports,
-                                get_optional_option(opts, "--config-file"),
-                                std::vector<std::string>(argv, argv + argc),
-                                join_delay_secs.value_or(0),
-                                node_reconnect_timeout_secs.value_or(cluster_defaults::reconnect_timeout),
-                                tls_configs);
-
-        const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
-
-        bool result;
-        run_in_thread_pool(std::bind(&run_rethinkdb_porcelain,
-                                     base_path,
-                                     server_name,
-                                     server_tag_names,
-                                     initial_password,
-                                     direct_io_mode,
-                                     max_concurrent_io_requests,
-                                     total_cache_size,
-                                     is_new_directory,
-                                     &serve_info,
-                                     &data_directory_lock,
-                                     &result),
-                           num_workers);
-
-        return result ? EXIT_SUCCESS : EXIT_FAILURE;
-    } catch (const options::named_error_t &ex) {
-        output_named_error(ex, help);
-        fprintf(stderr, "Run 'rethinkdb help' for help on the command\n");
-    } catch (const options::option_error_t &ex) {
-        output_sourced_error(ex);
-        fprintf(stderr, "Run 'rethinkdb help' for help on the command\n");
-    } catch (const std::exception& ex) {
-        fprintf(stderr, "%s\n", ex.what());
-    }
-
-    return EXIT_FAILURE;
-}
-
 void help_rethinkdb_porcelain() {
+    // TODO: Update help message for fdb (there is no porcelain command now, too).
     std::vector<options::help_section_t> help_sections;
     {
         std::vector<options::option_t> options;
