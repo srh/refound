@@ -218,9 +218,6 @@ public:
 
         connection_t connection_to_ourself;
 
-        /* For picking random threads */
-        rng_t rng;
-
         auto_drainer_t drainer;
     };
 
