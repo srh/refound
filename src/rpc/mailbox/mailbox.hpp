@@ -63,10 +63,10 @@ private:
 
     void on_message(connectivity_cluster_t::connection_t *connection,
                     auto_drainer_t::lock_t connection_keeepalive,
-                    read_stream_t *stream);
+                    read_stream_t *stream) override;
     void on_local_message(connectivity_cluster_t::connection_t *connection,
                           auto_drainer_t::lock_t connection_keepalive,
-                          std::vector<char> &&data);
+                          std::vector<char> &&data) override;
 
     enum force_yield_t {FORCE_YIELD, MAYBE_YIELD};
     void mailbox_read_coroutine(threadnum_t dest_thread,

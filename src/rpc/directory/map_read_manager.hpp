@@ -25,7 +25,7 @@ private:
     void on_message(
             connectivity_cluster_t::connection_t *connection,
             auto_drainer_t::lock_t connection_keepalive,
-            read_stream_t *stream)
+            read_stream_t *stream) override
             THROWS_ONLY(fake_archive_exc_t);
     void do_update(
             peer_id_t peer_id,
