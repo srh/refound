@@ -84,23 +84,6 @@ static bool version_number_unrecognized_greater(const std::string &version_strin
                                         parts.begin(), parts.end());
 }
 
-// Given a remote version string, we figure out whether we can try to talk to it, and
-// if we can, what version we shall talk on.
-static bool resolve_protocol_version(const std::string &remote_version_string,
-                                     cluster_version_t *out) {
-    if (version_number_recognized_compatible(remote_version_string, out)) {
-        return true;
-    }
-    if (version_number_unrecognized_greater(remote_version_string)) {
-        static_assert(cluster_version_t::CLUSTER == cluster_version_t::LATEST_OVERALL,
-                      "If you've made CLUSTER != LATEST_OVERALL, presumably you know "
-                      "how to change this code.");
-        *out = cluster_version_t::CLUSTER;
-        return true;
-    }
-    return false;
-}
-
 #if defined (__x86_64__) || defined (_WIN64) || defined (__s390x__) || defined(__arm64__) || defined(__aarch64__) || defined (__powerpc64__)
 const std::string connectivity_cluster_t::cluster_arch_bitsize("64bit");
 #elif defined (__i386__) || defined(__arm__) || defined(_WIN32)
@@ -254,73 +237,6 @@ std::set<host_and_port_t> connectivity_cluster_t::run_t::get_canonical_addresses
 
 int connectivity_cluster_t::run_t::get_port() {
     return cluster_listener_port;
-}
-
-void connectivity_cluster_t::run_t::join(
-        const peer_address_t &address,
-        const int join_delay_secs) THROWS_NOTHING {
-    parent->assert_thread();
-    coro_t::spawn_now_dangerously(std::bind(
-        &connectivity_cluster_t::run_t::join_blocking,
-        this,
-        address,
-        /* We don't know what `peer_id_t` the peer has until we connect to it */
-        r_nullopt,
-        r_nullopt,
-        join_delay_secs,
-        auto_drainer_t::lock_t(&drainer)));
-}
-
-join_results_t connectivity_cluster_t::run_t::join_blocking(
-        const peer_address_t &peer,
-        optional<peer_id_t> expected_id,
-        optional<server_id_t> expected_server_id,
-        const int join_delay_secs,
-        auto_drainer_t::lock_t drainer_lock) THROWS_NOTHING {
-    (void)expected_id;  // TODO
-    (void)join_delay_secs;  // TODO
-    drainer_lock.assert_is_holding(&parent->current_run->drainer);
-    parent->assert_thread();
-    join_results_t join_results; // Used to determine the the join results across all individual connection attempts
-    {
-        mutex_assertion_t::acq_t acq(&attempt_table_mutex);
-        if (attempt_table.find(peer) != attempt_table.end()) {
-            return join_results;
-        }
-        attempt_table.insert(peer);
-    }
-
-    // Make sure the peer address isn't bogus
-    guarantee(peer.ips().size() > 0);
-
-    // Attempt to connect to all known ip addresses of the peer
-
-    static_semaphore_t rate_control(peer.ips().size()); // Mutex to control the rate that connection attempts are made
-    rate_control.co_lock(peer.ips().size() - 1); // Start with only one coroutine able to run
-
-    pmap(peer.ips().size(), [&](int index) {
-        // Indexing through a std::set is rather awkward
-        const std::set<ip_and_port_t> &all_addrs = peer.ips();
-        std::set<ip_and_port_t>::const_iterator selected_addr;
-        int find_index = index;
-        for (selected_addr = all_addrs.begin();
-            selected_addr != all_addrs.end() && find_index > 0;
-            ++selected_addr, --find_index) { }
-        guarantee(find_index == 0);
-
-        // TODO: Remove the entire function join_blocking.
-        join_result_t result = join_result_t::PERMANENT_ERROR;
-
-        join_results.insert(std::make_pair(*selected_addr, result));
-    });
-
-    // All attempts have completed
-    {
-        mutex_assertion_t::acq_t acq(&attempt_table_mutex);
-        attempt_table.erase(peer);
-    }
-
-    return join_results;
 }
 
 class cluster_conn_closing_subscription_t : public signal_t::subscription_t {

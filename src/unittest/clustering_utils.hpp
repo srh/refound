@@ -230,10 +230,6 @@ public:
         return run;
     }
 
-    void join(const peer_address_t &address, const int join_delay_secs) THROWS_NOTHING {
-        run.join(address, join_delay_secs);
-    }
-
     int get_port() {
         return run.get_port();
     }

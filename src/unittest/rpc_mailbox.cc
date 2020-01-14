@@ -85,30 +85,6 @@ TPTEST(RPCMailboxTest, MailboxStartStop, 2) {
     dummy_mailbox_t mbox2(&m);
 }
 
-/* `MailboxMessage` sends messages to some mailboxes */
-TPTEST_MULTITHREAD(RPCMailboxTest, MailboxMessage, 3) {
-    connectivity_cluster_t c1, c2;
-    mailbox_manager_t m1(&c1, 'M'), m2(&c2, 'M');
-    test_cluster_run_t r1(&c1);
-    test_cluster_run_t r2(&c2);
-    r1.join(get_cluster_local_address(&c2), 0);
-    let_stuff_happen();
-
-    /* Create a mailbox and send it three messages */
-    dummy_mailbox_t mbox(&m1);
-    raw_mailbox_t::address_t address = mbox.mailbox.get_address();
-
-    send(&m1, address, 88555);
-    send(&m2, address, 3131);
-    send(&m1, address, 7);
-
-    let_stuff_happen();
-
-    mbox.expect(88555);
-    mbox.expect(3131);
-    mbox.expect(7);
-}
-
 /* `DeadMailbox` sends a message to a defunct mailbox. The expected behavior is
 for the message to be silently ignored. */
 TPTEST_MULTITHREAD(RPCMailboxTest, DeadMailbox, 3) {

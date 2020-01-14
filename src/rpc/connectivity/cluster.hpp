@@ -190,11 +190,6 @@ public:
 
         ~run_t();
 
-        /* Attaches the cluster this node is part of to another existing
-        cluster. May only be called on home thread. Returns immediately (it does
-        its work in the background). */
-        void join(const peer_address_t &address, const int join_delay_secs) THROWS_NOTHING;
-
         std::set<host_and_port_t> get_canonical_addresses();
         int get_port();
 
@@ -222,16 +217,6 @@ public:
             run_t *value;
             DISABLE_COPYING(variable_setter_t);
         };
-
-        /* `join_blocking()` is spawned in a new coroutine by `join()`. It's also run by
-        `handle()` when we hear about a new peer from a peer we are connected to, and
-        directly by the auto_reconnector_t. For cases where it is used directly, it
-        returns a join_result_t, indicating whether the join was successful or not. */
-        join_results_t join_blocking(const peer_address_t &peer,
-                           optional<peer_id_t> expected_id,
-                           optional<server_id_t> expected_server_id,
-                           const int join_delay_secs,
-                           auto_drainer_t::lock_t) THROWS_NOTHING;
 
         connectivity_cluster_t *parent;
 

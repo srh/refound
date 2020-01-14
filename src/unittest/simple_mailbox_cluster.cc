@@ -45,11 +45,6 @@ mailbox_manager_t *simple_mailbox_cluster_t::get_mailbox_manager() {
     return &state->mailbox_manager;
 }
 
-void simple_mailbox_cluster_t::connect(simple_mailbox_cluster_t *other) {
-    state->connectivity_cluster_run.join(
-        get_cluster_local_address(&other->state->connectivity_cluster), 0);
-}
-
 void simple_mailbox_cluster_t::disconnect(simple_mailbox_cluster_t *other) {
     auto_drainer_t::lock_t keepalive;
     connectivity_cluster_t::connection_t *conn = state->connectivity_cluster.get_connection(
