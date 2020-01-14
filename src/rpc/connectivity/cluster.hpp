@@ -136,9 +136,6 @@ public:
             return true;
         }
 
-        /* Drops the connection. */
-        void kill_connection();
-
     private:
         friend class connectivity_cluster_t;
 

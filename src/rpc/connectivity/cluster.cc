@@ -53,12 +53,6 @@ const std::string connectivity_cluster_t::cluster_build_mode("release");
 const std::string connectivity_cluster_t::cluster_build_mode("debug");
 #endif
 
-void connectivity_cluster_t::connection_t::kill_connection() {
-    /* `heartbeat_manager_t` assumes this doesn't block as long as it's called on the
-    home thread. */
-    guarantee(!is_loopback(), "Attempted to kill connection to myself.");
-}
-
 connectivity_cluster_t::connection_t::connection_t(
         connectivity_cluster_t *_parent,
         const peer_id_t &_peer_id,
