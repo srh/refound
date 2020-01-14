@@ -89,6 +89,9 @@ struct fdb_future {
 };
 
 // TODO: Return a string_view or something.
+
+// REQLFDB_VERSION_KEY is guaranteed to be the smallest key that appears in a reqlfdb
+// database.
 inline const char *REQLFDB_VERSION_KEY() { return ""; }
 inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1"; }
 

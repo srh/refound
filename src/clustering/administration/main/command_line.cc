@@ -376,7 +376,7 @@ std::string get_single_option(const std::map<std::string, options::values_t> &op
 
 // Used for options that don't take parameters, such as --help or --exit-failure, tells whether the
 // option exists.
-bool exists_option(const std::map<std::string, options::values_t> &opts, const std::string &name) {
+bool exists_option(const std::map<std::string, options::values_t> &opts, const char *name) {
     auto it = opts.find(name);
     return it != opts.end() && !it->second.values.empty();
 }
@@ -1396,6 +1396,13 @@ options::help_section_t get_log_options(std::vector<options::option_t> *options_
     return help;
 }
 
+options::help_section_t get_fdb_create_options(std::vector<options::option_t> *options_out) {
+    options::help_section_t help("FDB creation options");
+    options_out->push_back(options::option_t(options::names_t("--fdb-wipe"),
+                                             options::OPTIONAL_NO_PARAMETER));
+    help.add("--fdb-wipe", "wipe out fdb on creation, if it has an existing reqlfdb db");
+    return help;
+}
 
 options::help_section_t get_file_options(std::vector<options::option_t> *options_out) {
     options::help_section_t help("File path options");
@@ -1438,6 +1445,10 @@ std::vector<host_and_port_t> parse_join_options(const std::map<std::string, opti
         joins.push_back(parse_host_and_port(source, "--join", *it, default_port));
     }
     return joins;
+}
+
+bool parse_wipe_option(const std::map<std::string, options::values_t> &opts) {
+    return exists_option(opts, "--fdb-wipe");
 }
 
 name_string_t parse_server_name_option(
@@ -1766,6 +1777,7 @@ options::help_section_t get_help_options(std::vector<options::option_t> *options
 
 void get_rethinkdb_create_options(std::vector<options::help_section_t> *help_out,
                                   std::vector<options::option_t> *options_out) {
+    help_out->push_back(get_fdb_create_options(options_out));
     help_out->push_back(get_file_options(options_out));
     help_out->push_back(get_server_options(options_out));
     help_out->push_back(get_auth_options(options_out));
@@ -1898,7 +1910,7 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
 }
 
 int main_rethinkdb_create_fdb_blocking_pthread(
-        FDBDatabase *db, int argc, char *argv[]) {
+        FDBDatabase *db, bool wipe) {
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
     // there fdb conventions for "claiming" your database?
@@ -1911,28 +1923,44 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     // TODO: Prefix key option.
 
     uint8_t empty_key[1];
+    int empty_key_length = 0;
     fdb_future get_fut{fdb_transaction_get_key(
         txn.txn,
-        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, 0),
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, empty_key_length),
         false)};
     get_fut.block_pthread();
+
+    // Okay, we have an empty db.  Now what?
+    const char *version_key = REQLFDB_VERSION_KEY();
+    const char *version_value = REQLFDB_VERSION_VALUE();
 
     const uint8_t *key;
     int key_length;
     fdb_error_t err = fdb_future_get_key(get_fut.fut, &key, &key_length);
     guarantee_fdb_TODO(err, "fdb_future_get_key in create");
+
+    uint8_t end_key[1] = { 0xFF };
+    int end_key_length = 1;
+
     // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
     // for an empty database.
-    if (key_length == 0 || key[0] != uint8_t('\xFF')) {
-        // TODO: Report error properly.
+    if (sized_strcmp(key, key_length, end_key, end_key_length) < 0) {
         printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
+        // TODO: Report error properly.
         printf("First key is: %.*s\n", key_length, reinterpret_cast<const char *>(key));
-        return EXIT_FAILURE;
+        if (!wipe) {
+            // TODO: Report error properly.
+            printf("Failing to create fdb db\n");
+            return EXIT_FAILURE;
+        } else {
+            printf("Wiping fdb db\n");
+            // TODO: Test that key/value is valid reqlfdb version key/value.
+            fdb_transaction_clear_range(txn.txn,
+                empty_key, empty_key_length,
+                end_key, end_key_length);
+        }
     }
 
-    // Okay, we have an empty db.  Now what?
-    const char *version_key = REQLFDB_VERSION_KEY();
-    const char *version_value = REQLFDB_VERSION_VALUE();
     fdb_transaction_set(txn.txn,
         reinterpret_cast<const uint8_t *>(version_key), strlen(version_key),
         reinterpret_cast<const uint8_t *>(version_value), strlen(version_value));
@@ -1943,7 +1971,6 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     fdb_future commit_fut{fdb_transaction_commit(txn.txn)};
     commit_fut.block_pthread();
 
-    // TODO: Just use fdb_future_get_error?
     err = fdb_future_get_error(commit_fut.fut);
     if (err != 0) {
         const char *msg = fdb_get_error(err);
@@ -1958,20 +1985,26 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 }
 
 int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
-    return main_rethinkdb_create_fdb_blocking_pthread(db, argc, argv);
-
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_create_options(&help, &options);
 
     try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options);
+        std::map<std::string, options::values_t> opts
+            = parse_commands_deep(argc, argv, options);
 
+        // TODO: Copy/paste boilerplate.
         if (handle_help_or_version_option(opts, &help_rethinkdb_create)) {
             return EXIT_SUCCESS;
         }
 
         options::verify_option_counts(options, opts);
+
+        bool wipe = parse_wipe_option(opts);
+
+        return main_rethinkdb_create_fdb_blocking_pthread(db, wipe);
+
+        // TODO: Unreachable code here.
 
         base_path_t base_path(get_single_option(opts, "--directory"));
 
