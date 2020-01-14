@@ -79,17 +79,12 @@ void check_fdb_version_blocking_pthread(FDBDatabase *db) {
 
     fdb_future fut{fdb_transaction_get(txn.txn, reinterpret_cast<const uint8_t *>("version"), 7, false)};
 
-    fdb_error_t err = fdb_future_block_until_ready(fut.fut);
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_future_block_until_ready failed: %s", msg);
-        abort();  // TODO: Don't abort?
-    }
+    fut.block_pthread();
 
     fdb_bool_t present;
     const uint8_t *value;
     int value_length;
-    err = fdb_future_get_value(fut.fut, &present, &value, &value_length);
+    fdb_error_t err = fdb_future_get_value(fut.fut, &present, &value, &value_length);
     if (err != 0) {
         const char *msg = fdb_get_error(err);
         printf("Error getting fdb version.  Check fdb version failed: %s\n", msg);

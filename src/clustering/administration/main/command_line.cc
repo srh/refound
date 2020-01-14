@@ -61,6 +61,7 @@
 #include "containers/scoped.hpp"
 #include "crypto/random.hpp"
 #include "logger.hpp"
+#include "reql_fdb.hpp"
 #include "rockstore/store.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
@@ -1896,7 +1897,47 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
         file_direct_io_mode_t::buffered_desired;
 }
 
+int main_rethinkdb_create_fdb_blocking_pthread(
+        FDBDatabase *db, int argc, char *argv[]) {
+    // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
+    // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
+    // there fdb conventions for "claiming" your database?
+
+    fdb_transaction txn{db};
+
+    // TODO: Remember to commit the txn.
+
+    // TODO: We might want an option to force-wipe the db.
+    // TODO: Prefix key option.
+
+    uint8_t empty_key[1];
+    fdb_future fut{fdb_transaction_get_key(
+        txn.txn,
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, 0),
+        false)};
+    fut.block_pthread();
+
+    const uint8_t *key;
+    int key_length;
+    fdb_error_t err = fdb_future_get_key(fut.fut, &key, &key_length);
+    guarantee_fdb_TODO(err, "fdb_future_get_key in create");
+    // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
+    // for an empty database.
+    if (key_length == 0 || key[0] != uint8_t('\xFF')) {
+        // TODO: Report error properly.
+        printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
+        printf("First key is: %.*s\n", key_length, reinterpret_cast<const char *>(key));
+        return EXIT_FAILURE;
+    }
+
+    // Okay, we have an empty db.  Now what?
+    printf("TODO: Initialize FDB db.\n");
+    return EXIT_SUCCESS;
+}
+
 int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
+    return main_rethinkdb_create_fdb_blocking_pthread(db, argc, argv);
+
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_create_options(&help, &options);

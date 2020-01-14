@@ -8,6 +8,22 @@
 parameters `FDBDatabase *` and `FDBTransaction *` to anything that doesn't take
 ownership. */
 
+// This is only to be used for errors that "should not" happen.
+// TODO: Do whatever guarantee() actually does.
+#define guarantee_fdb(err, fn) do { \
+        fdb_error_t reql_fdb_guarantee_err_var = (err); \
+        if (reql_fdb_guarantee_err_var != 0) { \
+            const char *msg = fdb_get_error(reql_fdb_guarantee_err_var); \
+            printf("ERROR: %s failed: %s", (fn), msg); \
+            abort(); \
+        } \
+    } while (false)
+
+// This is for code that should be refactored to handle the error (later).
+// TODO: Remove this, of course.
+#define guarantee_fdb_TODO(err, msg) guarantee_fdb((err), (msg))
+
+
 struct fdb_database {
     fdb_database() : db(nullptr) {
         // nullptr as the cluster file path means the default cluster file gets used.
@@ -61,6 +77,11 @@ struct fdb_future {
         fdb_future tmp{std::move(movee)};
         std::swap(fut, tmp.fut);
         return *this;
+    }
+
+    void block_pthread() const {
+        fdb_error_t err = fdb_future_block_until_ready(fut);
+        guarantee_fdb(err, "fdb_future_block_until_ready");
     }
 
     FDBFuture *fut;
