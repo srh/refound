@@ -638,8 +638,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
             auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
             cluster_semilattice_view,
-        std::shared_ptr<semilattice_readwrite_view_t<heartbeat_semilattice_metadata_t>>
-            heartbeat_semilattice_view,
         clone_ptr_t<watchable_t<change_tracking_map_t<
             peer_id_t, cluster_directory_metadata_t>>> directory_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
@@ -676,8 +674,7 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     cluster_config_backend.init(
         new cluster_config_artificial_table_backend_t(
             rdb_context,
-            name_resolver,
-            heartbeat_semilattice_view));
+            name_resolver));
     cluster_config_sentry = backend_sentry_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
         name_string_t::guarantee_valid("cluster_config"),

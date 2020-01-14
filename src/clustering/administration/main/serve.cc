@@ -122,7 +122,6 @@ bool do_serve(FDBDatabase *db,
 
         cluster_semilattice_metadata_t cluster_metadata;
         auth_semilattice_metadata_t auth_metadata;
-        heartbeat_semilattice_metadata_t heartbeat_metadata;
         server_id_t server_id;
         if (metadata_file != nullptr) {
             guarantee(proxy_initial_password.empty());
@@ -130,8 +129,6 @@ bool do_serve(FDBDatabase *db,
             metadata_file_t::read_txn_t txn(metadata_file, &non_interruptor);
             cluster_metadata = txn.read(mdkey_cluster_semilattices());
             auth_metadata = txn.read(mdkey_auth_semilattices());
-            heartbeat_metadata = txn.read(
-                mdkey_heartbeat_semilattices());
             server_id = txn.read(mdkey_server_id());
         } else {
             // We are a proxy, generate a temporary proxy server id.
@@ -161,9 +158,6 @@ bool do_serve(FDBDatabase *db,
             semilattice_manager_cluster(&connectivity_cluster, 'S', cluster_metadata);
         semilattice_manager_t<auth_semilattice_metadata_t>
             semilattice_manager_auth(&connectivity_cluster, 'A', auth_metadata);
-        semilattice_manager_t<heartbeat_semilattice_metadata_t>
-            semilattice_manager_heartbeat(
-                &connectivity_cluster, 'Y', heartbeat_metadata);
 
         /* The `directory_*_read_manager_t`s are responsible for receiving directory
         updates over the network from other servers. */
@@ -235,7 +229,6 @@ bool do_serve(FDBDatabase *db,
                 serve_info.join_delay_secs,
                 serve_info.ports.port,
                 serve_info.ports.client_port,
-                semilattice_manager_heartbeat.get_root_view(),
                 semilattice_manager_auth.get_root_view(),
                 serve_info.tls_configs.cluster.get()));
         } catch (const address_in_use_exc_t &ex) {
@@ -348,7 +341,6 @@ bool do_serve(FDBDatabase *db,
                 &real_reql_cluster_interface,
                 semilattice_manager_auth.get_root_view(),
                 semilattice_manager_cluster.get_root_view(),
-                semilattice_manager_heartbeat.get_root_view(),
                 directory_read_manager.get_root_view(),
                 directory_read_manager.get_root_map_view(),
                 &table_meta_client,
@@ -535,8 +527,6 @@ bool do_serve(FDBDatabase *db,
                     cluster_metadata_persister;
                 scoped_ptr_t<semilattice_persister_t<auth_semilattice_metadata_t> >
                     auth_metadata_persister;
-                scoped_ptr_t<semilattice_persister_t<heartbeat_semilattice_metadata_t> >
-                    heartbeat_metadata_persister;
 
                 if (i_am_a_server) {
                     cluster_metadata_persister.init(
@@ -549,11 +539,6 @@ bool do_serve(FDBDatabase *db,
                             metadata_file,
                             mdkey_auth_semilattices(),
                             semilattice_manager_auth.get_root_view()));
-                    heartbeat_metadata_persister.init(
-                        new semilattice_persister_t<heartbeat_semilattice_metadata_t>(
-                            metadata_file,
-                            mdkey_heartbeat_semilattices(),
-                            semilattice_manager_heartbeat.get_root_view()));
                 }
 
                 {

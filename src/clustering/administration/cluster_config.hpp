@@ -24,9 +24,7 @@ class cluster_config_artificial_table_backend_t :
 public:
     cluster_config_artificial_table_backend_t(
             rdb_context_t *rdb_context,
-            lifetime_t<name_resolver_t const &> name_resolver,
-            std::shared_ptr<semilattice_readwrite_view_t<
-                heartbeat_semilattice_metadata_t> > _heartbeat_sl_view);
+            lifetime_t<name_resolver_t const &> name_resolver);
     ~cluster_config_artificial_table_backend_t();
 
     std::string get_primary_key_name();
@@ -76,29 +74,6 @@ private:
     protected:
         virtual ~doc_t() { }   // make compiler happy
     };
-
-    class heartbeat_doc_t : public doc_t {
-    public:
-        explicit heartbeat_doc_t(std::shared_ptr<semilattice_readwrite_view_t<
-            heartbeat_semilattice_metadata_t> > _sl_view) : sl_view(_sl_view) { }
-        bool read(
-                signal_t *interruptor,
-                ql::datum_t *row_out,
-                admin_err_t *error_out);
-        bool write(
-                signal_t *interruptor,
-                ql::datum_t *row_out,
-                admin_err_t *error_out);
-        void set_notification_callback(const std::function<void()> &fun);
-    private:
-        std::shared_ptr<
-            semilattice_readwrite_view_t<heartbeat_semilattice_metadata_t> > sl_view;
-        scoped_ptr_t<
-                semilattice_read_view_t<heartbeat_semilattice_metadata_t>::subscription_t
-            > subs;
-    };
-
-    heartbeat_doc_t heartbeat_doc;
 
     std::map<std::string, doc_t *> docs;
 };

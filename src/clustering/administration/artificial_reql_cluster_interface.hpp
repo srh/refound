@@ -286,8 +286,6 @@ public:
             auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
             cluster_semilattice_view,
-        std::shared_ptr<semilattice_readwrite_view_t<heartbeat_semilattice_metadata_t>>
-            heartbeat_semilattice_view,
         clone_ptr_t<watchable_t<change_tracking_map_t<
             peer_id_t, cluster_directory_metadata_t>>> directory_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,

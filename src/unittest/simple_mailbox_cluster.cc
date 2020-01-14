@@ -14,8 +14,6 @@ struct simple_mailbox_cluster_t::simple_mailbox_cluster_state {
     connectivity_cluster_t connectivity_cluster;
     server_id_t server_id;
     mailbox_manager_t mailbox_manager;
-    heartbeat_semilattice_metadata_t heartbeat_semilattice_metadata;
-    dummy_semilattice_controller_t<heartbeat_semilattice_metadata_t> heartbeat_manager;
     auth_semilattice_metadata_t auth_semilattice_metadata;
     dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
     connectivity_cluster_t::run_t connectivity_cluster_run;
@@ -23,7 +21,6 @@ struct simple_mailbox_cluster_t::simple_mailbox_cluster_state {
     simple_mailbox_cluster_state() :
         server_id(server_id_t::generate_server_id()),
         mailbox_manager(&connectivity_cluster, 'M'),
-        heartbeat_manager(heartbeat_semilattice_metadata),
         auth_manager(auth_semilattice_metadata),
         connectivity_cluster_run(&connectivity_cluster,
                                  server_id,
@@ -32,7 +29,6 @@ struct simple_mailbox_cluster_t::simple_mailbox_cluster_state {
                                  0,
                                  ANY_PORT,
                                  0,
-                                 heartbeat_manager.get_view(),
                                  auth_manager.get_view(),
                                  nullptr) {}
 };

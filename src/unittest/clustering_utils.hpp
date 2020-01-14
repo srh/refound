@@ -224,7 +224,7 @@ public:
                                 const peer_address_t &canonical_addr = peer_address_t())
         : run(c, server_id_t::generate_server_id(),
             get_unittest_addresses(), canonical_addr, 0, ANY_PORT, 0,
-            heartbeat_manager.get_view(), auth_manager.get_view(), nullptr) { }
+            auth_manager.get_view(), nullptr) { }
 
     operator connectivity_cluster_t::run_t&() {
         return run;
@@ -239,7 +239,6 @@ public:
     }
 
 private:
-    dummy_semilattice_controller_t<heartbeat_semilattice_metadata_t> heartbeat_manager;
     dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
     connectivity_cluster_t::run_t run;
 };

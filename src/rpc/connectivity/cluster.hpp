@@ -26,7 +26,6 @@
 class auth_semilattice_metadata_t;
 class cluster_message_handler_t;
 class co_semaphore_t;
-class heartbeat_semilattice_metadata_t;
 template <class> class semilattice_read_view_t;
 
 /* An enum indicating the outcome of attempted intra-cluster joins */
@@ -196,8 +195,6 @@ public:
               int port,
               int client_port,
               std::shared_ptr<semilattice_read_view_t<
-                  heartbeat_semilattice_metadata_t> > heartbeat_sl_view,
-              std::shared_ptr<semilattice_read_view_t<
                   auth_semilattice_metadata_t> > auth_sl_view,
               tls_ctx_t *tls_ctx)
             THROWS_ONLY(address_in_use_exc_t, tcp_socket_exc_t);
@@ -324,9 +321,6 @@ public:
 
         /* For picking random threads */
         rng_t rng;
-
-        std::shared_ptr<semilattice_read_view_t<heartbeat_semilattice_metadata_t> >
-            heartbeat_sl_view;
 
         std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t> >
             auth_sl_view;
