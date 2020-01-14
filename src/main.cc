@@ -89,6 +89,9 @@ int main(int argc, char *argv[]) {
     subcommands_that_look_like_flags.insert("--help");
     subcommands_that_look_like_flags.insert("-h");
 
+    // TODO: Make sure all commands work.
+    // TODO: For each command, make sure all options work.
+
     if (argc == 1 || (argv[1][0] == '-' && subcommands_that_look_like_flags.count(argv[1]) == 0)) {
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database db;

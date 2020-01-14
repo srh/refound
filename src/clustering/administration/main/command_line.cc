@@ -1911,6 +1911,8 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
 
 int main_rethinkdb_create_fdb_blocking_pthread(
         FDBDatabase *db, bool wipe) {
+    // TODO: Don't return int from this.
+
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
     // there fdb conventions for "claiming" your database?
@@ -2000,11 +2002,7 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
 
         options::verify_option_counts(options, opts);
 
-        bool wipe = parse_wipe_option(opts);
-
-        return main_rethinkdb_create_fdb_blocking_pthread(db, wipe);
-
-        // TODO: Unreachable code here.
+        const bool wipe = parse_wipe_option(opts);
 
         base_path_t base_path(get_single_option(opts, "--directory"));
 
@@ -2042,6 +2040,7 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
 
         const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
+        // TODO: Strip out local db storage (eventually).
         bool result;
         run_in_thread_pool(std::bind(&run_rethinkdb_create,
                                      base_path,
@@ -2055,10 +2054,13 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
                            num_workers);
 
         if (result) {
-            // Tell the directory lock that the directory is now good to go, as it will
-            //  otherwise delete an uninitialized directory
-            data_directory_lock.directory_initialized();
-            return EXIT_SUCCESS;
+            int result2 = main_rethinkdb_create_fdb_blocking_pthread(db, wipe);
+            if (result2 == 0) {
+                // Tell the directory lock that the directory is now good to go, as it
+                //  will otherwise delete an uninitialized directory
+                data_directory_lock.directory_initialized();
+                return EXIT_SUCCESS;
+            }
         }
     } catch (const options::named_error_t &ex) {
         output_named_error(ex, help);
