@@ -11,6 +11,7 @@
 #include "concurrency/wait_any.hpp"
 #include "config/args.hpp"
 #include "containers/archive/archive.hpp"
+#include "containers/archive/vector_stream.hpp"
 #include "containers/archive/versioned.hpp"
 #include "stl_utils.hpp"
 
@@ -30,11 +31,14 @@ directory_read_manager_t<metadata_t>::~directory_read_manager_t() THROWS_NOTHING
 }
 
 template<class metadata_t>
-void directory_read_manager_t<metadata_t>::on_message(
+void directory_read_manager_t<metadata_t>::on_local_message(
         connectivity_cluster_t::connection_t *connection,
         auto_drainer_t::lock_t connection_keepalive,
-        read_stream_t *s)
+        std::vector<char> &&data)
         THROWS_ONLY(fake_archive_exc_t) {
+    // TODO: Gross.
+    vector_read_stream_t s_(std::move(data));
+    vector_read_stream_t *s = &s_;
 
     with_priority_t p(CORO_PRIORITY_DIRECTORY_CHANGES);
 

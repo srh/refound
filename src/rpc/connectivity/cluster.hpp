@@ -326,16 +326,11 @@ protected:
                               connectivity_cluster_t::message_tag_t tag);
     virtual ~cluster_message_handler_t();
 
-    /* This can be called on any thread. */
-    virtual void on_message(connectivity_cluster_t::connection_t *conn,
-                            auto_drainer_t::lock_t keepalive,
-                            read_stream_t *) = 0;
-
     /* The default implementation constructs a stream reading from `data` and then
     calls `on_message()`. Override to optimize for the local case. */
     virtual void on_local_message(connectivity_cluster_t::connection_t *conn,
                                   auto_drainer_t::lock_t keepalive,
-                                  std::vector<char> &&data);
+                                  std::vector<char> &&data) = 0;
 
 private:
     friend class connectivity_cluster_t;

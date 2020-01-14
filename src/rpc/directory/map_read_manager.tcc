@@ -6,6 +6,7 @@
 
 #include "concurrency/wait_any.hpp"
 #include "containers/archive/optional.hpp"
+#include "containers/archive/vector_stream.hpp"
 
 template<class key_t, class value_t>
 directory_map_read_manager_t<key_t, value_t>::directory_map_read_manager_t(
@@ -22,11 +23,15 @@ directory_map_read_manager_t<key_t, value_t>::~directory_map_read_manager_t() {
 }
 
 template<class key_t, class value_t>
-void directory_map_read_manager_t<key_t, value_t>::on_message(
+void directory_map_read_manager_t<key_t, value_t>::on_local_message(
         connectivity_cluster_t::connection_t *connection,
         auto_drainer_t::lock_t connection_keepalive,
-        read_stream_t *s)
+        std::vector<char> &&data)
         THROWS_ONLY(fake_archive_exc_t) {
+    // TODO: gross
+    vector_read_stream_t s_(std::move(data));
+    vector_read_stream_t *s = &s_;
+
     with_priority_t p(CORO_PRIORITY_DIRECTORY_CHANGES);
     uint64_t timestamp;
     archive_result_t res = deserialize<cluster_version_t::CLUSTER>(s, &timestamp);

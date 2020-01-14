@@ -40,10 +40,10 @@ private:
     `watchable_t` once initialization is complete. */
 
     /* This will be called by `connectivity_cluster_t`. It mustn't block. */
-    void on_message(
+    void on_local_message(
             connectivity_cluster_t::connection_t *connection,
             auto_drainer_t::lock_t connection_keepalive,
-            read_stream_t *stream) override
+            std::vector<char> &&data) override
             THROWS_ONLY(fake_archive_exc_t);
 
     /* `on_message()` will spawn `handle_connection()` in a new coroutine in response to

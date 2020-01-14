@@ -168,33 +168,6 @@ void mailbox_manager_t::on_local_message(
         });
 }
 
-void mailbox_manager_t::on_message(
-        UNUSED connectivity_cluster_t::connection_t *connection,
-        UNUSED auto_drainer_t::lock_t connection_keepalive,
-        read_stream_t *stream) {
-    mailbox_header_t mbox_header;
-    read_mailbox_header(stream, &mbox_header);
-
-    // Read the data from the read stream, so it can be deallocated before we continue
-    // in a coroutine
-    std::vector<char> stream_data;
-    stream_data.resize(mbox_header.data_length);
-    int64_t bytes_read = force_read(stream, stream_data.data(), mbox_header.data_length);
-    if (bytes_read != static_cast<int64_t>(mbox_header.data_length)) {
-        throw fake_archive_exc_t();
-    }
-
-    // We use `spawn_now_dangerously()` to avoid having to heap-allocate `stream_data`.
-    // Instead we pass in a pointer to our local automatically allocated object
-    // and `mailbox_read_coroutine()` moves the data out of it before it yields.
-    coro_t::spawn_now_dangerously(
-        [this, mbox_header, &stream_data]() {
-            mailbox_read_coroutine(
-                threadnum_t(mbox_header.dest_thread), mbox_header.dest_mailbox_id,
-                &stream_data, 0, MAYBE_YIELD);
-        });
-}
-
 void mailbox_manager_t::mailbox_read_coroutine(
         threadnum_t dest_thread,
         raw_mailbox_t::id_t dest_mailbox_id,

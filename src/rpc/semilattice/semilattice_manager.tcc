@@ -339,10 +339,13 @@ publisher_t<std::function<void()> > *semilattice_manager_t<metadata_t>::root_vie
 }
 
 template<class metadata_t>
-void semilattice_manager_t<metadata_t>::on_message(
+void semilattice_manager_t<metadata_t>::on_local_message(
         connectivity_cluster_t::connection_t *connection,
         auto_drainer_t::lock_t connection_keepalive,
-        read_stream_t *stream) {
+        std::vector<char> &&data) {
+    // TODO: Gross
+    vector_read_stream_t stream_(std::move(data));
+    vector_read_stream_t *stream = &stream_;
     uint8_t code;
     {
         // All cluster versions so far use a uint8_t code for this.

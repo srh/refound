@@ -585,11 +585,3 @@ cluster_message_handler_t::~cluster_message_handler_t() {
     connectivity_cluster->message_handlers[tag] = nullptr;
 }
 
-void cluster_message_handler_t::on_local_message(
-        connectivity_cluster_t::connection_t *conn,
-        auto_drainer_t::lock_t keepalive,
-        std::vector<char> &&data) {
-    vector_read_stream_t read_stream(std::move(data));
-    on_message(conn, keepalive, &read_stream);
-}
-

@@ -68,8 +68,8 @@ private:
     class sync_to_reply_writer_t;
 
     /* These are called by the `connectivity_cluster_t`. They shouldn't block. */
-    void on_message(connectivity_cluster_t::connection_t *, auto_drainer_t::lock_t,
-                    read_stream_t *);
+    void on_local_message(connectivity_cluster_t::connection_t *, auto_drainer_t::lock_t,
+                          std::vector<char> &&) override;
     void on_connection_change(
         const peer_id_t &peer_id,
         const connectivity_cluster_t::connection_pair_t *pair);
