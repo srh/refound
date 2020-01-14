@@ -8,10 +8,11 @@
 #include <vector>
 #include <memory>
 
-#include "clustering/administration/metadata.hpp"
-#include "clustering/administration/persist/file.hpp"
 #include "arch/address.hpp"
 #include "arch/io/openssl.hpp"
+#include "clustering/administration/metadata.hpp"
+#include "clustering/administration/persist/file.hpp"
+#include "fdb.hpp"
 
 class os_signal_cond_t;
 
@@ -151,13 +152,15 @@ public:
 /* This has been factored out from `command_line.hpp` because it takes a very
 long time to compile. */
 
-bool serve(io_backender_t *io_backender,
+bool serve(FDBDatabase *db,
+           io_backender_t *io_backender,
            const base_path_t &base_path,
            metadata_file_t *metadata_file,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond);
 
-bool serve_proxy(const serve_info_t& serve_info,
+bool serve_proxy(FDBDatabase *db,
+                 const serve_info_t& serve_info,
                  const std::string &initial_password,
                  os_signal_cond_t *stop_cond);
 

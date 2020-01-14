@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
             } else if (subcommand == "serve") {
                 return main_rethinkdb_serve(db.db, argc - 2, argv + 2);
             } else if (subcommand == "proxy") {
-                return main_rethinkdb_proxy(argc, argv);
+                return main_rethinkdb_proxy(db.db, argc - 2, argv + 2);
             } else if (subcommand == "export") {
                 return main_rethinkdb_export(argc, argv);
             } else if (subcommand == "import") {

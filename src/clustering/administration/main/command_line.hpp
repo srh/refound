@@ -10,8 +10,7 @@ void print_version_message();
 
 int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]);  // argc/argv passed without command prefix.
 int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]);  // argc/argv passed without command prefix.
-
-int main_rethinkdb_proxy(int argc, char *argv[]);
+int main_rethinkdb_proxy(FDBDatabase *db, int argc, char *argv[]);  // argc/argv passed without command prefix.
 int main_rethinkdb_export(int argc, char *argv[]);
 int main_rethinkdb_import(int argc, char *argv[]);
 int main_rethinkdb_dump(int argc, char *argv[]);

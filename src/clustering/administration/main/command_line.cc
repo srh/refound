@@ -1138,7 +1138,8 @@ void run_rethinkdb_create(const base_path_t &base_path,
     }
 }
 
-void run_rethinkdb_serve(const base_path_t &base_path,
+void run_rethinkdb_serve(FDBDatabase *db,
+                         const base_path_t &base_path,
                          serve_info_t *serve_info,
                          const std::string &initial_password,
                          const file_direct_io_mode_t direct_io_mode,
@@ -1262,7 +1263,8 @@ void run_rethinkdb_serve(const base_path_t &base_path,
         data_directory_lock->directory_initialized();
 
         serve_info->look_up_peers();
-        *result_out = serve(&io_backender,
+        *result_out = serve(db,
+                            &io_backender,
                             base_path,
                             metadata_file.get(),
                             *serve_info,
@@ -1277,64 +1279,8 @@ void run_rethinkdb_serve(const base_path_t &base_path,
     }
 }
 
-void run_rethinkdb_porcelain(const base_path_t &base_path,
-                             const name_string_t &server_name,
-                             const std::set<name_string_t> &server_tag_names,
-                             const std::string &initial_password,
-                             const file_direct_io_mode_t direct_io_mode,
-                             const int max_concurrent_io_requests,
-                             const optional<optional<uint64_t> >
-                                &total_cache_size,
-                             const bool new_directory,
-                             serve_info_t *serve_info,
-                             directory_lock_t *data_directory_lock,
-                             bool *const result_out) {
-    if (!new_directory) {
-        run_rethinkdb_serve(base_path, serve_info, initial_password, direct_io_mode,
-                            max_concurrent_io_requests, total_cache_size,
-                            nullptr, nullptr, nullptr, data_directory_lock,
-                            result_out);
-    } else {
-        logNTC("Initializing directory %s\n", base_path.path().c_str());
-
-        server_id_t our_server_id = server_id_t::generate_server_id();
-
-        cluster_semilattice_metadata_t cluster_metadata;
-        if (serve_info->joins.empty()) {
-            logINF("Creating a default database for your convenience. (This is because you ran 'rethinkdb' "
-                   "without 'create', 'serve', or '--join', and the directory '%s' did not already exist or is empty.)\n",
-                   base_path.path().c_str());
-
-            /* Create a test database. */
-            database_id_t database_id = generate_uuid();
-            database_semilattice_metadata_t database_metadata;
-            name_string_t db_name;
-            bool db_name_success = db_name.assign_value("test");
-            guarantee(db_name_success);
-            database_metadata.name =
-                versioned_t<name_string_t>(db_name);
-            cluster_metadata.databases.databases.insert(std::make_pair(
-                database_id,
-                deletable_t<database_semilattice_metadata_t>(database_metadata)));
-        }
-
-        server_config_versioned_t server_config;
-        server_config.config.name = server_name;
-        server_config.config.tags = server_tag_names;
-        server_config.config.cache_size_bytes = static_cast<bool>(total_cache_size)
-            ? *total_cache_size
-            : optional<uint64_t>();   /* default to 'auto' */
-        server_config.version = 1;
-
-        run_rethinkdb_serve(base_path, serve_info, initial_password, direct_io_mode,
-                            max_concurrent_io_requests,
-                            optional<optional<uint64_t> >(),
-                            &our_server_id, &server_config, &cluster_metadata,
-                            data_directory_lock, result_out);
-    }
-}
-
 void run_rethinkdb_proxy(
+        FDBDatabase *db,
         serve_info_t *serve_info,
         const std::string &initial_password,
         bool *const result_out) {
@@ -1344,7 +1290,8 @@ void run_rethinkdb_proxy(
 
     try {
         serve_info->look_up_peers();
-        *result_out = serve_proxy(*serve_info,
+        *result_out = serve_proxy(db,
+                                  *serve_info,
                                   initial_password,
                                   &sigint_cond);
     } catch (const host_lookup_exc_t &ex) {
@@ -2205,6 +2152,7 @@ int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]) {
 
         bool result;
         run_in_thread_pool(std::bind(&run_rethinkdb_serve,
+                                     db,
                                      base_path,
                                      &serve_info,
                                      initial_password,
@@ -2230,13 +2178,13 @@ int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]) {
     return EXIT_FAILURE;
 }
 
-int main_rethinkdb_proxy(int argc, char *argv[]) {
+int main_rethinkdb_proxy(FDBDatabase *db, int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_proxy_options(&help, &options);
 
     try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc - 2, argv + 2, options);
+        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options);
 
         if (handle_help_or_version_option(opts, &help_rethinkdb_proxy)) {
             return EXIT_SUCCESS;
@@ -2305,7 +2253,7 @@ int main_rethinkdb_proxy(int argc, char *argv[]) {
 
         bool result;
         run_in_thread_pool(
-            std::bind(&run_rethinkdb_proxy, &serve_info, initial_password, &result),
+            std::bind(&run_rethinkdb_proxy, db, &serve_info, initial_password, &result),
             num_workers);
         return result ? EXIT_SUCCESS : EXIT_FAILURE;
     } catch (const options::named_error_t &ex) {
