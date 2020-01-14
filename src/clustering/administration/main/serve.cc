@@ -249,15 +249,6 @@ bool do_serve(FDBDatabase *db,
         logNTC("Listening for intracluster connections on port %d\n",
             connectivity_cluster_run->get_port());
 
-        /* `auto_reconnector` tries to reconnect to other servers if we lose the
-        connection to them. */
-        auto_reconnector_t auto_reconnector(
-            &connectivity_cluster,
-            connectivity_cluster_run.get(),
-            &server_config_client,
-            serve_info.join_delay_secs,
-            serve_info.node_reconnect_timeout_secs * 1000); // in ms
-
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
 
