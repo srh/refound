@@ -157,9 +157,7 @@ connectivity_cluster_t::run_t::run_t(
     will remove the entry. If the set of local addresses passed in is empty, it
     means that we bind to all local addresses.  That also means we need to get
     a new set of all local addresses from get_local_ips() in that case. */
-    routing_table_entry_for_ourself(
-        &routing_table,
-        parent->me,
+    me_address(
         our_peer_address(local_addresses,
                          canonical_addresses,
                          port_t(cluster_listener_socket->get_port()))),
@@ -168,7 +166,7 @@ connectivity_cluster_t::run_t::run_t(
     `connection_map` on each thread and notifying any listeners that we're now
     connected to ourself. The destructor will remove us from the
     `connection_map` and again notify any listeners. */
-    connection_to_ourself(this, parent->me, _server_id, routing_table[parent->me])
+    connection_to_ourself(this, parent->me, _server_id, me_address)
 {
     (void)join_delay_secs;  // TODO: Unused.
     parent->assert_thread();
@@ -181,7 +179,7 @@ connectivity_cluster_t::run_t::~run_t() {
 
 std::set<host_and_port_t> connectivity_cluster_t::run_t::get_canonical_addresses() {
     parent->assert_thread();
-    return routing_table.at(parent->me).hosts();
+    return me_address.hosts();
 }
 
 int connectivity_cluster_t::run_t::get_port() {

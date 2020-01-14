@@ -221,12 +221,6 @@ public:
         allow a single connection per server. */
         server_id_t server_id;
 
-        /* `routing_table` is all the peers we can currently access and their
-        addresses. Peers that are in the process of connecting or disconnecting
-        may be in `routing_table` but not in
-        `parent->thread_info.get()->connection_map`. */
-        std::map<peer_id_t, peer_address_t> routing_table;
-
         /* Writes to `routing_table` are protected by this mutex so we never get
         redundant connections to the same peer. */
         // mutex_t new_connection_mutex;
@@ -237,7 +231,9 @@ public:
 
         variable_setter_t register_us_with_parent;
 
-        map_insertion_sentry_t<peer_id_t, peer_address_t> routing_table_entry_for_ourself;
+        // All that's left of `routing_table`.
+        peer_address_t me_address;
+
         connection_t connection_to_ourself;
 
         /* For picking random threads */
