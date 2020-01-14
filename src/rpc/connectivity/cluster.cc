@@ -95,42 +95,15 @@ connectivity_cluster_t::connection_t::~connection_t() THROWS_NOTHING {
 }
 
 // Helper function for the `run_t` constructor's initialization list
-static peer_address_t our_peer_address(std::set<ip_address_t> local_addresses,
-                                       const peer_address_t &canonical_addresses,
-                                       port_t cluster_port) {
-    std::set<host_and_port_t> our_addrs;
-
-    // If at least one canonical address was specified, we ignore all other addresses
-    if (!canonical_addresses.hosts().empty()) {
-        // We have to modify canonical addresses in case there is a port of 0
-        //  use the real port from the socket
-        for (auto it = canonical_addresses.hosts().begin();
-             it != canonical_addresses.hosts().end(); ++it) {
-            if (it->port().value() == 0) {
-                our_addrs.insert(host_and_port_t(it->host(), cluster_port));
-            } else {
-                our_addrs.insert(*it);
-            }
-        }
-    } else {
-        // Otherwise we need to use the local addresses with the cluster port
-        if (local_addresses.empty()) {
-            local_addresses = get_local_ips(std::set<ip_address_t>(),
-                                            local_ip_filter_t::ALL);
-        }
-        for (auto it = local_addresses.begin();
-             it != local_addresses.end(); ++it) {
-            our_addrs.insert(host_and_port_t(it->to_string(), cluster_port));
-        }
-    }
-    return peer_address_t(our_addrs);
+static peer_address_t our_peer_address() {
+    // TODO: Ensure this is treated as a loopback peer address.
+    return peer_address_t();
 }
 
 connectivity_cluster_t::run_t::run_t(
         connectivity_cluster_t *_parent,
         const server_id_t &_server_id,
         const std::set<ip_address_t> &local_addresses,
-        const peer_address_t &canonical_addresses,
         const int join_delay_secs,
         int port,
         int client_port)
@@ -158,9 +131,7 @@ connectivity_cluster_t::run_t::run_t(
     means that we bind to all local addresses.  That also means we need to get
     a new set of all local addresses from get_local_ips() in that case. */
     me_address(
-        our_peer_address(local_addresses,
-                         canonical_addresses,
-                         port_t(cluster_listener_socket->get_port()))),
+        our_peer_address()),
 
     /* The `connection_entry_t` constructor takes care of putting itself in the
     `connection_map` on each thread and notifying any listeners that we're now
@@ -175,15 +146,6 @@ connectivity_cluster_t::run_t::run_t(
 connectivity_cluster_t::run_t::~run_t() {
     /* The member destructors take care of cutting off TCP connections, cleaning up, etc.
     */
-}
-
-std::set<host_and_port_t> connectivity_cluster_t::run_t::get_canonical_addresses() {
-    parent->assert_thread();
-    return me_address.hosts();
-}
-
-int connectivity_cluster_t::run_t::get_port() {
-    return cluster_listener_port;
 }
 
 class cluster_conn_closing_subscription_t : public signal_t::subscription_t {

@@ -129,18 +129,12 @@ bool server_status_artificial_table_backend_t::format_row(
                           std::move(server_connect_builder).to_datum());
     net_builder.overwrite("hostname",
         ql::datum_t(datum_string_t(metadata.proc.hostname)));
-    net_builder.overwrite("cluster_port",
-        convert_port_to_datum(metadata.proc.cluster_port));
     net_builder.overwrite("reql_port",
         convert_port_to_datum(metadata.proc.reql_port));
     net_builder.overwrite("http_admin_port",
         static_cast<bool>(metadata.proc.http_admin_port)
             ? convert_port_to_datum(*metadata.proc.http_admin_port)
             : ql::datum_t("<no http admin>"));
-    net_builder.overwrite("canonical_addresses",
-        convert_set_to_datum<host_and_port_t>(
-            &convert_host_and_port_to_datum,
-            metadata.proc.canonical_addresses));
     {
         auto conn_time_it = connect_times.find(peer_id);
         if (conn_time_it != connect_times.end()) {

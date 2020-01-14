@@ -179,16 +179,12 @@ public:
         run_t(connectivity_cluster_t *parent,
               const server_id_t &server_id,
               const std::set<ip_address_t> &local_addresses,
-              const peer_address_t &canonical_addresses,
               const int join_delay_secs,
               int port,
               int client_port)
             THROWS_ONLY(address_in_use_exc_t, tcp_socket_exc_t);
 
         ~run_t();
-
-        std::set<host_and_port_t> get_canonical_addresses();
-        int get_port();
 
     private:
         friend class connectivity_cluster_t;

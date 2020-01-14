@@ -225,20 +225,12 @@ bool do_serve(FDBDatabase *db,
                 &connectivity_cluster,
                 server_id,
                 serve_info.ports.local_addresses_cluster,
-                serve_info.ports.canonical_addresses,
                 serve_info.join_delay_secs,
                 serve_info.ports.port,
                 serve_info.ports.client_port));
         } catch (const address_in_use_exc_t &ex) {
             throw address_in_use_exc_t(strprintf("Could not bind to cluster port: %s", ex.what()));
         }
-
-        // If (0 == port), then we asked the OS to give us a port number.
-        if (serve_info.ports.port != 0) {
-            guarantee(serve_info.ports.port == connectivity_cluster_run->get_port());
-        }
-        logNTC("Listening for intracluster connections on port %d\n",
-            connectivity_cluster_run->get_port());
 
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
@@ -411,14 +403,10 @@ bool do_serve(FDBDatabase *db,
                 current_microtime(),
                 getpid(),
                 str_gethostname(),
-                /* Note we'll update `reql_port` and `http_port` later, once final values
-                are available */
-                static_cast<uint16_t>(connectivity_cluster_run->get_port()),
                 static_cast<uint16_t>(serve_info.ports.reql_port),
                 serve_info.ports.http_admin_is_disabled
                     ? optional<uint16_t>()
                     : optional<uint16_t>(serve_info.ports.http_port),
-                connectivity_cluster_run->get_canonical_addresses(),
                 serve_info.argv };
             cluster_directory_metadata_t initial_directory(
                 server_id,

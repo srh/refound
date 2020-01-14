@@ -88,6 +88,7 @@ struct service_address_ports_t {
     std::set<ip_address_t> local_addresses_driver;
     std::set<ip_address_t> local_addresses_http;
 
+    // TODO: Check this gets used.
     peer_address_t canonical_addresses;
     int port;
     int client_port;

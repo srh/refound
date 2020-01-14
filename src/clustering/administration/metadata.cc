@@ -17,15 +17,13 @@ RDB_IMPL_SERIALIZABLE_1_SINCE_v2_3(auth_semilattice_metadata_t, m_users);
 RDB_IMPL_SEMILATTICE_JOINABLE_1(auth_semilattice_metadata_t, m_users);
 RDB_IMPL_EQUALITY_COMPARABLE_1(auth_semilattice_metadata_t, m_users);
 
-RDB_IMPL_SERIALIZABLE_9_FOR_CLUSTER(proc_directory_metadata_t,
+RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(proc_directory_metadata_t,
     version,
     time_started,
     pid,
     hostname,
-    cluster_port,
     reql_port,
     http_admin_port,
-    canonical_addresses,
     argv);
 
 RDB_IMPL_SERIALIZABLE_12_FOR_CLUSTER(cluster_directory_metadata_t,

@@ -96,9 +96,8 @@ public:
     microtime_t time_started;
     int64_t pid;   /* really a `pid_t`, but we need a platform-independent type */
     std::string hostname;
-    uint16_t cluster_port, reql_port;
+    uint16_t reql_port;
     optional<uint16_t> http_admin_port;
-    std::set<host_and_port_t> canonical_addresses;
     std::vector<std::string> argv;
 };
 

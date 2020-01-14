@@ -533,43 +533,16 @@ peer_address_t::peer_address_t(const std::set<host_and_port_t> &_hosts) :
 
 peer_address_t::peer_address_t() { }
 
-const std::set<host_and_port_t>& peer_address_t::hosts() const {
-    return hosts_;
-}
-
-host_and_port_t peer_address_t::primary_host() const {
-    guarantee(!hosts_.empty());
-    return *hosts_.begin();
-}
-
-const std::set<ip_and_port_t>& peer_address_t::ips() const {
-    return resolved_ips;
-}
-
-void peer_address_t::erase_ip(const ip_and_port_t &ip) {
-    auto it = resolved_ips.find(ip);
-    if (it != resolved_ips.end()) {
-        resolved_ips.erase(it);
-    }
-}
-
 // Two addresses are considered equal if all of their hosts match
-bool peer_address_t::operator == (const peer_address_t &a) const {
-    std::set<host_and_port_t>::const_iterator it, jt;
-    for (it = hosts_.begin(), jt = a.hosts_.begin();
-         it != hosts_.end() && jt != a.hosts_.end(); ++it, ++jt) {
-        if (it->port().value() != jt->port().value() ||
-            it->host() != jt->host()) {
-            return false;
-        }
-    }
+bool peer_address_t::operator==(const peer_address_t &) const {
     return true;
 }
 
-bool peer_address_t::operator != (const peer_address_t &a) const {
+bool peer_address_t::operator!=(const peer_address_t &a) const {
     return !(*this == a);
 }
 
+// TODO: Do these get used?
 // We specifically use the version 1.14 serialization method as the "universal one".
 // If that no longer works... you might want to change the caller in cluster.cc.  Or
 // maybe you'd want a more explicit implementation here.
@@ -581,39 +554,10 @@ archive_result_t deserialize_universal(read_stream_t *s,
     return deserialize<cluster_version_t::v1_14>(s, thing);
 }
 
-bool is_similar_peer_address(const peer_address_t &left,
-                             const peer_address_t &right) {
-    bool left_loopback_only = true;
-    bool right_loopback_only = true;
-
-    // We ignore any loopback addresses because they don't give us any useful information
-    // Return true if any non-loopback addresses match
-    for (auto left_it = left.ips().begin();
-         left_it != left.ips().end(); ++left_it) {
-        if (left_it->ip().is_loopback()) {
-            continue;
-        } else {
-            left_loopback_only = false;
-        }
-
-        for (auto right_it = right.ips().begin();
-             right_it != right.ips().end(); ++right_it) {
-            if (right_it->ip().is_loopback()) {
-                continue;
-            } else {
-                right_loopback_only = false;
-            }
-
-            if (is_similar_ip_address(*right_it, *left_it)) {
-                return true;
-            }
-        }
-    }
-
-    // No non-loopback addresses matched, return true if either side was *only* loopback
-    // addresses  because we can't easily prove if they are the same or different
-    // addresses
-    return left_loopback_only || right_loopback_only;
+// TODO: This function should not be used.
+bool is_similar_peer_address(const peer_address_t &,
+                             const peer_address_t &) {
+    return true;
 }
 
 void debug_print(printf_buffer_t *buf, const ip_address_t &addr) {
@@ -628,12 +572,6 @@ void debug_print(printf_buffer_t *buf, const host_and_port_t &addr) {
     buf->appendf("%s:%d", addr.host().c_str(), addr.port().value());
 }
 
-void debug_print(printf_buffer_t *buf, const peer_address_t &address) {
-    buf->appendf("peer_address [");
-    const std::set<host_and_port_t> &hosts = address.hosts();
-    for (auto it = hosts.begin(); it != hosts.end(); ++it) {
-        if (it != hosts.begin()) buf->appendf(", ");
-        debug_print(buf, *it);
-    }
-    buf->appendf("]");
+void debug_print(printf_buffer_t *buf, const peer_address_t &) {
+    buf->appendf("peer_address{}");
 }

@@ -25,7 +25,6 @@ struct simple_mailbox_cluster_t::simple_mailbox_cluster_state {
         connectivity_cluster_run(&connectivity_cluster,
                                  server_id,
                                  get_unittest_addresses(),
-                                 peer_address_t(),
                                  0,
                                  ANY_PORT,
                                  0) {}

@@ -181,12 +181,6 @@ public:
     explicit peer_address_t(const std::set<host_and_port_t> &_hosts);
     peer_address_t();
 
-    const std::set<host_and_port_t> &hosts() const;
-    const std::set<ip_and_port_t> &ips() const;
-
-    host_and_port_t primary_host() const;
-    void erase_ip(const ip_and_port_t &ip);
-
     // Two addresses are considered equal if all of their hosts match
     bool operator == (const peer_address_t &a) const;
     bool operator != (const peer_address_t &a) const;
