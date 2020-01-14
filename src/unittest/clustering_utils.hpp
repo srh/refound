@@ -223,8 +223,7 @@ public:
     explicit test_cluster_run_t(connectivity_cluster_t *c,
                                 const peer_address_t &canonical_addr = peer_address_t())
         : run(c, server_id_t::generate_server_id(),
-            get_unittest_addresses(), canonical_addr, 0, ANY_PORT, 0,
-            auth_manager.get_view(), nullptr) { }
+            get_unittest_addresses(), canonical_addr, 0, ANY_PORT, 0) { }
 
     operator connectivity_cluster_t::run_t&() {
         return run;

@@ -39,51 +39,6 @@ static_assert(cluster_version_t::CLUSTER == cluster_version_t::v2_5_is_latest,
 const std::string connectivity_cluster_t::cluster_proto_header("RethinkDB cluster\n");
 const std::string connectivity_cluster_t::cluster_version_string(CLUSTER_VERSION_STRING);
 
-// Returns true and sets *out to the version number, if the version number in
-// version_string is a recognized version and the same or earlier than our version.
-static bool version_number_recognized_compatible(const std::string &version_string,
-                                                 cluster_version_t *out) {
-    // Right now, we only support one cluster version -- ours.
-    if (version_string == CLUSTER_VERSION_STRING) {
-        *out = cluster_version_t::CLUSTER;
-        return true;
-    }
-    return false;
-}
-
-// Returns false if the string is not a valid version string (matching /\d+(\.\d+)*/)
-static bool split_version_string(const std::string &version_string,
-                                 std::vector<int64_t> *out) {
-    const std::vector<std::string> parts = split_string(version_string, '.');
-    std::vector<int64_t> ret(parts.size());
-    for (size_t i = 0; i < parts.size(); ++i) {
-        if (!strtoi64_strict(parts[i], 10, &ret[i])) {
-            return false;
-        }
-    }
-    *out = std::move(ret);
-    return true;
-}
-
-// Returns true if the version string is recognized as a _greater_ version string
-// (than our software's connectivity_cluster_t::cluster_version_string).  Returns
-// false for unparseable version strings (see split_version_string) or lesser or
-// equal version strings.
-static bool version_number_unrecognized_greater(const std::string &version_string) {
-    std::vector<int64_t> parts;
-    if (!split_version_string(version_string, &parts)) {
-        return false;
-    }
-
-    std::vector<int64_t> our_parts;
-    const bool success = split_version_string(
-            connectivity_cluster_t::cluster_version_string,
-            &our_parts);
-    guarantee(success);
-    return std::lexicographical_compare(our_parts.begin(), our_parts.end(),
-                                        parts.begin(), parts.end());
-}
-
 #if defined (__x86_64__) || defined (_WIN64) || defined (__s390x__) || defined(__arm64__) || defined(__aarch64__) || defined (__powerpc64__)
 const std::string connectivity_cluster_t::cluster_arch_bitsize("64bit");
 #elif defined (__i386__) || defined(__arm__) || defined(_WIN32)
@@ -178,14 +133,10 @@ connectivity_cluster_t::run_t::run_t(
         const peer_address_t &canonical_addresses,
         const int join_delay_secs,
         int port,
-        int client_port,
-        std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t> >
-            _auth_sl_view,
-        tls_ctx_t *_tls_ctx)
+        int client_port)
         THROWS_ONLY(address_in_use_exc_t, tcp_socket_exc_t) :
     parent(_parent),
     server_id(_server_id),
-    tls_ctx(_tls_ctx),
 
     /* Create the socket to use when listening for connections from peers */
     cluster_listener_socket(new tcp_bound_socket_t(local_addresses, port)),
@@ -217,9 +168,7 @@ connectivity_cluster_t::run_t::run_t(
     `connection_map` on each thread and notifying any listeners that we're now
     connected to ourself. The destructor will remove us from the
     `connection_map` and again notify any listeners. */
-    connection_to_ourself(this, parent->me, _server_id, routing_table[parent->me]),
-
-    auth_sl_view(_auth_sl_view)
+    connection_to_ourself(this, parent->me, _server_id, routing_table[parent->me])
 {
     (void)join_delay_secs;  // TODO: Unused.
     parent->assert_thread();

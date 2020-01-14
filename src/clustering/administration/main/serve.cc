@@ -228,9 +228,7 @@ bool do_serve(FDBDatabase *db,
                 serve_info.ports.canonical_addresses,
                 serve_info.join_delay_secs,
                 serve_info.ports.port,
-                serve_info.ports.client_port,
-                semilattice_manager_auth.get_root_view(),
-                serve_info.tls_configs.cluster.get()));
+                serve_info.ports.client_port));
         } catch (const address_in_use_exc_t &ex) {
             throw address_in_use_exc_t(strprintf("Could not bind to cluster port: %s", ex.what()));
         }

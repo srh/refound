@@ -182,10 +182,7 @@ public:
               const peer_address_t &canonical_addresses,
               const int join_delay_secs,
               int port,
-              int client_port,
-              std::shared_ptr<semilattice_read_view_t<
-                  auth_semilattice_metadata_t> > auth_sl_view,
-              tls_ctx_t *tls_ctx)
+              int client_port)
             THROWS_ONLY(address_in_use_exc_t, tcp_socket_exc_t);
 
         ~run_t();
@@ -220,21 +217,9 @@ public:
 
         connectivity_cluster_t *parent;
 
-        /* The server's own id and the set of servers we are connected to, we only allow
-        a single connection per server. */
+        /* The server's own id ~and the set of servers we are connected to~, we only
+        allow a single connection per server. */
         server_id_t server_id;
-        std::set<server_id_t> servers;
-
-        tls_ctx_t *tls_ctx;
-
-        /* `attempt_table` is a table of all the host:port pairs we're currently
-        trying to connect to or have connected to. If we are told to connect to
-        an address already in this table, we'll just ignore it. That's important
-        because when `client_port` is specified we will make all of our
-        connections from the same source, and TCP might not be able to
-        disambiguate between them. */
-        peer_address_set_t attempt_table;
-        mutex_assertion_t attempt_table_mutex;
 
         /* `routing_table` is all the peers we can currently access and their
         addresses. Peers that are in the process of connecting or disconnecting
@@ -257,9 +242,6 @@ public:
 
         /* For picking random threads */
         rng_t rng;
-
-        std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t> >
-            auth_sl_view;
 
         auto_drainer_t drainer;
     };

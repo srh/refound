@@ -28,9 +28,7 @@ struct simple_mailbox_cluster_t::simple_mailbox_cluster_state {
                                  peer_address_t(),
                                  0,
                                  ANY_PORT,
-                                 0,
-                                 auth_manager.get_view(),
-                                 nullptr) {}
+                                 0) {}
 };
 
 simple_mailbox_cluster_t::simple_mailbox_cluster_t()
