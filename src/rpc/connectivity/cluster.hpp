@@ -145,7 +145,7 @@ public:
         /* The constructor registers us in every thread's `connections` map, thereby
         notifying event subscribers. */
         connection_t(
-            run_t *,
+            connectivity_cluster_t *,
             const peer_id_t &peer_id,
             const server_id_t &server_id,
             const peer_address_t &peer_address) THROWS_NOTHING;
@@ -161,7 +161,7 @@ public:
         perfmon_membership_t pm_collection_membership, pm_bytes_sent_membership;
 
         /* We only hold this information so we can deregister ourself */
-        run_t *parent;
+        connectivity_cluster_t *parent;
 
         peer_id_t peer_id;
         server_id_t server_id;
@@ -181,44 +181,7 @@ public:
         ~run_t();
 
     private:
-        friend class connectivity_cluster_t;
-        friend class auto_reconnector_t;
-
-        /* Sets a variable to a value in its constructor; sets it to NULL in its
-        destructor. This is kind of silly. The reason we need it is that we need
-        the variable to be set before the constructors for some other fields of
-        the `run_t` are constructed. */
-        class variable_setter_t {
-        public:
-            variable_setter_t(run_t **var, run_t *val) : variable(var) , value(val) {
-                guarantee(*variable == nullptr);
-                *variable = value;
-            }
-
-            ~variable_setter_t() THROWS_NOTHING {
-                guarantee(*variable == value);
-                *variable = nullptr;
-            }
-        private:
-            run_t **variable;
-            run_t *value;
-            DISABLE_COPYING(variable_setter_t);
-        };
-
-        connectivity_cluster_t *parent;
-
-        /* The server's own id ~and the set of servers we are connected to~, we only
-        allow a single connection per server. */
-        server_id_t server_id;
-
-        variable_setter_t register_us_with_parent;
-
-        // All that's left of `routing_table`.
-        peer_address_t me_address;
-
         connection_t connection_to_ourself;
-
-        auto_drainer_t drainer;
     };
 
     connectivity_cluster_t() THROWS_NOTHING;
@@ -275,8 +238,6 @@ private:
     one_per_thread_t<std::map<std::string, std::pair<uint64_t, uint64_t> > >
         message_profiler_counts;
 #endif
-
-    run_t *current_run;
 
     perfmon_collection_t connectivity_collection;
     perfmon_membership_t stats_membership;

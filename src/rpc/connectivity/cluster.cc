@@ -60,7 +60,7 @@ void connectivity_cluster_t::connection_t::kill_connection() {
 }
 
 connectivity_cluster_t::connection_t::connection_t(
-        run_t *_parent,
+        connectivity_cluster_t *_parent,
         const peer_id_t &_peer_id,
         const server_id_t &_server_id,
         const peer_address_t &_peer_address) THROWS_NOTHING :
@@ -68,7 +68,7 @@ connectivity_cluster_t::connection_t::connection_t(
     pm_collection(),
     pm_bytes_sent(secs_to_ticks(1), true, get_num_threads()),
     pm_collection_membership(
-        &_parent->parent->connectivity_collection,
+        &_parent->connectivity_collection,
         &pm_collection,
         uuid_to_str(_peer_id.get_uuid())),
     pm_bytes_sent_membership(&pm_collection, &pm_bytes_sent, "bytes_sent"),
@@ -79,7 +79,7 @@ connectivity_cluster_t::connection_t::connection_t(
 {
     pmap(get_num_threads(), [this](int thread_id) {
         on_thread_t thread_switcher((threadnum_t(thread_id)));
-        parent->parent->connections.get()->set_key_no_equals(
+        parent->connections.get()->set_key_no_equals(
             peer_id,
             std::make_pair(this, auto_drainer_t::lock_t(drainers.get())));
     });
@@ -89,7 +89,7 @@ connectivity_cluster_t::connection_t::~connection_t() THROWS_NOTHING {
     // Drain out any users
     pmap(get_num_threads(), [this](int thread_id) {
         on_thread_t thread_switcher((threadnum_t(thread_id)));
-        parent->parent->connections.get()->delete_key(peer_id);
+        parent->connections.get()->delete_key(peer_id);
         drainers.get()->drain();
     });
 }
@@ -103,31 +103,12 @@ static peer_address_t our_peer_address() {
 connectivity_cluster_t::run_t::run_t(
         connectivity_cluster_t *_parent,
         const server_id_t &_server_id) :
-    parent(_parent),
-    server_id(_server_id),
-
-    /* This sets `parent->current_run` to `this`. It's necessary to do it in the
-    constructor of a subfield rather than in the body of the `run_t` constructor
-    because `parent->current_run` needs to be set before `connection_to_ourself`
-    is constructed. Otherwise, something could try to send a message to ourself
-    in response to a connection notification from the constructor for
-    `connection_to_ourself`, and that would be a problem. */
-    register_us_with_parent(&parent->current_run, this),
-
-    /* This constructor makes an entry for us in `routing_table`. The destructor
-    will remove the entry. If the set of local addresses passed in is empty, it
-    means that we bind to all local addresses.  That also means we need to get
-    a new set of all local addresses from get_local_ips() in that case. */
-    me_address(
-        our_peer_address()),
-
     /* The `connection_entry_t` constructor takes care of putting itself in the
     `connection_map` on each thread and notifying any listeners that we're now
     connected to ourself. The destructor will remove us from the
     `connection_map` and again notify any listeners. */
-    connection_to_ourself(this, parent->me, _server_id, me_address)
+    connection_to_ourself(_parent, _parent->me, _server_id, our_peer_address())
 {
-    parent->assert_thread();
 }
 
 connectivity_cluster_t::run_t::~run_t() {
@@ -386,7 +367,6 @@ connectivity_cluster_t::connectivity_cluster_t() THROWS_NOTHING :
     thread_allocator([](threadnum_t a, threadnum_t b) {
         return a.threadnum > b.threadnum;
     }),
-    current_run(nullptr),
     connectivity_collection(),
     stats_membership(&get_global_perfmon_collection(), &connectivity_collection, "connectivity")
 {
@@ -396,8 +376,6 @@ connectivity_cluster_t::connectivity_cluster_t() THROWS_NOTHING :
 }
 
 connectivity_cluster_t::~connectivity_cluster_t() THROWS_NOTHING {
-    guarantee(!current_run);
-
 #ifdef ENABLE_MESSAGE_PROFILER
     std::map<std::string, std::pair<uint64_t, uint64_t> > total_counts;
     pmap(get_num_threads(), [&](int num) {
@@ -520,7 +498,6 @@ cluster_message_handler_t::cluster_message_handler_t(
         connectivity_cluster_t::message_tag_t t) :
     connectivity_cluster(cm), tag(t)
 {
-    guarantee(!connectivity_cluster->current_run);
     rassert(tag != connectivity_cluster_t::heartbeat_tag,
         "Tag %" PRIu8 " is reserved for heartbeat messages.",
         connectivity_cluster_t::heartbeat_tag);
@@ -529,7 +506,6 @@ cluster_message_handler_t::cluster_message_handler_t(
 }
 
 cluster_message_handler_t::~cluster_message_handler_t() {
-    guarantee(!connectivity_cluster->current_run);
     rassert(connectivity_cluster->message_handlers[tag] == this);
     connectivity_cluster->message_handlers[tag] = nullptr;
 }
