@@ -258,21 +258,6 @@ bool do_serve(FDBDatabase *db,
             serve_info.join_delay_secs,
             serve_info.node_reconnect_timeout_secs * 1000); // in ms
 
-        /* `initial_joiner` sets up the initial connections to the peers that were
-        specified with the `--join` flag on the command line. */
-        scoped_ptr_t<initial_joiner_t> initial_joiner;
-        if (!serve_info.peers.empty()) {
-            initial_joiner.init(new initial_joiner_t(&connectivity_cluster,
-                                                     connectivity_cluster_run.get(),
-                                                     serve_info.peers,
-                                                     serve_info.join_delay_secs));
-            try {
-                wait_interruptible(initial_joiner->get_ready_signal(), stop_cond);
-            } catch (const interrupted_exc_t &) {
-                return false;
-            }
-        }
-
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
 
