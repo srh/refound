@@ -88,5 +88,9 @@ struct fdb_future {
     DISABLE_COPYING(fdb_future);
 };
 
+// TODO: Return a string_view or something.
+inline const char *REQLFDB_VERSION_KEY() { return ""; }
+inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1"; }
+
 
 #endif  // RETHINKDB_FDB_HPP_

@@ -1911,15 +1911,15 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     // TODO: Prefix key option.
 
     uint8_t empty_key[1];
-    fdb_future fut{fdb_transaction_get_key(
+    fdb_future get_fut{fdb_transaction_get_key(
         txn.txn,
         FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, 0),
         false)};
-    fut.block_pthread();
+    get_fut.block_pthread();
 
     const uint8_t *key;
     int key_length;
-    fdb_error_t err = fdb_future_get_key(fut.fut, &key, &key_length);
+    fdb_error_t err = fdb_future_get_key(get_fut.fut, &key, &key_length);
     guarantee_fdb_TODO(err, "fdb_future_get_key in create");
     // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
     // for an empty database.
@@ -1931,7 +1931,29 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     }
 
     // Okay, we have an empty db.  Now what?
-    printf("TODO: Initialize FDB db.\n");
+    const char *version_key = REQLFDB_VERSION_KEY();
+    const char *version_value = REQLFDB_VERSION_VALUE();
+    fdb_transaction_set(txn.txn,
+        reinterpret_cast<const uint8_t *>(version_key), strlen(version_key),
+        reinterpret_cast<const uint8_t *>(version_value), strlen(version_value));
+
+    // TODO: We need a transaction commit/retry loop (or do we?  Just fail in this one
+    // case.)
+
+    fdb_future commit_fut{fdb_transaction_commit(txn.txn)};
+    commit_fut.block_pthread();
+
+    // TODO: Just use fdb_future_get_error?
+    err = fdb_future_get_error(commit_fut.fut);
+    if (err != 0) {
+        const char *msg = fdb_get_error(err);
+        printf("Error getting value of fdb commit: %s\n", msg);
+        return EXIT_FAILURE;
+    }
+
+    // TODO: Proper message.
+    printf("Successfully created fdb database\n");
+
     return EXIT_SUCCESS;
 }
 
