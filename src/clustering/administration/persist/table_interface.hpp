@@ -14,14 +14,11 @@ class table_raft_storage_interface_t;
 class real_table_persistence_interface_t :
     public table_persistence_interface_t {
 public:
-    // TODO: Remove non-fdb stuff.
     real_table_persistence_interface_t(
-            FDBDatabase *_fdb,
             io_backender_t *_io_backender,
             const base_path_t &_base_path,
             rdb_context_t *_rdb_context,
             metadata_file_t *_metadata_file) :
-        fdb(_fdb),
         io_backender(_io_backender),
         base_path(_base_path),
         rdb_context(_rdb_context),
@@ -76,7 +73,6 @@ public:
 private:
     threadnum_t pick_thread();
 
-    FDBDatabase *const fdb;
     io_backender_t * const io_backender;
     base_path_t const base_path;
     rdb_context_t * const rdb_context;

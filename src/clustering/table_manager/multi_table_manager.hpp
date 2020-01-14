@@ -69,7 +69,6 @@ action mailbox. */
 class multi_table_manager_t : public home_thread_mixin_t {
 public:
     multi_table_manager_t(
-        FDBDatabase *_fdb,
         const server_id_t &_server_id,
         mailbox_manager_t *_mailbox_manager,
         server_config_client_t *server_config_client,
@@ -86,7 +85,6 @@ public:
 
     /* This constructor is used on proxy servers. */
     multi_table_manager_t(
-        FDBDatabase *_fdb,
         mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
             *_multi_table_manager_directory,
@@ -372,7 +370,6 @@ private:
     be `nil_uuid()`; `persistence_interface` will be `nullptr`; `base_path` will be
     empty; and `io_backender` will be `nullptr`. */
 
-    FDBDatabase *fdb;
     bool is_proxy_server;
     server_id_t server_id;
     mailbox_manager_t * const mailbox_manager;

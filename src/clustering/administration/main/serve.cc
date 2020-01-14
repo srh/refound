@@ -306,13 +306,11 @@ bool do_serve(FDBDatabase *db,
             if (i_am_a_server) {
                 table_persistence_interface.init(
                     new real_table_persistence_interface_t(
-                        db,
                         io_backender,
                         base_path,
                         &rdb_ctx,
                         metadata_file));
                 multi_table_manager.init(new multi_table_manager_t(
-                    db,
                     server_id,
                     &mailbox_manager,
                     &server_config_client,
@@ -328,7 +326,6 @@ bool do_serve(FDBDatabase *db,
                 receiving table names, databases, and primary keys from other servers and
                 providing them to the `table_meta_client_t`. */
                 multi_table_manager.init(new multi_table_manager_t(
-                    db,
                     &mailbox_manager,
                     &multi_table_manager_directory,
                     table_directory_read_manager.get_root_view()));
@@ -356,6 +353,7 @@ bool do_serve(FDBDatabase *db,
             /* The `real_reql_cluster_interface_t` is the interface that the ReQL logic
             uses to create, destroy, and reconfigure databases and tables. */
             real_reql_cluster_interface_t real_reql_cluster_interface(
+                db,
                 &mailbox_manager,
                 semilattice_manager_auth.get_root_view(),
                 semilattice_manager_cluster.get_root_view(),

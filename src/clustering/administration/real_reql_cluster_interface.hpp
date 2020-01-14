@@ -11,6 +11,7 @@
 #include "clustering/administration/tables/generate_config.hpp"
 #include "concurrency/cross_thread_watchable.hpp"
 #include "concurrency/watchable.hpp"
+#include "fdb.hpp"
 #include "rdb_protocol/context.hpp"
 #include "rpc/semilattice/view.hpp"
 
@@ -30,6 +31,7 @@ class real_reql_cluster_interface_t :
     public home_thread_mixin_t {
 public:
     real_reql_cluster_interface_t(
+            FDBDatabase *fdb,
             mailbox_manager_t *mailbox_manager,
             std::shared_ptr<semilattice_readwrite_view_t<
                 auth_semilattice_metadata_t> > auth_semilattice_view,
@@ -273,6 +275,7 @@ public:
     artificial_reql_cluster_interface_t *artificial_reql_cluster_interface;
 
 private:
+    FDBDatabase *m_fdb;
     mailbox_manager_t *m_mailbox_manager;
     std::shared_ptr<semilattice_readwrite_view_t<
         auth_semilattice_metadata_t> > m_auth_semilattice_view;

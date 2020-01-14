@@ -24,6 +24,7 @@
 #define NAMESPACE_INTERFACE_EXPIRATION_MS (60 * 1000)
 
 real_reql_cluster_interface_t::real_reql_cluster_interface_t(
+        FDBDatabase *fdb,
         mailbox_manager_t *mailbox_manager,
         std::shared_ptr<semilattice_readwrite_view_t<
             auth_semilattice_metadata_t> > auth_semilattice_view,
@@ -37,6 +38,7 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
             std::pair<peer_id_t, std::pair<namespace_id_t, branch_id_t> >,
             table_query_bcard_t> *table_query_directory,
         lifetime_t<name_resolver_t const &> name_resolver) :
+    m_fdb(fdb),
     m_mailbox_manager(mailbox_manager),
     m_auth_semilattice_view(auth_semilattice_view),
     m_cluster_semilattice_view(cluster_semilattice_view),
