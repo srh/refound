@@ -111,7 +111,10 @@ bool do_serve(FDBDatabase *db,
         /* `extproc_pool` spawns several subprocesses that can be used to run tasks that
         we don't want to run in the main RethinkDB process, such as Javascript
         evaluations. */
+        // TODO: Consider bringing v8 JS exec in-process.
         extproc_pool_t extproc_pool(get_num_threads());
+
+        // TODO: Strip out stuff unnecessary with fdb.
 
         /* `thread_pool_log_writer_t` automatically registers itself. While it exists,
         log messages will be written using the event loop instead of blocking. */
@@ -146,6 +149,7 @@ bool do_serve(FDBDatabase *db,
         cluster. */
         connectivity_cluster_t connectivity_cluster;
 
+        // TODO: Hopefully, remove mailbox_manager_t.
         /* The `mailbox_manager_t` maintains a local index of mailboxes that exist on
         this server, and routes mailbox messages received from other servers. */
         mailbox_manager_t mailbox_manager(&connectivity_cluster, 'M');
@@ -302,11 +306,13 @@ bool do_serve(FDBDatabase *db,
             if (i_am_a_server) {
                 table_persistence_interface.init(
                     new real_table_persistence_interface_t(
+                        db,
                         io_backender,
                         base_path,
                         &rdb_ctx,
                         metadata_file));
                 multi_table_manager.init(new multi_table_manager_t(
+                    db,
                     server_id,
                     &mailbox_manager,
                     &server_config_client,
@@ -322,6 +328,7 @@ bool do_serve(FDBDatabase *db,
                 receiving table names, databases, and primary keys from other servers and
                 providing them to the `table_meta_client_t`. */
                 multi_table_manager.init(new multi_table_manager_t(
+                    db,
                     &mailbox_manager,
                     &multi_table_manager_directory,
                     table_directory_read_manager.get_root_view()));

@@ -8,6 +8,7 @@
 #include "rpc/mailbox/mailbox.hpp"
 
 multi_table_manager_t::multi_table_manager_t(
+        FDBDatabase *_fdb,
         const server_id_t &_server_id,
         mailbox_manager_t *_mailbox_manager,
         server_config_client_t *_server_config_client,
@@ -21,6 +22,7 @@ multi_table_manager_t::multi_table_manager_t(
         const base_path_t &_base_path,
         io_backender_t *_io_backender,
         perfmon_collection_repo_t *_perfmon_collection_repo) :
+    fdb(_fdb),
     is_proxy_server(false),
     server_id(_server_id),
     mailbox_manager(_mailbox_manager),
@@ -32,6 +34,8 @@ multi_table_manager_t::multi_table_manager_t(
     base_path(_base_path),
     io_backender(_io_backender),
     perfmon_collection_repo(_perfmon_collection_repo) {
+
+    (void)fdb;  // TODO: Make use of field.
 
     /* Resurrect any tables that were sitting on disk from when we last shut down */
     cond_t non_interruptor;
@@ -73,11 +77,13 @@ multi_table_manager_t::multi_table_manager_t(
 
 /* This constructor is used for proxy servers. */
 multi_table_manager_t::multi_table_manager_t(
+        FDBDatabase *_fdb,
         mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
             *_multi_table_manager_directory,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
             *_table_manager_directory) :
+    fdb(_fdb),
     is_proxy_server(true),
     server_id(server_id_t::from_server_uuid(nil_uuid())),
     mailbox_manager(_mailbox_manager),
