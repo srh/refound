@@ -74,30 +74,6 @@ struct fdb_startup_shutdown {
     DISABLE_COPYING(fdb_startup_shutdown);
 };
 
-void check_fdb_version_blocking_pthread(FDBDatabase *db) {
-    fdb_transaction txn(db);
-
-    fdb_future fut{fdb_transaction_get(txn.txn, reinterpret_cast<const uint8_t *>("version"), 7, false)};
-
-    fut.block_pthread();
-
-    fdb_bool_t present;
-    const uint8_t *value;
-    int value_length;
-    fdb_error_t err = fdb_future_get_value(fut.fut, &present, &value, &value_length);
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("Error getting fdb version.  Check fdb version failed: %s\n", msg);
-        return;
-    }
-
-    if (!present) {
-        printf("Version is not present\n");
-    } else {
-        printf("Version: '%.*s'\n", value_length, value);
-    }
-}
-
 int main(int argc, char *argv[]) {
 
     startup_shutdown_t startup_shutdown;
@@ -116,8 +92,6 @@ int main(int argc, char *argv[]) {
     if (argc == 1 || (argv[1][0] == '-' && subcommands_that_look_like_flags.count(argv[1]) == 0)) {
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database db;
-
-        check_fdb_version_blocking_pthread(db.db);
 
         return main_rethinkdb_serve(db.db, argc - 1, argv + 1);
 
@@ -178,8 +152,6 @@ int main(int argc, char *argv[]) {
             fdb_database db;
 
             // TODO: Update --version/--help for reqlfdb.
-            check_fdb_version_blocking_pthread(db.db);
-
             if (subcommand == "create") {
                 return main_rethinkdb_create(db.db, argc - 2, argv + 2);
             } else if (subcommand == "serve") {
