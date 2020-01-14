@@ -8,7 +8,7 @@
 
 #include "clustering/administration/main/command_line.hpp"
 #include "crypto/initialization_guard.hpp"
-#include "fdb.hpp"
+#include "reql_fdb.hpp"
 #include "utils.hpp"
 #include "config/args.hpp"
 #include "extproc/extproc_spawner.hpp"
@@ -74,66 +74,7 @@ struct fdb_startup_shutdown {
     DISABLE_COPYING(fdb_startup_shutdown);
 };
 
-struct fdb_database {
-    fdb_database() : db(nullptr) {
-        // nullptr as the cluster file path means the default cluster file gets used.
-        fdb_error_t err = fdb_create_database(nullptr, &db);
-        if (err != 0) {
-            const char *msg = fdb_get_error(err);
-            printf("ERROR: fdb_create_database failed: %s", msg);
-            abort();  // TODO: abort?
-        }
-    }
-    ~fdb_database() {
-        fdb_database_destroy(db);
-    }
-
-    FDBDatabase *db;
-
-    DISABLE_COPYING(fdb_database);
-};
-
-struct fdb_transaction {
-    explicit fdb_transaction(FDBDatabase *db) : txn(nullptr) {
-        fdb_error_t err = fdb_database_create_transaction(db, &txn);
-        if (err != 0) {
-            const char *msg = fdb_get_error(err);
-            printf("ERROR: fdb_database_create_transaction failed: %s", msg);
-            abort();  // TODO: abort?
-        }
-    }
-
-    ~fdb_transaction() {
-        fdb_transaction_destroy(txn);
-    }
-
-    FDBTransaction *txn;
-    DISABLE_COPYING(fdb_transaction);
-};
-
-struct fdb_future {
-    fdb_future() : fut(nullptr) {}
-    explicit fdb_future(FDBFuture *_fut) : fut(_fut) {}
-    ~fdb_future() {
-        if (fut != nullptr) {
-            fdb_future_destroy(fut);
-        }
-    }
-
-    fdb_future(fdb_future &&movee) : fut(movee.fut) {
-        movee.fut = nullptr;
-    }
-    fdb_future &operator=(fdb_future &&movee) {
-        fdb_future tmp{std::move(movee)};
-        std::swap(fut, tmp.fut);
-        return *this;
-    }
-
-    FDBFuture *fut;
-    DISABLE_COPYING(fdb_future);
-};
-
-void check_fdb_version(FDBDatabase *db) {
+void check_fdb_version_blocking_pthread(FDBDatabase *db) {
     fdb_transaction txn(db);
 
     fdb_future fut{fdb_transaction_get(txn.txn, reinterpret_cast<const uint8_t *>("version"), 7, false)};
@@ -181,7 +122,7 @@ int main(int argc, char *argv[]) {
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database db;
 
-        check_fdb_version(db.db);
+        check_fdb_version_blocking_pthread(db.db);
 
         return main_rethinkdb_porcelain(argc, argv);
 
@@ -242,7 +183,7 @@ int main(int argc, char *argv[]) {
             fdb_database db;
 
             // TODO: Update --version/--help for reqlfdb.
-            check_fdb_version(db.db);
+            check_fdb_version_blocking_pthread(db.db);
 
             if (subcommand == "create") {
                 return main_rethinkdb_create(argc, argv);
