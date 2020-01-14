@@ -102,21 +102,9 @@ static peer_address_t our_peer_address() {
 
 connectivity_cluster_t::run_t::run_t(
         connectivity_cluster_t *_parent,
-        const server_id_t &_server_id,
-        const std::set<ip_address_t> &local_addresses,
-        const int join_delay_secs,
-        int port,
-        int client_port)
-        THROWS_ONLY(address_in_use_exc_t, tcp_socket_exc_t) :
+        const server_id_t &_server_id) :
     parent(_parent),
     server_id(_server_id),
-
-    /* Create the socket to use when listening for connections from peers */
-    cluster_listener_socket(new tcp_bound_socket_t(local_addresses, port)),
-    cluster_listener_port(cluster_listener_socket->get_port()),
-
-    /* The local port to use when connecting to the cluster port of peers */
-    cluster_client_port(client_port),
 
     /* This sets `parent->current_run` to `this`. It's necessary to do it in the
     constructor of a subfield rather than in the body of the `run_t` constructor
@@ -139,7 +127,6 @@ connectivity_cluster_t::run_t::run_t(
     `connection_map` and again notify any listeners. */
     connection_to_ourself(this, parent->me, _server_id, me_address)
 {
-    (void)join_delay_secs;  // TODO: Unused.
     parent->assert_thread();
 }
 

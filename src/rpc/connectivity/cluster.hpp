@@ -177,13 +177,7 @@ public:
     class run_t {
     public:
         run_t(connectivity_cluster_t *parent,
-              const server_id_t &server_id,
-              const std::set<ip_address_t> &local_addresses,
-              const int join_delay_secs,
-              int port,
-              int client_port)
-            THROWS_ONLY(address_in_use_exc_t, tcp_socket_exc_t);
-
+              const server_id_t &server_id);
         ~run_t();
 
     private:
@@ -216,14 +210,6 @@ public:
         /* The server's own id ~and the set of servers we are connected to~, we only
         allow a single connection per server. */
         server_id_t server_id;
-
-        /* Writes to `routing_table` are protected by this mutex so we never get
-        redundant connections to the same peer. */
-        // mutex_t new_connection_mutex;
-
-        scoped_ptr_t<tcp_bound_socket_t> cluster_listener_socket;
-        int cluster_listener_port;
-        int cluster_client_port;
 
         variable_setter_t register_us_with_parent;
 

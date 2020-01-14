@@ -219,18 +219,10 @@ bool do_serve(FDBDatabase *db,
         Before it's created, the `connectivity_cluster_t` won't process any connections
         or messages. So it's only safe to create now that we've set up all of our message
         handlers. */
-        scoped_ptr_t<connectivity_cluster_t::run_t> connectivity_cluster_run;
-        try {
-            connectivity_cluster_run.init(new connectivity_cluster_t::run_t(
+        scoped_ptr_t<connectivity_cluster_t::run_t> connectivity_cluster_run(
+            new connectivity_cluster_t::run_t(
                 &connectivity_cluster,
-                server_id,
-                serve_info.ports.local_addresses_cluster,
-                serve_info.join_delay_secs,
-                serve_info.ports.port,
-                serve_info.ports.client_port));
-        } catch (const address_in_use_exc_t &ex) {
-            throw address_in_use_exc_t(strprintf("Could not bind to cluster port: %s", ex.what()));
-        }
+                server_id));
 
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
