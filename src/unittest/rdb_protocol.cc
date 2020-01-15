@@ -58,7 +58,7 @@ void run_with_namespace_interface(
 
     extproc_pool_t extproc_pool(2);
     dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
-    rdb_context_t ctx(&extproc_pool, nullptr, auth_manager.get_view());
+    rdb_context_t ctx(TODO_fdb(), &extproc_pool, nullptr, auth_manager.get_view());
     namespace_id_t table_id = str_to_uuid("12345678-aaaa-bbbb-cccc-12345678abcd");
 
     for (int rep = 0; rep < num_restarts; ++rep) {
@@ -832,7 +832,7 @@ TPTEST(RDBProtocol, ArtificialChangefeeds) {
 
     extproc_pool_t extproc_pool(2);
     dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
-    rdb_context_t rdb_context(&extproc_pool, nullptr, auth_manager.get_view());
+    rdb_context_t rdb_context(TODO_fdb(), &extproc_pool, nullptr, auth_manager.get_view());
     artificial_reql_cluster_interface_t artificial_reql_cluster_interface(
         auth_manager.get_view(),
         &rdb_context);

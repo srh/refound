@@ -230,7 +230,8 @@ bool do_serve(FDBDatabase *fdb,
         /* We thread the `rdb_context_t` through every function that evaluates ReQL
         terms. It contains pointers to all the things that the ReQL term evaluation code
         needs. */
-        rdb_context_t rdb_ctx(&extproc_pool,
+        rdb_context_t rdb_ctx(fdb,
+                              &extproc_pool,
                               &mailbox_manager,
                               nullptr,   /* we'll fill this in later */
                               semilattice_manager_auth.get_root_view(),

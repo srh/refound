@@ -63,18 +63,21 @@ rdb_context_t::stats_t::stats_t(perfmon_collection_t *global_stats)
                                &queries_total, "queries_total") { }
 
 rdb_context_t::rdb_context_t()
-    : extproc_pool(nullptr),
+    : fdb(nullptr),
+      extproc_pool(nullptr),
       cluster_interface(nullptr),
       manager(nullptr),
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) { }
 
 rdb_context_t::rdb_context_t(
+        FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool,
         reql_cluster_interface_t *_cluster_interface,
         std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view)
-    : extproc_pool(_extproc_pool),
+    : fdb(_fdb),
+      extproc_pool(_extproc_pool),
       cluster_interface(_cluster_interface),
       manager(nullptr),
       reql_http_proxy(),
@@ -83,6 +86,7 @@ rdb_context_t::rdb_context_t(
 }
 
 rdb_context_t::rdb_context_t(
+        FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool,
         mailbox_manager_t *_mailbox_manager,
         reql_cluster_interface_t *_cluster_interface,
@@ -90,7 +94,8 @@ rdb_context_t::rdb_context_t(
             auth_semilattice_view,
         perfmon_collection_t *global_stats,
         const std::string &_reql_http_proxy)
-    : extproc_pool(_extproc_pool),
+    : fdb(_fdb),
+      extproc_pool(_extproc_pool),
       cluster_interface(_cluster_interface),
       manager(_mailbox_manager),
       reql_http_proxy(_reql_http_proxy),

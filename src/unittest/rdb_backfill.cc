@@ -222,7 +222,7 @@ void run_backfill_test(const backfill_test_config_t &cfg) {
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     extproc_pool_t extproc_pool(2);
     dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
-    rdb_context_t ctx(&extproc_pool, nullptr, auth_manager.get_view());
+    rdb_context_t ctx(TODO_fdb(), &extproc_pool, nullptr, auth_manager.get_view());
     cond_t non_interruptor;
 
     in_memory_branch_history_manager_t bhm;

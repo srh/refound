@@ -8,6 +8,7 @@
 
 #include "arch/address.hpp"
 #include "containers/scoped.hpp"
+#include "fdb.hpp"
 #include "paths.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rockstore/store.hpp"
@@ -21,6 +22,12 @@ namespace unittest {
 // names.
 static constexpr int THE_CPU_SHARD = 0;
 static constexpr int CPU_SHARDING_FACTOR = 1;
+
+// We'll either have to connect to fdb to run unittests (which is probably fine) or mock
+// it.
+inline FDBDatabase *TODO_fdb() {
+    return nullptr;
+}
 
 
 std::string rand_string(int len);

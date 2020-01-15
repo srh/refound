@@ -18,6 +18,7 @@
 #include "containers/optional.hpp"
 #include "containers/scoped.hpp"
 #include "containers/uuid.hpp"
+#include "fdb.hpp"
 #include "perfmon/perfmon.hpp"
 #include "protocol_api.hpp"
 #include "rdb_protocol/datum.hpp"
@@ -457,13 +458,15 @@ public:
     // Used by unit tests.
     rdb_context_t();
     // Also used by unit tests.
-    rdb_context_t(extproc_pool_t *_extproc_pool,
+    rdb_context_t(FDBDatabase *_fdb,
+                  extproc_pool_t *_extproc_pool,
                   reql_cluster_interface_t *_cluster_interface,
                   std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
                       auth_semilattice_view);
 
     // The "real" constructor used outside of unit tests.
     rdb_context_t(
+        FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool,
         mailbox_manager_t *_mailbox_manager,
         reql_cluster_interface_t *_cluster_interface,
@@ -474,6 +477,7 @@ public:
 
     ~rdb_context_t();
 
+    FDBDatabase *fdb = nullptr;
     extproc_pool_t *extproc_pool;
     reql_cluster_interface_t *cluster_interface;
 
