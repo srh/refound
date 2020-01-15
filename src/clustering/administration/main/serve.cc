@@ -87,7 +87,7 @@ std::string windows_version_string();
 std::string run_uname(const std::string &flags);
 #endif
 
-bool do_serve(FDBDatabase *db,
+bool do_serve(FDBDatabase *fdb,
               io_backender_t *io_backender,
               bool i_am_a_server,
               // NB. filepath & persistent_file are used only if i_am_a_server is true.
@@ -304,7 +304,7 @@ bool do_serve(FDBDatabase *db,
             /* The `real_reql_cluster_interface_t` is the interface that the ReQL logic
             uses to create, destroy, and reconfigure databases and tables. */
             real_reql_cluster_interface_t real_reql_cluster_interface(
-                db,
+                fdb,
                 &mailbox_manager,
                 semilattice_manager_auth.get_root_view(),
                 semilattice_manager_cluster.get_root_view(),
@@ -618,13 +618,13 @@ bool do_serve(FDBDatabase *db,
     return true;
 }
 
-bool serve(FDBDatabase *db,
+bool serve(FDBDatabase *fdb,
            io_backender_t *io_backender,
            const base_path_t &base_path,
            metadata_file_t *metadata_file,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond) {
-    return do_serve(db,
+    return do_serve(fdb,
                     io_backender,
                     true,
                     base_path,
@@ -634,13 +634,13 @@ bool serve(FDBDatabase *db,
 }
 
 // TODO: Do we have this?
-bool serve_proxy(FDBDatabase *db,
+bool serve_proxy(FDBDatabase *fdb,
                  const serve_info_t &serve_info,
                  const std::string &initial_password,
                  os_signal_cond_t *stop_cond) {
     // TODO: filepath doesn't _seem_ ignored.
     // filepath and persistent_file are ignored for proxies, so we use the empty string & NULL respectively.
-    return do_serve(db,
+    return do_serve(fdb,
                     nullptr,
                     false,
                     base_path_t(""),
