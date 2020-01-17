@@ -25,7 +25,6 @@
 
 #define NAMESPACE_INTERFACE_EXPIRATION_MS (60 * 1000)
 
-// TODO: fdb-ize functions below.
 real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         FDBDatabase *fdb,
         mailbox_manager_t *mailbox_manager,
@@ -87,6 +86,7 @@ void write_db_config(
     const char *key = REQLFDB_DB_CONFIG_KEY();
     serialize_and_set(txn, key, value);
 }
+// TODO: Make an interface with a test database.
 
 bool real_reql_cluster_interface_t::db_create(
         auth::user_context_t const &user_context,
@@ -128,7 +128,6 @@ bool real_reql_cluster_interface_t::db_create(
 
         write_db_config(txn.txn, config);
 
-        // TODO: Handle error.
         // TODO: Make this a commit/retry loop.
         fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
         guarantee_fdb_TODO(commit_err, "db_create commit failed");
@@ -183,6 +182,7 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
     guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
 
+    // TODO: We'll need to get the table names from fdb.
     std::map<namespace_id_t, table_basic_config_t> table_names;
     m_table_meta_client->list_names(&table_names);
     std::set<namespace_id_t> table_ids;
@@ -208,6 +208,30 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
                 "have been dropped.",
             "The database was not dropped, but some of the tables in it may or may not "
                 "have been dropped.")
+    }
+
+    {
+        // TODO: Delete the tables in fdb ^^
+        fdb_transaction txn{m_fdb};
+
+        databases_semilattice_metadata_t config;
+        read_db_config(txn.txn, &config);
+
+        auto it = config.databases.find(database_id);
+        if (it != config.databases.end() && !it->second.is_deleted()) {
+            // TODO: Don't use deletable any more. (?)
+            it->second.mark_deleted();
+        } else {
+            *error_out = admin_err_t{
+                "The database was already deleted.", query_state_t::FAILED};
+            return false;
+        }
+
+        write_db_config(txn.txn, config);
+
+        // TODO: Make this a commit/retry loop.
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        guarantee_fdb_TODO(commit_err, "db_drop_uuid commit failed");
     }
 
     cluster_semilattice_metadata_t metadata = m_cluster_semilattice_view->get();
@@ -240,6 +264,7 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
     return true;
 }
 
+// TODO: fdb-ize functions below.
 bool real_reql_cluster_interface_t::db_drop(
         auth::user_context_t const &user_context,
         const name_string_t &name,
