@@ -1226,7 +1226,6 @@ bool real_reql_cluster_interface_t::db_rebalance(
     return true;
 }
 
-// TODO: fdb-ize functions (for writing) below.
 bool real_reql_cluster_interface_t::grant_global(
         auth::user_context_t const &user_context,
         auth::username_t username,
@@ -1238,6 +1237,7 @@ bool real_reql_cluster_interface_t::grant_global(
     on_thread_t on_thread(home_thread());
 
     return auth::grant(
+        m_fdb,
         m_auth_semilattice_view,
         m_rdb_context,
         user_context,
@@ -1263,6 +1263,7 @@ bool real_reql_cluster_interface_t::grant_database(
     on_thread_t on_thread(home_thread());
 
     return auth::grant(
+        m_fdb,
         m_auth_semilattice_view,
         m_rdb_context,
         user_context,
@@ -1288,7 +1289,9 @@ bool real_reql_cluster_interface_t::grant_table(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
+    // TODO: fdb-ize auth::grant.
     return auth::grant(
+        m_fdb,
         m_auth_semilattice_view,
         m_rdb_context,
         user_context,
@@ -1302,6 +1305,7 @@ bool real_reql_cluster_interface_t::grant_table(
         error_out);
 }
 
+// TODO: fdb-ize functions (for writing) below.
 bool real_reql_cluster_interface_t::set_write_hook(
     auth::user_context_t const &user_context,
     counted_t<const ql::db_t> db,

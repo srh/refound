@@ -4,6 +4,8 @@
 
 #include "rdb_protocol/table_common.hpp"
 
+#include "fdb.hpp"
+
 template <class> class semilattice_readwrite_view_t;
 struct admin_err_t;
 
@@ -12,6 +14,7 @@ namespace auth {
 class user_t;
 
 bool grant(
+        FDBDatabase *fdb,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         rdb_context_t *rdb_context,

@@ -9,6 +9,7 @@
 namespace auth {
 
 bool grant(
+        FDBDatabase *fdb,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         rdb_context_t *rdb_context,
@@ -19,6 +20,7 @@ bool grant(
         std::function<auth::permissions_t &(auth::user_t &)> permission_selector_function,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize
     if (username.is_admin()) {
         *error_out = admin_err_t{
             "The permissions of the user `" + username.to_string() +
