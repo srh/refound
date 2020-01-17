@@ -39,5 +39,12 @@ void serialize_and_set(FDBTransaction *txn, const char *key, const T &value) {
         data_size);
 }
 
+inline void write_db_config(
+        FDBTransaction *txn,
+        const databases_semilattice_metadata_t &value) {
+    const char *key = REQLFDB_DB_CONFIG_KEY();
+    serialize_and_set(txn, key, value);
+}
+
 
 #endif  // RETHINKDB_REQL_FDB_UTILS_HPP_

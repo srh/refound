@@ -80,12 +80,6 @@ void read_db_config(FDBTransaction *txn, databases_semilattice_metadata_t *out) 
     get_and_deserialize(txn, key, out);
 }
 
-void write_db_config(
-        FDBTransaction *txn,
-        const databases_semilattice_metadata_t &value) {
-    const char *key = REQLFDB_DB_CONFIG_KEY();
-    serialize_and_set(txn, key, value);
-}
 // TODO: Make an interface with a test database.
 
 bool real_reql_cluster_interface_t::db_create(
@@ -264,7 +258,6 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
     return true;
 }
 
-// TODO: fdb-ize functions below.
 bool real_reql_cluster_interface_t::db_drop(
         auth::user_context_t const &user_context,
         const name_string_t &name,
@@ -278,6 +271,7 @@ bool real_reql_cluster_interface_t::db_drop(
         cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
         on_thread_t thread_switcher(home_thread());
 
+        // TODO: fdb-ize this in one transaction.
         cluster_semilattice_metadata_t metadata = m_cluster_semilattice_view->get();
         database_id_t database_id;
         if (!search_db_metadata_by_name(
@@ -306,6 +300,7 @@ bool real_reql_cluster_interface_t::db_list(
         UNUSED signal_t *interruptor_on_caller,
         std::set<name_string_t> *names_out,
         UNUSED admin_err_t *error_out) {
+    // TODO: fdb-ize this.
     databases_semilattice_metadata_t db_metadata;
     get_databases_metadata(&db_metadata);
     for (const auto &pair : db_metadata.databases) {
@@ -321,6 +316,7 @@ bool real_reql_cluster_interface_t::db_find(
         UNUSED signal_t *interruptor_on_caller,
         counted_t<const ql::db_t> *db_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize this.
     guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     /* Find the specified database */
@@ -341,6 +337,7 @@ bool real_reql_cluster_interface_t::db_config(
         ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize this function (for writing?  for making a single section?  fdb-ize artificial table?)
     try {
         user_context.require_config_permission(m_rdb_context, db->id);
 
@@ -378,6 +375,8 @@ bool real_reql_cluster_interface_t::table_create(
 
     user_context.require_config_permission(m_rdb_context, db->id);
 
+    fdb_transaction txn{m_fdb};
+
     namespace_id_t table_id;
     cluster_semilattice_metadata_t metadata;
     ql::datum_t new_config;
@@ -386,7 +385,7 @@ bool real_reql_cluster_interface_t::table_create(
         on_thread_t thread_switcher(home_thread());
 
         /* Make sure there isn't an existing table with the same name */
-        if (m_table_meta_client->exists(db->id, name)) {
+        if (m_table_meta_client->exists(/* txn.txn, TODO */ db->id, name)) {
             *error_out = admin_err_t{
                 strprintf("Table `%s.%s` already exists.",
                           db->name.c_str(), name.c_str()),
@@ -399,6 +398,10 @@ bool real_reql_cluster_interface_t::table_create(
         config.config.basic.name = name;
         config.config.basic.database = db->id;
         config.config.basic.primary_key = primary_key;
+
+        // TODO: Remove num_shards config.
+        // TODO: Remove sharding UI.
+        guarantee(config_params.num_shards == 1, "config params bad");
 
         /* We don't have any data to generate split points based on, so assume UUIDs */
         calculate_split_points_for_uuids(
@@ -415,7 +418,8 @@ bool real_reql_cluster_interface_t::table_create(
         config.config.user_data = default_user_data();
 
         table_id = generate_uuid();
-        m_table_meta_client->create(table_id, config, &interruptor_on_home);
+        // TODO: What does m_table_meta_client do?  Is it bloat?
+        m_table_meta_client->create(/* txn.txn, TODO */ table_id, config, &interruptor_on_home);
 
         new_config = convert_table_config_to_datum(table_id,
             convert_name_to_datum(db->name), config.config,
@@ -428,6 +432,12 @@ bool real_reql_cluster_interface_t::table_create(
       CATCH_OP_ERRORS(db->name, name, error_out,
         "The table was not created.",
         "The table may or may not have been created.")
+
+    // TODO: Make this a commit/retry loop.
+    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+    guarantee_fdb_TODO(commit_err, "db_create commit failed");
+
+    // TODO: vv remove waiting for table readiness.
 
     /* Wait for the table to set itself up. Various things could interfere with this
     process, causing it to wait indefinitely; for example, the table might be deleted, or
@@ -476,6 +486,8 @@ bool real_reql_cluster_interface_t::table_drop(
         on_thread_t thread_switcher(home_thread());
         metadata = m_cluster_semilattice_view->get();
 
+        fdb_transaction txn{m_fdb};
+
         namespace_id_t table_id;
         m_table_meta_client->find(db->id, name, &table_id);
 
@@ -486,11 +498,11 @@ bool real_reql_cluster_interface_t::table_drop(
         crashing if the table is not reachable. */
         ql::datum_t old_config;
         artificial_table_backend_t *config_backend =
-            artificial_reql_cluster_interface->get_table_backend(
+            artificial_reql_cluster_interface->get_table_backend(/* txn.txn, TODO */
                 name_string_t::guarantee_valid("table_config"),
                 admin_identifier_format_t::name);
         guarantee(config_backend != nullptr);
-        if (!config_backend->read_row(
+        if (!config_backend->read_row(/* txn.txn, TODO */
                 user_context,
                 convert_uuid_to_datum(table_id),
                 &interruptor_on_home,
@@ -501,7 +513,11 @@ bool real_reql_cluster_interface_t::table_drop(
             throw no_such_table_exc_t();
         }
 
-        m_table_meta_client->drop(table_id, &interruptor_on_home);
+        m_table_meta_client->drop(/* txn.txn, TODO */ table_id, &interruptor_on_home);
+
+        // TODO: Make this a commit/retry loop.
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("tables_dropped", ql::datum_t(1.0));
@@ -519,6 +535,7 @@ bool real_reql_cluster_interface_t::table_list(
         UNUSED signal_t *interruptor_on_caller,
         std::set<name_string_t> *names_out,
         UNUSED admin_err_t *error_out) {
+    // TODO: fdb-ize this function.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     std::map<namespace_id_t, table_basic_config_t> tables;
@@ -538,6 +555,7 @@ bool real_reql_cluster_interface_t::table_find(
         signal_t *interruptor_on_caller,
         counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize this function.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     namespace_id_t table_id;
@@ -570,6 +588,7 @@ bool real_reql_cluster_interface_t::table_estimate_doc_counts(
         ql::env_t *env,
         std::vector<int64_t> *doc_counts_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize this function (or remove? do we use?)
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
 
@@ -623,6 +642,7 @@ bool real_reql_cluster_interface_t::table_config(
         ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize this or the single selection function.
     try {
         namespace_id_t table_id;
         m_table_meta_client->find(db->id, name, &table_id);
@@ -650,6 +670,7 @@ bool real_reql_cluster_interface_t::table_status(
         ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out,
         admin_err_t *error_out) {
+    // TODO: fdb-ize this or the single selection function.
     try {
         namespace_id_t table_id;
         m_table_meta_client->find(db->id, name, &table_id);
@@ -674,6 +695,7 @@ bool real_reql_cluster_interface_t::table_wait(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Remove this function (unless there's index building? then fdb-ize)
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     try {
@@ -697,6 +719,7 @@ bool real_reql_cluster_interface_t::db_wait(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Remove this or fdb-ize, depending on table_wait treatment.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
 
@@ -733,6 +756,8 @@ void real_reql_cluster_interface_t::reconfigure_internal(
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t,
             failed_table_op_exc_t, maybe_failed_table_op_exc_t) {
     assert_thread();
+
+    // TODO: Don't fdb-ize this?  Just remove it?
 
     /* Fetch the table's current configuration */
     table_config_and_shards_t old_config;
@@ -829,6 +854,7 @@ bool real_reql_cluster_interface_t::table_reconfigure(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Don't fdb-ize this?  Just remove it.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
@@ -865,6 +891,7 @@ bool real_reql_cluster_interface_t::db_reconfigure(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Don't fdb-ize this?  Just remove it.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
@@ -925,6 +952,8 @@ void real_reql_cluster_interface_t::emergency_repair_internal(
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t,
             failed_table_op_exc_t, maybe_failed_table_op_exc_t, admin_op_exc_t) {
     assert_thread();
+
+    // TODO: Don't fdb-ize this?  Just remove it.
 
     /* Fetch the table's current configuration */
     table_config_and_shards_t old_config;
@@ -1023,6 +1052,7 @@ bool real_reql_cluster_interface_t::table_emergency_repair(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Don't fdb-ize, remove this.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
 
@@ -1063,6 +1093,8 @@ void real_reql_cluster_interface_t::rebalance_internal(
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t,
             failed_table_op_exc_t, maybe_failed_table_op_exc_t, admin_op_exc_t) {
     assert_thread();
+
+    // TODO: Don't fdb-ize, remove this.
 
     /* Fetch the table's current configuration */
     table_config_and_shards_t config;
@@ -1124,6 +1156,7 @@ bool real_reql_cluster_interface_t::table_rebalance(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Don't fdb-ize, remove this.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
 
@@ -1152,6 +1185,7 @@ bool real_reql_cluster_interface_t::db_rebalance(
         signal_t *interruptor_on_caller,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+    // TODO: Don't fdb-ize, remove this.
     guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
@@ -1192,6 +1226,7 @@ bool real_reql_cluster_interface_t::db_rebalance(
     return true;
 }
 
+// TODO: fdb-ize functions (for writing) below.
 bool real_reql_cluster_interface_t::grant_global(
         auth::user_context_t const &user_context,
         auth::username_t username,

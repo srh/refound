@@ -62,6 +62,7 @@
 #include "crypto/random.hpp"
 #include "logger.hpp"
 #include "reql_fdb.hpp"
+#include "reql_fdb_utils.hpp"
 #include "rockstore/store.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
@@ -1908,6 +1909,12 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     fdb_transaction_set(txn.txn,
         reinterpret_cast<const uint8_t *>(version_key), strlen(version_key),
         reinterpret_cast<const uint8_t *>(version_value), strlen(version_value));
+
+    {
+        databases_semilattice_metadata_t db_config;
+        write_db_config(txn.txn, db_config);
+    }
+
 
     // TODO: We need a transaction commit/retry loop (or do we?  Just fail in this one
     // case.)
