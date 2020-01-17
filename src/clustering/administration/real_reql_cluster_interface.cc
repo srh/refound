@@ -1305,7 +1305,6 @@ bool real_reql_cluster_interface_t::grant_table(
         error_out);
 }
 
-// TODO: fdb-ize functions (for writing) below.
 bool real_reql_cluster_interface_t::set_write_hook(
     auth::user_context_t const &user_context,
     counted_t<const ql::db_t> db,
@@ -1319,23 +1318,31 @@ bool real_reql_cluster_interface_t::set_write_hook(
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
     on_thread_t thread_switcher(home_thread());
 
+    fdb_transaction txn{m_fdb};
+
     namespace_id_t table_id;
-    m_table_meta_client->find(db->id, table, &table_id);
+    m_table_meta_client->find(/* txn.txn, TODO */ db->id, table, &table_id);
 
-    user_context.require_config_permission(m_rdb_context, db->id, table_id);
+    user_context.require_config_permission(/* txn.txn, TODO */ m_rdb_context, db->id, table_id);
 
+    // TODO: Remove the change_t stuff -- we don't have semilattice stuff anymore.
     if (config.has_value()) {
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::write_hook_create_t{config.get()});
 
-        m_table_meta_client->set_config(
+        m_table_meta_client->set_config(/* txn.txn, TODO */
             table_id, table_config_and_shards_change, &interruptor_on_home);
     } else {
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::write_hook_drop_t{});
-        m_table_meta_client->set_config(
+        m_table_meta_client->set_config(/* txn.txn, TODO */
             table_id, table_config_and_shards_change, &interruptor_on_home);
     }
+
+    // TODO: Make this a commit/retry loop.
+    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+    guarantee_fdb_TODO(commit_err, "db_create commit failed");
+
     return true;
 }
 
@@ -1352,14 +1359,17 @@ bool real_reql_cluster_interface_t::get_write_hook(
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
     on_thread_t thread_switcher(home_thread());
 
-    namespace_id_t table_id;
-    m_table_meta_client->find(db->id, table, &table_id);
+    // TODO: Here and in general:  Read-only transactions?
+    fdb_transaction txn{m_fdb};
 
-    user_context.require_config_permission(m_rdb_context, db->id, table_id);
+    namespace_id_t table_id;
+    m_table_meta_client->find(/* txn.txn, TODO */ db->id, table, &table_id);
+
+    user_context.require_config_permission(/* txn.txn, TODO */ m_rdb_context, db->id, table_id);
 
     table_config_and_shards_t existing_config;
 
-    m_table_meta_client->get_config(
+    m_table_meta_client->get_config(/* txn.txn, TODO */ 
         table_id,
         &interruptor_on_home,
         &existing_config);
@@ -1386,15 +1396,24 @@ bool real_reql_cluster_interface_t::sindex_create(
         cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
         on_thread_t thread_switcher(home_thread());
 
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, table, &table_id);
+        fdb_transaction txn{m_fdb};
 
-        user_context.require_config_permission(m_rdb_context, db->id, table_id);
+        namespace_id_t table_id;
+        m_table_meta_client->find(/* txn.txn, TODO */ db->id, table, &table_id);
+
+        user_context.require_config_permission(/* txn.txn, TODO */ m_rdb_context, db->id, table_id);
 
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::sindex_create_t{name, config});
-        m_table_meta_client->set_config(
+        m_table_meta_client->set_config(/* txn.txn, TODO */ 
             table_id, table_config_and_shards_change, &interruptor_on_home);
+
+        // TODO: Somewhere, of course, like here, we need to initiate sindex
+        // construction.
+
+        // TODO: Make this a commit/retry loop.
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         return true;
     } catch (const config_change_exc_t &) {
@@ -1423,15 +1442,23 @@ bool real_reql_cluster_interface_t::sindex_drop(
         cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
         on_thread_t thread_switcher(home_thread());
 
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, table, &table_id);
+        fdb_transaction txn{m_fdb};
 
-        user_context.require_config_permission(m_rdb_context, db->id, table_id);
+        namespace_id_t table_id;
+        m_table_meta_client->find(/* txn.txn, TODO */ db->id, table, &table_id);
+
+        user_context.require_config_permission(/* txn.txn, TODO */ m_rdb_context, db->id, table_id);
 
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::sindex_drop_t{name});
-        m_table_meta_client->set_config(
+        m_table_meta_client->set_config(/* txn.txn, TODO */
             table_id, table_config_and_shards_change, &interruptor_on_home);
+
+        // TODO: We'll want to wipe the sindex with a simple erase range operation.
+
+        // TODO: Make this a commit/retry loop.
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         return true;
     } catch (const config_change_exc_t &) {
@@ -1462,16 +1489,22 @@ bool real_reql_cluster_interface_t::sindex_rename(
         cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
         on_thread_t thread_switcher(home_thread());
 
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, table, &table_id);
+        fdb_transaction txn{m_fdb};
 
-        user_context.require_config_permission(m_rdb_context, db->id, table_id);
+        namespace_id_t table_id;
+        m_table_meta_client->find(/* txn.txn, TODO */ db->id, table, &table_id);
+
+        user_context.require_config_permission(/* txn.txn, TODO */ m_rdb_context, db->id, table_id);
 
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::sindex_rename_t{
                 name, new_name, overwrite});
-        m_table_meta_client->set_config(
+        m_table_meta_client->set_config(/* txn.txn, TODO */
             table_id, table_config_and_shards_change, &interruptor_on_home);
+
+        // TODO: Make this a commit/retry loop.
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         return true;
     } catch (const config_change_exc_t &) {
@@ -1507,9 +1540,11 @@ bool real_reql_cluster_interface_t::sindex_list(
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
     try {
         on_thread_t thread_switcher(home_thread());
+        fdb_transaction txn{m_fdb};
+
         namespace_id_t table_id;
-        m_table_meta_client->find(db->id, table_name, &table_id);
-        m_table_meta_client->get_sindex_status(
+        m_table_meta_client->find(/* txn.txn, TODO */ db->id, table_name, &table_id);
+        m_table_meta_client->get_sindex_status(/* txn.txn, TODO */ 
             table_id, &interruptor_on_home, configs_and_statuses_out);
         return true;
     } CATCH_NAME_ERRORS(db->name, table_name, error_out)
@@ -1532,6 +1567,8 @@ void real_reql_cluster_interface_t::wait_for_cluster_metadata_to_propagate(
         signal_t *interruptor_on_caller) {
     int threadnum = get_thread_id().threadnum;
 
+    // TODO: Remove this.
+
     guarantee(m_cross_thread_database_watchables[threadnum].has());
     m_cross_thread_database_watchables[threadnum]->get_watchable()->run_until_satisfied(
         [&](const databases_semilattice_metadata_t &md) -> bool {
@@ -1547,6 +1584,7 @@ void copy_value(const T *in, T *out) {
 
 void real_reql_cluster_interface_t::get_databases_metadata(
         databases_semilattice_metadata_t *out) {
+    // TODO: fdb-ize
     int threadnum = get_thread_id().threadnum;
     r_sanity_check(m_cross_thread_database_watchables[threadnum].has());
     m_cross_thread_database_watchables[threadnum]->apply_read(
@@ -1554,6 +1592,8 @@ void real_reql_cluster_interface_t::get_databases_metadata(
                       ph::_1, out));
 }
 
+// TODO: fdb-ize functions (for writing) below.
+// TODO: fdb-ize this, somehow.  (Caller passes in txn and uses it to mutate, probably.)
 void real_reql_cluster_interface_t::make_single_selection(
         auth::user_context_t const &user_context,
         const name_string_t &table_name,

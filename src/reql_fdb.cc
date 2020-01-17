@@ -19,6 +19,13 @@ TODO:
 rethinkdb/db_config//<db id> => {id: <db id>, name: "dbname"}
 rethinkdb/db_config/name/<name> => <db id>
 
+Now: rethinkdb/table_config/<id>/config => table_config_t(?) blob
+// TODO: something.
+
+(read slowly upon table usage to confirm table config matches cached value)
+
+- rethinkdb/table_config/<id>/... => ...
+  (other table config information, unsure of the format)
 
 
 Primary index:

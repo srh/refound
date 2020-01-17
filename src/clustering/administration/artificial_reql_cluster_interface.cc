@@ -418,11 +418,13 @@ bool artificial_reql_cluster_interface_t::grant_database(
         signal_t *interruptor,
         ql::datum_t *result_out,
         admin_err_t *error_out) {
+
     if (database == artificial_reql_cluster_interface_t::database_id) {
         cross_thread_signal_t cross_thread_interruptor(interruptor, home_thread());
         on_thread_t on_thread(home_thread());
 
         return auth::grant(
+            m_rdb_context->fdb,  /* TODO: Gross, pass in FDBDatabase param to grant_database? */
             m_auth_semilattice_view,
             m_rdb_context,
             user_context,
@@ -459,6 +461,7 @@ bool artificial_reql_cluster_interface_t::grant_table(
         on_thread_t on_thread(home_thread());
 
         return auth::grant(
+            nullptr,  /* TODO fdb */
             m_auth_semilattice_view,
             m_rdb_context,
             user_context,
