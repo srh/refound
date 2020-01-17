@@ -18,11 +18,14 @@
 #include "rdb_protocol/table_common.hpp"
 #include "rdb_protocol/terms/write_hook.hpp"
 #include "rdb_protocol/val.hpp"
+#include "reql_fdb.hpp"
+#include "reql_fdb_utils.hpp"
 #include "rpc/semilattice/watchable.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
 #define NAMESPACE_INTERFACE_EXPIRATION_MS (60 * 1000)
 
+// TODO: fdb-ize functions below.
 real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         FDBDatabase *fdb,
         mailbox_manager_t *mailbox_manager,
@@ -72,6 +75,19 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
     }
 }
 
+// TODO: Should return error code.
+void read_db_config(FDBTransaction *txn, databases_semilattice_metadata_t *out) {
+    const char *key = REQLFDB_DB_CONFIG_KEY();
+    get_and_deserialize(txn, key, out);
+}
+
+void write_db_config(
+        FDBTransaction *txn,
+        const databases_semilattice_metadata_t &value) {
+    const char *key = REQLFDB_DB_CONFIG_KEY();
+    serialize_and_set(txn, key, value);
+}
+
 bool real_reql_cluster_interface_t::db_create(
         auth::user_context_t const &user_context,
         const name_string_t &name,
@@ -81,7 +97,42 @@ bool real_reql_cluster_interface_t::db_create(
     guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
         "real_reql_cluster_interface_t should never get queries for system tables");
 
+    // TODO: Make user permission check use fdb (somehow).
     user_context.require_config_permission(m_rdb_context);
+
+    // TODO: Remove non-FDB code from this function
+    {
+        fdb_transaction txn{m_fdb};
+
+        databases_semilattice_metadata_t config;
+        read_db_config(txn.txn, &config);
+
+        /* Make sure there isn't an existing database with the same name. */
+        for (const auto &pair : config.databases) {
+            if (!pair.second.is_deleted() &&
+                    pair.second.get_ref().name.get_ref() == name) {
+                *error_out = admin_err_t{
+                    strprintf("Database `%s` already exists.", name.c_str()),
+                    query_state_t::FAILED};
+                return false;
+            }
+        }
+
+        database_id_t db_id = generate_uuid();
+        database_semilattice_metadata_t db;
+        db.name = versioned_t<name_string_t>(name);
+        // TODO: Remove this versioned/deletable stuff from
+        // databases_semilattice_metadata_t.  (And remove the name "semilattice".)  (If
+        // we don't remove the type entirely.)
+        config.databases.insert(std::make_pair(db_id, make_deletable(db)));
+
+        write_db_config(txn.txn, config);
+
+        // TODO: Handle error.
+        // TODO: Make this a commit/retry loop.
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        guarantee_fdb_TODO(commit_err, "db_create commit failed");
+    }
 
     cluster_semilattice_metadata_t metadata;
     ql::datum_t new_config;

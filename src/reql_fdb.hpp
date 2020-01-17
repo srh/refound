@@ -84,9 +84,15 @@ struct fdb_future {
         guarantee_fdb(err, "fdb_future_block_until_ready");
     }
 
+    void block_coro() const;
+
     FDBFuture *fut;
     DISABLE_COPYING(fdb_future);
 };
+
+fdb_future get_c_str(FDBTransaction *txn, const char *key);
+
+MUST_USE fdb_error_t commit_fdb_block_coro(FDBTransaction *txn);
 
 // TODO: Return a string_view or something.
 
@@ -94,6 +100,7 @@ struct fdb_future {
 // database.
 inline const char *REQLFDB_VERSION_KEY() { return ""; }
 inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1"; }
+inline const char *REQLFDB_DB_CONFIG_KEY() { return "rethinkdb/db_config"; }
 
 
 #endif  // RETHINKDB_FDB_HPP_
