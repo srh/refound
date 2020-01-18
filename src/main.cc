@@ -8,7 +8,7 @@
 
 #include "clustering/administration/main/command_line.hpp"
 #include "crypto/initialization_guard.hpp"
-#include "reql_fdb.hpp"
+#include "fdb/reql_fdb.hpp"
 #include "utils.hpp"
 #include "config/args.hpp"
 #include "extproc/extproc_spawner.hpp"

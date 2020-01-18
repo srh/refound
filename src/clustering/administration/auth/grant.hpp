@@ -4,7 +4,7 @@
 
 #include "rdb_protocol/table_common.hpp"
 
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 
 template <class> class semilattice_readwrite_view_t;
 struct admin_err_t;

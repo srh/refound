@@ -1,4 +1,4 @@
-#include "reql_fdb.hpp"
+#include "fdb/reql_fdb.hpp"
 
 #include <string.h>
 
@@ -15,7 +15,7 @@ fdb storage format:
 Node presence and clock configuration:
 
     rethinkdb/clock => monotonic integer, meanderingly increments approx. every REQLFDB_TIMESTEP
-    rethinkdb/node_count => number of keys under rethinkdb/nodes/
+    rethinkdb/nodes_count => number of keys under rethinkdb/nodes/
     rethinkdb/nodes/ => table of node_info_t by server uuid
       indexed with total count in place of rethinkdb/node_count?
 

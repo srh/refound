@@ -18,7 +18,7 @@
 #include "containers/optional.hpp"
 #include "containers/scoped.hpp"
 #include "containers/uuid.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 #include "perfmon/perfmon.hpp"
 #include "protocol_api.hpp"
 #include "rdb_protocol/datum.hpp"

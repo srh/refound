@@ -8,7 +8,7 @@
 
 #include "arch/address.hpp"
 #include "containers/scoped.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 #include "paths.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rockstore/store.hpp"

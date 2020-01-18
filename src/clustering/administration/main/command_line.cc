@@ -61,8 +61,8 @@
 #include "containers/scoped.hpp"
 #include "crypto/random.hpp"
 #include "logger.hpp"
-#include "reql_fdb.hpp"
-#include "reql_fdb_utils.hpp"
+#include "fdb/reql_fdb.hpp"
+#include "fdb/reql_fdb_utils.hpp"
 #include "rockstore/store.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
@@ -1911,8 +1911,19 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         reinterpret_cast<const uint8_t *>(version_value), strlen(version_value));
 
     {
-        databases_semilattice_metadata_t db_config;
-        write_db_config(txn.txn, db_config);
+        const char *clock_key = REQLFDB_CLOCK_KEY();
+        uint8_t value[REQLFDB_CLOCK_SIZE] = { 0 };
+        fdb_transaction_set(txn.txn,
+            reinterpret_cast<const uint8_t *>(clock_key), strlen(clock_key),
+            value, sizeof(value));
+    }
+
+    {
+        const char *nodes_count_key = REQLFDB_NODES_COUNT_KEY();
+        uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 0 };
+        fdb_transaction_set(txn.txn,
+            reinterpret_cast<const uint8_t *>(nodes_count_key), strlen(nodes_count_key),
+            value, sizeof(value));
     }
 
 

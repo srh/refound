@@ -5,7 +5,7 @@
 #include "clustering/administration/perfmon_collection_repo.hpp"
 #include "clustering/administration/persist/raft_storage_interface.hpp"
 #include "clustering/table_manager/table_metadata.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 
 class metadata_file_t;
 class real_store_ptr_t;

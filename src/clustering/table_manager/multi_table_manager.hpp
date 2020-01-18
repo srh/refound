@@ -8,7 +8,7 @@
 #include "clustering/table_manager/table_manager.hpp"
 #include "concurrency/rwlock.hpp"
 #include "containers/optional.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 
 /* There is one `multi_table_manager_t` on each server. For tables hosted on this server,
 it handles administrative operations: table creation and deletion, adding and removing

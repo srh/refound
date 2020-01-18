@@ -8,7 +8,7 @@
 #include "concurrency/cross_thread_signal.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/env.hpp"
-#include "reql_fdb.hpp"
+#include "fdb/reql_fdb.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
 /* static */ const name_string_t artificial_reql_cluster_interface_t::database_name =

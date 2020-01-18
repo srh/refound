@@ -12,7 +12,7 @@
 #include "arch/io/openssl.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/persist/file.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 
 class os_signal_cond_t;
 

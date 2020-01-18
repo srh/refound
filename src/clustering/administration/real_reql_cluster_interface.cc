@@ -18,8 +18,8 @@
 #include "rdb_protocol/table_common.hpp"
 #include "rdb_protocol/terms/write_hook.hpp"
 #include "rdb_protocol/val.hpp"
-#include "reql_fdb.hpp"
-#include "reql_fdb_utils.hpp"
+#include "fdb/reql_fdb.hpp"
+#include "fdb/reql_fdb_utils.hpp"
 #include "rpc/semilattice/watchable.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
@@ -74,12 +74,6 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
     }
 }
 
-// TODO: Should return error code.
-void read_db_config(FDBTransaction *txn, databases_semilattice_metadata_t *out) {
-    const char *key = REQLFDB_DB_CONFIG_KEY();
-    get_and_deserialize(txn, key, out);
-}
-
 // TODO: Make an interface with a test database.
 
 bool real_reql_cluster_interface_t::db_create(
@@ -94,38 +88,7 @@ bool real_reql_cluster_interface_t::db_create(
     // TODO: Make user permission check use fdb (somehow).
     user_context.require_config_permission(m_rdb_context);
 
-    // TODO: Remove non-FDB code from this function
-    {
-        fdb_transaction txn{m_fdb};
-
-        databases_semilattice_metadata_t config;
-        read_db_config(txn.txn, &config);
-
-        /* Make sure there isn't an existing database with the same name. */
-        for (const auto &pair : config.databases) {
-            if (!pair.second.is_deleted() &&
-                    pair.second.get_ref().name.get_ref() == name) {
-                *error_out = admin_err_t{
-                    strprintf("Database `%s` already exists.", name.c_str()),
-                    query_state_t::FAILED};
-                return false;
-            }
-        }
-
-        database_id_t db_id = generate_uuid();
-        database_semilattice_metadata_t db;
-        db.name = versioned_t<name_string_t>(name);
-        // TODO: Remove this versioned/deletable stuff from
-        // databases_semilattice_metadata_t.  (And remove the name "semilattice".)  (If
-        // we don't remove the type entirely.)
-        config.databases.insert(std::make_pair(db_id, make_deletable(db)));
-
-        write_db_config(txn.txn, config);
-
-        // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
-        guarantee_fdb_TODO(commit_err, "db_create commit failed");
-    }
+    // TODO: fdb-ize this function.
 
     cluster_semilattice_metadata_t metadata;
     ql::datum_t new_config;
@@ -204,30 +167,7 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
                 "have been dropped.")
     }
 
-    {
-        // TODO: Delete the tables in fdb ^^
-        fdb_transaction txn{m_fdb};
-
-        databases_semilattice_metadata_t config;
-        read_db_config(txn.txn, &config);
-
-        auto it = config.databases.find(database_id);
-        if (it != config.databases.end() && !it->second.is_deleted()) {
-            // TODO: Don't use deletable any more. (?)
-            it->second.mark_deleted();
-        } else {
-            *error_out = admin_err_t{
-                "The database was already deleted.", query_state_t::FAILED};
-            return false;
-        }
-
-        write_db_config(txn.txn, config);
-
-        // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
-        guarantee_fdb_TODO(commit_err, "db_drop_uuid commit failed");
-    }
-
+    // TODO: fdb-ize this function
     cluster_semilattice_metadata_t metadata = m_cluster_semilattice_view->get();
     auto iter = metadata.databases.databases.find(database_id);
     if (iter != metadata.databases.databases.end() && !iter->second.is_deleted()) {

@@ -11,7 +11,7 @@
 #include "clustering/administration/tables/generate_config.hpp"
 #include "concurrency/cross_thread_watchable.hpp"
 #include "concurrency/watchable.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 #include "rdb_protocol/context.hpp"
 #include "rpc/semilattice/view.hpp"
 

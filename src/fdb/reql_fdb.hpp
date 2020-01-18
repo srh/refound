@@ -1,9 +1,9 @@
-#ifndef RETHINKDB_REQL_FDB_HPP_
-#define RETHINKDB_REQL_FDB_HPP_
+#ifndef RETHINKDB_FDB_REQL_FDB_HPP_
+#define RETHINKDB_FDB_REQL_FDB_HPP_
 
 #include "containers/uuid.hpp"
 #include "errors.hpp"
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 
 /* The general idea here is these types exist for RAII.  Users should still pass
 parameters `FDBDatabase *` and `FDBTransaction *` to anything that doesn't take
@@ -106,8 +106,16 @@ inline void commit_TODO_retry(FDBTransaction *txn) {
 // REQLFDB_VERSION_KEY is guaranteed to be the smallest key that appears in a reqlfdb
 // database.
 inline const char *REQLFDB_VERSION_KEY() { return ""; }
-inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1"; }
-inline const char *REQLFDB_DB_CONFIG_KEY() { return "rethinkdb/db_config"; }
+inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1.0"; }
+inline const char *REQLFDB_CLOCK_KEY() { return "rethinkdb/clock"; }
+
+inline const char *REQLFDB_NODES_TABLE() { return "rethinkdb/nodes"; }
+inline const char *REQLFDB_NODES_COUNT_KEY() { return "rethinkdb/nodes_count"; }
+
+inline const char *REQLFDB_DB_CONFIG_TABLE() { return "rethinkdb/db_config"; }
+
+constexpr size_t REQLFDB_CLOCK_SIZE = 10;
+constexpr size_t REQLFDB_NODES_COUNT_SIZE = 10;
 
 inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
     std::string ret;
@@ -118,4 +126,4 @@ inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
     return ret;
 }
 
-#endif  // RETHINKDB_FDB_HPP_
+#endif  // RETHINKDB_FDB_REQL_FDB_HPP_

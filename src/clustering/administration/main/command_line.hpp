@@ -2,7 +2,7 @@
 #ifndef CLUSTERING_ADMINISTRATION_MAIN_COMMAND_LINE_HPP_
 #define CLUSTERING_ADMINISTRATION_MAIN_COMMAND_LINE_HPP_
 
-#include "fdb.hpp"
+#include "fdb/fdb.hpp"
 
 void print_version_message();
 

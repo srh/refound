@@ -1,9 +1,9 @@
-#ifndef RETHINKDB_REQL_FDB_UTILS_HPP_
-#define RETHINKDB_REQL_FDB_UTILS_HPP_
+#ifndef RETHINKDB_FDB_REQL_FDB_UTILS_HPP_
+#define RETHINKDB_FDB_REQL_FDB_UTILS_HPP_
 
 #include "containers/archive/buffer_stream.hpp"
 #include "containers/archive/vector_stream.hpp"
-#include "reql_fdb.hpp"
+#include "fdb/reql_fdb.hpp"
 
 template <class T>
 void get_and_deserialize(FDBTransaction *txn, const char *key, T *out) {
@@ -39,12 +39,5 @@ void serialize_and_set(FDBTransaction *txn, const char *key, const T &value) {
         data_size);
 }
 
-inline void write_db_config(
-        FDBTransaction *txn,
-        const databases_semilattice_metadata_t &value) {
-    const char *key = REQLFDB_DB_CONFIG_KEY();
-    serialize_and_set(txn, key, value);
-}
 
-
-#endif  // RETHINKDB_REQL_FDB_UTILS_HPP_
+#endif  // RETHINKDB_FDB_REQL_FDB_UTILS_HPP_
