@@ -105,17 +105,20 @@ inline void commit_TODO_retry(FDBTransaction *txn) {
 
 // REQLFDB_VERSION_KEY is guaranteed to be the smallest key that appears in a reqlfdb
 // database.
-inline const char *REQLFDB_VERSION_KEY() { return ""; }
-inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1.0"; }
-inline const char *REQLFDB_CLOCK_KEY() { return "rethinkdb/clock"; }
+constexpr const char *REQLFDB_VERSION_KEY = "";
+constexpr const char *REQLFDB_VERSION_VALUE_PREFIX = "reqlfdb 0.1.0 ";
+constexpr const char *REQLFDB_CLOCK_KEY = "rethinkdb/clock";
 
-inline const char *REQLFDB_NODES_TABLE() { return "rethinkdb/nodes"; }
-inline const char *REQLFDB_NODES_COUNT_KEY() { return "rethinkdb/nodes_count"; }
+constexpr const char *REQLFDB_NODES_TABLE = "rethinkdb/nodes";
+constexpr const char *REQLFDB_NODES_COUNT_KEY = "rethinkdb/nodes_count";
 
-inline const char *REQLFDB_DB_CONFIG_TABLE() { return "rethinkdb/db_config"; }
+constexpr const char *REQLFDB_DB_CONFIG_TABLE = "rethinkdb/db_config";
+
+constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 
 constexpr size_t REQLFDB_CLOCK_SIZE = 10;
 constexpr size_t REQLFDB_NODES_COUNT_SIZE = 10;
+constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 10;
 
 inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
     std::string ret;

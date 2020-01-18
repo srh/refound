@@ -8,7 +8,7 @@
 
 fdb storage format:
 
-    "" => "reqlfdb 2.4.0" -- the reqlfdb version we're on
+    "" => "reqlfdb 2.4.0 <uuid>" -- the reqlfdb version we're on and a random UUID
 
     rethinkdb/... => rethinkdb system db
 
@@ -41,7 +41,7 @@ Table config:
 
 User config:
 
-    rethinkd/user/config => table of users
+    rethinkd/user_config/ => table of users
       indexed by name?
 
 Config version:

@@ -1876,9 +1876,6 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     get_fut.block_pthread();
 
     // Okay, we have an empty db.  Now what?
-    const char *version_key = REQLFDB_VERSION_KEY();
-    const char *version_value = REQLFDB_VERSION_VALUE();
-
     const uint8_t *key;
     int key_length;
     fdb_error_t err = fdb_future_get_key(get_fut.fut, &key, &key_length);
@@ -1906,12 +1903,20 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         }
     }
 
-    fdb_transaction_set(txn.txn,
-        reinterpret_cast<const uint8_t *>(version_key), strlen(version_key),
-        reinterpret_cast<const uint8_t *>(version_value), strlen(version_value));
+    {
+        const char *version_key = REQLFDB_VERSION_KEY;
+        std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
+        version_value += uuid_to_str(generate_uuid());
+
+        fdb_transaction_set(txn.txn,
+            reinterpret_cast<const uint8_t *>(version_key),
+            strlen(version_key),
+            reinterpret_cast<const uint8_t *>(version_value.data()),
+            version_value.size());
+    }
 
     {
-        const char *clock_key = REQLFDB_CLOCK_KEY();
+        const char *clock_key = REQLFDB_CLOCK_KEY;
         uint8_t value[REQLFDB_CLOCK_SIZE] = { 0 };
         fdb_transaction_set(txn.txn,
             reinterpret_cast<const uint8_t *>(clock_key), strlen(clock_key),
@@ -1919,10 +1924,18 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     }
 
     {
-        const char *nodes_count_key = REQLFDB_NODES_COUNT_KEY();
+        const char *nodes_count_key = REQLFDB_NODES_COUNT_KEY;
         uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 0 };
         fdb_transaction_set(txn.txn,
             reinterpret_cast<const uint8_t *>(nodes_count_key), strlen(nodes_count_key),
+            value, sizeof(value));
+    }
+
+    {
+        const char *config_version_key = REQLFDB_CONFIG_VERSION_KEY;
+        uint8_t value[REQLFDB_CONFIG_VERSION_COUNT_SIZE] = { 0 };
+        fdb_transaction_set(txn.txn,
+            reinterpret_cast<const uint8_t *>(config_version_key), strlen(config_version_key),
             value, sizeof(value));
     }
 
