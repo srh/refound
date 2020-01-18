@@ -140,33 +140,36 @@ void push_hex(std::string *s, uint8_t byte) {
     s->push_back(buf[byte & 0x0f]);
 }
 
-std::string uuid_to_str(uuid_u id) {
+void uuid_onto_str(uuid_u id, std::string *onto) {
     const uint8_t *data = id.data();
 
-    std::string ret;
-    ret.reserve(uuid_u::kStringSize);
     size_t i = 0;
     for (; i < 4; ++i) {
-        push_hex(&ret, data[i]);
+        push_hex(onto, data[i]);
     }
-    ret.push_back('-');
+    onto->push_back('-');
     for (; i < 6; ++i) {
-        push_hex(&ret, data[i]);
+        push_hex(onto, data[i]);
     }
-    ret.push_back('-');
+    onto->push_back('-');
     for (; i < 8; ++i) {
-        push_hex(&ret, data[i]);
+        push_hex(onto, data[i]);
     }
-    ret.push_back('-');
+    onto->push_back('-');
     for (; i < 10; ++i) {
-        push_hex(&ret, data[i]);
+        push_hex(onto, data[i]);
     }
-    ret.push_back('-');
+    onto->push_back('-');
     CT_ASSERT(uuid_u::kStaticSize == 16);  // This code just feels this assertion in its bones.
     for (; i < uuid_u::kStaticSize; ++i) {
-        push_hex(&ret, data[i]);
+        push_hex(onto, data[i]);
     }
+}
 
+std::string uuid_to_str(uuid_u id) {
+    std::string ret;
+    ret.reserve(uuid_u::kStringSize);
+    uuid_onto_str(id, &ret);
     return ret;
 }
 

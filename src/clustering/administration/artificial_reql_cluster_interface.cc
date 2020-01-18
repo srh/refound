@@ -8,6 +8,7 @@
 #include "concurrency/cross_thread_signal.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/env.hpp"
+#include "reql_fdb.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
 /* static */ const name_string_t artificial_reql_cluster_interface_t::database_name =
@@ -423,8 +424,10 @@ bool artificial_reql_cluster_interface_t::grant_database(
         cross_thread_signal_t cross_thread_interruptor(interruptor, home_thread());
         on_thread_t on_thread(home_thread());
 
-        return auth::grant(
-            m_rdb_context->fdb,  /* TODO: Gross, pass in FDBDatabase param to grant_database? */
+        fdb_transaction txn{m_rdb_context->fdb};  /* TODO: Gross, pass in FDBDatabase param to grant_database? */
+
+        bool ret = auth::grant(
+            txn.txn,
             m_auth_semilattice_view,
             m_rdb_context,
             user_context,
@@ -436,7 +439,11 @@ bool artificial_reql_cluster_interface_t::grant_database(
             },
             result_out,
             error_out);
+
+        commit_TODO_retry(txn.txn);
+        return ret;
     }
+
     return next_or_error(error_out) && m_next->grant_database(
         user_context,
         database,
@@ -460,8 +467,10 @@ bool artificial_reql_cluster_interface_t::grant_table(
         cross_thread_signal_t cross_thread_interruptor(interruptor, home_thread());
         on_thread_t on_thread(home_thread());
 
-        return auth::grant(
-            nullptr,  /* TODO fdb */
+        fdb_transaction txn{m_rdb_context->fdb};  // TODO: gross again
+
+        bool ret = auth::grant(
+            txn.txn,
             m_auth_semilattice_view,
             m_rdb_context,
             user_context,
@@ -473,8 +482,15 @@ bool artificial_reql_cluster_interface_t::grant_table(
             },
             result_out,
             error_out);
+        commit_TODO_retry(txn.txn);
+        return ret;
     }
-    return next_or_error(error_out) && m_next->grant_table(
+    if (!next_or_error(error_out)) {
+        return false;
+    }
+
+    fdb_transaction txn{m_rdb_context->fdb};  // TODO: gross again
+    bool ret = m_next->grant_table(
         user_context,
         database,
         table,
@@ -483,6 +499,8 @@ bool artificial_reql_cluster_interface_t::grant_table(
         interruptor,
         result_out,
         error_out);
+    commit_TODO_retry(txn.txn);
+    return ret;
 }
 
 bool artificial_reql_cluster_interface_t::set_write_hook(

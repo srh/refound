@@ -53,6 +53,7 @@ uuid_u nil_uuid();
 void debug_print(printf_buffer_t *buf, const uuid_u& id);
 
 std::string uuid_to_str(uuid_u id);
+void uuid_onto_str(uuid_u id, std::string *onto);
 
 uuid_u str_to_uuid(const std::string &str);
 

@@ -14,7 +14,7 @@ namespace auth {
 class user_t;
 
 bool grant(
-        FDBDatabase *fdb,
+        FDBTransaction *txn,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         rdb_context_t *rdb_context,

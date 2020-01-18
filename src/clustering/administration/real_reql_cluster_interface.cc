@@ -1236,8 +1236,10 @@ bool real_reql_cluster_interface_t::grant_global(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
-    return auth::grant(
-        m_fdb,
+    fdb_transaction txn{m_fdb};
+
+    bool ret = auth::grant(
+        txn.txn,
         m_auth_semilattice_view,
         m_rdb_context,
         user_context,
@@ -1249,6 +1251,9 @@ bool real_reql_cluster_interface_t::grant_global(
         },
         result_out,
         error_out);
+
+    commit_TODO_retry(txn.txn);
+    return ret;
 }
 
 bool real_reql_cluster_interface_t::grant_database(
@@ -1262,8 +1267,10 @@ bool real_reql_cluster_interface_t::grant_database(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
-    return auth::grant(
-        m_fdb,
+    fdb_transaction txn{m_fdb};
+
+    bool ret = auth::grant(
+        txn.txn,
         m_auth_semilattice_view,
         m_rdb_context,
         user_context,
@@ -1275,6 +1282,9 @@ bool real_reql_cluster_interface_t::grant_database(
         },
         result_out,
         error_out);
+
+    commit_TODO_retry(txn.txn);
+    return ret;
 }
 
 bool real_reql_cluster_interface_t::grant_table(
@@ -1289,9 +1299,10 @@ bool real_reql_cluster_interface_t::grant_table(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
-    // TODO: fdb-ize auth::grant.
-    return auth::grant(
-        m_fdb,
+    fdb_transaction txn{m_fdb};
+
+    bool ret = auth::grant(
+        txn.txn,
         m_auth_semilattice_view,
         m_rdb_context,
         user_context,
@@ -1303,6 +1314,9 @@ bool real_reql_cluster_interface_t::grant_table(
         },
         result_out,
         error_out);
+
+    commit_TODO_retry(txn.txn);
+    return ret;
 }
 
 bool real_reql_cluster_interface_t::set_write_hook(

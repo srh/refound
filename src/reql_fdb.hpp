@@ -1,6 +1,7 @@
 #ifndef RETHINKDB_REQL_FDB_HPP_
 #define RETHINKDB_REQL_FDB_HPP_
 
+#include "containers/uuid.hpp"
 #include "errors.hpp"
 #include "fdb.hpp"
 
@@ -94,6 +95,12 @@ fdb_future get_c_str(FDBTransaction *txn, const char *key);
 
 MUST_USE fdb_error_t commit_fdb_block_coro(FDBTransaction *txn);
 
+// TODO: Make callers use a commit/retry loop and remove this.
+inline void commit_TODO_retry(FDBTransaction *txn) {
+    fdb_error_t commit_err = commit_fdb_block_coro(txn);
+    guarantee_fdb_TODO(commit_err, "db_create commit failed");
+}
+
 // TODO: Return a string_view or something.
 
 // REQLFDB_VERSION_KEY is guaranteed to be the smallest key that appears in a reqlfdb
@@ -102,5 +109,13 @@ inline const char *REQLFDB_VERSION_KEY() { return ""; }
 inline const char *REQLFDB_VERSION_VALUE() { return "reqlfdb 0.1"; }
 inline const char *REQLFDB_DB_CONFIG_KEY() { return "rethinkdb/db_config"; }
 
+inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
+    std::string ret;
+    ret.reserve(200);  // TODO: how much?
+    ret += "rethinkdb/table_config/";
+    uuid_onto_str(table_id, &ret);
+    ret += "/config";
+    return ret;
+}
 
 #endif  // RETHINKDB_FDB_HPP_
