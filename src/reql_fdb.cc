@@ -8,37 +8,64 @@
 
 fdb storage format:
 
-"" => "reqlfdb 2.4.0" -- the reqlfdb version we're on
+    "" => "reqlfdb 2.4.0" -- the reqlfdb version we're on
 
-rethinkdb/... => rethinkdb system db
+    rethinkdb/... => rethinkdb system db
 
-Databases configuration:
+Node presence and clock configuration:
 
-Now: rethinkdb/db_config => databases_semilattice_metadata_t blob
-TODO:
-rethinkdb/db_config//<db id> => {id: <db id>, name: "dbname"}
-rethinkdb/db_config/name/<name> => <db id>
+    rethinkdb/clock => monotonic integer, meanderingly increments approx. every REQLFDB_TIMESTEP
+    rethinkdb/node_count => number of keys under rethinkdb/nodes/
+    rethinkdb/nodes/ => table of node_info_t by server uuid
+      indexed with total count in place of rethinkdb/node_count?
 
-Now: rethinkdb/table_config/<id>/config => table_config_t(?) blob
-// TODO: something.
+Jobs:
 
-(read slowly upon table usage to confirm table config matches cached value)
+    rethinkdb/jobs/ => table of job_info_t by job uuid
+      indexed by lease expiration timestamp (see rethinkdb/clock)
 
-- rethinkdb/table_config/<id>/... => ...
-  (other table config information, unsure of the format)
+Log:
 
+    rethinkdb/log/ => table of log entries
+      not sure how indexed
 
-Primary index:
-tables/<table id>//<btree key> => <value> -- deal with large values at some point
+Db config:
 
-Secondary index:
-tables/<table id>/<index id>/<btree key> => <value>
+    rethinkdb/db_config/ => table of db_config_t
+      indexed by name
 
-Secondary index map:
-tables/<table id>/metadata/sindex_map => std::map<sindex_name_t, secondary_index_t> -- or not, that just goes into system db
+Table config:
 
-Change feeds:
-<TODO>
+    rethinkdb/table_config/ => table of table_config_t
+      indexed by name
+
+User config:
+
+    rethinkd/user/config => table of users
+      indexed by name?
+
+Config version:
+
+    rethinkdb/config_version => monotonic integer
+      Gets incremented whenever table, db, or index availability decreases (or changes?).
+      Gets incremented whenever user access decreases (or changes?).
+
+    (We don't mind querying upon rare failure case.)
+
+Table format:
+
+    Given a table prefix like "tables/uuid",
+
+    Primary index:
+    <table prefix>//<pkey> => <value>
+
+    Secondary index:
+    <table prefix>/<index id>/<sindex key>/<pkey> => <portion of value>
+
+    Aggregate (count) index:
+    <table prefix>/<index id> => number of records in primary index (I guess)
+
+    Changefeed index:  TODO
 
 */
 
