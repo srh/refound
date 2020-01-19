@@ -325,7 +325,7 @@ bool real_reql_cluster_interface_t::table_create(
         on_thread_t thread_switcher(home_thread());
 
         /* Make sure there isn't an existing table with the same name */
-        if (m_table_meta_client->exists(/* txn.txn, TODO */ db->id, name)) {
+        if (m_table_meta_client->exists(/* txn.txn, TODO, beware thread */ db->id, name)) {
             *error_out = admin_err_t{
                 strprintf("Table `%s.%s` already exists.",
                           db->name.c_str(), name.c_str()),
@@ -359,7 +359,7 @@ bool real_reql_cluster_interface_t::table_create(
 
         table_id = generate_uuid();
         // TODO: What does m_table_meta_client do?  Is it bloat?
-        m_table_meta_client->create(/* txn.txn, TODO */ table_id, config, &interruptor_on_home);
+        m_table_meta_client->create(/* txn.txn, TODO, beware thread */ table_id, config, &interruptor_on_home);
 
         new_config = convert_table_config_to_datum(table_id,
             convert_name_to_datum(db->name), config.config,
@@ -374,7 +374,7 @@ bool real_reql_cluster_interface_t::table_create(
         "The table may or may not have been created.")
 
     // TODO: Make this a commit/retry loop.
-    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, interruptor_on_caller);
     guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
     // TODO: vv remove waiting for table readiness.
@@ -456,7 +456,7 @@ bool real_reql_cluster_interface_t::table_drop(
         m_table_meta_client->drop(/* txn.txn, TODO */ table_id, &interruptor_on_home);
 
         // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, &interruptor_on_home);
         guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         ql::datum_object_builder_t result_builder;
@@ -1176,24 +1176,33 @@ bool real_reql_cluster_interface_t::grant_global(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
-    fdb_transaction txn{m_fdb};
+    bool ret_out;
+    fdb_error_t err = txn_retry_loop_coro(m_fdb, &interruptor_on_home,
+            [&](FDBTransaction *txn) {
+        ql::datum_t result;
+        admin_err_t err;
+        bool ret = auth::grant(
+            txn,
+            m_auth_semilattice_view,
+            m_rdb_context,
+            user_context,
+            std::move(username),
+            std::move(permissions),
+            &interruptor_on_home,
+            [](auth::user_t &user) -> auth::permissions_t & {
+                return user.get_global_permissions();
+            },
+            &result,
+            &err);
+        commit(txn, &interruptor_on_home);
 
-    bool ret = auth::grant(
-        txn.txn,
-        m_auth_semilattice_view,
-        m_rdb_context,
-        user_context,
-        std::move(username),
-        std::move(permissions),
-        &interruptor_on_home,
-        [](auth::user_t &user) -> auth::permissions_t & {
-            return user.get_global_permissions();
-        },
-        result_out,
-        error_out);
+        *result_out = std::move(result);
+        *error_out = std::move(err);
+        ret_out = ret;
+    });
+    guarantee_fdb_TODO(err, "retry loop in grant_global");
 
-    commit_TODO_retry(txn.txn);
-    return ret;
+    return ret_out;
 }
 
 bool real_reql_cluster_interface_t::grant_database(
@@ -1207,24 +1216,32 @@ bool real_reql_cluster_interface_t::grant_database(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
-    fdb_transaction txn{m_fdb};
+    bool ret_out;
+    fdb_error_t err = txn_retry_loop_coro(m_fdb, &interruptor_on_home,
+            [&](FDBTransaction *txn) {
+        ql::datum_t result;
+        admin_err_t err;
+        bool ret = auth::grant(
+            txn,
+            m_auth_semilattice_view,
+            m_rdb_context,
+            user_context,
+            std::move(username),
+            std::move(permissions),
+            &interruptor_on_home,
+            [&](auth::user_t &user) -> auth::permissions_t & {
+                return user.get_database_permissions(database_id);
+            },
+            &result,
+            &err);
+        commit(txn, &interruptor_on_home);
 
-    bool ret = auth::grant(
-        txn.txn,
-        m_auth_semilattice_view,
-        m_rdb_context,
-        user_context,
-        std::move(username),
-        std::move(permissions),
-        &interruptor_on_home,
-        [&](auth::user_t &user) -> auth::permissions_t & {
-            return user.get_database_permissions(database_id);
-        },
-        result_out,
-        error_out);
-
-    commit_TODO_retry(txn.txn);
-    return ret;
+        *result_out = std::move(result);
+        *error_out = std::move(err);
+        ret_out = ret;
+    });
+    guarantee_fdb_TODO(err, "retry loop in grant_database");
+    return ret_out;
 }
 
 bool real_reql_cluster_interface_t::grant_table(
@@ -1239,24 +1256,32 @@ bool real_reql_cluster_interface_t::grant_table(
     cross_thread_signal_t interruptor_on_home(interruptor, home_thread());
     on_thread_t on_thread(home_thread());
 
-    fdb_transaction txn{m_fdb};
+    bool ret_out;
+    fdb_error_t err = txn_retry_loop_coro(m_fdb, &interruptor_on_home,
+            [&](FDBTransaction *txn) {
+        ql::datum_t result;
+        admin_err_t err;
+        bool ret = auth::grant(
+            txn,
+            m_auth_semilattice_view,
+            m_rdb_context,
+            user_context,
+            std::move(username),
+            std::move(permissions),
+            &interruptor_on_home,
+            [&](auth::user_t &user) -> auth::permissions_t & {
+                return user.get_table_permissions(table_id);
+            },
+            &result,
+            &err);
+        commit(txn, &interruptor_on_home);
 
-    bool ret = auth::grant(
-        txn.txn,
-        m_auth_semilattice_view,
-        m_rdb_context,
-        user_context,
-        std::move(username),
-        std::move(permissions),
-        &interruptor_on_home,
-        [&](auth::user_t &user) -> auth::permissions_t & {
-            return user.get_table_permissions(table_id);
-        },
-        result_out,
-        error_out);
-
-    commit_TODO_retry(txn.txn);
-    return ret;
+        *result_out = std::move(result);
+        *error_out = std::move(err);
+        ret_out = ret;
+    });
+    guarantee_fdb_TODO(err, "retry loop in grant_table");
+    return ret_out;
 }
 
 bool real_reql_cluster_interface_t::set_write_hook(
@@ -1294,7 +1319,7 @@ bool real_reql_cluster_interface_t::set_write_hook(
     }
 
     // TODO: Make this a commit/retry loop.
-    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, &interruptor_on_home);
     guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
     return true;
@@ -1323,7 +1348,7 @@ bool real_reql_cluster_interface_t::get_write_hook(
 
     table_config_and_shards_t existing_config;
 
-    m_table_meta_client->get_config(/* txn.txn, TODO */ 
+    m_table_meta_client->get_config(/* txn.txn, TODO */
         table_id,
         &interruptor_on_home,
         &existing_config);
@@ -1359,14 +1384,14 @@ bool real_reql_cluster_interface_t::sindex_create(
 
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::sindex_create_t{name, config});
-        m_table_meta_client->set_config(/* txn.txn, TODO */ 
+        m_table_meta_client->set_config(/* txn.txn, TODO */
             table_id, table_config_and_shards_change, &interruptor_on_home);
 
         // TODO: Somewhere, of course, like here, we need to initiate sindex
         // construction.
 
         // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, &interruptor_on_home);
         guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         return true;
@@ -1411,7 +1436,7 @@ bool real_reql_cluster_interface_t::sindex_drop(
         // TODO: We'll want to wipe the sindex with a simple erase range operation.
 
         // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, &interruptor_on_home);
         guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         return true;
@@ -1457,7 +1482,7 @@ bool real_reql_cluster_interface_t::sindex_rename(
             table_id, table_config_and_shards_change, &interruptor_on_home);
 
         // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn);
+        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, &interruptor_on_home);
         guarantee_fdb_TODO(commit_err, "db_create commit failed");
 
         return true;

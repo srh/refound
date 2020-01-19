@@ -31,6 +31,7 @@
 #include "containers/lifetime.hpp"
 #include "containers/optional.hpp"
 #include "extproc/extproc_pool.hpp"
+#include "fdb/node_holder.hpp"
 #include "rdb_protocol/query_server.hpp"
 #include "rpc/connectivity/cluster.hpp"
 #include "rpc/directory/map_read_manager.hpp"
@@ -141,6 +142,8 @@ bool do_serve(FDBDatabase *fdb,
 #ifndef NDEBUG
         logNTC("Our server ID is %s", server_id.print().c_str());
 #endif
+
+        fdb_node_holder node_holder{fdb, stop_cond};
 
         /* The `connectivity_cluster_t` maintains TCP connections to other servers in the
         cluster. */
@@ -604,10 +607,14 @@ bool do_serve(FDBDatabase *fdb,
                 logNTC("Shutting down client connections...\n");
             }
             logNTC("All client connections closed.\n");
+            // TODO: Review this message.
             logNTC("Shutting down storage engine... (This may take a while if you had a lot of unflushed data in the writeback cache.)\n");
         }
+        // TODO: Review this message.  There is no storage engine.
         logNTC("Storage engine shut down.\n");
 
+        cond_t non_interruptor;  // TODO?
+        node_holder.shutdown(&non_interruptor);
     } catch (const address_in_use_exc_t &ex) {
         logERR("%s.\n", ex.what());
         return false;

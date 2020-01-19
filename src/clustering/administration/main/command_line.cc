@@ -1136,7 +1136,7 @@ void run_rethinkdb_create(const base_path_t &base_path,
     }
 }
 
-void run_rethinkdb_serve(FDBDatabase *db,
+void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
                          serve_info_t *serve_info,
                          const std::string &initial_password,
@@ -1259,7 +1259,7 @@ void run_rethinkdb_serve(FDBDatabase *db,
         data_directory_lock->directory_initialized();
 
         serve_info->look_up_peers();
-        *result_out = serve(db,
+        *result_out = serve(fdb,
                             &io_backender,
                             base_path,
                             metadata_file.get(),
@@ -1909,9 +1909,9 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         version_value += uuid_to_str(generate_uuid());
 
         fdb_transaction_set(txn.txn,
-            reinterpret_cast<const uint8_t *>(version_key),
+            as_uint8(version_key),
             strlen(version_key),
-            reinterpret_cast<const uint8_t *>(version_value.data()),
+            as_uint8(version_value.data()),
             version_value.size());
     }
 
@@ -1919,7 +1919,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         const char *clock_key = REQLFDB_CLOCK_KEY;
         uint8_t value[REQLFDB_CLOCK_SIZE] = { 0 };
         fdb_transaction_set(txn.txn,
-            reinterpret_cast<const uint8_t *>(clock_key), strlen(clock_key),
+            as_uint8(clock_key), strlen(clock_key),
             value, sizeof(value));
     }
 
@@ -1927,7 +1927,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         const char *nodes_count_key = REQLFDB_NODES_COUNT_KEY;
         uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 0 };
         fdb_transaction_set(txn.txn,
-            reinterpret_cast<const uint8_t *>(nodes_count_key), strlen(nodes_count_key),
+            as_uint8(nodes_count_key), strlen(nodes_count_key),
             value, sizeof(value));
     }
 
@@ -1935,7 +1935,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         const char *config_version_key = REQLFDB_CONFIG_VERSION_KEY;
         uint8_t value[REQLFDB_CONFIG_VERSION_COUNT_SIZE] = { 0 };
         fdb_transaction_set(txn.txn,
-            reinterpret_cast<const uint8_t *>(config_version_key), strlen(config_version_key),
+            as_uint8(config_version_key), strlen(config_version_key),
             value, sizeof(value));
     }
 
@@ -2087,7 +2087,7 @@ bool maybe_daemonize(const std::map<std::string, options::values_t> &opts) {
     return true;
 }
 
-int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]) {
+int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_serve_options(&help, &options);
@@ -2178,7 +2178,7 @@ int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]) {
 
         bool result;
         run_in_thread_pool(std::bind(&run_rethinkdb_serve,
-                                     db,
+                                     fdb,
                                      base_path,
                                      &serve_info,
                                      initial_password,

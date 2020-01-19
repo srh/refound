@@ -6,9 +6,9 @@
 #include "fdb/reql_fdb.hpp"
 
 template <class T>
-void get_and_deserialize(FDBTransaction *txn, const char *key, T *out) {
+void get_and_deserialize(FDBTransaction *txn, const char *key, const signal_t *interruptor, T *out) {
     fdb_future value_fut = get_c_str(txn, key);
-    value_fut.block_coro();
+    value_fut.block_coro(interruptor);
 
     fdb_bool_t present;
     const uint8_t *value;
@@ -18,7 +18,7 @@ void get_and_deserialize(FDBTransaction *txn, const char *key, T *out) {
     guarantee_fdb_TODO(err, "fdb_future_get_value failed");
     guarantee(present, "fdb_future_get_value did not find value");  // TODO
 
-    buffer_read_stream_t stream(reinterpret_cast<const char *>(value), value_length);
+    buffer_read_stream_t stream(as_char(value), value_length);
     // TODO: serialization versioning.
     archive_result_t res = deserialize<cluster_version_t::LATEST_DISK>(&stream, out);
     guarantee(!bad(res), "bad deserialization from db value");  // TODO: pass error
@@ -33,9 +33,9 @@ void serialize_and_set(FDBTransaction *txn, const char *key, const T &value) {
 
     fdb_transaction_set(
         txn,
-        reinterpret_cast<const uint8_t *>(key),
+        as_uint8(key),
         strlen(key),
-        reinterpret_cast<const uint8_t *>(data.data()),
+        as_uint8(data.data()),
         data_size);
 }
 

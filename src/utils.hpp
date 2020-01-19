@@ -52,6 +52,12 @@ uint64_t strtou64_strict(const char *string, const char **end, int base);
 MUST_USE bool strtoi64_strict(const std::string &str, int base, int64_t *out_result);
 MUST_USE bool strtou64_strict(const std::string &str, int base, uint64_t *out_result);
 
+// Converts a little-endian uint64, possibly unaligned in memory.
+uint64_t read_LE_uint64(const char *data);
+uint64_t read_LE_uint64(const uint8_t *data);
+
+void write_LE_uint64(uint64_t value, uint8_t data_out[8]);
+
 std::string strprintf(const char *format, ...) ATTR_FORMAT(printf, 1, 2);
 std::string vstrprintf(const char *format, va_list ap) ATTR_FORMAT(printf, 1, 0);
 

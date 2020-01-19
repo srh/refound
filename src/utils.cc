@@ -28,6 +28,7 @@
 
 #include "errors.hpp"
 #include <boost/date_time.hpp>
+#include <boost/detail/endian.hpp>
 
 #include "arch/runtime/coroutines.hpp"
 #include "arch/runtime/runtime.hpp"
@@ -318,6 +319,39 @@ bool strtou64_strict(const std::string &str, int base, uint64_t *out_result) {
         *out_result = result;
         return true;
     }
+}
+
+uint64_t read_LE_uint64(const char *data) {
+    union {
+        uint64_t x;
+        char data[8];
+    } u;
+    memcpy(u.data, data, 8);
+    uint64_t ret = u.x;
+#if defined(__s390x__)
+    ret = __builtin_bswap64(value);
+#elif !defined(BOOST_LITTLE_ENDIAN)
+    static_assert(false, "This piece of code will break on big endian systems.");
+#endif
+    return ret;
+}
+
+uint64_t read_LE_uint64(const uint8_t *data) {
+    return read_LE_uint64(reinterpret_cast<const char *>(data));
+}
+
+void write_LE_uint64(uint64_t value, uint8_t data_out[8]) {
+#if defined(__s390x__)
+    value = __builtin_bswap64(value);
+#elif !defined(BOOST_LITTLE_ENDIAN)
+    static_assert(false, "This piece of code will break on big endian systems.");
+#endif
+    union {
+        uint64_t x;
+        char data[8];
+    } u;
+    u.x = value;
+    memcpy(data_out, u.data, 8);
 }
 
 std::string vstrprintf(const char *format, va_list ap) {

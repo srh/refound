@@ -3,6 +3,7 @@
 #define DO_ON_THREAD_HPP_
 
 #include "arch/runtime/runtime.hpp"
+#include "arch/runtime/thread_pool.hpp"
 #include "utils.hpp"
 
 /* Functions to do something on another core in a way that is more convenient than
@@ -47,7 +48,7 @@ struct thread_doer_t : public thread_message_t, public home_thread_mixin_t {
         rassert(!no_switch);
     }
 
-    void on_thread_switch() {
+    void on_thread_switch() override {
         switch (state) {
             case state_go_to_core:
                 do_perform_job();
@@ -79,6 +80,29 @@ void do_on_thread(threadnum_t thread, callable_t &&callable) {
         fsm->run();
     }
 }
+
+template <class callable_t>
+struct external_thread_doer_t : public thread_message_t, public home_thread_mixin_t {
+    const callable_t callable;
+
+    explicit external_thread_doer_t(callable_t &&_callable)
+        : callable(std::forward<callable_t>(_callable)) { }
+
+    void on_thread_switch() override {
+        callable();
+    }
+};
+
+
+template <class callable_t>
+void do_on_thread_from_external(linux_thread_pool_t *pool, threadnum_t thread, callable_t &&callable) {
+    rassert(thread.threadnum < pool->n_threads);
+    auto *fsm
+        = new external_thread_doer_t<callable_t>(std::forward<callable_t>(callable));
+    // TODO: Is this malperformant in the face of many fdb messages?
+    pool->threads[thread.threadnum]->message_hub.insert_external_message(fsm);
+}
+
 
 
 #endif  // DO_ON_THREAD_HPP_

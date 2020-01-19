@@ -15,7 +15,7 @@ public:
         }
     }
     std::function<void()> fun;
+    DISABLE_COPYING(death_runner_t);
 };
-
 
 #endif  // CONTAINERS_DEATH_RUNNER_HPP_

@@ -1,8 +1,13 @@
 #include "fdb/reql_fdb.hpp"
 
+#include <limits.h>
 #include <string.h>
 
 #include "concurrency/cond_var.hpp"
+#include "concurrency/interruptor.hpp"
+#include "concurrency/wait_any.hpp"
+#include "containers/death_runner.hpp"
+#include "do_on_thread.hpp"
 
 /*
 
@@ -18,11 +23,13 @@ Node presence and clock configuration:
     rethinkdb/nodes_count => number of keys under rethinkdb/nodes/
     rethinkdb/nodes/ => table of node_info_t by server uuid
       indexed with total count in place of rethinkdb/node_count?
+      indexed by lease expiration?
 
 Jobs:
 
     rethinkdb/jobs/ => table of job_info_t by job uuid
       indexed by lease expiration timestamp (see rethinkdb/clock)
+      indexed by node?
 
 Log:
 
@@ -69,30 +76,70 @@ Table format:
 
 */
 
-fdb_future get_c_str(FDBTransaction *txn, const char *key) {
+fdb_future get_std_str(FDBTransaction *txn, const std::string &key) {
+    guarantee(key.size() <= INT_MAX);
     return fdb_future{fdb_transaction_get(
         txn,
-        reinterpret_cast<const uint8_t *>(key),
-        strlen(key),
+        as_uint8(key.data()),
+        int(key.size()),
         false)};
 }
 
-fdb_error_t commit_fdb_block_coro(FDBTransaction *txn) {
+fdb_value future_block_on_value(FDBFuture *fut, const signal_t *interruptor) {
+    future_block_coro(fut, interruptor);
+    fdb_value value;
+    fdb_error_t err = future_get_value(fut, &value);
+    check_for_fdb_transaction(err);
+    return value;
+}
+
+fdb_error_t commit_fdb_block_coro(FDBTransaction *txn, const signal_t *interruptor) {
     fdb_future fut{fdb_transaction_commit(txn)};
-    fut.block_coro();
+    fut.block_coro(interruptor);
 
     return fdb_future_get_error(fut.fut);
 }
 
-extern "C" void block_coro_fdb_callback(FDBFuture *, void *ctx) {
-    one_waiter_cond_t *cond = static_cast<one_waiter_cond_t *>(ctx);
-    cond->pulse();
+struct block_coro_state {
+    linux_thread_pool_t *pool = nullptr;
+    int refcount = 2;
+    cond_t cond;
+};
+
+void decr_refcount(block_coro_state *state) {
+    if (--state->refcount == 0) {
+        delete state;
+    }
 }
 
-void fdb_future::block_coro() const {
-    one_waiter_cond_t cond;
-    fdb_error_t err = fdb_future_set_callback(fut, block_coro_fdb_callback, &cond);
+extern "C" void block_coro_fdb_callback(FDBFuture *, void *ctx) {
+    block_coro_state *state = static_cast<block_coro_state *>(ctx);
+    threadnum_t thread = state->cond.home_thread();
+    // TODO: We might not be on an external thread; the cb might have been called
+    // inline.
+    do_on_thread_from_external(state->pool, thread, [state] {
+        state->cond.pulse();
+        decr_refcount(state);
+    });
+}
+
+void future_block_coro(FDBFuture *fut, const signal_t *interruptor) {
+    block_coro_state *state = new block_coro_state;
+    state->pool = linux_thread_pool_t::get_thread_pool();
+
+    fdb_error_t err = fdb_future_set_callback(fut, block_coro_fdb_callback, state);
+    // TODO: Ensure guarantee_fdb doesn't throw.
     guarantee_fdb(err, "fdb_future_set_callback failed");
-    cond.wait_ordered();
+
+    // Basically wait_interruptible below, except we want to call decr_refcount.
+    // Avoids the overhead/complication of death_runner_t.
+    {
+        wait_any_t waiter(&state->cond, interruptor);
+        waiter.wait_lazily_unordered();
+    }
+    decr_refcount(state);
+    if (interruptor->is_pulsed()) {
+        throw interrupted_exc_t();
+    }
 }
 
