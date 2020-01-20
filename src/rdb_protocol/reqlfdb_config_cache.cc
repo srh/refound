@@ -23,6 +23,15 @@ std::string db_by_id_key(const uuid_u &db_id) {
     return uuid_to_str(db_id);
 }
 
+reqlfdb_config_version future_block_on_config_version(
+        FDBFuture *fut, const signal_t *interruptor) {
+    fdb_value cv_value = future_block_on_value(fut, interruptor);
+    reqlfdb_config_version cv;
+    bool present = deserialize_off_fdb_value(cv_value, &cv);
+    guarantee(present, "config version not present");  // TODO?
+    return cv;
+}
+
 config_info<optional<database_id_t>>
 config_cache_db_by_name(
         reqlfdb_config_cache *cache, FDBTransaction *txn,
@@ -46,14 +55,9 @@ config_cache_db_by_name(
 
     // We block here!
     fdb_value value = future_block_on_value(fut.fut, interruptor);
-    fdb_value cv_value = future_block_on_value(cv_fut.fut, interruptor);
+    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
 
     ASSERT_NO_CORO_WAITING;
-    reqlfdb_config_version cv;
-    {
-        bool cv_present = deserialize_off_fdb_value(cv_value, &cv);
-        guarantee(cv_present, "config version not present");
-    }
 
     if (cv.value < cache->config_version.value) {
         // Throw a retryable exception.
@@ -100,12 +104,9 @@ bool config_cache_db_create(
         // A db with this name already exists.
         return false;
     }
-    fdb_value cv_value = future_block_on_value(cv_fut.fut, interruptor);
-    reqlfdb_config_version cv;
-    {
-        bool cv_present = deserialize_off_fdb_value(cv_value, &cv);
-        guarantee(cv_present, "config version not present");
-    }
+    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+
+    ASSERT_NO_CORO_WAITING;
 
     database_id_t db_id = generate_uuid();
     // TODO: Use uniform reql datum primary key serialization, how about that idea?
@@ -118,6 +119,27 @@ bool config_cache_db_create(
     cv.value++;
     serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
     return true;
+}
+
+bool config_cache_db_drop(
+        FDBTransaction *txn, const name_string_t &db_name, const signal_t *interruptor) {
+    // TODO: This function must read and verify user permissions when performing this
+    // operation.
+
+    // TODO: Ensure caller doesn't pass "rethinkdb".
+
+    fdb_future cv_fut = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+    fdb_future fut = transaction_lookup_pkey_index(
+        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
+
+    fdb_value value = future_block_on_value(fut.fut, interruptor);
+    if (!value.present) {
+        return false;
+    }
+    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+
+    // TODO: Finish implementing.
+    return false;
 }
 
 std::string table_by_name_key(const uuid_u &db_uuid, const name_string_t &table_name) {
@@ -153,7 +175,6 @@ bool config_cache_table_create(
 
     fdb_value table_by_name_value
         = future_block_on_value(table_by_name_fut.fut, interruptor);
-    fdb_value cv_value = future_block_on_value(cv_fut.fut, interruptor);
     fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
 
     if (table_by_name_value.present) {
@@ -161,11 +182,9 @@ bool config_cache_table_create(
         return false;
     }
 
-    reqlfdb_config_version cv;
-    {
-        bool cv_present = deserialize_off_fdb_value(cv_value, &cv);
-        guarantee(cv_present, "config version not present");
-    }
+    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+
+    ASSERT_NO_CORO_WAITING;
 
     if (!db_by_id_value.present) {
         // TODO: This might mean the id came from an out-of-date cache.  We should
