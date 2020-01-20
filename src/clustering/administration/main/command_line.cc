@@ -1853,110 +1853,115 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
 }
 
 int main_rethinkdb_create_fdb_blocking_pthread(
-        FDBDatabase *db, bool wipe) {
+        FDBDatabase *fdb, bool wipe) {
     // TODO: Don't return int from this.
 
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
     // there fdb conventions for "claiming" your database?
 
-    fdb_transaction txn{db};
+    bool failure = false;
 
-    // TODO: Remember to commit the txn.
+    fdb_error_t loop_err = txn_retry_loop_pthread(fdb,
+        [wipe, &failure](FDBTransaction *txn) {
+        // TODO: Remember to commit the txn.
 
-    // TODO: We might want an option to force-wipe the db.
-    // TODO: Prefix key option.
+        // TODO: We might want an option to force-wipe the db.
+        // TODO: Prefix key option.
 
-    uint8_t empty_key[1];
-    int empty_key_length = 0;
-    fdb_future get_fut{fdb_transaction_get_key(
-        txn.txn,
-        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, empty_key_length),
-        false)};
-    get_fut.block_pthread();
+        uint8_t empty_key[1];
+        int empty_key_length = 0;
+        fdb_future get_fut{fdb_transaction_get_key(
+            txn,
+            FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, empty_key_length),
+            false)};
+        get_fut.block_pthread();
 
-    // Okay, we have an empty db.  Now what?
-    const uint8_t *key;
-    int key_length;
-    fdb_error_t err = fdb_future_get_key(get_fut.fut, &key, &key_length);
-    guarantee_fdb_TODO(err, "fdb_future_get_key in create");
-
-    uint8_t end_key[1] = { 0xFF };
-    int end_key_length = 1;
-
-    // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
-    // for an empty database.
-    if (sized_strcmp(key, key_length, end_key, end_key_length) < 0) {
-        printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
-        // TODO: Report error properly.
-        printf("First key is: %.*s\n", key_length, reinterpret_cast<const char *>(key));
-        if (!wipe) {
-            // TODO: Report error properly.
-            printf("Failing to create fdb db\n");
-            return EXIT_FAILURE;
-        } else {
-            printf("Wiping fdb db\n");
-            // TODO: Test that key/value is valid reqlfdb version key/value.
-            fdb_transaction_clear_range(txn.txn,
-                empty_key, empty_key_length,
-                end_key, end_key_length);
+        // Okay, we have an empty db.  Now what?
+        const uint8_t *key;
+        int key_length;
+        fdb_error_t err = fdb_future_get_key(get_fut.fut, &key, &key_length);
+        if (err != 0) {
+            throw fdb_transaction_exception(err);
         }
-    }
 
-    {
-        const char *version_key = REQLFDB_VERSION_KEY;
-        std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
-        version_value += uuid_to_str(generate_uuid());
+        uint8_t end_key[1] = { 0xFF };
+        int end_key_length = 1;
 
-        fdb_transaction_set(txn.txn,
-            as_uint8(version_key),
-            strlen(version_key),
-            as_uint8(version_value.data()),
-            version_value.size());
-    }
+        // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
+        // for an empty database.
+        if (sized_strcmp(key, key_length, end_key, end_key_length) < 0) {
+            printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
+            // TODO: Report error properly.
+            printf("First key is: %.*s\n", key_length, reinterpret_cast<const char *>(key));
+            if (!wipe) {
+                // TODO: Report error properly.
+                printf("Failing to create fdb db\n");
+                failure = true;
+                return;
+            } else {
+                // TODO: No messages in txn retry loop.
+                printf("Wiping fdb db\n");
+                // TODO: Test that key/value is valid reqlfdb version key/value.
+                fdb_transaction_clear_range(txn,
+                    empty_key, empty_key_length,
+                    end_key, end_key_length);
+            }
+        }
 
-    {
-        const char *clock_key = REQLFDB_CLOCK_KEY;
-        uint8_t value[REQLFDB_CLOCK_SIZE] = { 0 };
-        fdb_transaction_set(txn.txn,
-            as_uint8(clock_key), strlen(clock_key),
-            value, sizeof(value));
-    }
+        {
+            const char *version_key = REQLFDB_VERSION_KEY;
+            std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
+            version_value += uuid_to_str(generate_uuid());
 
-    {
-        const char *nodes_count_key = REQLFDB_NODES_COUNT_KEY;
-        uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 0 };
-        fdb_transaction_set(txn.txn,
-            as_uint8(nodes_count_key), strlen(nodes_count_key),
-            value, sizeof(value));
-    }
+            fdb_transaction_set(txn,
+                as_uint8(version_key),
+                strlen(version_key),
+                as_uint8(version_value.data()),
+                version_value.size());
+        }
 
-    {
-        const char *config_version_key = REQLFDB_CONFIG_VERSION_KEY;
-        uint8_t value[REQLFDB_CONFIG_VERSION_COUNT_SIZE] = { 0 };
-        fdb_transaction_set(txn.txn,
-            as_uint8(config_version_key), strlen(config_version_key),
-            value, sizeof(value));
-    }
+        {
+            const char *clock_key = REQLFDB_CLOCK_KEY;
+            uint8_t value[REQLFDB_CLOCK_SIZE] = { 0 };
+            fdb_transaction_set(txn,
+                as_uint8(clock_key), strlen(clock_key),
+                value, sizeof(value));
+        }
 
+        {
+            const char *nodes_count_key = REQLFDB_NODES_COUNT_KEY;
+            uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 0 };
+            fdb_transaction_set(txn,
+                as_uint8(nodes_count_key), strlen(nodes_count_key),
+                value, sizeof(value));
+        }
 
-    // TODO: We need a transaction commit/retry loop (or do we?  Just fail in this one
-    // case.)
+        {
+            const char *config_version_key = REQLFDB_CONFIG_VERSION_KEY;
+            uint8_t value[REQLFDB_CONFIG_VERSION_COUNT_SIZE] = { 0 };
+            fdb_transaction_set(txn,
+                as_uint8(config_version_key), strlen(config_version_key),
+                value, sizeof(value));
+        }
 
-    fdb_future commit_fut{fdb_transaction_commit(txn.txn)};
-    commit_fut.block_pthread();
+        fdb_future commit_fut{fdb_transaction_commit(txn)};
+        commit_fut.block_pthread();
 
-    err = fdb_future_get_error(commit_fut.fut);
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("Error getting value of fdb commit: %s\n", msg);
+        err = fdb_future_get_error(commit_fut.fut);
+        if (err != 0) {
+            throw fdb_transaction_exception(err);
+        }
+    });
+    guarantee_fdb_TODO(loop_err, "error in create txn");
+
+    if (failure) {
         return EXIT_FAILURE;
+    } else {
+        // TODO: Proper message.
+        printf("Successfully created fdb database\n");
+        return EXIT_SUCCESS;
     }
-
-    // TODO: Proper message.
-    printf("Successfully created fdb database\n");
-
-    return EXIT_SUCCESS;
 }
 
 int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
