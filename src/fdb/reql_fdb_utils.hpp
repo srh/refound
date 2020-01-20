@@ -7,7 +7,7 @@
 
 template <class T>
 void get_and_deserialize(FDBTransaction *txn, const char *key, const signal_t *interruptor, T *out) {
-    fdb_future value_fut = get_c_str(txn, key);
+    fdb_future value_fut = transaction_get_c_str(txn, key);
     value_fut.block_coro(interruptor);
 
     fdb_bool_t present;

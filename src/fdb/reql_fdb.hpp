@@ -165,8 +165,7 @@ MUST_USE fdb_error_t txn_retry_loop_coro(
     }
 }
 
-// TODO: Rename to transaction_get...
-inline fdb_future get_c_str(FDBTransaction *txn, const char *key) {
+inline fdb_future transaction_get_c_str(FDBTransaction *txn, const char *key) {
     return fdb_future{fdb_transaction_get(
         txn,
         as_uint8(key),
@@ -174,8 +173,7 @@ inline fdb_future get_c_str(FDBTransaction *txn, const char *key) {
         false)};
 }
 
-// TODO: Rename to transaction_get...
-fdb_future get_std_str(FDBTransaction *txn, const std::string &key);
+fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 
 struct fdb_value {
     fdb_bool_t present;

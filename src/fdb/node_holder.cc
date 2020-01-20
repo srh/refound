@@ -13,7 +13,7 @@ std::string node_key(const uuid_u &node_id) {
 }
 fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint64_t *out) {
     fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [interruptor, out](FDBTransaction *txn) {
-        fdb_future nodes_count_fut = get_c_str(txn, REQLFDB_NODES_COUNT_KEY);
+        fdb_future nodes_count_fut = transaction_get_c_str(txn, REQLFDB_NODES_COUNT_KEY);
         nodes_count_fut.block_coro(interruptor);
         fdb_value nodes_count;
         fdb_error_t err = future_get_value(nodes_count_fut.fut, &nodes_count);
@@ -30,8 +30,8 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
 void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor) {
         std::string key = node_key(node_id);
 
-        fdb_future clock_fut = get_c_str(txn, REQLFDB_CLOCK_KEY);
-        fdb_future old_node_fut = get_std_str(txn, key);
+        fdb_future clock_fut = transaction_get_c_str(txn, REQLFDB_CLOCK_KEY);
+        fdb_future old_node_fut = transaction_get_std_str(txn, key);
 
         fdb_value clock = future_block_on_value(clock_fut.fut, interruptor);
 
@@ -80,7 +80,7 @@ MUST_USE fdb_error_t erase_node_entry(FDBDatabase *fdb, uuid_u node_id, const si
     return txn_retry_loop_coro(fdb, interruptor, [&node_id, interruptor](FDBTransaction *txn) {
         std::string key = node_key(node_id);
 
-        fdb_future old_node_fut = get_std_str(txn, key);
+        fdb_future old_node_fut = transaction_get_std_str(txn, key);
         fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 
         fdb_transaction_clear(txn, as_uint8(key.data()), int(key.size()));

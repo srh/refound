@@ -76,7 +76,7 @@ Table format:
 
 */
 
-fdb_future get_std_str(FDBTransaction *txn, const std::string &key) {
+fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key) {
     guarantee(key.size() <= INT_MAX);
     return fdb_future{fdb_transaction_get(
         txn,
