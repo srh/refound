@@ -74,8 +74,8 @@ public:
     user_data_t user_data;  // has user-exposed name "data"
 };
 
+RDB_DECLARE_SERIALIZABLE(table_config_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_config_t);
-
 RDB_DECLARE_SERIALIZABLE(table_config_t::shard_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_config_t::shard_t);
 

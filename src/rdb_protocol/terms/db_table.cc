@@ -145,15 +145,14 @@ public:
     db_create_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(1)) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(
-            scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
 
         bool fdb_result;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&db_name, env, &fdb_result](FDBTransaction *txn) {
             // TODO: impl artificial_reql_cluster_interface_t::db_create's check for "rethinkdb" db
             bool success = config_cache_db_create(
-                env->env->get_rdb_ctx()->config_caches.get(),
                 txn,
                 db_name,
                 env->env->interruptor);
@@ -184,7 +183,7 @@ private:
 
         return new_val(result);
     }
-    virtual const char *name() const { return "db_create"; }
+    const char *name() const override { return "db_create"; }
 };
 
 class table_create_term_t : public meta_op_term_t {
@@ -195,8 +194,8 @@ public:
                           "nonvoting_replica_tags", "primary_replica_tag",
                           "durability"})) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(
-            scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
         /* Parse arguments */
         table_generate_config_params_t config_params =
             table_generate_config_params_t::make_default();
@@ -237,6 +236,24 @@ private:
             tbl_name = get_name(args->arg(env, 1), "Table");
         }
 
+        // TODO: Build the table config up here, remove outer_config_cache_table_create.
+        bool fdb_result;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            // TODO: after we build the table_config_t locally, specify precise capture list.
+            bool success = outer_config_cache_table_create(txn, db->id,
+                tbl_name, config_params, primary_key, durability,
+                env->env->interruptor);
+            if (success) {
+                commit(txn, env->env->interruptor);
+            }
+            fdb_result = success;
+        });
+        guarantee_fdb_TODO(loop_err, "table_create txn failed");
+        guarantee(!fdb_result, "table already exists (or something) in table_create");  // TODO: Remove.
+        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
+
+        // TODO: fdb-ize:  Remove non-fdb stuff, make use of fdb_result.
+
         /* Create the table */
         ql::datum_t result;
         try {
@@ -259,7 +276,7 @@ private:
 
         return new_val(result);
     }
-    virtual const char *name() const { return "table_create"; }
+    const char *name() const override { return "table_create"; }
 };
 
 class db_drop_term_t : public meta_op_term_t {

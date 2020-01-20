@@ -186,7 +186,13 @@ constexpr const char *REQLFDB_NODES_COUNT_KEY = "rethinkdb/nodes_count";
 
 constexpr const char *REQLFDB_DB_CONFIG_TABLE = "rethinkdb/db_config/";
 constexpr const char *REQLFDB_DB_CONFIG_BY_ID = "rethinkdb/db_config//";
+// indexed uniquely by name.
 constexpr const char *REQLFDB_DB_CONFIG_BY_NAME = "rethinkdb/db_config/by_name/";
+
+constexpr const char *REQLFDB_TABLE_CONFIG_TABLE = "rethinkdb/table_config/";
+constexpr const char *REQLFDB_TABLE_CONFIG_BY_ID = "rethinkdb/table_config//";
+// indexed uniquely by {db_id,name}
+constexpr const char *REQLFDB_TABLE_CONFIG_BY_NAME = "rethinkdb/table_config/by_name/";
 
 constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 

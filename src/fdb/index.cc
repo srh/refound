@@ -27,6 +27,11 @@ fdb_future transaction_lookup_unique_index(FDBTransaction *txn, const char *pref
     return transaction_get_std_str(txn, key);
 }
 
+fdb_future transaction_lookup_pkey_index(FDBTransaction *txn, const char *prefix, const std::string &index_key) {
+    // These work the same.
+    return transaction_lookup_unique_index(txn, prefix, index_key);
+}
+
 void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
         const std::string &index_key,
         const std::string &value) {

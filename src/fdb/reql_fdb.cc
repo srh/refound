@@ -44,7 +44,7 @@ Db config:
 Table config:
 
     rethinkdb/table_config/ => table of table_config_t
-      indexed by name
+      indexed by {db_uuid,table_name} => namespace_id_t.
 
 User config:
 
