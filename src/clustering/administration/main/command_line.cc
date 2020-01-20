@@ -1893,7 +1893,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         if (sized_strcmp(key, key_length, end_key, end_key_length) < 0) {
             printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
             // TODO: Report error properly.
-            printf("First key is: %.*s\n", key_length, reinterpret_cast<const char *>(key));
+            printf("First key is: '%.*s'\n", key_length, reinterpret_cast<const char *>(key));
             if (!wipe) {
                 // TODO: Report error properly.
                 printf("Failing to create fdb db\n");
