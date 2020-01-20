@@ -6,23 +6,25 @@
 #include "fdb/reql_fdb.hpp"
 
 template <class T>
-void get_and_deserialize(FDBTransaction *txn, const char *key, const signal_t *interruptor, T *out) {
-    fdb_future value_fut = transaction_get_c_str(txn, key);
-    value_fut.block_coro(interruptor);
+MUST_USE bool deserialize_off_fdb_value(const fdb_value &value, T *out) {
+    if (!value.present) {
+        return false;
+    }
 
-    fdb_bool_t present;
-    const uint8_t *value;
-    int value_length;
-    fdb_error_t err = fdb_future_get_value(value_fut.fut,
-        &present, &value, &value_length);
-    guarantee_fdb_TODO(err, "fdb_future_get_value failed");
-    guarantee(present, "fdb_future_get_value did not find value");  // TODO
-
-    buffer_read_stream_t stream(as_char(value), value_length);
+    buffer_read_stream_t stream(as_char(value.data), value.length);
     // TODO: serialization versioning.
     archive_result_t res = deserialize<cluster_version_t::LATEST_DISK>(&stream, out);
     guarantee(!bad(res), "bad deserialization from db value");  // TODO: pass error
     // TODO: Cleanup error messages in every new fdb guarantee.
+    return true;
+}
+
+template <class T>
+void get_and_deserialize(FDBTransaction *txn, const char *key, const signal_t *interruptor, T *out) {
+    fdb_future value_fut = transaction_get_c_str(txn, key);
+    fdb_value value = future_block_on_value(value_fut.fut, interruptor);
+    bool value_present = deserialize_off_fdb_value(value, out);
+    guarantee(value_present);  // TODO: pass error
 }
 
 template <class T>

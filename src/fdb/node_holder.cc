@@ -22,7 +22,7 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
         guarantee(nodes_count.present);
         guarantee(nodes_count.length == REQLFDB_NODES_COUNT_SIZE);   // TODO deal with problem gracefully?
         static_assert(REQLFDB_NODES_COUNT_SIZE == 8, "Expecting size 8 for uint64");
-        *out = read_LE_uint64(nodes_count.value);
+        *out = read_LE_uint64(nodes_count.data);
     });
 
     return err;
@@ -38,7 +38,7 @@ void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor
 
         guarantee(clock.present && clock.length == REQLFDB_CLOCK_SIZE, "bad fdb clock");  // TODO
         static_assert(8 == REQLFDB_CLOCK_SIZE, "fdb clock size must be uint64");
-        uint64_t clock_val = read_LE_uint64(clock.value);
+        uint64_t clock_val = read_LE_uint64(clock.data);
 
         fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 

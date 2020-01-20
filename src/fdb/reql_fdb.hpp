@@ -145,12 +145,12 @@ fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 
 struct fdb_value {
     fdb_bool_t present;
-    const uint8_t *value;
+    const uint8_t *data;
     int length;
 };
 
 MUST_USE inline fdb_error_t future_get_value(FDBFuture *fut, fdb_value *out) {
-    return fdb_future_get_value(fut, &out->present, &out->value, &out->length);
+    return fdb_future_get_value(fut, &out->present, &out->data, &out->length);
 }
 
 // Throws fdb_transaction_exception.
@@ -185,6 +185,7 @@ constexpr const char *REQLFDB_NODES_TABLE = "rethinkdb/nodes/";
 constexpr const char *REQLFDB_NODES_COUNT_KEY = "rethinkdb/nodes_count";
 
 constexpr const char *REQLFDB_DB_CONFIG_TABLE = "rethinkdb/db_config/";
+constexpr const char *REQLFDB_DB_CONFIG_BY_NAME = "rethinkdb/db_config/by_name/";
 
 constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 
@@ -195,6 +196,11 @@ constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;
 
 constexpr uint64_t REQLFDB_TIMESTEP_MS = 5000;
+
+// from fdb documentation
+constexpr int REQLFDB_commit_unknown_result = 1021;
+// This is retryable.  Maybe transaction_too_old is better?  Idk.
+constexpr int REQLFDB_not_committed = 1020;
 
 // TODO: Is this used?
 inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {

@@ -64,6 +64,7 @@
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/reql_fdb_utils.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rockstore/store.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
@@ -1939,11 +1940,9 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         }
 
         {
-            const char *config_version_key = REQLFDB_CONFIG_VERSION_KEY;
-            uint8_t value[REQLFDB_CONFIG_VERSION_COUNT_SIZE] = { 0 };
-            fdb_transaction_set(txn,
-                as_uint8(config_version_key), strlen(config_version_key),
-                value, sizeof(value));
+            reqlfdb_config_version cv;
+            cv.value = { 0 };
+            serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
         }
 
         fdb_future commit_fut{fdb_transaction_commit(txn)};

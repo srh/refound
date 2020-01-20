@@ -8,10 +8,12 @@
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "containers/name_string.hpp"
+#include "fdb/reql_fdb.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/datum_string.hpp"
 #include "rdb_protocol/op.hpp"
 #include "rdb_protocol/pseudo_geometry.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rdb_protocol/terms/writes.hpp"
 
 namespace ql {
@@ -117,6 +119,14 @@ public:
 private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
+        fdb_transaction txn{env->env->get_rdb_ctx()->fdb};
+        // TODO: fdb-ize:  make use of config_cache_db_by_name result.
+        config_info<optional<database_id_t>> db_id = config_cache_db_by_name(
+            env->env->get_rdb_ctx()->config_caches.get(),
+            txn.txn,
+            db_name,
+            env->env->interruptor);
+
         counted_t<const db_t> db;
         admin_err_t error;
         if (!env->env->reql_cluster_interface()->db_find(

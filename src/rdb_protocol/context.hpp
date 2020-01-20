@@ -27,6 +27,8 @@
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/wire_func.hpp"
 
+class reqlfdb_config_cache;
+
 namespace auth {
 
 class user_context_t;
@@ -478,6 +480,7 @@ public:
     ~rdb_context_t();
 
     FDBDatabase *fdb = nullptr;
+    one_per_thread_t<reqlfdb_config_cache> config_caches;
     extproc_pool_t *extproc_pool;
     reql_cluster_interface_t *cluster_interface;
 

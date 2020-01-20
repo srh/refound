@@ -6,6 +6,7 @@
 #include "containers/archive/vector_stream.hpp"
 #include "rdb_protocol/query_cache.hpp"
 #include "rdb_protocol/datum.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rpc/semilattice/view/field.hpp"
 #include "rpc/semilattice/watchable.hpp"
 #include "time.hpp"

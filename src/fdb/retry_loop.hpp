@@ -3,7 +3,6 @@
 
 #include "fdb/reql_fdb.hpp"
 
-constexpr int REQLFDB_commit_unknown_result = 1021;  // from fdb documentation
 
 // You'll want to use txn_retry_loop_coro.
 template <class C>
