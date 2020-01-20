@@ -62,6 +62,7 @@
 #include "crypto/random.hpp"
 #include "logger.hpp"
 #include "fdb/reql_fdb.hpp"
+#include "fdb/retry_loop.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "rockstore/store.hpp"
 

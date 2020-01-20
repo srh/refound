@@ -20,6 +20,7 @@
 #include "rdb_protocol/val.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
+#include "fdb/retry_loop.hpp"
 #include "rpc/semilattice/watchable.hpp"
 #include "rpc/semilattice/view/field.hpp"
 

@@ -3,6 +3,7 @@
 #include "arch/runtime/coroutines.hpp"
 #include "arch/timing.hpp"
 #include "fdb/reql_fdb.hpp"
+#include "fdb/retry_loop.hpp"
 #include "utils.hpp"
 
 std::string node_key(const uuid_u &node_id) {
