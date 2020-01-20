@@ -33,8 +33,8 @@ optargspec_t::optargspec_t(std::initializer_list<const char *> args) {
     init(args.size(), args.begin());
 }
 
-void optargspec_t::init(int num_args, const char *const *args) {
-    for (int i = 0; i < num_args; ++i) {
+void optargspec_t::init(size_t num_args, const char *const *args) {
+    for (size_t i = 0; i < num_args; ++i) {
         auto res = legal_args.insert(args[i]);
         r_sanity_check(res.second, "Duplicate optarg in optargspec_t: %s", args[i]);
         r_sanity_check(global_optargs_t::optarg_is_valid(*res.first),
@@ -176,7 +176,7 @@ args_t::args_t(const op_term_t *_op_term,
 
 
 op_term_t::op_term_t(compile_env_t *env, const raw_term_t &term,
-                     argspec_t argspec, optargspec_t optargspec)
+                     argspec_t &&argspec, const optargspec_t &optargspec)
         : term_t(term) {
     std::vector<counted_t<const term_t> > original_args;
     original_args.reserve(term.num_args());
@@ -322,8 +322,8 @@ void op_term_t::maybe_grouped_data(scope_env_t *env,
 }
 
 bounded_op_term_t::bounded_op_term_t(compile_env_t *env, const raw_term_t &term,
-                                     argspec_t argspec, optargspec_t optargspec)
-    : op_term_t(env, term, argspec,
+                                     argspec_t &&argspec, const optargspec_t &optargspec)
+    : op_term_t(env, term, std::move(argspec),
                 optargspec.with({"left_bound", "right_bound"})) { }
 
 bool bounded_op_term_t::is_left_open(scope_env_t *env, args_t *args) const {

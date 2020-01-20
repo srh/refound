@@ -488,8 +488,8 @@ public:
     enum index_method_t { ELEMENTS, SPACES};
 
     at_term_t(compile_env_t *env, const raw_term_t &term,
-              argspec_t argspec, index_method_t index_method)
-        : op_term_t(env, term, argspec), index_method_(index_method) { }
+              argspec_t &&argspec, index_method_t index_method)
+        : op_term_t(env, term, std::move(argspec)), index_method_(index_method) { }
 
     virtual void modify(scope_env_t *env, args_t *args, size_t index,
                         datum_array_builder_t *array) const = 0;

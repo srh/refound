@@ -103,19 +103,19 @@ void get_replicas_and_primary(const scoped_ptr_t<val_t> &replicas,
 class meta_op_term_t : public op_term_t {
 public:
     meta_op_term_t(compile_env_t *env, const raw_term_t &term,
-                   argspec_t argspec, optargspec_t optargspec = optargspec_t({}))
-        : op_term_t(env, term, std::move(argspec), std::move(optargspec)) { }
+                   argspec_t &&argspec, const optargspec_t &optargspec = optargspec_t({}))
+        : op_term_t(env, term, std::move(argspec), optargspec) { }
 
 private:
-    virtual deterministic_t is_deterministic() const { return deterministic_t::no(); }
+    deterministic_t is_deterministic() const final { return deterministic_t::no(); }
 };
 
-class db_term_t : public meta_op_term_t {
+class db_term_t final : public meta_op_term_t {
 public:
     db_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(1)) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
         counted_t<const db_t> db;
         admin_err_t error;
@@ -125,7 +125,7 @@ private:
         }
         return new_val(db);
     }
-    virtual const char *name() const { return "db"; }
+    const char *name() const override { return "db"; }
 };
 
 class db_create_term_t : public meta_op_term_t {

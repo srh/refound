@@ -27,8 +27,8 @@ namespace ql {
 class geo_term_t : public op_term_t {
 public:
     geo_term_t(compile_env_t *env, const raw_term_t &term,
-               const argspec_t &argspec, optargspec_t optargspec = optargspec_t({}))
-        : op_term_t(env, term, argspec, optargspec) { }
+               argspec_t &&argspec, optargspec_t optargspec = optargspec_t({}))
+        : op_term_t(env, term, std::move(argspec), optargspec) { }
 private:
     // With the exception of r.point(), all geo terms are only deterministic on a single
     // server because they typically depend on floating point results that might diverge

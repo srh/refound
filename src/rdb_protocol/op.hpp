@@ -80,6 +80,7 @@ private:
 };
 
 // Specifies the optional arguments a function can take.
+// TODO: Only construct these statically.
 struct optargspec_t {
 public:
     explicit optargspec_t(std::initializer_list<const char *> args);
@@ -92,7 +93,7 @@ public:
     std::set<std::string>::const_iterator cend() const { return legal_args.cend(); }
 
 private:
-    void init(int num_args, const char *const *args);
+    void init(size_t num_args, const char *const *args);
 
     std::set<std::string> legal_args;
 };
@@ -148,7 +149,7 @@ void accumulate_all_captures(
 class op_term_t : public term_t {
 protected:
     op_term_t(compile_env_t *env, const raw_term_t &term,
-              argspec_t argspec, optargspec_t optargspec = optargspec_t({}));
+              argspec_t &&argspec, const optargspec_t &optargspec = optargspec_t({}));
     virtual ~op_term_t();
 
     // This returns an optarg which is:
@@ -224,7 +225,7 @@ private:
 class bounded_op_term_t : public op_term_t {
 public:
     bounded_op_term_t(compile_env_t *env, const raw_term_t &term,
-                      argspec_t argspec, optargspec_t optargspec = optargspec_t({}));
+                      argspec_t &&argspec, const optargspec_t &optargspec = optargspec_t({}));
 
     virtual ~bounded_op_term_t() { }
 
