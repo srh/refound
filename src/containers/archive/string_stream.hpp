@@ -35,6 +35,12 @@ std::string serialize_to_string(const T &value) {
     return std::move(stream.str());
 }
 
+template <class T>
+std::string serialize_for_cluster_to_string(const T &value) {
+    return serialize_to_string<cluster_version_t::CLUSTER>(value);
+}
+
+
 class string_read_stream_t : public read_stream_t {
 public:
     explicit string_read_stream_t(std::string &&_source, int64_t _offset);

@@ -35,4 +35,8 @@ config_cache_db_by_name(
         reqlfdb_config_cache *cache, FDBTransaction *txn,
         const name_string_t &db_name, const signal_t *interruptor);
 
+bool config_cache_db_create(
+        reqlfdb_config_cache *cache, FDBTransaction *txn,
+        const name_string_t &db_name, const signal_t *interruptor);
+
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

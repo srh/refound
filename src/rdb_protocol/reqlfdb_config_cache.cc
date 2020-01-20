@@ -74,3 +74,40 @@ config_cache_db_by_name(
         return ret;
     }
 }
+
+// TODO: cache is unused.
+bool config_cache_db_create(
+        reqlfdb_config_cache *cache, FDBTransaction *txn,
+        const name_string_t &db_name, const signal_t *interruptor) {
+    // TODO: This function must read and verify user permissions when performing this
+    // operation.
+    guarantee(db_name.str() != "rethinkdb",
+        "config_cache_db_create should never get queries for system tables");
+
+    fdb_future cv_fut = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+    fdb_future fut = transaction_lookup_unique_index(
+        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
+
+    fdb_value cv_value = future_block_on_value(cv_fut.fut, interruptor);
+    fdb_value value = future_block_on_value(fut.fut, interruptor);
+
+    if (value.present) {
+        return false;
+    }
+    reqlfdb_config_version cv;
+    {
+        bool cv_present = deserialize_off_fdb_value(cv_value, &cv);
+        guarantee(cv_present, "config version not present");
+    }
+
+    database_id_t db_id = generate_uuid();
+    // TODO: Use uniform reql datum primary key serialization, how about that idea?
+    std::string db_id_value = uuid_to_str(db_id);
+
+    transaction_set_pkey_index(txn, REQLFDB_DB_CONFIG_BY_ID, db_id_value, db_name.str());
+    transaction_set_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str(), db_id_value);
+
+    cv.value++;
+    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+    return true;
+}

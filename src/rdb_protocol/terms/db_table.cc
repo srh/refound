@@ -9,6 +9,7 @@
 #include "clustering/administration/auth/username.hpp"
 #include "containers/name_string.hpp"
 #include "fdb/reql_fdb.hpp"
+#include "fdb/retry_loop.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/datum_string.hpp"
 #include "rdb_protocol/op.hpp"
@@ -121,6 +122,7 @@ private:
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
         fdb_transaction txn{env->env->get_rdb_ctx()->fdb};
         // TODO: fdb-ize:  make use of config_cache_db_by_name result.
+        // TODO: Impl special handling of "rethinkdb" db
         config_info<optional<database_id_t>> db_id = config_cache_db_by_name(
             env->env->get_rdb_ctx()->config_caches.get(),
             txn.txn,
@@ -147,6 +149,24 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t) const {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
 
+        bool fdb_result;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&db_name, env, &fdb_result](FDBTransaction *txn) {
+            // TODO: impl artificial_reql_cluster_interface_t::db_create's check for "rethinkdb" db
+            bool success = config_cache_db_create(
+                env->env->get_rdb_ctx()->config_caches.get(),
+                txn,
+                db_name,
+                env->env->interruptor);
+            if (success) {
+                commit(txn, env->env->interruptor);
+            }
+            fdb_result = success;
+        });
+        guarantee_fdb_TODO(loop_err, "db_create txn failed");
+        guarantee(!fdb_result, "fdb db already exists on db_create"); // TODO: Remove.
+        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
+
+        // TODO: fdb-ize: remove non-fdb stuff, make use of fdb_result
         ql::datum_t result;
         try {
             admin_err_t error;
