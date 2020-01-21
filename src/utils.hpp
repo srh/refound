@@ -88,6 +88,9 @@ private:
 
 std::string errno_string(int errsv);
 
+// Fast string compare
+int sized_strcmp(const uint8_t *str1, size_t len1, const uint8_t *str2, size_t len2);
+
 std::string sanitize_for_logger(const std::string &s);
 static inline std::string time2str(const time_t &t) {
     const int TIMEBUF_SIZE = 26; // As specified in man 3 ctime and by MSDN

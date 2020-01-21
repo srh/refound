@@ -4,6 +4,7 @@
 
 #include "containers/archive/string_stream.hpp"
 #include "fdb/index.hpp"
+#include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
 #include "utils.hpp"
 
@@ -121,14 +122,10 @@ void add_fdb_job(FDBTransaction *txn,
 
     // TODO: Now insert the job into the table.  We already confirmed it's an insertion.
     transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, job_value);
-
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
         sindex_keys.lease_expiration, job_id_key, "");
-
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_TASK,
         sindex_keys.task, job_id_key, "");
-
-    // Done.
 }
 
 // The caller must know the job is present in the table.
@@ -141,4 +138,46 @@ void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
         sindex_keys.lease_expiration, job_id_key);
     transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_TASK,
         sindex_keys.task, job_id_key);
+}
+
+void try_claim_and_start_job(FDBDatabase *fdb, const auto_drainer_t::lock_t &lock) {
+    // TODO: Do we actually want a retry-loop?  Maybe a no-retry loop.
+    const signal_t *interruptor = lock.get_drain_signal();
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [interruptor](FDBTransaction *txn) {
+        // Now.
+        fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
+
+        const char *lease_index = REQLFDB_JOBS_BY_LEASE_EXPIRATION;
+        fdb_future first_key_fut{fdb_transaction_get_key(txn,
+            FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(
+                as_uint8(lease_index),
+                strlen(lease_index)),
+            false)};
+
+        first_key_fut.block_coro(interruptor);
+
+        // TODO: use fdb_key_fut, dedup this a bit.
+        const uint8_t *first_key;
+        int first_key_length;
+        fdb_error_t err = fdb_future_get_key(
+            first_key_fut.fut, &first_key, &first_key_length);
+        if (err != 0) {
+            throw fdb_transaction_exception(err);
+        }
+
+        // TODO: prefix_end string ctor perf.
+        std::string lease_index_end = prefix_end(lease_index);
+
+        if (sized_strcmp(first_key, first_key_length,
+                as_uint8(lease_index_end.data()), lease_index_end.size()) >= 0) {
+            // Jobs table is empty.
+            return;
+        }
+
+        // There is at least one job.
+        reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
+
+        // TODO: Decode the job, check its lease expiration, and possibly claim it.
+    });
+    guarantee_fdb_TODO(loop_err, "try_claim_and_start_job failed");
 }

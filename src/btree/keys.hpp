@@ -13,6 +13,7 @@
 #include "config/args.hpp"
 #include "containers/archive/archive.hpp"
 #include "rpc/serialize_macros.hpp"
+#include "utils.hpp"
 
 #if defined(__GNUC__) && (100 * __GNUC__ + __GNUC_MINOR__ >= 406)
 #pragma GCC diagnostic push
@@ -35,9 +36,6 @@ bool is_better(const T &a, const T &b, sorting_t sorting) {
         return b < a;
     }
 }
-
-// Fast string compare
-int sized_strcmp(const uint8_t *str1, size_t len1, const uint8_t *str2, size_t len2);
 
 struct store_key_t {
 public:

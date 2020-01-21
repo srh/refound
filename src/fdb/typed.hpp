@@ -21,6 +21,13 @@ public:
     }
 };
 
+class fdb_key_fut : public fdb_future {
+public:
+    using fdb_future::fdb_future;
+    explicit fdb_key_fut(fdb_future &&movee)
+        : fdb_future(std::move(movee)) {}
+};
+
 inline fdb_value_fut<reqlfdb_clock> transaction_get_clock(FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_clock>(transaction_get_c_str(txn, REQLFDB_CLOCK_KEY));
 }

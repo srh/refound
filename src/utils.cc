@@ -245,6 +245,7 @@ bool parse_time(const std::string &str, local_or_utc_time_t zone,
 // and only if there is no upper bound (the string matches /^(\xFF)*$/), returns
 // the empty string.
 std::string prefix_end(const std::string &prefix) {
+    // TODO: Avoid this copy.
     std::string ret = prefix;
     while (!ret.empty()) {
         if (static_cast<uint8_t>(ret.back()) != 0xFF) {
@@ -407,6 +408,16 @@ std::string errno_string(int errsv) {
     char buf[250];
     const char *errstr = errno_string_maybe_using_buffer(errsv, buf, sizeof(buf));
     return std::string(errstr);
+}
+
+// fast-ish non-null terminated string comparison
+int sized_strcmp(const uint8_t *str1, size_t len1, const uint8_t *str2, size_t len2) {
+    size_t min_len = std::min(len1, len2);
+    int res = memcmp(str1, str2, min_len);
+    if (res == 0) {
+        return len1 > len2 ? 1 : len1 < len2 ? -1 : 0;
+    }
+    return res;
 }
 
 // GCC and CLANG are smart enough to optimize out strlen(""), so this works.

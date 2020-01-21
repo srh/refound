@@ -57,16 +57,6 @@ std::string key_range_t::print() const {
     return buf.c_str();
 }
 
-// fast-ish non-null terminated string comparison
-int sized_strcmp(const uint8_t *str1, size_t len1, const uint8_t *str2, size_t len2) {
-    size_t min_len = std::min(len1, len2);
-    int res = memcmp(str1, str2, min_len);
-    if (res == 0) {
-        return len1 > len2 ? 1 : len1 < len2 ? -1 : 0;
-    }
-    return res;
-}
-
 bool unescaped_str_to_key(const char *str, int len, store_key_t *buf) {
     if (len <= MAX_KEY_SIZE) {
         *buf = store_key_t(std::string(str, len));

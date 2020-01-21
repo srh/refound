@@ -3,6 +3,7 @@
 #include "arch/runtime/coroutines.hpp"
 #include "arch/timing.hpp"
 #include "containers/archive/string_stream.hpp"
+#include "fdb/jobs.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
@@ -100,7 +101,8 @@ MUST_USE fdb_error_t erase_node_entry(FDBDatabase *fdb, uuid_u node_id, const si
     });
 }
 
-void run_node_coro(FDBDatabase *fdb, uuid_u node_id, signal_t *interruptor) {
+void run_node_coro(FDBDatabase *fdb, uuid_u node_id, auto_drainer_t::lock_t lock) {
+    const signal_t *const interruptor = lock.get_drain_signal();
     for (;;) {
         // Read node count.
         uint64_t node_count;
@@ -111,6 +113,11 @@ void run_node_coro(FDBDatabase *fdb, uuid_u node_id, signal_t *interruptor) {
 
         // Now we've got a node count.  Now what?
         for (uint64_t i = 0; i < node_count; ++i) {
+            // TODO: Avoid having one node take _all_ the jobs (somehow).
+            try_claim_and_start_job(fdb, lock);
+
+
+
             // TODO: Should we randomize this?  Yes.
             nap(REQLFDB_TIMESTEP_MS, interruptor);
             fdb_error_t write_err = write_node_entry(fdb, node_id, interruptor);
@@ -143,7 +150,7 @@ fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor)
 
     coro_t::spawn_later_ordered([this, lock = drainer_.lock()]() {
         try {
-            run_node_coro(fdb_, node_id_, lock.get_drain_signal());
+            run_node_coro(fdb_, node_id_, lock);
         } catch (const interrupted_exc_t &) {
             // TODO: Do we handle other interrupted_exc_t's like this?
         }

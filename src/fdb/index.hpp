@@ -2,6 +2,12 @@
 #define RETHINKDB_FDB_INDEX_HPP_
 
 #include "fdb/reql_fdb.hpp"
+#include "containers/optional.hpp"
+
+std::string unique_index_fdb_key(const char *prefix, const std::string &index_key);
+std::string plain_index_fdb_key(const char *prefix, const std::string &index_key,
+    const std::string &pkey);
+
 
 fdb_future transaction_lookup_unique_index(
     FDBTransaction *txn, const char *prefix, const std::string &index_key);
@@ -32,6 +38,8 @@ void transaction_set_plain_index(FDBTransaction *txn, const char *prefix,
 
 void transaction_erase_plain_index(FDBTransaction *txn, const char *prefix,
     const std::string &index_key, const std::string &pkey);
+
+
 
 
 inline std::string uuid_sindex_key(const uuid_u& u) {

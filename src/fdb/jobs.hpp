@@ -1,6 +1,7 @@
 #ifndef RETHINKDB_FDB_JOBS_HPP_
 #define RETHINKDB_FDB_JOBS_HPP_
 
+#include "concurrency/auto_drainer.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "rpc/serialize_macros.hpp"
@@ -26,5 +27,6 @@ void add_fdb_job(FDBTransaction *txn,
 void remove_fdb_job(FDBTransaction *txn,
     const fdb_job_info &info);
 
+void try_claim_and_start_job(FDBDatabase *fdb, const auto_drainer_t::lock_t &lock);
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_
