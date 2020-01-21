@@ -74,9 +74,6 @@ bool parse_time(
     const std::string &str, local_or_utc_time_t zone,
     struct timespec *out, std::string *errmsg_out);
 
-/* Printing binary data to stderr in a nice format */
-void print_hd(const void *buf, size_t offset, size_t length);
-
 std::string prefix_end(const std::string &prefix);
 
 /* `with_priority_t` changes the priority of the current coroutine to the

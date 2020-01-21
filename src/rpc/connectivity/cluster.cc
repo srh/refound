@@ -444,18 +444,6 @@ void connectivity_cluster_t::send_message(connection_t *connection,
         callback->write(&buffer);
     }
 
-#ifdef CLUSTER_MESSAGE_DEBUGGING
-    {
-        printf_buffer_t buf;
-        buf.appendf("from ");
-        debug_print(&buf, me);
-        buf.appendf(" to ");
-        debug_print(&buf, dest);
-        buf.appendf("\n");
-        print_hd(buffer.vector().data(), 0, buffer.vector().size());
-    }
-#endif
-
 #ifndef NDEBUG
     connection_keepalive.assert_is_holding(connection->drainers.get());
 
