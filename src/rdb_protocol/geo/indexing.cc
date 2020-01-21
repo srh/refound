@@ -475,7 +475,7 @@ continue_bool_t geo_traversal(
     if (!sindex_range.right.unbounded) {
         prefixed_upper_bound = rocks_kv_prefix + key_to_unescaped_str(sindex_range.right.key());
     } else {
-        prefixed_upper_bound = rockstore::prefix_end(rocks_kv_prefix);
+        prefixed_upper_bound = prefix_end(rocks_kv_prefix);
     }
 
     if (!prefixed_upper_bound.empty()) {
@@ -546,7 +546,7 @@ continue_bool_t geo_traversal(
         }
 
         std::string stop_line
-            = rocks_kv_prefix + rockstore::prefix_end(s2cellid_to_key(max_cell));
+            = rocks_kv_prefix + prefix_end(s2cellid_to_key(max_cell));
 
         for (;;) {
             // key_slice at this point has had the prefix truncated.

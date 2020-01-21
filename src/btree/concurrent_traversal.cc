@@ -19,6 +19,7 @@
 #include "concurrency/semaphore.hpp"
 #include "concurrency/fifo_enforcer.hpp"
 #include "rockstore/store.hpp"
+#include "utils.hpp"
 
 // TODO: Inline this...
 continue_bool_t process_traversal_element(
@@ -56,7 +57,7 @@ continue_bool_t rocks_traversal(
         if (!range.right.unbounded) {
             prefixed_upper_bound = rocks_kv_prefix + key_to_unescaped_str(range.right.key());
         } else {
-            prefixed_upper_bound = rockstore::prefix_end(rocks_kv_prefix);
+            prefixed_upper_bound = prefix_end(rocks_kv_prefix);
         }
 
         if (!prefixed_upper_bound.empty()) {
@@ -114,7 +115,7 @@ continue_bool_t rocks_traversal(
             if (!range.right.unbounded) {
                 prefixed_right = rocks_kv_prefix + key_to_unescaped_str(range.right.key());
             } else {
-                prefixed_right = rockstore::prefix_end(rocks_kv_prefix);
+                prefixed_right = prefix_end(rocks_kv_prefix);
             }
 
             if (prefixed_right.empty()) {

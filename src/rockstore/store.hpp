@@ -97,8 +97,6 @@ std::string table_secondary_key(
 std::string table_primary_prefix(namespace_id_t id);
 std::string table_primary_key(namespace_id_t id, const std::string &key);
 
-std::string prefix_end(const std::string &prefix);
-
 // TODO: Make sure we have a single global file format version in the file somewhere.
 inline const char * VERSION() { return "v2_4"; }
 inline const char * TABLE_METADATA_METAINFO_KEY() { return "metainfo"; }

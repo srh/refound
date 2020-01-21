@@ -241,6 +241,22 @@ bool parse_time(const std::string &str, local_or_utc_time_t zone,
     return true;
 }
 
+// Returns the minimum upper bound of the set of strings prefixed by prefix. If
+// and only if there is no upper bound (the string matches /^(\xFF)*$/), returns
+// the empty string.
+std::string prefix_end(const std::string &prefix) {
+    std::string ret = prefix;
+    while (!ret.empty()) {
+        if (static_cast<uint8_t>(ret.back()) != 0xFF) {
+            ret.back() = static_cast<char>(static_cast<uint8_t>(ret.back()) + 1);
+            break;
+        }
+        ret.pop_back();
+        continue;
+    }
+    return ret;
+}
+
 with_priority_t::with_priority_t(int priority) {
     rassert(coro_t::self() != nullptr);
     previous_priority = coro_t::self()->get_priority();

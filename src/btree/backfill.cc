@@ -56,7 +56,7 @@ continue_bool_t send_all_in_keyrange(
 
     std::string left = rocks_kv_prefix + key_to_unescaped_str(range.left);
     std::string right = range.right.unbounded
-        ? rockstore::prefix_end(rocks_kv_prefix)
+        ? prefix_end(rocks_kv_prefix)
         : rocks_kv_prefix + key_to_unescaped_str(range.right.key());
 
     rocksdb::Slice right_slice(right.data(), right.size());

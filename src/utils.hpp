@@ -77,7 +77,7 @@ bool parse_time(
 /* Printing binary data to stderr in a nice format */
 void print_hd(const void *buf, size_t offset, size_t length);
 
-
+std::string prefix_end(const std::string &prefix);
 
 /* `with_priority_t` changes the priority of the current coroutine to the
  value given in its constructor. When it is destructed, it restores the

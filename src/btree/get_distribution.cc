@@ -23,7 +23,7 @@ void get_distribution(
     std::string rocks_kv_prefix = rockstore::table_primary_prefix(rocksh.table_id);
     std::string beg = rocks_kv_prefix + key_to_unescaped_str(key_range.left);
     std::string end = key_range.right.unbounded
-        ? rockstore::prefix_end(rocks_kv_prefix)
+        ? prefix_end(rocks_kv_prefix)
         : rocks_kv_prefix + key_to_unescaped_str(key_range.right.key());
 
     std::vector<store_key_t> ret;
