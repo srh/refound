@@ -5,6 +5,7 @@
 #include "containers/uuid.hpp"
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
+#include "rpc/serialize_macros.hpp"
 
 class signal_t;
 
@@ -197,6 +198,12 @@ constexpr const char *REQLFDB_TABLE_CONFIG_BY_NAME = "rethinkdb/table_config/by_
 constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 
 constexpr size_t REQLFDB_CLOCK_SIZE = 8;
+struct reqlfdb_clock {
+    uint64_t value;
+};
+// reqlfdb_clock must be serialized in little-endian order.
+RDB_DECLARE_SERIALIZABLE(reqlfdb_clock);
+
 constexpr size_t REQLFDB_NODES_COUNT_SIZE = 8;
 constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 

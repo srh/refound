@@ -2,6 +2,7 @@
 #define RETHINKDB_FDB_TYPED_HPP_
 
 #include "fdb/reql_fdb.hpp"
+#include "fdb/reql_fdb_utils.hpp"
 
 // A future that holds a serialized value.
 template <class T>
@@ -20,5 +21,8 @@ public:
     }
 };
 
+inline fdb_value_fut<reqlfdb_clock> transaction_get_clock(FDBTransaction *txn) {
+    return fdb_value_fut<reqlfdb_clock>(transaction_get_c_str(txn, REQLFDB_CLOCK_KEY));
+}
 
 #endif  // RETHINKDB_FDB_TYPED_HPP_

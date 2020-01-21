@@ -1,6 +1,8 @@
 #ifndef RETHINKDB_FDB_REQL_FDB_UTILS_HPP_
 #define RETHINKDB_FDB_REQL_FDB_UTILS_HPP_
 
+#include <limits.h>
+
 #include "containers/archive/buffer_stream.hpp"
 #include "containers/archive/vector_stream.hpp"
 #include "fdb/reql_fdb.hpp"
@@ -15,6 +17,7 @@ MUST_USE bool deserialize_off_fdb_value(const fdb_value &value, T *out) {
     // TODO: serialization versioning.
     archive_result_t res = deserialize<cluster_version_t::LATEST_DISK>(&stream, out);
     guarantee(!bad(res), "bad deserialization from db value");  // TODO: pass error
+    guarantee(size_t(stream.tell()) == stream.size());  // TODO: Pass error.
     // TODO: Cleanup error messages in every new fdb guarantee.
     return true;
 }

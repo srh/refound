@@ -3,6 +3,9 @@
 #include <limits.h>
 #include <string.h>
 
+#include "errors.hpp"
+#include <boost/detail/endian.hpp>
+
 #include "concurrency/cond_var.hpp"
 #include "concurrency/interruptor.hpp"
 #include "concurrency/wait_any.hpp"
@@ -143,3 +146,10 @@ void future_block_coro(FDBFuture *fut, const signal_t *interruptor) {
     }
 }
 
+// FoundationDB uses little endian values for atomic ops, and serialization here
+// is platform-specific.
+#if !defined(BOOST_LITTLE_ENDIAN)
+#error "reqlfdb_clock serialization broken on big endian"
+#endif
+
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_clock, value);

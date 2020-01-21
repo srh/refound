@@ -2,8 +2,10 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "arch/timing.hpp"
+#include "containers/archive/string_stream.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
+#include "fdb/typed.hpp"
 #include "utils.hpp"
 
 std::string node_key(const uuid_u &node_id) {
@@ -31,27 +33,21 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
 void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor) {
         std::string key = node_key(node_id);
 
-        fdb_future clock_fut = transaction_get_c_str(txn, REQLFDB_CLOCK_KEY);
+        fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
         fdb_future old_node_fut = transaction_get_std_str(txn, key);
 
-        fdb_value clock = future_block_on_value(clock_fut.fut, interruptor);
-
-        guarantee(clock.present && clock.length == REQLFDB_CLOCK_SIZE, "bad fdb clock");  // TODO
-        static_assert(8 == REQLFDB_CLOCK_SIZE, "fdb clock size must be uint64");
-        uint64_t clock_val = read_LE_uint64(clock.data);
-
+        reqlfdb_clock clock = clock_fut.block_and_deserialize(interruptor);
         fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 
         {
-            static_assert(8 == REQLFDB_CLOCK_SIZE, "fdb clock size must be uint64");
-            uint8_t new_clock_buf[REQLFDB_CLOCK_SIZE];
-            write_LE_uint64(clock_val + REQLFDB_NODE_LEASE_DURATION, new_clock_buf);
+            reqlfdb_clock lease_expiration{clock.value + REQLFDB_NODE_LEASE_DURATION};
+            std::string buf = serialize_for_cluster_to_string(lease_expiration);
 
             fdb_transaction_set(txn,
                 as_uint8(key.data()),
                 int(key.size()),
-                new_clock_buf,
-                sizeof(new_clock_buf));
+                as_uint8(buf.data()),
+                int(buf.size()));
         }
 
         if (!old_node.present) {
@@ -121,6 +117,8 @@ void run_node_coro(FDBDatabase *fdb, uuid_u node_id, signal_t *interruptor) {
         }
 
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [interruptor](FDBTransaction *txn) {
+            // TODO: Put a unit test somewhere that reqlfdb_clock_t is serialized as an
+            // 8-byte little-endian uint64.
             uint8_t value[REQLFDB_CLOCK_SIZE] = { 1, 0 };
             fdb_transaction_atomic_op(txn,
                 as_uint8(REQLFDB_CLOCK_KEY),
