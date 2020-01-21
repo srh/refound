@@ -77,7 +77,7 @@ for my $path (@paths) {
     while (<$FH>) {
         if (/^#include\s+"(.*)"/ && !/NOPROCESS/) {
             my $header = $1;
-            if ($header =~ /^rocksdb\//) {
+            if ($header =~ /^(?:rocksdb|foundationdb)\//) {
                 $boosts{$path}->{$header} = 1;
                 next;
             }
