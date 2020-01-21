@@ -13,6 +13,7 @@
 #include "containers/archive/stl_types.hpp"
 #include "rockstore/rockshard.hpp"
 #include "rockstore/store.hpp"
+#include "utils.hpp"
 
 // TODO: Remove
 /* `MAX_CONCURRENT_VALUE_LOADS` is the maximum number of coroutines we'll use for loading

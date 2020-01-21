@@ -6,6 +6,7 @@
 
 #include "concurrency/wait_any.hpp"
 #include "containers/archive/optional.hpp"
+#include "utils.hpp"
 
 template<class key_t, class value_t>
 directory_map_write_manager_t<key_t, value_t>::directory_map_write_manager_t(

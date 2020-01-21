@@ -14,7 +14,6 @@
 #include "rpc/semilattice/joins/map.hpp"
 #include "rpc/semilattice/joins/versioned.hpp"
 #include "rpc/serialize_macros.hpp"
-#include "utils.hpp"
 
 class server_config_t {
 public:

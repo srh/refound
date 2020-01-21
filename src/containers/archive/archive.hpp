@@ -49,11 +49,10 @@ inline bool bad(archive_result_t res) {
 
 const char *archive_result_as_str(archive_result_t archive_result);
 
-#define guarantee_deserialization(result, ...) do {                     \
-        guarantee(result == archive_result_t::SUCCESS,                  \
-                  "Deserialization of %s failed with error %s.",        \
-                  strprintf(__VA_ARGS__).c_str(),                       \
-                  archive_result_as_str(result));                       \
+#define guarantee_deserialization(result, fmt, ...) do { \
+        guarantee(result == archive_result_t::SUCCESS, \
+                  "Deserialization of " fmt " failed with error %s.", ##__VA_ARGS__, \
+                  archive_result_as_str(result)); \
     } while (0)
 
 // Returns the number of bytes written, or -1.  Returns a

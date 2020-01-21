@@ -8,7 +8,6 @@
 #include "containers/uuid.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "timestamps.hpp"
-#include "utils.hpp"
 
 /* The type `version_t` uniquely identifies the state of some region of a RethinkDB table
 at some point in time. Every read operation that passes through a `broadcaster_t` will

@@ -5,7 +5,6 @@
 #include <exception>
 #include <string>
 
-#include "utils.hpp"
 #include "containers/archive/archive.hpp"
 #include "concurrency/wait_any.hpp"
 #include "concurrency/cross_thread_semaphore.hpp"

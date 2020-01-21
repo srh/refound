@@ -7,6 +7,7 @@
 #include "clustering/table_contract/coordinator/calculate_misc.hpp"
 #include "clustering/table_contract/coordinator/check_ready.hpp"
 #include "logger.hpp"
+#include "utils.hpp"
 
 contract_coordinator_t::contract_coordinator_t(
         raft_member_t<table_raft_state_t> *_raft,

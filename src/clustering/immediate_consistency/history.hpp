@@ -13,7 +13,6 @@
 #include "rpc/semilattice/joins/macros.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "timestamps.hpp"
-#include "utils.hpp"
 
 /* The state of the database at the time that the `broadcaster_t` was created and the
 sequence of writes that pass through a `broadcaster_t` are collectively referred to as a

@@ -16,11 +16,11 @@
 #include "containers/archive/stl_types.hpp"
 #include "containers/object_buffer.hpp"
 #include "containers/scoped.hpp"
+#include "query_state.hpp"
 #include "region/region.hpp"
 #include "region/region_map.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "timestamps.hpp"
-#include "utils.hpp"
 #include "version.hpp"
 
 namespace auth {
@@ -37,8 +37,6 @@ class store_view_t;
 struct write_t;
 struct write_response_t;
 
-ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
-        query_state_t, int8_t, query_state_t::FAILED, query_state_t::INDETERMINATE);
 class cannot_perform_query_exc_t : public std::exception {
 public:
     // SHOULD ONLY BE USED FOR SERIALIZATION

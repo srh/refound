@@ -2,9 +2,9 @@
 #ifndef CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
 #define CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
 
-#include "utils.hpp"
-
 #include "clustering/table_manager/table_meta_client.hpp"
+#include "query_state.hpp"
+#include "utils.hpp"
 
 struct admin_err_t {
     std::string msg;

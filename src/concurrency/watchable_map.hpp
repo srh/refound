@@ -10,7 +10,6 @@
 #include "concurrency/watchable.hpp"
 #include "containers/map_sentries.hpp"
 #include "containers/optional.hpp"
-#include "utils.hpp"
 
 /* `watchable_map_t` is like `watchable_t` except specialized for holding a map in which
 the keys usually update independently. If the map contains N keys, it takes O(log(N))

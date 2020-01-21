@@ -10,6 +10,7 @@
 #include "containers/map_sentries.hpp"
 #include "logger.hpp"
 #include "random.hpp"
+#include "utils.hpp"
 
 /* After finding myself repeatedly adding debug logging to Raft and then tearing it out
 when I didn't need it anymore, I automated the process. Define `ENABLE_RAFT_DEBUG` to

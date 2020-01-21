@@ -4,6 +4,7 @@
 #include <map>
 
 #include "debug.hpp"
+#include "errors.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "utils.hpp"
 

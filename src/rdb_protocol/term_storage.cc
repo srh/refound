@@ -6,6 +6,7 @@
 #include "rdb_protocol/datum_json.hpp"
 #include "rdb_protocol/optargs.hpp"
 #include "rdb_protocol/term_walker.hpp"
+#include "utils.hpp"
 
 namespace ql {
 

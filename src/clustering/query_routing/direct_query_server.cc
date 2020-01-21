@@ -3,6 +3,7 @@
 
 #include "protocol_api.hpp"
 #include "store_view.hpp"
+#include "utils.hpp"
 
 direct_query_server_t::direct_query_server_t(
         mailbox_manager_t *mm,

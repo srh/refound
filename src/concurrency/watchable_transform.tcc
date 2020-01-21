@@ -3,6 +3,7 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "stl_utils.hpp"
+#include "utils.hpp"
 
 template<class key1_t, class value1_t, class key2_t, class value2_t>
 watchable_map_transform_t<key1_t, value1_t, key2_t, value2_t>::watchable_map_transform_t(

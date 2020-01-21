@@ -35,8 +35,6 @@ struct const_charslice {
     const_charslice() : beg(nullptr), end(nullptr) { }
 };
 
-enum class query_state_t { FAILED, INDETERMINATE };
-
 // Reads from /dev/urandom.  Use this sparingly, please.
 void system_random_bytes(void *out, int64_t nbytes);
 

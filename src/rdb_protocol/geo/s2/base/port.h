@@ -23,7 +23,6 @@
 #endif
 
 #include "rdb_protocol/geo/s2/base/integral_types.h"
-#include "utils.hpp"
 
 // Must happens before inttypes.h inclusion */
 #if defined(__MACH__)

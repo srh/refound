@@ -3,6 +3,7 @@
 
 #include "concurrency/wait_any.hpp"
 #include "rpc/mailbox/mailbox.hpp"
+#include "utils.hpp"
 
 template<class key_t, class value_t>
 minidir_read_manager_t<key_t, value_t>::minidir_read_manager_t(

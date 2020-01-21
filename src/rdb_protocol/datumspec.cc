@@ -6,6 +6,7 @@
 #include "containers/object_buffer.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/serialize_datum.hpp"
+#include "utils.hpp"
 
 namespace ql {
 
@@ -128,6 +129,14 @@ datum_range_t datum_range_t::with_left_bound(datum_t d, key_range_t::bound_t typ
 datum_range_t datum_range_t::with_right_bound(datum_t d, key_range_t::bound_t type) {
     r_sanity_check(left_bound.has() && d.has());
     return datum_range_t(left_bound, left_bound_type, d, type);
+}
+
+std::string datum_range_t::print() const {
+    return strprintf("%c%s,%s%c",
+                     left_bound_type == key_range_t::open ? '(' : '[',
+                     left_bound.print().c_str(),
+                     right_bound.print().c_str(),
+                     right_bound_type == key_range_t::open ? ')' : ']');
 }
 
 datumspec_t datumspec_t::trim_secondary(

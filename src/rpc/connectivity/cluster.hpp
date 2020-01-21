@@ -21,7 +21,6 @@
 #include "random.hpp"
 #include "rpc/connectivity/peer_id.hpp"
 #include "rpc/connectivity/server_id.hpp"
-#include "utils.hpp"
 
 class auth_semilattice_metadata_t;
 class cluster_message_handler_t;

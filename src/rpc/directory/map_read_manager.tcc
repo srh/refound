@@ -7,6 +7,7 @@
 #include "concurrency/wait_any.hpp"
 #include "containers/archive/optional.hpp"
 #include "containers/archive/vector_stream.hpp"
+#include "utils.hpp"
 
 template<class key_t, class value_t>
 directory_map_read_manager_t<key_t, value_t>::directory_map_read_manager_t(

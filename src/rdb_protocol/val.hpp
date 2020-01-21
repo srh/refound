@@ -14,6 +14,7 @@
 #include "rdb_protocol/geo/lon_lat_types.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/ql2proto.hpp"
+#include "utils.hpp"
 
 class ellipsoid_spec_t;
 

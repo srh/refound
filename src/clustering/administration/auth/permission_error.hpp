@@ -6,7 +6,6 @@
 #include <string>
 
 #include "clustering/administration/auth/username.hpp"
-#include "utils.hpp"
 
 namespace auth {
 

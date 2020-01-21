@@ -13,6 +13,7 @@
 #include "concurrency/wait_any.hpp"
 #include "containers/archive/versioned.hpp"
 #include "logger.hpp"
+#include "utils.hpp"
 
 #define MAX_OUTSTANDING_SEMILATTICE_WRITES 4
 

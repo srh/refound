@@ -2,9 +2,9 @@
 #ifndef CONTAINERS_ARCHIVE_BUFFER_GROUP_STREAM_HPP_
 #define CONTAINERS_ARCHIVE_BUFFER_GROUP_STREAM_HPP_
 
-#include "version.hpp"
+#include "errors.hpp"
 #include "containers/archive/archive.hpp"
-#include "utils.hpp"
+#include "version.hpp"
 
 class const_buffer_group_t;
 class buffer_group_t;
