@@ -23,13 +23,10 @@ std::string db_by_id_key(const uuid_u &db_id) {
     return uuid_to_str(db_id);
 }
 
-reqlfdb_config_version future_block_on_config_version(
-        FDBFuture *fut, const signal_t *interruptor) {
-    fdb_value cv_value = future_block_on_value(fut, interruptor);
-    reqlfdb_config_version cv;
-    bool present = deserialize_off_fdb_value(cv_value, &cv);
-    guarantee(present, "config version not present");  // TODO?
-    return cv;
+fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
+        FDBTransaction *txn) {
+    return fdb_value_fut<reqlfdb_config_version>(transaction_get_c_str(
+        txn, REQLFDB_CONFIG_VERSION_KEY));
 }
 
 config_info<optional<database_id_t>>
@@ -43,7 +40,7 @@ config_cache_db_by_name(
         ret.value = make_optional(it->second);
         ret.check_later.expected_config_version = cache->config_version;
         ret.check_later.config_version_future
-            = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+            = transaction_get_config_version(txn);
         return ret;
     }
 
@@ -51,11 +48,11 @@ config_cache_db_by_name(
 
     fdb_future fut = transaction_lookup_unique_index(
         txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
-    fdb_future cv_fut = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     // We block here!
     fdb_value value = future_block_on_value(fut.fut, interruptor);
-    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     ASSERT_NO_CORO_WAITING;
 
@@ -94,7 +91,7 @@ bool config_cache_db_create(
         "config_cache_db_create should never get queries for system tables");
     // TODO: Ensure caller doesn't pass "rethinkdb".
 
-    fdb_future cv_fut = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     fdb_future fut = transaction_lookup_unique_index(
         txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
 
@@ -104,7 +101,7 @@ bool config_cache_db_create(
         // A db with this name already exists.
         return false;
     }
-    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     ASSERT_NO_CORO_WAITING;
 
@@ -128,7 +125,7 @@ bool config_cache_db_drop(
 
     // TODO: Ensure caller doesn't pass "rethinkdb".
 
-    fdb_future cv_fut = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     fdb_future fut = transaction_lookup_pkey_index(
         txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
 
@@ -136,7 +133,7 @@ bool config_cache_db_drop(
     if (!value.present) {
         return false;
     }
-    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     // TODO: Finish implementing.
     return false;
@@ -167,7 +164,7 @@ bool config_cache_table_create(
     const std::string table_index_key = table_by_name_key(db_id, table_name);
     const std::string db_pkey_key = db_by_id_key(db_id);
 
-    fdb_future cv_fut = transaction_get_c_str(txn, REQLFDB_CONFIG_VERSION_KEY);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
     fdb_future db_by_id_fut = transaction_lookup_pkey_index(
@@ -182,7 +179,7 @@ bool config_cache_table_create(
         return false;
     }
 
-    reqlfdb_config_version cv = future_block_on_config_version(cv_fut.fut, interruptor);
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     ASSERT_NO_CORO_WAITING;
 
