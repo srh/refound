@@ -25,4 +25,5 @@ inline fdb_value_fut<reqlfdb_clock> transaction_get_clock(FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_clock>(transaction_get_c_str(txn, REQLFDB_CLOCK_KEY));
 }
 
+
 #endif  // RETHINKDB_FDB_TYPED_HPP_

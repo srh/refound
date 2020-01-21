@@ -195,6 +195,11 @@ constexpr const char *REQLFDB_TABLE_CONFIG_BY_ID = "rethinkdb/table_config//";
 // indexed uniquely by {db_id,name}
 constexpr const char *REQLFDB_TABLE_CONFIG_BY_NAME = "rethinkdb/table_config/by_name/";
 
+constexpr const char *REQLFDB_JOBS_TABLE = "rethinkdb/jobs/";
+constexpr const char *REQLFDB_JOBS_BY_ID = "rethinkdb/jobs//";
+constexpr const char *REQLFDB_JOBS_BY_LEASE_EXPIRATION = "rethinkdb/jobs/by_expiration/";
+constexpr const char *REQLFDB_JOBS_BY_TASK = "rethinkdb/jobs/by_task/";
+
 constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 
 constexpr size_t REQLFDB_CLOCK_SIZE = 8;
@@ -208,6 +213,10 @@ constexpr size_t REQLFDB_NODES_COUNT_SIZE = 8;
 constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 
 constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;
+
+// TODO: Calculate this rationally using constants like TIMESTEP_MS and how fdb
+// transaction duration is configured.
+constexpr const int REQLFDB_JOB_LEASE_DURATION = 10;
 
 constexpr uint64_t REQLFDB_TIMESTEP_MS = 5000;
 

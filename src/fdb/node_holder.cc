@@ -30,6 +30,7 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
     return err;
 }
 
+
 void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor) {
         std::string key = node_key(node_id);
 

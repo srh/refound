@@ -49,3 +49,15 @@ void transaction_set_pkey_index(FDBTransaction *txn, const char *prefix,
     // These work the same.
     transaction_set_unique_index(txn, prefix, index_key, value);
 }
+
+void transaction_set_plain_index(FDBTransaction *txn, const char *prefix,
+        const std::string &index_key, const std::string &pkey,
+        const std::string &value) {
+    std::string key = prefix;
+    key.append(index_key);
+    key.append(pkey);
+    fdb_transaction_set(
+        txn, as_uint8(key.data()), int(key.size()),
+        as_uint8(value.data()), int(value.size()));
+    // TODO: Chase down every non-assurance that keys and values aren't too big.
+}
