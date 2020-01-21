@@ -76,6 +76,19 @@ std::string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
     return strprintf("%016" PRIx64 "", clock.value);
 }
 
+struct job_sindex_keys {
+    std::string task;
+    std::string lease_expiration;
+};
+
+job_sindex_keys get_sindex_keys(const fdb_job_info &info) {
+    job_sindex_keys ret;
+    ret.task = uuid_sindex_key(info.shared_task_id);
+    ret.lease_expiration = reqlfdb_clock_sindex_key(info.lease_expiration);
+    return ret;
+}
+
+// TODO: Maybe caller can pass in clock.
 void add_fdb_job(FDBTransaction *txn,
     uuid_u shared_task_id, uuid_u claiming_node /* or nil */, fdb_job_description &&desc, const signal_t *interruptor) {
     const uuid_u job_id = generate_uuid();
@@ -87,8 +100,8 @@ void add_fdb_job(FDBTransaction *txn,
 
     reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
     fdb_value job_missing_value = future_block_on_value(job_missing_fut.fut, interruptor);
-    guarantee(!job_missing_value.present, "uuid generation created a duplicate id, "
-        "job with id %s already exists", job_id_key.c_str());
+    guarantee(!job_missing_value.present, "uuid generation created a duplicate id "
+        "(rng failure), job with id %s already exists", job_id_key.c_str());
 
     reqlfdb_clock lease_expiration{
         claiming_node.is_nil() ? 0 : current_clock.value + REQLFDB_JOB_LEASE_DURATION};
@@ -104,18 +117,28 @@ void add_fdb_job(FDBTransaction *txn,
 
     std::string job_value = serialize_for_cluster_to_string(info);
 
-    std::string task_sindex_key = uuid_sindex_key(shared_task_id);
-
-    std::string expiration_sindex_key = reqlfdb_clock_sindex_key(lease_expiration);
+    job_sindex_keys sindex_keys = get_sindex_keys(info);
 
     // TODO: Now insert the job into the table.  We already confirmed it's an insertion.
     transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, job_value);
 
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
-        expiration_sindex_key, job_id_key, "");
+        sindex_keys.lease_expiration, job_id_key, "");
 
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_TASK,
-        task_sindex_key, job_id_key, "");
+        sindex_keys.task, job_id_key, "");
 
     // Done.
+}
+
+// The caller must know the job is present in the table.
+void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
+    std::string job_id_key = uuid_to_str(info.job_id);
+    job_sindex_keys sindex_keys = get_sindex_keys(info);
+
+    transaction_erase_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key);
+    transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
+        sindex_keys.lease_expiration, job_id_key);
+    transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_TASK,
+        sindex_keys.task, job_id_key);
 }

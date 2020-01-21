@@ -23,6 +23,8 @@ RDB_DECLARE_SERIALIZABLE(fdb_job_info);
 void add_fdb_job(FDBTransaction *txn,
     uuid_u task_id, uuid_u claiming_node, fdb_job_description &&desc);
 
+void remove_fdb_job(FDBTransaction *txn,
+    const fdb_job_info &info);
 
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_
