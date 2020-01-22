@@ -2,6 +2,7 @@
 
 #include <inttypes.h>
 
+#include "arch/runtime/coroutines.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/index.hpp"
 #include "fdb/retry_loop.hpp"
@@ -66,7 +67,11 @@ rethinkdb/jobs/ => table of fdb_job_info by job id
 
 */
 
-RDB_IMPL_SERIALIZABLE_0_SINCE_v2_5(fdb_job_description);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_description, type);
+RDB_IMPL_EQUALITY_COMPARABLE_1(fdb_job_description, type);
+
+RDB_IMPL_EQUALITY_COMPARABLE_6(fdb_job_info,
+    job_id, shared_task_id, claiming_node, counter, lease_expiration, job_description);
 
 RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
     job_id, shared_task_id, claiming_node, counter, lease_expiration, job_description);
@@ -151,11 +156,55 @@ void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
         sindex_keys.task, job_id_key);
 }
 
+// TODO: Look at all fdb txn's, note the read-only ones, and config them read-only.
+
+// TODO: Distribute job execution to different cores.
+
+void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
+        const auto_drainer_t::lock_t &lock) {
+    const signal_t *interruptor = lock.get_drain_signal();
+    switch (info.job_description.type) {
+    case fdb_job_type::dummy_job: {
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+        [&info, interruptor](FDBTransaction *txn) {
+            std::string job_id_key = uuid_to_str(info.job_id);
+            fdb_value_fut<fdb_job_info> real_info_fut{
+                transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
+
+            fdb_job_info real_info;
+            if (!real_info_fut.block_and_deserialize(interruptor, &real_info)) {
+                // The job is not present.  Something else must have claimed it.
+                return;
+            }
+
+            if (real_info.counter != info.counter) {
+                // The job is not the same.  Another node must have claimed it.
+                // (Possibly ourselves?  Who knows.)
+                return;
+            }
+
+            // This is impossible, but it could happen in a scenario with duplicate
+            // generate_uuid(), I guess.
+            guarantee(real_info == info,
+                "Job info is different with the same counter value.");
+
+            // Since this is a dummy job, we do nothing with the job except to remove it.
+            remove_fdb_job(txn, real_info);
+
+            commit(txn, interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "could not execute dummy job");
+    } break;
+    default:
+        unreachable();
+    }
+}
+
 void try_claim_and_start_job(
         FDBDatabase *fdb, uuid_u self_node_id, const auto_drainer_t::lock_t &lock) {
     // TODO: Do we actually want a retry-loop?  Maybe a no-retry loop.
     const signal_t *interruptor = lock.get_drain_signal();
-    bool claimed_job = false;
+    optional<fdb_job_info> claimed_job;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
     [interruptor, self_node_id, &claimed_job](FDBTransaction *txn) {
         // Now.
@@ -217,11 +266,13 @@ void try_claim_and_start_job(
         // Task index untouched.
 
         commit(txn, interruptor);
-        claimed_job = true;
+        claimed_job.set(std::move(job_info));
     });
     guarantee_fdb_TODO(loop_err, "try_claim_and_start_job failed");
 
-    if (claimed_job) {
-        // TODO: Kick off job execution.
+    if (claimed_job.has_value()) {
+        coro_t::spawn_later_ordered([fdb, job = std::move(claimed_job.get()), lock] {
+            execute_job(fdb, job, lock);
+        });
     }
 }

@@ -12,10 +12,14 @@ public:
     explicit fdb_value_fut(fdb_future &&movee)
         : fdb_future(std::move(movee)) {}
 
+    MUST_USE bool block_and_deserialize(const signal_t *interruptor, T *out) {
+        fdb_value value = future_block_on_value(fut, interruptor);
+        return deserialize_off_fdb_value(value, out);
+    }
+
     T block_and_deserialize(const signal_t *interruptor) {
         T ret;
-        fdb_value value = future_block_on_value(fut, interruptor);
-        bool value_present = deserialize_off_fdb_value(value, &ret);
+        bool value_present = block_and_deserialize(interruptor, &ret);
         guarantee(value_present);  // TODO: Pass error.
         return ret;
     }

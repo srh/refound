@@ -6,6 +6,7 @@
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
 #include "rpc/serialize_macros.hpp"
+#include "rpc/semilattice/joins/macros.hpp"
 
 class signal_t;
 
@@ -226,6 +227,7 @@ struct reqlfdb_clock {
 };
 // reqlfdb_clock must be serialized in little-endian order.
 RDB_DECLARE_SERIALIZABLE(reqlfdb_clock);
+RDB_MAKE_EQUALITY_COMPARABLE_1(reqlfdb_clock, value);
 
 constexpr size_t REQLFDB_NODES_COUNT_SIZE = 8;
 constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;

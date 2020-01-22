@@ -4,6 +4,10 @@
 #include "fdb/reql_fdb.hpp"
 #include "containers/optional.hpp"
 
+// TODO: For type safety and consistent conversion of data types to keys, make some
+// sort of ukey_string type and ikey_string types for unique and plain indexes.
+
+
 std::string unique_index_fdb_key(const char *prefix, const std::string &index_key);
 std::string plain_index_fdb_key(const char *prefix, const std::string &index_key,
     const std::string &pkey);

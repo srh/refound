@@ -5,10 +5,20 @@
 #include "containers/uuid.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "rpc/serialize_macros.hpp"
+#include "rpc/semilattice/joins/macros.hpp"
+
+enum class fdb_job_type {
+    dummy_job,  // TODO: Remove.
+};
+
+ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
+    fdb_job_type::dummy_job, fdb_job_type::dummy_job);
 
 struct fdb_job_description {
-
+    fdb_job_type type;
 };
+
+RDB_DECLARE_SERIALIZABLE(fdb_job_description);
 
 struct fdb_job_info {
     uuid_u job_id;
@@ -20,6 +30,7 @@ struct fdb_job_info {
 };
 
 RDB_DECLARE_SERIALIZABLE(fdb_job_info);
+RDB_DECLARE_EQUALITY_COMPARABLE(fdb_job_info);
 
 void add_fdb_job(FDBTransaction *txn,
     uuid_u task_id, uuid_u claiming_node, fdb_job_description &&desc);

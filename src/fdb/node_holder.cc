@@ -33,37 +33,36 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
 
 
 void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor) {
-        std::string key = node_key(node_id);
+    std::string key = node_key(node_id);
 
-        fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
-        fdb_future old_node_fut = transaction_get_std_str(txn, key);
+    fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
+    fdb_future old_node_fut = transaction_get_std_str(txn, key);
 
-        reqlfdb_clock clock = clock_fut.block_and_deserialize(interruptor);
-        fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
+    reqlfdb_clock clock = clock_fut.block_and_deserialize(interruptor);
+    fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 
-        {
-            reqlfdb_clock lease_expiration{clock.value + REQLFDB_NODE_LEASE_DURATION};
-            std::string buf = serialize_for_cluster_to_string(lease_expiration);
+    {
+        reqlfdb_clock lease_expiration{clock.value + REQLFDB_NODE_LEASE_DURATION};
+        std::string buf = serialize_for_cluster_to_string(lease_expiration);
 
-            fdb_transaction_set(txn,
-                as_uint8(key.data()),
-                int(key.size()),
-                as_uint8(buf.data()),
-                int(buf.size()));
-        }
+        fdb_transaction_set(txn,
+            as_uint8(key.data()),
+            int(key.size()),
+            as_uint8(buf.data()),
+            int(buf.size()));
+    }
 
-        if (!old_node.present) {
-            uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 1, 0 };
-            fdb_transaction_atomic_op(txn,
-                as_uint8(REQLFDB_NODES_COUNT_KEY),
-                strlen(REQLFDB_NODES_COUNT_KEY),
-                value,
-                sizeof(value),
-                FDB_MUTATION_TYPE_ADD);
-        }
+    if (!old_node.present) {
+        uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 1, 0 };
+        fdb_transaction_atomic_op(txn,
+            as_uint8(REQLFDB_NODES_COUNT_KEY),
+            strlen(REQLFDB_NODES_COUNT_KEY),
+            value,
+            sizeof(value),
+            FDB_MUTATION_TYPE_ADD);
+    }
 
-        commit(txn, interruptor);
-
+    commit(txn, interruptor);
 }
 
 MUST_USE fdb_error_t write_node_entry(
