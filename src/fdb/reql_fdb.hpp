@@ -144,10 +144,21 @@ inline fdb_future transaction_get_c_str(FDBTransaction *txn, const char *key) {
 
 fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 
+// TODO: Rename to "value_view".
 struct fdb_value {
     fdb_bool_t present;
     const uint8_t *data;
     int length;
+};
+
+struct key_view {
+    const uint8_t *data;
+    int length;
+
+    key_view without_prefix(int prefix_length) {
+        guarantee(prefix_length <= length);  // TODO: fail msg
+        return key_view{data + prefix_length, length - prefix_length};
+    }
 };
 
 MUST_USE inline fdb_error_t future_get_value(FDBFuture *fut, fdb_value *out) {
@@ -156,6 +167,13 @@ MUST_USE inline fdb_error_t future_get_value(FDBFuture *fut, fdb_value *out) {
 
 // Throws fdb_transaction_exception.
 fdb_value future_block_on_value(FDBFuture *fut, const signal_t *interruptor);
+
+MUST_USE inline fdb_error_t future_get_key(FDBFuture *fut, key_view *out) {
+    return fdb_future_get_key(fut, &out->data, &out->length);
+}
+
+// Throws fdb_transaction_exception.
+key_view future_block_on_key(FDBFuture *fut, const signal_t *interruptor);
 
 // TODO: Remove (except for commit) and make callers use retry loop.
 MUST_USE fdb_error_t commit_fdb_block_coro(

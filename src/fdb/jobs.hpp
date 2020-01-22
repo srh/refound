@@ -27,6 +27,7 @@ void add_fdb_job(FDBTransaction *txn,
 void remove_fdb_job(FDBTransaction *txn,
     const fdb_job_info &info);
 
-void try_claim_and_start_job(FDBDatabase *fdb, const auto_drainer_t::lock_t &lock);
+void try_claim_and_start_job(
+    FDBDatabase *fdb, uuid_u self_node_id, const auto_drainer_t::lock_t &lock);
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_

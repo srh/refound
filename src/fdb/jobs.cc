@@ -77,6 +77,17 @@ std::string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
     return strprintf("%016" PRIx64 "", clock.value);
 }
 
+std::pair<reqlfdb_clock, key_view> split_clock_key_pair(key_view key) {
+    guarantee(key.length >= 16);  // TODO: fail msg
+
+    // TODO: Avoid string construction
+    std::string sindex_key{as_char(key.data), 16};
+    reqlfdb_clock clock;
+    bool res = strtou64_strict(sindex_key, 16, &clock.value);
+    guarantee(res);  // TODO: fail msg
+    return std::make_pair(clock, key_view{key.data + 16, key.length - 16});
+}
+
 struct job_sindex_keys {
     std::string task;
     std::string lease_expiration;
@@ -140,44 +151,77 @@ void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
         sindex_keys.task, job_id_key);
 }
 
-void try_claim_and_start_job(FDBDatabase *fdb, const auto_drainer_t::lock_t &lock) {
+void try_claim_and_start_job(
+        FDBDatabase *fdb, uuid_u self_node_id, const auto_drainer_t::lock_t &lock) {
     // TODO: Do we actually want a retry-loop?  Maybe a no-retry loop.
     const signal_t *interruptor = lock.get_drain_signal();
-    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [interruptor](FDBTransaction *txn) {
+    bool claimed_job = false;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+    [interruptor, self_node_id, &claimed_job](FDBTransaction *txn) {
         // Now.
         fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
 
         const char *lease_index = REQLFDB_JOBS_BY_LEASE_EXPIRATION;
-        fdb_future first_key_fut{fdb_transaction_get_key(txn,
+        fdb_key_fut first_key_fut{fdb_transaction_get_key(txn,
             FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(
                 as_uint8(lease_index),
                 strlen(lease_index)),
             false)};
 
-        first_key_fut.block_coro(interruptor);
-
-        // TODO: use fdb_key_fut, dedup this a bit.
-        const uint8_t *first_key;
-        int first_key_length;
-        fdb_error_t err = fdb_future_get_key(
-            first_key_fut.fut, &first_key, &first_key_length);
-        if (err != 0) {
-            throw fdb_transaction_exception(err);
-        }
+        key_view first_fdb_key = first_key_fut.block_and_get_key(interruptor);
 
         // TODO: prefix_end string ctor perf.
         std::string lease_index_end = prefix_end(lease_index);
 
-        if (sized_strcmp(first_key, first_key_length,
+        if (sized_strcmp(first_fdb_key.data, first_fdb_key.length,
                 as_uint8(lease_index_end.data()), lease_index_end.size()) >= 0) {
             // Jobs table is empty.
             return;
         }
 
         // There is at least one job.
+
+        key_view spkey
+            = first_fdb_key.without_prefix(strlen(REQLFDB_JOBS_BY_LEASE_EXPIRATION));
+
+        std::pair<reqlfdb_clock, key_view> sp = split_clock_key_pair(spkey);
+        // TODO: validate that sp.second is a uuid?  Or at least the right length.
+
+        std::string job_id_key{as_char(sp.second.data), size_t(sp.second.length)};
+        fdb_value_fut<fdb_job_info> job_info_fut{
+            transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
+
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
 
-        // TODO: Decode the job, check its lease expiration, and possibly claim it.
+        if (current_clock.value < sp.first.value) {
+            // The lease hasn't expired; we do not claim any job.
+            return;
+        }
+
+        // The lease has expired!  Claim the job.
+        fdb_job_info job_info = job_info_fut.block_and_deserialize(interruptor);
+
+        job_info.claiming_node = self_node_id;
+        job_info.counter++;
+        job_info.lease_expiration = reqlfdb_clock{current_clock.value + REQLFDB_JOB_LEASE_DURATION};
+
+        std::string job_info_str = serialize_for_cluster_to_string(job_info);
+
+        std::string new_lease_expiration_key = reqlfdb_clock_sindex_key(job_info.lease_expiration);
+
+        transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, job_info_str);
+        // Update the lease expiration index.
+        fdb_transaction_clear(txn, first_fdb_key.data, first_fdb_key.length);
+        transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
+            new_lease_expiration_key, job_id_key, "");
+        // Task index untouched.
+
+        commit(txn, interruptor);
+        claimed_job = true;
     });
     guarantee_fdb_TODO(loop_err, "try_claim_and_start_job failed");
+
+    if (claimed_job) {
+        // TODO: Kick off job execution.
+    }
 }

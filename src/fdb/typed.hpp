@@ -26,6 +26,10 @@ public:
     using fdb_future::fdb_future;
     explicit fdb_key_fut(fdb_future &&movee)
         : fdb_future(std::move(movee)) {}
+
+    key_view block_and_get_key(const signal_t *interruptor) {
+        return future_block_on_key(fut, interruptor);
+    }
 };
 
 inline fdb_value_fut<reqlfdb_clock> transaction_get_clock(FDBTransaction *txn) {

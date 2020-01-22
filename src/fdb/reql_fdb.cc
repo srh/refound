@@ -96,6 +96,16 @@ fdb_value future_block_on_value(FDBFuture *fut, const signal_t *interruptor) {
     return value;
 }
 
+key_view future_block_on_key(FDBFuture *fut, const signal_t *interruptor) {
+    future_block_coro(fut, interruptor);
+    key_view ret;
+    fdb_error_t err = fdb_future_get_key(fut, &ret.data, &ret.length);
+    if (err != 0) {
+        throw fdb_transaction_exception(err);
+    }
+    return ret;
+}
+
 fdb_error_t commit_fdb_block_coro(FDBTransaction *txn, const signal_t *interruptor) {
     fdb_future fut{fdb_transaction_commit(txn)};
     fut.block_coro(interruptor);

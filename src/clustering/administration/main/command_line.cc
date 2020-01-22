@@ -64,6 +64,7 @@
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/reql_fdb_utils.hpp"
+#include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rockstore/store.hpp"
 
@@ -1873,29 +1874,26 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 
         uint8_t empty_key[1];
         int empty_key_length = 0;
-        fdb_future get_fut{fdb_transaction_get_key(
+        fdb_key_fut get_fut{fdb_transaction_get_key(
             txn,
             FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, empty_key_length),
             false)};
         get_fut.block_pthread();
 
         // Okay, we have an empty db.  Now what?
-        const uint8_t *key;
-        int key_length;
-        fdb_error_t err = fdb_future_get_key(get_fut.fut, &key, &key_length);
-        if (err != 0) {
-            throw fdb_transaction_exception(err);
-        }
+        key_view key;
+        fdb_error_t err = future_get_key(get_fut.fut, &key);
+        check_for_fdb_transaction(err);
 
         uint8_t end_key[1] = { 0xFF };
         int end_key_length = 1;
 
         // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
         // for an empty database.
-        if (sized_strcmp(key, key_length, end_key, end_key_length) < 0) {
+        if (sized_strcmp(key.data, key.length, end_key, end_key_length) < 0) {
             printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
             // TODO: Report error properly.
-            printf("First key is: '%.*s'\n", key_length, reinterpret_cast<const char *>(key));
+            printf("First key is: '%.*s'\n", key.length, reinterpret_cast<const char *>(key.data));
             if (!wipe) {
                 // TODO: Report error properly.
                 printf("Failing to create fdb db\n");
@@ -1949,9 +1947,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         commit_fut.block_pthread();
 
         err = fdb_future_get_error(commit_fut.fut);
-        if (err != 0) {
-            throw fdb_transaction_exception(err);
-        }
+        check_for_fdb_transaction(err);
     });
     guarantee_fdb_TODO(loop_err, "error in create txn");
 

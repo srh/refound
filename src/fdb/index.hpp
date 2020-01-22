@@ -19,6 +19,7 @@ void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
 void transaction_erase_unique_index(FDBTransaction *txn, const char *prefix,
         const std::string &index_key);
 
+// TODO: Take string_view, key_view.
 fdb_future transaction_lookup_pkey_index(
     FDBTransaction *txn, const char *prefix, const std::string &index_key);
 

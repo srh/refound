@@ -114,7 +114,7 @@ void run_node_coro(FDBDatabase *fdb, uuid_u node_id, auto_drainer_t::lock_t lock
         // Now we've got a node count.  Now what?
         for (uint64_t i = 0; i < node_count; ++i) {
             // TODO: Avoid having one node take _all_ the jobs (somehow).
-            try_claim_and_start_job(fdb, lock);
+            try_claim_and_start_job(fdb, node_id, lock);
 
 
 
