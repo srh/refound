@@ -18,29 +18,29 @@ E.g. "a" < "aa" must be maintained, even when the primary keys "b" and "c" get a
 
 
 
-std::string unique_index_fdb_key(const char *prefix, const std::string &index_key) {
+std::string unique_index_fdb_key(const char *prefix, const ukey_string &index_key) {
     std::string ret = prefix;
-    ret += index_key;
+    ret += index_key.ukey;
     return ret;
 }
 
-std::string plain_index_fdb_key(const char *prefix, const std::string &index_key,
-    const std::string &pkey) {
+std::string plain_index_fdb_key(const char *prefix, const skey_string &index_key,
+    const ukey_string &pkey) {
     std::string ret = prefix;
-    ret += index_key;
-    ret += pkey;
+    ret += index_key.skey;
+    ret += pkey.ukey;
     return ret;
 }
 
 
 // Returns an fdb_future of a point-lookup with the value (or not).
-fdb_future transaction_lookup_unique_index(FDBTransaction *txn, const char *prefix, const std::string &index_key) {
+fdb_future transaction_lookup_unique_index(FDBTransaction *txn, const char *prefix, const ukey_string &index_key) {
     std::string key = unique_index_fdb_key(prefix, index_key);
     return transaction_get_std_str(txn, key);
 }
 
 void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
-        const std::string &index_key,
+        const ukey_string &index_key,
         const std::string &value) {
     std::string key = unique_index_fdb_key(prefix, index_key);
     fdb_transaction_set(
@@ -50,32 +50,32 @@ void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
 }
 
 void transaction_erase_unique_index(FDBTransaction *txn, const char *prefix,
-        const std::string &index_key) {
+        const ukey_string &index_key) {
     std::string key = unique_index_fdb_key(prefix, index_key);
     fdb_transaction_clear(
         txn, as_uint8(key.data()), int(key.size()));
 }
 
-fdb_future transaction_lookup_pkey_index(FDBTransaction *txn, const char *prefix, const std::string &index_key) {
+fdb_future transaction_lookup_pkey_index(FDBTransaction *txn, const char *prefix, const ukey_string &index_key) {
     // These work the same.
     return transaction_lookup_unique_index(txn, prefix, index_key);
 }
 
 void transaction_set_pkey_index(FDBTransaction *txn, const char *prefix,
-        const std::string &index_key,
+        const ukey_string &index_key,
         const std::string &value) {
     // These work the same.
     transaction_set_unique_index(txn, prefix, index_key, value);
 }
 
 void transaction_erase_pkey_index(FDBTransaction *txn, const char *prefix,
-        const std::string &index_key) {
+        const ukey_string &index_key) {
     transaction_erase_unique_index(txn, prefix, index_key);
 }
 
 
 void transaction_set_plain_index(FDBTransaction *txn, const char *prefix,
-        const std::string &index_key, const std::string &pkey,
+        const skey_string &index_key, const ukey_string &pkey,
         const std::string &value) {
     std::string key = plain_index_fdb_key(prefix, index_key, pkey);
     fdb_transaction_set(
@@ -85,7 +85,7 @@ void transaction_set_plain_index(FDBTransaction *txn, const char *prefix,
 }
 
 void transaction_erase_plain_index(FDBTransaction *txn, const char *prefix,
-        const std::string &index_key, const std::string &pkey) {
+        const skey_string &index_key, const ukey_string &pkey) {
     std::string key = plain_index_fdb_key(prefix, index_key, pkey);
     fdb_transaction_clear(txn, as_uint8(key.data()), int(key.size()));
 }

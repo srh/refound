@@ -77,9 +77,9 @@ RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
     job_id, shared_task_id, claiming_node, counter, lease_expiration, job_description);
 
 // TODO: Think about reusing datum sindex key format.
-std::string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
+skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
     // Just an easy fixed-width big-endian key.
-    return strprintf("%016" PRIx64 "", clock.value);
+    return skey_string{strprintf("%016" PRIx64 "", clock.value)};
 }
 
 std::pair<reqlfdb_clock, key_view> split_clock_key_pair(key_view key) {
@@ -94,8 +94,8 @@ std::pair<reqlfdb_clock, key_view> split_clock_key_pair(key_view key) {
 }
 
 struct job_sindex_keys {
-    std::string task;
-    std::string lease_expiration;
+    skey_string task;
+    skey_string lease_expiration;
 };
 
 job_sindex_keys get_sindex_keys(const fdb_job_info &info) {
@@ -105,11 +105,15 @@ job_sindex_keys get_sindex_keys(const fdb_job_info &info) {
     return ret;
 }
 
+ukey_string job_id_str(uuid_u job_id) {
+    return ukey_string{uuid_to_str(job_id)};
+}
+
 // TODO: Maybe caller can pass in clock.
 void add_fdb_job(FDBTransaction *txn,
     uuid_u shared_task_id, uuid_u claiming_node /* or nil */, fdb_job_description &&desc, const signal_t *interruptor) {
     const uuid_u job_id = generate_uuid();
-    std::string job_id_key = uuid_to_str(job_id);
+    ukey_string job_id_key = job_id_str(job_id);
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
     fdb_future job_missing_fut = transaction_lookup_pkey_index(
@@ -118,7 +122,7 @@ void add_fdb_job(FDBTransaction *txn,
     reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
     fdb_value job_missing_value = future_block_on_value(job_missing_fut.fut, interruptor);
     guarantee(!job_missing_value.present, "uuid generation created a duplicate id "
-        "(rng failure), job with id %s already exists", job_id_key.c_str());
+        "(rng failure), job with id %s already exists", job_id_key.ukey.c_str());
 
     reqlfdb_clock lease_expiration{
         claiming_node.is_nil() ? 0 : current_clock.value + REQLFDB_JOB_LEASE_DURATION};
@@ -146,7 +150,7 @@ void add_fdb_job(FDBTransaction *txn,
 
 // The caller must know the job is present in the table.
 void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
-    std::string job_id_key = uuid_to_str(info.job_id);
+    ukey_string job_id_key = job_id_str(info.job_id);
     job_sindex_keys sindex_keys = get_sindex_keys(info);
 
     transaction_erase_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key);
@@ -167,7 +171,7 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
     case fdb_job_type::dummy_job: {
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
         [&info, interruptor](FDBTransaction *txn) {
-            std::string job_id_key = uuid_to_str(info.job_id);
+            ukey_string job_id_key = job_id_str(info.job_id);
             fdb_value_fut<fdb_job_info> real_info_fut{
                 transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
 
@@ -236,7 +240,7 @@ void try_claim_and_start_job(
         std::pair<reqlfdb_clock, key_view> sp = split_clock_key_pair(spkey);
         // TODO: validate that sp.second is a uuid?  Or at least the right length.
 
-        std::string job_id_key{as_char(sp.second.data), size_t(sp.second.length)};
+        ukey_string job_id_key{std::string(as_char(sp.second.data), size_t(sp.second.length))};
         fdb_value_fut<fdb_job_info> job_info_fut{
             transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
 
@@ -256,7 +260,8 @@ void try_claim_and_start_job(
 
         std::string job_info_str = serialize_for_cluster_to_string(job_info);
 
-        std::string new_lease_expiration_key = reqlfdb_clock_sindex_key(job_info.lease_expiration);
+        skey_string new_lease_expiration_key
+            = reqlfdb_clock_sindex_key(job_info.lease_expiration);
 
         transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, job_info_str);
         // Update the lease expiration index.

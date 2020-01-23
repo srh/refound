@@ -18,9 +18,13 @@ void config_cache_wipe(reqlfdb_config_cache *cache) {
     *cache = std::move(tmp);
 }
 
-std::string db_by_id_key(const uuid_u &db_id) {
+ukey_string db_by_id_key(const uuid_u &db_id) {
     // We make an aesthetic key.
-    return uuid_to_str(db_id);
+    return ukey_string{uuid_to_str(db_id)};
+}
+
+ukey_string db_by_name_key(const name_string_t &db_name) {
+    return ukey_string{db_name.str()};
 }
 
 fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
@@ -47,7 +51,7 @@ config_cache_db_by_name(
     // We couldn't find the db name.  Maybe it's just uncached.
 
     fdb_future fut = transaction_lookup_unique_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
+        txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     // We block here!
@@ -93,7 +97,7 @@ bool config_cache_db_create(
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     fdb_future fut = transaction_lookup_unique_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
+        txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
 
     fdb_value value = future_block_on_value(fut.fut, interruptor);
 
@@ -107,11 +111,12 @@ bool config_cache_db_create(
 
     database_id_t db_id = generate_uuid();
     // TODO: Use uniform reql datum primary key serialization, how about that idea?
-    std::string db_id_key = db_by_id_key(db_id);
+    ukey_string db_id_key = db_by_id_key(db_id);
     std::string db_id_value = serialize_for_cluster_to_string(db_id);
 
     transaction_set_pkey_index(txn, REQLFDB_DB_CONFIG_BY_ID, db_id_key, db_name.str());
-    transaction_set_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str(), db_id_value);
+    transaction_set_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME,
+        db_by_name_key(db_name), db_id_value);
 
     cv.value++;
     serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
@@ -127,7 +132,7 @@ bool config_cache_db_drop(
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     fdb_future fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name.str());
+        txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
 
     fdb_value value = future_block_on_value(fut.fut, interruptor);
     if (!value.present) {
@@ -139,14 +144,14 @@ bool config_cache_db_drop(
     return false;
 }
 
-std::string table_by_name_key(const uuid_u &db_uuid, const name_string_t &table_name) {
+ukey_string table_by_name_key(const uuid_u &db_uuid, const name_string_t &table_name) {
     // We make an aesthetic key.  UUID's are fixed-width so it's OK.
     // TODO: Use standard compound index key format, so db_list works well.
-    return uuid_to_str(db_uuid) + "." + table_name.str();
+    return ukey_string{uuid_to_str(db_uuid) + "." + table_name.str()};
 }
 
-std::string table_by_id_key(const uuid_u &table_id) {
-    return uuid_to_str(table_id);
+ukey_string table_by_id_key(const uuid_u &table_id) {
+    return ukey_string{uuid_to_str(table_id)};
 }
 
 bool config_cache_table_create(
@@ -161,8 +166,8 @@ bool config_cache_table_create(
 
     // TODO: Ensure caller doesn't try to create table for "rethinkdb" database.
 
-    const std::string table_index_key = table_by_name_key(db_id, table_name);
-    const std::string db_pkey_key = db_by_id_key(db_id);
+    const ukey_string table_index_key = table_by_name_key(db_id, table_name);
+    const ukey_string db_pkey_key = db_by_id_key(db_id);
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
@@ -195,7 +200,7 @@ bool config_cache_table_create(
     const uuid_u table_id = generate_uuid();
 
     // TODO: Figure out how to name these sorts of variables.
-    std::string table_pkey = table_by_id_key(table_id);
+    ukey_string table_pkey = table_by_id_key(table_id);
     std::string table_config_value = serialize_for_cluster_to_string(config);
     std::string table_pkey_value = serialize_for_cluster_to_string(table_id);
 
