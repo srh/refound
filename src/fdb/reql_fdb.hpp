@@ -34,6 +34,10 @@ inline const uint8_t *as_uint8(const char *s) {
     return reinterpret_cast<const uint8_t *>(s);
 }
 
+inline const uint8_t *void_as_uint8(const void *s) {
+    return static_cast<const uint8_t *>(s);
+}
+
 inline const char *as_char(const uint8_t *s) {
     return reinterpret_cast<const char *>(s);
 }

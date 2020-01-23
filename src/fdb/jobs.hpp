@@ -9,13 +9,26 @@
 
 enum class fdb_job_type {
     dummy_job,  // TODO: Remove.
+    db_drop_job,
 };
 
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
     fdb_job_type::dummy_job, fdb_job_type::dummy_job);
 
+struct fdb_job_db_drop {
+    database_id_t database_id;
+
+    std::string min_table_name;
+
+    static fdb_job_db_drop make(database_id_t db_id) {
+        return fdb_job_db_drop{db_id, ""};
+    }
+};
+
+
 struct fdb_job_description {
     fdb_job_type type;
+    fdb_job_db_drop db_drop;
 };
 
 RDB_DECLARE_SERIALIZABLE(fdb_job_description);
@@ -33,7 +46,8 @@ RDB_DECLARE_SERIALIZABLE(fdb_job_info);
 RDB_DECLARE_EQUALITY_COMPARABLE(fdb_job_info);
 
 void add_fdb_job(FDBTransaction *txn,
-    uuid_u task_id, uuid_u claiming_node, fdb_job_description &&desc);
+    uuid_u task_id, uuid_u claiming_node, fdb_job_description &&desc,
+    const signal_t *interruptor);
 
 void remove_fdb_job(FDBTransaction *txn,
     const fdb_job_info &info);

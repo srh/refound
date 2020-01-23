@@ -162,7 +162,7 @@ private:
             fdb_result = success;
         });
         guarantee_fdb_TODO(loop_err, "db_create txn failed");
-        guarantee(!fdb_result, "fdb db already exists on db_create"); // TODO: Remove.
+        guarantee(fdb_result, "fdb db already exists on db_create"); // TODO: Remove.
         // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
 
         // TODO: fdb-ize: remove non-fdb stuff, make use of fdb_result
@@ -249,7 +249,7 @@ private:
             fdb_result = success;
         });
         guarantee_fdb_TODO(loop_err, "table_create txn failed");
-        guarantee(!fdb_result, "table already exists (or something) in table_create");  // TODO: Remove.
+        guarantee(fdb_result, "table already exists (or something) in table_create");  // TODO: Remove.
         // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
 
         // TODO: fdb-ize:  Remove non-fdb stuff, make use of fdb_result.
@@ -287,6 +287,19 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
+
+        bool fdb_result;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            bool success = config_cache_db_drop(txn, db_name, env->env->interruptor);
+            if (success) {
+                commit(txn, env->env->interruptor);
+            }
+            fdb_result = success;
+        });
+        guarantee_fdb_TODO(loop_err, "db_drop txn failed");
+        guarantee(fdb_result, "db does not exist (or something) in db_drop");  // TODO: Remove.
+        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
+        // TODO: fdb-ize:  Remove the non-fdb stuff, make use of fdb_result.
 
         ql::datum_t result;
         try {

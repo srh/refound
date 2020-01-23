@@ -35,26 +35,44 @@ public:
 
 config_info<optional<database_id_t>>
 config_cache_db_by_name(
-        reqlfdb_config_cache *cache, FDBTransaction *txn,
-        const name_string_t &db_name, const signal_t *interruptor);
+    reqlfdb_config_cache *cache, FDBTransaction *txn,
+    const name_string_t &db_name, const signal_t *interruptor);
 
-bool config_cache_db_create(
-        FDBTransaction *txn,
-        const name_string_t &db_name, const signal_t *interruptor);
+MUST_USE bool config_cache_db_create(
+    FDBTransaction *txn,
+    const name_string_t &db_name, const signal_t *interruptor);
 
-bool config_cache_table_create(
-        FDBTransaction *txn,
-        const table_config_t &config,
-        const signal_t *interruptor);
+MUST_USE bool config_cache_table_create(
+    FDBTransaction *txn,
+    const table_config_t &config,
+    const signal_t *interruptor);
 
 // TODO: Remove this, push table_config_t construction to caller(s).
-bool outer_config_cache_table_create(
-        FDBTransaction *txn,
-        const uuid_u &db_id,
-        const name_string_t &table_name,
-        const table_generate_config_params_t &config_params,
-        const std::string &primary_key,
-        write_durability_t durability,
-        const signal_t *interruptor);
+MUST_USE bool outer_config_cache_table_create(
+    FDBTransaction *txn,
+    const uuid_u &db_id,
+    const name_string_t &table_name,
+    const table_generate_config_params_t &config_params,
+    const std::string &primary_key,
+    write_durability_t durability,
+    const signal_t *interruptor);
+
+fdb_future transaction_get_table_range(
+    FDBTransaction *txn, const database_id_t db_id,
+    const std::string &min_table_name,
+    FDBStreamingMode streaming_mode);
+
+std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id);
+
+// Doesn't update config version!
+MUST_USE bool help_remove_table_if_exists(
+    FDBTransaction *txn,
+    database_id_t db_id,
+    const std::string &table_name,
+    const signal_t *interruptor);
+
+bool config_cache_db_drop(
+    FDBTransaction *txn, const name_string_t &db_name, const signal_t *interruptor);
+
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

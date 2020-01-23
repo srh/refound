@@ -4,10 +4,20 @@
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/index.hpp"
+#include "fdb/jobs.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_config_version, value);
+
+std::string table_key_prefix(const namespace_id_t &table_id) {
+    // TODO: Use binary uuid's.  This is on a fast path...
+    // Or don't even use uuid's.
+    std::string ret = "tables/";
+    ret += uuid_to_str(table_id);
+    ret += '/';
+    return ret;
+}
 
 reqlfdb_config_cache::reqlfdb_config_cache()
     : config_version{0} {}
@@ -130,28 +140,139 @@ bool config_cache_db_drop(
 
     // TODO: Ensure caller doesn't pass "rethinkdb".
 
+    ukey_string db_name_key = db_by_name_key(db_name);
+
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-    fdb_future fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
+    fdb_future fut = transaction_lookup_unique_index(
+        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name_key);
 
     fdb_value value = future_block_on_value(fut.fut, interruptor);
-    if (!value.present) {
+    database_id_t db_id;
+    if (!deserialize_off_fdb_value(value, &db_id)) {
         return false;
     }
+
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
-    // TODO: Finish implementing.
-    return false;
+    // Add the db_drop job, and remove the db.
+
+    // TODO: This node should claim the job (and add logic to immediately execute it).
+    uuid_u claiming_node_id = nil_uuid();
+    uuid_u task_id = generate_uuid();
+    fdb_job_description desc{
+        fdb_job_type::db_drop_job,
+        fdb_job_db_drop::make(db_id)};
+
+    // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
+    // and avoid double round-trip latency.
+    add_fdb_job(txn, task_id, claiming_node_id, std::move(desc), interruptor);
+
+    ukey_string db_id_key = db_by_id_key(db_id);
+
+    transaction_erase_pkey_index(txn, REQLFDB_DB_CONFIG_BY_ID, db_id_key);
+    transaction_erase_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME, db_name_key);
+
+    cv.value++;
+    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+
+    return true;
 }
 
-ukey_string table_by_name_key(const uuid_u &db_uuid, const name_string_t &table_name) {
+// The thing to which we append the table name.
+std::string table_by_name_ukey_prefix(const database_id_t db_id) {
     // We make an aesthetic key.  UUID's are fixed-width so it's OK.
-    // TODO: Use standard compound index key format, so db_list works well.
-    return ukey_string{uuid_to_str(db_uuid) + "." + table_name.str()};
+    return uuid_to_str(db_id) + ".";
 }
+
+// Takes a std::string we don't know is a valid table name.  If the format ever changes
+// such that an invalid name wouldn't work as a key, we'd have to remove this function.
+ukey_string table_by_unverified_name_key(
+        const database_id_t &db_id,
+        const std::string &table_name) {
+    // TODO: Use standard compound index key format, so db_list works well.
+    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name};
+}
+
+ukey_string table_by_name_key(
+        const database_id_t &db_id,
+        const name_string_t &table_name) {
+    return table_by_unverified_name_key(db_id, table_name.str());
+}
+
+std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id) {
+    std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
+        ukey_string{table_by_name_ukey_prefix(db_id)});
+
+    guarantee(key.length >= int(prefix.size()));
+    guarantee(0 == memcmp(prefix.data(), key.data, prefix.size()));
+
+    key_view chopped = key.without_prefix(int(prefix.size()));
+    return std::string(as_char(chopped.data), chopped.length);
+}
+
+ukey_string table_by_name_bound(
+        const database_id_t &db_id,
+        const std::string &table_name_bound) {
+    // Follows the table_by_name_key format.
+    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name_bound};
+}
+
 
 ukey_string table_by_id_key(const uuid_u &table_id) {
     return ukey_string{uuid_to_str(table_id)};
+}
+
+// Returns TABLE_CONFIG_BY_NAME range in [min_table_name, +infinity) in database db_id.
+fdb_future transaction_get_table_range(
+        FDBTransaction *txn, const database_id_t db_id,
+        const std::string &min_table_name,
+        FDBStreamingMode streaming_mode) {
+
+    std::string lower = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
+        table_by_name_bound(db_id, min_table_name));
+    std::string upper = prefix_end(unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
+        ukey_string{table_by_name_ukey_prefix(db_id)}));
+
+    return fdb_future{fdb_transaction_get_range(txn,
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower.data()), int(lower.size())),
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper.data()), int(upper.size())),
+        0,
+        0,
+        streaming_mode,
+        0,
+        false,
+        false)};
+}
+
+// FYI, all callers right now do in fact pass a valid table name.  Doesn't touch the
+// reqlfdb_config_version, because this is also used by the db_drop cleanup job.
+bool help_remove_table_if_exists(
+        FDBTransaction *txn,
+        database_id_t db_id,
+        const std::string &table_name,
+        const signal_t *interruptor) {
+    const ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
+    fdb_value_fut<namespace_id_t> table_by_name_fut{transaction_lookup_unique_index(
+        txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key)};
+
+    namespace_id_t table_id;
+    bool table_present = table_by_name_fut.block_and_deserialize(interruptor, &table_id);
+    if (!table_present) {
+        return false;
+    }
+
+    ukey_string table_pkey = table_by_id_key(table_id);
+
+    // Wipe table config (from pkey and indices), and wipe table contents.
+    transaction_erase_pkey_index(txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
+    transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+
+    std::string prefix = table_key_prefix(table_id);
+    std::string end = prefix_end(prefix);
+    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
+        as_uint8(end.data()), int(end.size()));
+
+    return true;
 }
 
 bool config_cache_table_create(
@@ -161,7 +282,7 @@ bool config_cache_table_create(
     // TODO: This function must read and verify user permissions when performing this
     // operation.
 
-    const uuid_u db_id = config.basic.database;
+    const database_id_t db_id = config.basic.database;
     const name_string_t &table_name = config.basic.name;
 
     // TODO: Ensure caller doesn't try to create table for "rethinkdb" database.

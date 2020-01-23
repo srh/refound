@@ -64,16 +64,16 @@ Config version:
 
 Table format:
 
-    Given a table prefix like "tables/uuid",
+    Given a table prefix like "tables/uuid/",
 
     Primary index:
-    <table prefix>//<pkey> => <value>
+    <table prefix>/<pkey> => <value>
 
     Secondary index:
-    <table prefix>/<index id>/<sindex key>/<pkey> => <portion of value>
+    <table prefix><index id>/<sindex key>/<pkey> => <portion of value>
 
     Aggregate (count) index:
-    <table prefix>/<index id> => number of records in primary index (I guess)
+    <table prefix><index id> => number of records in primary index (I guess)
 
     Changefeed index:  TODO
 

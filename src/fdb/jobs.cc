@@ -7,6 +7,8 @@
 #include "fdb/index.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
+// TODO: I don't like this dependency order.
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "utils.hpp"
 
 /*
@@ -160,9 +162,125 @@ void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
         sindex_keys.task, job_id_key);
 }
 
+fdb_value_fut<fdb_job_info> transaction_get_real_job_info(
+        FDBTransaction *txn, const fdb_job_info &info) {
+    ukey_string job_id_key = job_id_str(info.job_id);
+    return fdb_value_fut<fdb_job_info>{
+        transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
+}
+
+bool block_and_check_info(
+        const fdb_job_info &expected_info,
+        fdb_value_fut<fdb_job_info> &&real_info_fut,
+        const signal_t *interruptor) {
+    fdb_job_info real_info;
+    if (!real_info_fut.block_and_deserialize(interruptor, &real_info)) {
+        // The job is not present.  Something else must have claimed it.
+        return false;
+    }
+
+    if (real_info.counter != expected_info.counter) {
+        // The job is not the same.  Another node must have claimed it.
+        // (Possibly ourselves?  Who knows.)
+        return false;
+    }
+
+    // This is impossible, but it could happen in a scenario with duplicate
+    // generate_uuid(), I guess.
+    guarantee(real_info == expected_info,
+        "Job info is different with the same counter value.");
+    return true;
+}
+
+void replace_fdb_job(FDBTransaction *txn,
+        const fdb_job_info &old_info, const fdb_job_info &new_info) {
+    // Basic sanity check.
+    guarantee(new_info.job_id == old_info.job_id);
+    // Sanity check: we don't have to update the task index.
+    guarantee(new_info.shared_task_id == old_info.shared_task_id);
+
+    std::string new_job_info_str = serialize_for_cluster_to_string(new_info);
+    skey_string old_lease_expiration_key = reqlfdb_clock_sindex_key(old_info.lease_expiration);
+    skey_string new_lease_expiration_key = reqlfdb_clock_sindex_key(new_info.lease_expiration);
+
+    ukey_string job_id_key = job_id_str(new_info.job_id);
+
+    transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, new_job_info_str);
+    transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
+        old_lease_expiration_key, job_id_key);
+    transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
+        old_lease_expiration_key, job_id_key, "");
+    // Task index untouched.
+}
+
 // TODO: Look at all fdb txn's, note the read-only ones, and config them read-only.
+void execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
+        const fdb_job_db_drop &db_drop_info, const signal_t *interruptor) {
+    // TODO: Maybe caller can pass clock.
+    fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
+    fdb_value_fut<fdb_job_info> real_info_fut =
+        transaction_get_real_job_info(txn, info);
+    fdb_future range_fut = transaction_get_table_range(
+        txn, db_drop_info.database_id, db_drop_info.min_table_name,
+        FDB_STREAMING_MODE_SMALL);
+
+    if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
+        return;
+    }
+
+    range_fut.block_coro(interruptor);
+
+    const FDBKeyValue *kv;
+    int kv_count;
+    fdb_bool_t more;
+    fdb_error_t err = fdb_future_get_keyvalue_array(range_fut.fut, &kv, &kv_count, &more);
+    check_for_fdb_transaction(err);
+
+    std::string last_table;
+    for (int i = 0; i < kv_count; ++i) {
+        key_view key{void_as_uint8(kv[i].key), kv[i].key_length};
+        std::string table_name
+            = unserialize_table_by_name_table_name(key, db_drop_info.database_id);
+
+        bool exists = help_remove_table_if_exists(
+            txn, db_drop_info.database_id, table_name, interruptor);
+        guarantee(exists, "Table was just seen to exist, now it doesn't.");
+
+        last_table = table_name;
+    }
+
+    if (more) {
+        reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
+
+        fdb_job_info new_info = info;
+        new_info.counter++;
+        new_info.lease_expiration = reqlfdb_clock{current_clock.value + REQLFDB_JOB_LEASE_DURATION};
+
+        replace_fdb_job(txn, info, new_info);
+
+        // TODO: Since we've still claimed the job, we do need to call execute_job on
+        // this job again.
+    } else {
+        remove_fdb_job(txn, info);
+    }
+
+
+    commit(txn, interruptor);
+}
 
 // TODO: Distribute job execution to different cores.
+void execute_dummy_job(FDBTransaction *txn, const fdb_job_info &info,
+        const signal_t *interruptor) {
+    fdb_value_fut<fdb_job_info> real_info_fut =
+        transaction_get_real_job_info(txn, info);
+    if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
+        return;
+    }
+
+    // Since this is a dummy job, we do nothing with the job except to remove it.
+    remove_fdb_job(txn, info);
+    commit(txn, interruptor);
+}
 
 void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         const auto_drainer_t::lock_t &lock) {
@@ -171,33 +289,16 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
     case fdb_job_type::dummy_job: {
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
         [&info, interruptor](FDBTransaction *txn) {
-            ukey_string job_id_key = job_id_str(info.job_id);
-            fdb_value_fut<fdb_job_info> real_info_fut{
-                transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
-
-            fdb_job_info real_info;
-            if (!real_info_fut.block_and_deserialize(interruptor, &real_info)) {
-                // The job is not present.  Something else must have claimed it.
-                return;
-            }
-
-            if (real_info.counter != info.counter) {
-                // The job is not the same.  Another node must have claimed it.
-                // (Possibly ourselves?  Who knows.)
-                return;
-            }
-
-            // This is impossible, but it could happen in a scenario with duplicate
-            // generate_uuid(), I guess.
-            guarantee(real_info == info,
-                "Job info is different with the same counter value.");
-
-            // Since this is a dummy job, we do nothing with the job except to remove it.
-            remove_fdb_job(txn, real_info);
-
-            commit(txn, interruptor);
+            execute_dummy_job(txn, info, interruptor);
         });
         guarantee_fdb_TODO(loop_err, "could not execute dummy job");
+    } break;
+    case fdb_job_type::db_drop_job: {
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+        [&info, interruptor](FDBTransaction *txn) {
+            execute_db_drop_job(txn, info, info.job_description.db_drop, interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "could not execute db drop job");
     } break;
     default:
         unreachable();
@@ -252,23 +353,14 @@ void try_claim_and_start_job(
         }
 
         // The lease has expired!  Claim the job.
-        fdb_job_info job_info = job_info_fut.block_and_deserialize(interruptor);
+        fdb_job_info old_job_info = job_info_fut.block_and_deserialize(interruptor);
+        fdb_job_info job_info = old_job_info;
 
         job_info.claiming_node = self_node_id;
         job_info.counter++;
         job_info.lease_expiration = reqlfdb_clock{current_clock.value + REQLFDB_JOB_LEASE_DURATION};
 
-        std::string job_info_str = serialize_for_cluster_to_string(job_info);
-
-        skey_string new_lease_expiration_key
-            = reqlfdb_clock_sindex_key(job_info.lease_expiration);
-
-        transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, job_info_str);
-        // Update the lease expiration index.
-        fdb_transaction_clear(txn, first_fdb_key.data, first_fdb_key.length);
-        transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
-            new_lease_expiration_key, job_id_key, "");
-        // Task index untouched.
+        replace_fdb_job(txn, old_job_info, job_info);
 
         commit(txn, interruptor);
         claimed_job.set(std::move(job_info));
