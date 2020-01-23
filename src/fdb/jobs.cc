@@ -112,7 +112,7 @@ ukey_string job_id_str(uuid_u job_id) {
 }
 
 // TODO: Maybe caller can pass in clock.
-void add_fdb_job(FDBTransaction *txn,
+fdb_job_info add_fdb_job(FDBTransaction *txn,
     uuid_u shared_task_id, uuid_u claiming_node /* or nil */, fdb_job_description &&desc, const signal_t *interruptor) {
     const uuid_u job_id = generate_uuid();
     ukey_string job_id_key = job_id_str(job_id);
@@ -148,6 +148,8 @@ void add_fdb_job(FDBTransaction *txn,
         sindex_keys.lease_expiration, job_id_key, "");
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_TASK,
         sindex_keys.task, job_id_key, "");
+
+    return info;
 }
 
 // The caller must know the job is present in the table.
@@ -214,7 +216,9 @@ void replace_fdb_job(FDBTransaction *txn,
 }
 
 // TODO: Look at all fdb txn's, note the read-only ones, and config them read-only.
-void execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
+
+// Returns new job info if we have re-claimed this job and want to execute it again.
+MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_db_drop &db_drop_info, const signal_t *interruptor) {
     // TODO: Maybe caller can pass clock.
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -225,7 +229,7 @@ void execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
         FDB_STREAMING_MODE_SMALL);
 
     if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
-        return;
+        return r_nullopt;
     }
 
     range_fut.block_coro(interruptor);
@@ -249,6 +253,7 @@ void execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
         last_table = table_name;
     }
 
+    optional<fdb_job_info> ret;
     if (more) {
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
 
@@ -258,14 +263,14 @@ void execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
 
         replace_fdb_job(txn, info, new_info);
 
-        // TODO: Since we've still claimed the job, we do need to call execute_job on
-        // this job again.
+        ret.set(std::move(new_info));
     } else {
         remove_fdb_job(txn, info);
+        ret = r_nullopt;
     }
 
-
     commit(txn, interruptor);
+    return ret;
 }
 
 // TODO: Distribute job execution to different cores.
@@ -282,26 +287,32 @@ void execute_dummy_job(FDBTransaction *txn, const fdb_job_info &info,
     commit(txn, interruptor);
 }
 
+// Returns true if we have re-claimed the job and want to execute it again.
 void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         const auto_drainer_t::lock_t &lock) {
     const signal_t *interruptor = lock.get_drain_signal();
-    switch (info.job_description.type) {
-    case fdb_job_type::dummy_job: {
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-        [&info, interruptor](FDBTransaction *txn) {
-            execute_dummy_job(txn, info, interruptor);
-        });
-        guarantee_fdb_TODO(loop_err, "could not execute dummy job");
-    } break;
-    case fdb_job_type::db_drop_job: {
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-        [&info, interruptor](FDBTransaction *txn) {
-            execute_db_drop_job(txn, info, info.job_description.db_drop, interruptor);
-        });
-        guarantee_fdb_TODO(loop_err, "could not execute db drop job");
-    } break;
-    default:
-        unreachable();
+
+    optional<fdb_job_info> reclaimed{info};
+    while (reclaimed.has_value()) {
+        switch (info.job_description.type) {
+        case fdb_job_type::dummy_job: {
+            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&info, interruptor](FDBTransaction *txn) {
+                execute_dummy_job(txn, info, interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "could not execute dummy job");
+            reclaimed = r_nullopt;
+        } break;
+        case fdb_job_type::db_drop_job: {
+            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&info, interruptor, &reclaimed](FDBTransaction *txn) {
+                reclaimed = execute_db_drop_job(txn, info, info.job_description.db_drop, interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "could not execute db drop job");
+        } break;
+        default:
+            unreachable();
+        }
     }
 }
 

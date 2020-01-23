@@ -45,7 +45,7 @@ struct fdb_job_info {
 RDB_DECLARE_SERIALIZABLE(fdb_job_info);
 RDB_DECLARE_EQUALITY_COMPARABLE(fdb_job_info);
 
-void add_fdb_job(FDBTransaction *txn,
+MUST_USE fdb_job_info add_fdb_job(FDBTransaction *txn,
     uuid_u task_id, uuid_u claiming_node, fdb_job_description &&desc,
     const signal_t *interruptor);
 

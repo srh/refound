@@ -165,7 +165,11 @@ bool config_cache_db_drop(
 
     // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
     // and avoid double round-trip latency.
-    add_fdb_job(txn, task_id, claiming_node_id, std::move(desc), interruptor);
+
+    // We _could_ pass in self_node_id, return the fdb_job_info, and claim the job at
+    // creation.  Right now, we don't.
+    fdb_job_info ignored = add_fdb_job(txn, task_id, claiming_node_id, std::move(desc), interruptor);
+    (void)ignored;
 
     ukey_string db_id_key = db_by_id_key(db_id);
 

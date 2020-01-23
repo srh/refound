@@ -71,8 +71,9 @@ MUST_USE bool help_remove_table_if_exists(
     const std::string &table_name,
     const signal_t *interruptor);
 
-bool config_cache_db_drop(
-    FDBTransaction *txn, const name_string_t &db_name, const signal_t *interruptor);
+MUST_USE bool config_cache_db_drop(
+    FDBTransaction *txn,
+    const name_string_t &db_name, const signal_t *interruptor);
 
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_
