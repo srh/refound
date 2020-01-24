@@ -434,7 +434,7 @@ void calculate_all_contracts(
         const table_raft_state_t &old_state,
         const std::map<contract_id_t, std::map<server_id_t, contract_ack_t> > &acks,
         std::set<contract_id_t> *remove_contracts_out,
-        std::map<contract_id_t, std::pair<region_t, contract_t> > *add_contracts_out,
+        std::map<contract_id_t, contract_t> *add_contracts_out,
         std::map<region_t, branch_id_t> *register_current_branches_out,
         std::set<branch_id_t> *remove_branches_out,
         branch_history_t *add_branches_out) {
@@ -453,17 +453,11 @@ void calculate_all_contracts(
     /* We want to break the key-space into sub-regions small enough that the contract,
     table config, and ack versions are all constant across the sub-region. First we
     iterate over all contracts: */
-    for (const std::pair<const contract_id_t, std::pair<region_t, contract_t> > &cpair :
+    for (const std::pair<const contract_id_t, contract_t> &cpair :
             old_state.contracts) {
         /* Next iterate over all shards of the table config and find the ones that
         overlap the contract in question: */
         {
-            region_t region = cpair.second.first;
-
-            if (region_is_empty(region)) {
-                continue;
-            }
-
             /* Find acks for this contract. If there aren't any acks for this contract,
             then `acks` might not even have an empty map, so we need to construct an
             empty map in that case. */
@@ -478,7 +472,7 @@ void calculate_all_contracts(
             homogeneous at first and then it gets fragmented as we iterate over `acks`.
             */
             region_map_t<std::map<server_id_t, contract_ack_frag_t> > frags_by_server(
-                region);
+                key_range_t::universe());
             for (const auto &pair : *this_contract_acks) {
                 /* Sanity-check the ack */
                 DEBUG_ONLY_CODE(pair.second.sanity_check(
@@ -490,16 +484,17 @@ void calculate_all_contracts(
                 In these situations, we don't need the common ancestor, but computing it
                 might be dangerous because the branch history might be incomplete. */
                 bool compute_common_ancestor =
-                    (cpair.second.second.the_voter == pair.first ||
-                        (static_cast<bool>(cpair.second.second.temp_voters) &&
-                            cpair.second.second.temp_voters->count(pair.first) == 1)) &&
-                    !cpair.second.second.after_emergency_repair;
+                    (cpair.second.the_voter == pair.first ||
+                        (static_cast<bool>(cpair.second.temp_voters) &&
+                            cpair.second.temp_voters->count(pair.first) == 1)) &&
+                    !cpair.second.after_emergency_repair;
 
+                // TODO: No need for fragments?
                 region_map_t<contract_ack_frag_t> frags = break_ack_into_fragments(
-                    region, pair.second, old_state.current_branches,
+                    key_range_t::universe(), pair.second, old_state.current_branches,
                     &old_state.branch_history, compute_common_ancestor);
 
-                frags.visit(region,
+                frags.visit(key_range_t::universe(),
                 [&](const region_t &reg, const contract_ack_frag_t &frag) {
                     frags_by_server.visit_mutable(reg,
                     [&](const region_t &,
@@ -511,14 +506,14 @@ void calculate_all_contracts(
                 });
             }
 
-            frags_by_server.visit(region,
+            frags_by_server.visit(key_range_t::universe(),
             [&](const region_t &reg,
                     const std::map<server_id_t, contract_ack_frag_t> &acks_map) {
                 /* We've finally collected all the inputs to `calculate_contract()` and
                 broken the key space into regions across which the inputs are
                 homogeneous. So now we can actually call it. */
 
-                const contract_t &old_contract = cpair.second.second;
+                const contract_t &old_contract = cpair.second;
 
                 contract_t new_contract = calculate_contract(
                     old_contract,
@@ -621,6 +616,7 @@ void calculate_all_contracts(
         }
     }
 
+    // TODO: There is just one region, just one contract.
     /* Put the new contracts into a `region_map_t` to coalesce adjacent regions that have
     identical contracts */
     region_map_t<contract_t> new_contract_region_map =
@@ -640,8 +636,8 @@ void calculate_all_contracts(
 
     /* Diff the new contracts against the old contracts */
     for (const auto &cpair : old_state.contracts) {
-        auto it = new_contract_map.find(cpair.second.first);
-        if (it != new_contract_map.end() && it->second == cpair.second.second) {
+        auto it = new_contract_map.find(key_range_t::universe());
+        if (it != new_contract_map.end() && it->second == cpair.second) {
             /* The contract was unchanged. Remove it from `new_contract_map` to signal
             that we don't need to assign it a new ID. */
             new_contract_map.erase(it);
@@ -654,7 +650,7 @@ void calculate_all_contracts(
         /* The contracts remaining in `new_contract_map` are actually new; whatever
         contracts used to cover their region have been deleted. So assign them contract
         IDs and export them. */
-        add_contracts_out->insert(std::make_pair(generate_uuid(), pair));
+        add_contracts_out->insert(std::make_pair(generate_uuid(), pair.second));
     }
 }
 

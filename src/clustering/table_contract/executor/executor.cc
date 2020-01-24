@@ -184,12 +184,12 @@ contract_executor_t::get_shard_status() {
         key_range_t::right_bound_t::make_unbounded());
     raft_state->apply_read([&](const table_raft_state_t *state) {
         for (const auto &pair : state->contracts) {
-            if (pair.second.second.the_replica != server_id) {
+            if (pair.second.the_replica != server_id) {
                 continue;
             }
             result.visit_mutable(
-            key_range_t::right_bound_t(pair.second.first.left),
-            pair.second.first.right,
+            key_range_t::right_bound_t(store_key_t::min()),
+            key_range_t::right_bound_t::make_unbounded(),
             [&](const key_range_t::right_bound_t &,
                     const key_range_t::right_bound_t &,
                     table_shard_status_t *status) {
@@ -228,19 +228,19 @@ contract_executor_t::get_shard_status() {
 }
 
 contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
-        const std::pair<region_t, contract_t> &pair,
+        const contract_t &contract,
         const branch_id_t &branch) {
     execution_key_t key;
-    key.region = pair.first;
-    if (static_cast<bool>(pair.second.primary) &&
-            pair.second.primary->server == server_id) {
+    key.region = key_range_t::universe();  // TODO: execution_key_t::region always universe.
+    if (static_cast<bool>(contract.primary) &&
+            contract.primary->server == server_id) {
         key.role = execution_key_t::role_t::primary;
         key.primary = server_id_t::from_server_uuid(nil_uuid());
         key.branch = nil_uuid();
-    } else if (pair.second.the_replica == server_id) {
+    } else if (contract.the_replica == server_id) {
         key.role = execution_key_t::role_t::secondary;
-        if (static_cast<bool>(pair.second.primary)) {
-            key.primary = pair.second.primary->server;
+        if (static_cast<bool>(contract.primary)) {
+            key.primary = contract.primary->server;
         } else {
             key.primary = server_id_t::from_server_uuid(nil_uuid());
         }
@@ -265,7 +265,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
                 branch as incoherent and don't set a branch ID. */
                 branch_id_t branch = nil_uuid();
                 bool branch_mismatch = false;
-                new_state->current_branches.visit(new_pair.second.first,
+                new_state->current_branches.visit(key_range_t::universe(),
                 [&](const region_t &, const branch_id_t &b) {
                     if (branch.is_nil()) {
                         branch = b;
@@ -286,14 +286,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
                     /* Create a new execution, unless there's already an execution whose
                     region overlaps ours. In the latter case, the execution will be
                     deleted soon. */
-                    bool ok_to_create = true;
-                    for (const auto &old_pair : executions) {
-                        if (region_overlaps(old_pair.first.region,
-                                            new_pair.second.first)) {
-                            ok_to_create = false;
-                            break;
-                        }
-                    }
+                    bool ok_to_create = executions.empty();
                     if (ok_to_create) {
                         executions[key] = make_scoped<execution_wrapper_t>(
                             this, key, branch, new_pair.first, *new_state);

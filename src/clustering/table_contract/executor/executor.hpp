@@ -97,7 +97,7 @@ private:
     };
 
     execution_key_t get_contract_key(
-        const std::pair<region_t, contract_t> &pair,
+        const contract_t &contract,
         const branch_id_t &branch);
 
     /* In response to Raft state changes, we want to delete existing executions and spawn

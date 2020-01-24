@@ -9,7 +9,7 @@ void calculate_all_contracts(
         const table_raft_state_t &old_state,
         const std::map<contract_id_t, std::map<server_id_t, contract_ack_t> > &acks,
         std::set<contract_id_t> *remove_contracts_out,
-        std::map<contract_id_t, std::pair<region_t, contract_t> > *add_contracts_out,
+        std::map<contract_id_t, contract_t> *add_contracts_out,
         std::map<region_t, branch_id_t> *register_current_branches_out,
         std::set<branch_id_t> *remove_branches,
         branch_history_t *add_branches_out);

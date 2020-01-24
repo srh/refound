@@ -7,7 +7,7 @@
 void calculate_server_names(
         const table_raft_state_t &old_state,
         const std::set<contract_id_t> &remove_contracts,
-        const std::map<contract_id_t, std::pair<region_t, contract_t> > &add_contracts,
+        const std::map<contract_id_t, contract_t> &add_contracts,
         std::set<server_id_t> *remove_server_names_out,
         server_name_map_t *add_server_names_out);
 

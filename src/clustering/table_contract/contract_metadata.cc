@@ -31,8 +31,8 @@ void contract_ack_t::sanity_check(
         const server_id_t &server,
         const contract_id_t &contract_id,
         const table_raft_state_t &raft_state) const {
-    const region_t &region = raft_state.contracts.at(contract_id).first;
-    const contract_t &contract = raft_state.contracts.at(contract_id).second;
+    const region_t region = key_range_t::universe();
+    const contract_t &contract = raft_state.contracts.at(contract_id);
 
     guarantee(contract.the_replica == server,
         "A server sent an ack for a contract that it wasn't a replica for.");
@@ -152,9 +152,9 @@ void table_raft_state_t::apply_change(const table_raft_state_t::change_t &change
 void table_raft_state_t::sanity_check() const {
     std::set<server_id_t> all_replicas;
     for (const auto &pair : contracts) {
-        pair.second.second.sanity_check();
+        pair.second.sanity_check();
         {
-            server_id_t replica = pair.second.second.the_replica;
+            server_id_t replica = pair.second.the_replica;
             all_replicas.insert(replica);
             guarantee(server_names.names.count(replica) == 1);
         }
@@ -213,11 +213,8 @@ table_raft_state_t make_new_table_raft_state(
                 contract_t::primary_t { shard_conf.primary_replica, r_nullopt });
         }
         contract.after_emergency_repair = false;
-        {
-            region_t region = key_range_t::universe();
-            state.contracts.insert(std::make_pair(generate_uuid(),
-                std::make_pair(region, contract)));
-        }
+        state.contracts.insert(std::make_pair(generate_uuid(),
+            contract));
         {
             server_id_t server_id = shard_conf.primary_replica;
             if (state.member_ids.count(server_id) == 0) {

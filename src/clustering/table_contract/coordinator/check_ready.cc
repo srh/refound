@@ -7,20 +7,10 @@ bool check_all_replicas_ready(
     for (const auto &pair : table_state.contracts) {
 
         /* Find the config shard corresponding to this contract */
-        const table_config_t::shard_t *shard = nullptr;
-        {
-            if (key_range_t::universe() ==
-                    pair.second.first) {
-                shard = &table_state.config.config.the_shard;
-                break;
-            }
-        }
-        if (shard == nullptr) {
-            return false;
-        }
+        const table_config_t::shard_t *shard = &table_state.config.config.the_shard;
 
         /* Check if the config shard matches the contract */
-        const contract_t &contract = pair.second.second;
+        const contract_t &contract = pair.second;
         if (contract.the_replica != shard->primary_replica ||
                 contract.the_voter != shard->primary_replica ||
                 static_cast<bool>(contract.temp_voters) ||

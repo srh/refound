@@ -51,14 +51,14 @@ void calculate_emergency_repair(
     /* Calculate the new contracts. This is the guts of the repair operation. */
     new_state_out->contracts.clear();
     for (const auto &pair : old_state.contracts) {
-        contract_t contract = pair.second.second;
+        contract_t contract = pair.second;
 
         /* We generate a new contract ID for the new contract, whether or not it's
         identical to the old contract. In practice this doesn't matter since contract IDs
         from the old epoch will never be compared to contract IDs from the new epoch. */
         new_state_out->contracts.insert(std::make_pair(
             generate_uuid(),
-            std::make_pair(pair.second.first, contract)));
+            contract));
     }
 
     /* Calculate the new config to reflect the new contracts as closely as possible. The
@@ -80,13 +80,13 @@ void calculate_emergency_repair(
             table_config_t::shard_t());
         for (const auto &pair : new_state_out->contracts) {
             config.visit_mutable(
-                key_range_t::right_bound_t(pair.second.first.left),
-                pair.second.first.right,
+                key_range_t::right_bound_t(store_key_t::min()),
+                key_range_t::right_bound_t::make_unbounded(),
                 [&](const key_range_t::right_bound_t &,
                         const key_range_t::right_bound_t &,
                         table_config_t::shard_t *shard) {
                     {
-                        server_id_t server = pair.second.second.the_replica;
+                        server_id_t server = pair.second.the_replica;
                         shard->primary_replica = server;
                     }
                 });
@@ -133,7 +133,7 @@ void calculate_emergency_repair(
     servers in `member_ids` and `server_names` */
     for (const auto &pair : new_state_out->contracts) {
         {
-            server_id_t server = pair.second.second.the_replica;
+            server_id_t server = pair.second.the_replica;
             if (new_state_out->member_ids.count(server) == 0) {
                 /* We generate a new member ID for every server. This shouldn't matter
                 because member IDs from the new epoch should never be compared to member

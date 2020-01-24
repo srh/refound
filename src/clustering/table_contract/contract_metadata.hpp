@@ -195,7 +195,7 @@ public:
         class new_contracts_t {
         public:
             std::set<contract_id_t> remove_contracts;
-            std::map<contract_id_t, std::pair<region_t, contract_t> > add_contracts;
+            std::map<contract_id_t, contract_t> add_contracts;
             std::map<region_t, branch_id_t> register_current_branches;
             branch_history_t add_branches;
             std::set<branch_id_t> remove_branches;
@@ -241,7 +241,7 @@ public:
     /* `contracts` is the `contract_t`s for the table, along with the region each one
     applies to. `contract_coordinator_t` reads and writes it; `contract_executor_t` reads
     it. */
-    std::map<contract_id_t, std::pair<region_t, contract_t> > contracts;
+    std::map<contract_id_t, contract_t> contracts;
 
     /* `current_branches` contains the most recently acked branch IDs for a given
     region. It gets updated by the coordinator when a new primary registers its

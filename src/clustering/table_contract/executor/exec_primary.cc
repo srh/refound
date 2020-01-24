@@ -62,10 +62,10 @@ primary_execution_t::primary_execution_t(
         const table_raft_state_t &raft_state) :
     execution_t(_context, _params), our_dispatcher(nullptr)
 {
-    const contract_t &contract = raft_state.contracts.at(contract_id).second;
+    const contract_t &contract = raft_state.contracts.at(contract_id);
     guarantee(static_cast<bool>(contract.primary));
     guarantee(contract.primary->server == context->server_id);
-    guarantee(raft_state.contracts.at(contract_id).first == region);
+    guarantee(key_range_t::universe() == region);
     latest_contract_home_thread = make_counted<contract_info_t>(
         contract_id, contract, raft_state.config.config.durability,
         raft_state.config.config.write_ack_config);
@@ -106,10 +106,10 @@ void primary_execution_t::update_contract_or_raft_state(
         }
     }
 
-    const contract_t &contract = raft_state.contracts.at(contract_id).second;
+    const contract_t &contract = raft_state.contracts.at(contract_id);
     guarantee(static_cast<bool>(contract.primary));
     guarantee(contract.primary->server == context->server_id);
-    guarantee(raft_state.contracts.at(contract_id).first == region);
+    guarantee(key_range_t::universe() == region);
 
     counted_t<contract_info_t> new_contract = make_counted<contract_info_t>(
         contract_id,

@@ -18,8 +18,7 @@ void erase_execution_t::update_contract_or_raft_state(
         DEBUG_VAR const contract_id_t &cid,
         DEBUG_VAR const table_raft_state_t &raft_state) {
     assert_thread();
-    rassert(raft_state.contracts.at(cid).second.the_replica != context->server_id);
-    rassert(raft_state.contracts.at(cid).first == region);
+    rassert(raft_state.contracts.at(cid).the_replica != context->server_id);
 }
 
 void erase_execution_t::run(auto_drainer_t::lock_t keepalive) {
