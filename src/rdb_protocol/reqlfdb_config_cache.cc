@@ -37,6 +37,13 @@ ukey_string db_by_name_key(const name_string_t &db_name) {
     return ukey_string{db_name.str()};
 }
 
+name_string_t unparse_db_by_name_key(key_view k) {
+    name_string_t str;
+    bool success = str.assign_value(std::string(as_char(k.data), size_t(k.length)));
+    guarantee(success, "unparse_db_by_name_key got bad name_string_t");
+    return str;
+}
+
 fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
         FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_config_version>(transaction_get_c_str(
@@ -203,14 +210,23 @@ ukey_string table_by_name_key(
     return table_by_unverified_name_key(db_id, table_name.str());
 }
 
+std::pair<database_id_t, std::string> unserialize_table_by_name_key(key_view key) {
+    std::string prefix = REQLFDB_TABLE_CONFIG_BY_NAME;
+    key_view chopped = key.guarantee_without_prefix(prefix);
+    std::pair<database_id_t, std::string> ret;
+    // + 1 is for the ".".
+    key_view table_name = chopped.without_prefix(uuid_u::kStringSize + 1);
+    ret.second = std::string(as_char(table_name.data), size_t(table_name.length));
+    bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first);
+    guarantee(is_uuid);
+    return ret;
+}
+
 std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id) {
     std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
         ukey_string{table_by_name_ukey_prefix(db_id)});
 
-    guarantee(key.length >= int(prefix.size()));
-    guarantee(0 == memcmp(prefix.data(), key.data, prefix.size()));
-
-    key_view chopped = key.without_prefix(int(prefix.size()));
+    key_view chopped = key.guarantee_without_prefix(prefix);
     return std::string(as_char(chopped.data), chopped.length);
 }
 
@@ -226,19 +242,20 @@ ukey_string table_by_id_key(const uuid_u &table_id) {
     return ukey_string{uuid_to_str(table_id)};
 }
 
-// Returns TABLE_CONFIG_BY_NAME range in [min_table_name, +infinity) in database db_id.
+// Returns TABLE_CONFIG_BY_NAME range in database db_id, in [lower_bound_table_name,
+// +infinity), if closed, and (lower_bound_table_name, +infinity), if open.
 fdb_future transaction_get_table_range(
         FDBTransaction *txn, const database_id_t db_id,
-        const std::string &min_table_name,
+        const std::string &lower_bound_table_name, bool closed,
         FDBStreamingMode streaming_mode) {
 
     std::string lower = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
-        table_by_name_bound(db_id, min_table_name));
+        table_by_name_bound(db_id, lower_bound_table_name));
     std::string upper = prefix_end(unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
         ukey_string{table_by_name_ukey_prefix(db_id)}));
 
     return fdb_future{fdb_transaction_get_range(txn,
-        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower.data()), int(lower.size())),
+        as_uint8(lower.data()), int(lower.size()), !closed, 1,
         FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper.data()), int(upper.size())),
         0,
         0,
@@ -412,7 +429,66 @@ bool outer_config_cache_table_create(
     return config_cache_table_create(txn, config, interruptor);
 }
 
+template <class Callable>
+void transaction_read_whole_range_coro(FDBTransaction *txn,
+        std::string begin, const std::string &end,
+        const signal_t *interruptor,
+        Callable &&cb) {
+    bool or_equal = true;
+    // We need to get elements greater than (or_equal, if true) begin, less than end.
+    for (;;) {
+        fdb_future fut{
+            fdb_transaction_get_range(txn,
+                    as_uint8(begin.data()), int(begin.size()), !or_equal, 1,
+                    FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(end.data()), int(end.size())),
+                    0,
+                    0,
+                    FDB_STREAMING_MODE_WANT_ALL,
+                    0,
+                    false,
+                    false)};
+        fut.block_coro(interruptor);
+
+        const FDBKeyValue *kvs;
+        int kv_count;
+        fdb_bool_t more;
+        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+        check_for_fdb_transaction(err);
+        or_equal = false;
+        for (int i = 0; i < kv_count; ++i) {
+            if (!cb(kvs[i])) {
+                return;
+            }
+        }
+        if (more) {
+            if (kv_count > 0) {
+                const FDBKeyValue &kv = kvs[kv_count - 1];
+                begin = std::string(void_as_char(kv.key), size_t(kv.key_length));
+            }
+        } else {
+            return;
+        }
+    }
+}
+
 // TODO (out of context): ql::db_t should do nothing but hold info about whether it
 // was by name or by value, don't actually do the lookup right away.
 
-
+std::vector<counted_t<const ql::db_t>> config_cache_db_list(
+        FDBTransaction *txn,
+        const signal_t *interruptor) {
+    std::string db_by_name_prefix = REQLFDB_DB_CONFIG_BY_NAME;
+    std::string db_by_name_end = prefix_end(db_by_name_prefix);
+    std::vector<counted_t<const ql::db_t>> dbs;
+    transaction_read_whole_range_coro(txn,
+        db_by_name_prefix, db_by_name_end, interruptor,
+        [&dbs, &db_by_name_prefix](const FDBKeyValue &kv) {
+            key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+            key_view key = whole_key.guarantee_without_prefix(db_by_name_prefix);
+            name_string_t name = unparse_db_by_name_key(key);
+            database_id_t db_id = str_to_uuid(void_as_char(kv.value), size_t(kv.value_length));
+            dbs.push_back(make_counted<ql::db_t>(db_id, name));
+            return true;
+        });
+    return dbs;
+}

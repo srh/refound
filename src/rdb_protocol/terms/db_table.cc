@@ -382,6 +382,17 @@ public:
         : meta_op_term_t(env, term, argspec_t(0)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *, eval_flags_t) const {
+        std::vector<counted_t<const ql::db_t>> db_list;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            // TODO: Use a snapshot read for this?  Config txn appropriately?
+            db_list = config_cache_db_list(txn, env->env->interruptor);
+            // TODO: We don't need to commit read only txns, right?  Right??
+        });
+
+        guarantee_fdb_TODO(loop_err, "db_list txn failed");
+        // TODO: Use the db_list to write to the config cache?
+        // TODO: fdb-ize:  Remove non-fdb stuff, make use of db_list.
+
         std::set<name_string_t> dbs;
         admin_err_t error;
         if (!env->env->reql_cluster_interface()->db_list(

@@ -224,8 +224,10 @@ MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const f
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
     fdb_value_fut<fdb_job_info> real_info_fut =
         transaction_get_real_job_info(txn, info);
+    // We always make it a closed interval, because we deleted the last-used table name
+    // anyway.
     fdb_future range_fut = transaction_get_table_range(
-        txn, db_drop_info.database_id, db_drop_info.min_table_name,
+        txn, db_drop_info.database_id, db_drop_info.min_table_name, true,
         FDB_STREAMING_MODE_SMALL);
 
     if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {

@@ -56,8 +56,10 @@ std::string uuid_to_str(uuid_u id);
 void uuid_onto_str(uuid_u id, std::string *onto);
 
 uuid_u str_to_uuid(const std::string &str);
+uuid_u str_to_uuid(const char *buf, size_t len);
 
 MUST_USE bool str_to_uuid(const std::string &str, uuid_u *out);
+MUST_USE bool str_to_uuid(const char *str, size_t count, uuid_u *out);
 
 typedef uuid_u namespace_id_t;
 typedef uuid_u database_id_t;

@@ -2,11 +2,16 @@
 #define RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_
 
 #include "buffer_cache/types.hpp"
+#include "containers/counted.hpp"
 #include "containers/optional.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
+
+namespace ql {
+class db_t;
+}
 
 // TODO: Move this into reqlfdb_config_cache.hpp
 
@@ -59,7 +64,7 @@ MUST_USE bool outer_config_cache_table_create(
 
 fdb_future transaction_get_table_range(
     FDBTransaction *txn, const database_id_t db_id,
-    const std::string &min_table_name,
+    const std::string &lower_bound_table_name, bool closed,
     FDBStreamingMode streaming_mode);
 
 std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id);
@@ -79,5 +84,8 @@ MUST_USE bool config_cache_db_drop(
     FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);
 
+std::vector<counted_t<const ql::db_t>> config_cache_db_list(
+        FDBTransaction *txn,
+        const signal_t *interruptor);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

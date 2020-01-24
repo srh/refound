@@ -173,9 +173,15 @@ std::string uuid_to_str(uuid_u id) {
     return ret;
 }
 
+
+
 uuid_u str_to_uuid(const std::string &uuid) {
+    return str_to_uuid(uuid.data(), uuid.size());
+}
+
+uuid_u str_to_uuid(const char *str, size_t count) {
     uuid_u ret;
-    if (str_to_uuid(uuid, &ret)) {
+    if (str_to_uuid(str, count, &ret)) {
         return ret;
     } else {
         throw std::runtime_error("invalid uuid");  // Sigh.
@@ -195,8 +201,12 @@ MUST_USE bool from_hexdigit(int ch, int *out) {
     return false;
 }
 
-MUST_USE bool str_to_uuid(const std::string &str, uuid_u *uuid) {
-    if (str.size() != uuid_u::kStaticSize * 2 + 4) {
+MUST_USE bool str_to_uuid(const std::string &str, uuid_u *out) {
+    return str_to_uuid(str.data(), str.size(), out);
+}
+
+MUST_USE bool str_to_uuid(const char *str, size_t count, uuid_u *uuid) {
+    if (count != uuid_u::kStringSize) {
         return false;
     }
 

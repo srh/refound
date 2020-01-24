@@ -38,6 +38,10 @@ inline const uint8_t *void_as_uint8(const void *s) {
     return static_cast<const uint8_t *>(s);
 }
 
+inline const char *void_as_char(const void *s) {
+    return static_cast<const char *>(s);
+}
+
 inline const char *as_char(const uint8_t *s) {
     return reinterpret_cast<const char *>(s);
 }
@@ -163,6 +167,13 @@ struct key_view {
     key_view without_prefix(int prefix_length) {
         guarantee(prefix_length <= length);  // TODO: fail msg
         return key_view{data + prefix_length, length - prefix_length};
+    }
+    // Checks prefix matches.
+    key_view guarantee_without_prefix(const std::string &prefix) {
+        // TODO: fail msg
+        guarantee(int(prefix.size()) <= length);
+        guarantee(0 == memcmp(prefix.data(), data, int(prefix.size())));
+        return key_view{data + prefix.size(), length - int(prefix.size())};
     }
 };
 
