@@ -197,7 +197,7 @@ public:
     /* This `region_t` describes the region that the backfiller applies to. Backfill
     requests must cover a subset of this region's key-space, and they must cover exactly
     the same part of the hash-space as this region. */
-    region_t region;
+    // region is always universe.
 
     registrar_business_card_t<intro_1_t> registrar;
 };

@@ -20,8 +20,8 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(backfiller_bcard_t::intro_1_t,
     config, initial_version, initial_version_history, intro_mailbox, items_mailbox,
     ack_end_session_mailbox, ack_pre_items_mailbox);
 
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(backfiller_bcard_t, region, registrar);
-RDB_IMPL_EQUALITY_COMPARABLE_2(backfiller_bcard_t, region, registrar);
+RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(backfiller_bcard_t, registrar);
+RDB_IMPL_EQUALITY_COMPARABLE_1(backfiller_bcard_t, registrar);
 
 RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(replica_bcard_t,
     synchronize_mailbox, branch_id, backfiller_bcard);

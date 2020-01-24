@@ -333,8 +333,6 @@ backfillee_t::backfillee_t(
     ack_pre_items_mailbox(mailbox_manager,
         std::bind(&backfillee_t::on_ack_pre_items, this, ph::_1, ph::_2, ph::_3))
 {
-    guarantee(region_is_superset(backfiller.region, region_t::universe()));
-
     backfiller_bcard_t::intro_1_t our_intro;
     our_intro.config = backfill_config;
     our_intro.ack_pre_items_mailbox = ack_pre_items_mailbox.get_address();

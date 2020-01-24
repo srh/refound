@@ -101,9 +101,7 @@ backfiller_t::backfiller_t(
 backfiller_t::~backfiller_t() { }
 
 backfiller_bcard_t backfiller_t::get_business_card() const {
-    // TODO: backfiller_bcard_t region always universe
     return backfiller_bcard_t {
-        region_t::universe(),
         registrar.get_business_card() };
 }
 
