@@ -230,7 +230,6 @@ void store_t::write(
 }
 
 void store_t::reset_data(
-        const region_t &subregion,
         const write_durability_t durability,
         signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
@@ -264,7 +263,7 @@ void store_t::reset_data(
         key_range_t deleted_region;
         done_erasing = rdb_erase_small_range(rocksh(),
                                              btree.get(),
-                                             subregion,
+                                             region_t::universe(),
                                              superblock.get(),
                                              &non_interruptor,
                                              max_erased_per_pass,

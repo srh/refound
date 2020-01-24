@@ -515,7 +515,6 @@ bool mock_store_t::check_ok_to_receive_backfill() THROWS_NOTHING {
 }
 
 void mock_store_t::reset_data(
-        const region_t &subregion,
         UNUSED write_durability_t durability,
         signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
@@ -528,16 +527,9 @@ void mock_store_t::reset_data(
 
     wait_interruptible(token.main_write_token.get(), interruptor);
 
-    auto it = table_.lower_bound(subregion.left);
-    while (it != table_.end() && subregion.contains_key(it->first)) {
-        auto jt = it;
-        ++it;
-        if (region_contains_key(subregion, jt->first)) {
-            table_.erase(jt);
-        }
-    }
+    table_.clear();
 
-    metainfo_.update(subregion, version_t::zero());
+    metainfo_.update(region_t::universe(), version_t::zero());
 }
 
 std::string mock_store_t::values(std::string key) {

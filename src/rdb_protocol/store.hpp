@@ -139,7 +139,6 @@ public:
     bool check_ok_to_receive_backfill() THROWS_NOTHING;
 
     void reset_data(
-            const region_t &subregion,
             write_durability_t durability,
             signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);

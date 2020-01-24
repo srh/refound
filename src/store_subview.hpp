@@ -163,14 +163,12 @@ public:
         return store_view->check_ok_to_receive_backfill();
     }
 
-    // TODO: subregion is always universe.  Right?
     void reset_data(
-            const region_t &subregion,
             write_durability_t durability,
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        store_view->reset_data(subregion, durability, interruptor);
+        store_view->reset_data(durability, interruptor);
     }
 
 private:
