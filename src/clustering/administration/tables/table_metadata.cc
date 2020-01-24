@@ -21,28 +21,6 @@ RDB_IMPL_EQUALITY_COMPARABLE_1(user_data_t, datum);
 RDB_DECLARE_SERIALIZABLE(table_config_t);
 
 
-key_range_t table_shard_scheme_t::get_shard_range(size_t i) const {
-    guarantee(i < num_shards());
-    store_key_t left = (i == 0) ? store_key_t::min() : split_points[i-1];
-    if (i != num_shards() - 1) {
-        return key_range_t(
-            key_range_t::closed, left,
-            key_range_t::open, split_points[i]);
-    } else {
-        return key_range_t(
-            key_range_t::closed, left,
-            key_range_t::none, store_key_t());
-    }
-}
-
-size_t table_shard_scheme_t::find_shard_for_key(const virtual_key_ptr &key) const {
-    size_t ix = 0;
-    while (ix < split_points.size() && key.grequal_to(split_points[ix])) {
-        ++ix;
-    }
-    return ix;
-}
-
 class table_config_and_shards_change_t::apply_change_visitor_t
     : public boost::static_visitor<bool> {
 public:
@@ -132,13 +110,13 @@ RDB_IMPL_SERIALIZABLE_1_SINCE_v2_1(table_config_t::shard_t, primary_replica);
 RDB_IMPL_EQUALITY_COMPARABLE_1(table_config_t::shard_t, primary_replica);
 
 RDB_IMPL_SERIALIZABLE_7_SINCE_v2_5(table_config_t,
-    basic, shards, sindexes, write_hook, write_ack_config, durability, user_data);
+    basic, the_shard, sindexes, write_hook, write_ack_config, durability, user_data);
 
 RDB_IMPL_EQUALITY_COMPARABLE_7(table_config_t,
-    basic, shards, write_hook, sindexes, write_ack_config, durability, user_data);
+    basic, the_shard, write_hook, sindexes, write_ack_config, durability, user_data);
 
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(table_shard_scheme_t, split_points);
-RDB_IMPL_EQUALITY_COMPARABLE_1(table_shard_scheme_t, split_points);
+RDB_IMPL_SERIALIZABLE_0_SINCE_v2_5(table_shard_scheme_t);
+RDB_IMPL_EQUALITY_COMPARABLE_0(table_shard_scheme_t);
 
 RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(table_config_and_shards_t,
                                     config, shard_scheme, server_names);

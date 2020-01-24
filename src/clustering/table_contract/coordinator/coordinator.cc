@@ -156,7 +156,7 @@ void contract_coordinator_t::pump_contracts(signal_t *interruptor) {
         raft->get_latest_state()->apply_read(
         [&](const raft_member_t<table_raft_state_t>::state_and_config_t *state) {
             calculate_all_contracts(
-                state->state, acks_by_contract, connections_map,
+                state->state, acks_by_contract,
                 &change.remove_contracts, &change.add_contracts,
                 &change.register_current_branches,
                 &change.remove_branches, &change.add_branches);

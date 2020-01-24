@@ -426,9 +426,7 @@ bool outer_config_cache_table_create(
     config.basic.database = db_id;
     config.basic.primary_key = primary_key;
 
-    // TODO: Remove num_shards config.
     // TODO: Remove sharding UI.
-    guarantee(config_params.num_shards == 1, "config params bad");
 
     // TODO: Remove table_config_t::shards.
     // TODO: Remove table_config_t::write_ack_config and -::durability.

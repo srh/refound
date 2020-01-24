@@ -142,11 +142,7 @@ contract_t calculate_contract(
         /* Contract acks from replicas regarding `old_c`. If a replica hasn't sent us an
         ack *specifically* for `old_c`, it won't appear in this map; we don't include
         acks for contracts that were in the same region before `old_c`. */
-        const std::map<server_id_t, contract_ack_frag_t> &acks,
-        /* This `watchable_map_t` will have an entry for (X, Y) if we can see server X
-        and server X can see server Y. */
-        watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t> *
-            connections_map) {
+        const std::map<server_id_t, contract_ack_frag_t> &acks) {
 
     contract_t new_c = old_c;
 
@@ -437,8 +433,6 @@ makes sense to combine those two diff processes. */
 void calculate_all_contracts(
         const table_raft_state_t &old_state,
         const std::map<contract_id_t, std::map<server_id_t, contract_ack_t> > &acks,
-        watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
-            *connections_map,
         std::set<contract_id_t> *remove_contracts_out,
         std::map<contract_id_t, std::pair<region_t, contract_t> > *add_contracts_out,
         std::map<region_t, branch_id_t> *register_current_branches_out,
@@ -463,11 +457,9 @@ void calculate_all_contracts(
             old_state.contracts) {
         /* Next iterate over all shards of the table config and find the ones that
         overlap the contract in question: */
-        for (size_t shard_index = 0; shard_index < old_state.config.config.shards.size();
-                ++shard_index) {
-            region_t region = region_intersection(
-                cpair.second.first,
-                region_t(old_state.config.shard_scheme.get_shard_range(shard_index)));
+        {
+            region_t region = cpair.second.first;
+
             if (region_is_empty(region)) {
                 continue;
             }
@@ -530,9 +522,8 @@ void calculate_all_contracts(
 
                 contract_t new_contract = calculate_contract(
                     old_contract,
-                    old_state.config.config.shards[shard_index],
-                    acks_map,
-                    connections_map);
+                    old_state.config.config.the_shard,
+                    acks_map);
 
                 /* Register a branch if a primary is asking us to */
                 optional<branch_id_t> registered_new_branch;
@@ -638,10 +629,10 @@ void calculate_all_contracts(
 
     /* Slice the new contracts by shard, so that no contract spans
     more than one shard. */
+    // TODO: Contract map/region map just has universe key range now.
     std::map<region_t, contract_t> new_contract_map;
-    for (size_t shard = 0; shard < old_state.config.config.shards.size(); ++shard) {
-        region_t region = old_state.config.shard_scheme.get_shard_range(shard);
-        new_contract_region_map.visit(region,
+    {
+        new_contract_region_map.visit(key_range_t::universe(),
         [&](const region_t &reg, const contract_t &contract) {
             new_contract_map.insert(std::make_pair(reg, contract));
         });

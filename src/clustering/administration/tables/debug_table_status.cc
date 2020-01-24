@@ -131,10 +131,11 @@ ql::datum_t convert_debug_contracts_to_datum(
 }
 
 ql::datum_t convert_debug_table_shard_scheme_to_datum(
-        const table_shard_scheme_t &shard_scheme) {
+        const table_shard_scheme_t &) {
     ql::datum_object_builder_t builder;
-    builder.overwrite("split_points", convert_vector_to_datum<store_key_t>(
-        &convert_debug_store_key_to_datum, shard_scheme.split_points));
+    builder.overwrite("split_points", ql::datum_t(
+        std::vector<ql::datum_t>(),
+        ql::configured_limits_t::unlimited));
     return std::move(builder).to_datum();
 }
 

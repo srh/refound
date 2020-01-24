@@ -36,7 +36,6 @@ public:
             lifetime_t<name_resolver_t const &> name_resolver,
             std::shared_ptr<semilattice_readwrite_view_t<
                 cluster_semilattice_metadata_t> > _semilattice_view,
-            real_reql_cluster_interface_t *_reql_cluster_interface,
             admin_identifier_format_t _identifier_format,
             server_config_client_t *_server_config_client,
             table_meta_client_t *_table_meta_client);
@@ -81,7 +80,6 @@ private:
             maybe_failed_table_op_exc_t, admin_op_exc_t);
 
     rdb_context_t *rdb_context;
-    real_reql_cluster_interface_t *reql_cluster_interface;
     server_config_client_t *server_config_client;
 };
 

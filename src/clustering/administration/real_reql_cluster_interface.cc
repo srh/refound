@@ -340,19 +340,13 @@ bool real_reql_cluster_interface_t::table_create(
         config.config.basic.database = db->id;
         config.config.basic.primary_key = primary_key;
 
-        // TODO: Remove num_shards config.
         // TODO: Remove sharding UI.
-        guarantee(config_params.num_shards == 1, "config params bad");
-
-        /* We don't have any data to generate split points based on, so assume UUIDs */
-        calculate_split_points_for_uuids(
-            config_params.num_shards, &config.shard_scheme);
 
         /* Pick which servers to host the data */
         table_generate_config(
             m_server_config_client, nil_uuid(), m_table_meta_client,
-            config_params, config.shard_scheme, &interruptor_on_home,
-            &config.config.shards, &config.server_names);
+            config_params, &interruptor_on_home,
+            &config.config.the_shard, &config.server_names);
 
         config.config.write_ack_config = write_ack_config_t::MAJORITY;
         config.config.durability = durability;
@@ -551,24 +545,9 @@ bool real_reql_cluster_interface_t::table_estimate_doc_counts(
 
         /* Match the results of the distribution query against the table's shard
         boundaries */
-        *doc_counts_out = std::vector<int64_t>(config.shard_scheme.num_shards(), 0);
+        *doc_counts_out = std::vector<int64_t>(1 /* num shards */, 0);
         for (auto it = counts.begin(); it != counts.end(); ++it) {
-            /* Calculate the range of shards that this key-range overlaps with */
-            size_t left_shard = config.shard_scheme.find_shard_for_key(virtual_key_ptr(&it->first));
-            auto jt = it;
-            ++jt;
-            size_t right_shard;
-            if (jt == counts.end()) {
-                right_shard = config.shard_scheme.num_shards() - 1;
-            } else {
-                right_shard = config.shard_scheme.find_shard_for_key(
-                    virtual_key_ptr::guarantee_decremented(&jt->first));
-            }
-            /* We assume that every shard that this key-range overlaps with has an equal
-            share of the keys in the key-range. This is shitty but oh well. */
-            for (size_t shard = left_shard; shard <= right_shard; ++shard) {
-                doc_counts_out->at(shard) += it->second / (right_shard - left_shard + 1);
-            }
+            doc_counts_out->at(0) += it->second;
         }
         return true;
     } CATCH_NAME_ERRORS(db->name, name, error_out)
@@ -734,18 +713,10 @@ void real_reql_cluster_interface_t::reconfigure_internal(
     new_config.config.durability = old_config.config.durability;
     new_config.config.user_data = old_config.config.user_data;
 
-    calculate_split_points_intelligently(
-        table_id,
-        this,
-        params.num_shards,
-        old_config.shard_scheme,
-        interruptor_on_home,
-        &new_config.shard_scheme);
-
     /* `table_generate_config()` just generates the config; it doesn't apply it */
     table_generate_config(
         m_server_config_client, table_id, m_table_meta_client,
-        params, new_config.shard_scheme, interruptor_on_home, &new_config.config.shards,
+        params, interruptor_on_home, &new_config.config.the_shard,
         &new_config.server_names);
 
     if (!dry_run) {
@@ -1064,8 +1035,7 @@ void real_reql_cluster_interface_t::rebalance_internal(
 
     /* If there's not enough data to rebalance, return `rebalanced: 0` but don't report
     an error */
-    bool actually_rebalanced = calculate_split_points_with_distribution(
-        counts, config.config.shards.size(), &config.shard_scheme);
+    bool actually_rebalanced = true;  // Surprisingly, with one shard, yes.  TODO: Just remove this fn.
     if (actually_rebalanced) {
         table_config_and_shards_change_t table_config_and_shards_change(
             table_config_and_shards_change_t::set_table_config_and_shards_t{ config });

@@ -99,20 +99,15 @@ void calculate_emergency_repair(
             [&](const key_range_t::right_bound_t &,
                     const key_range_t::right_bound_t &right,
                     const table_config_t::shard_t &shard) {
-                new_state_out->config.config.shards.push_back(shard);
-                if (!right.unbounded) {
-                    new_state_out->config.shard_scheme.split_points
-                        .push_back(right.key());
-                }
+                new_state_out->config.config.the_shard = shard;
+                guarantee(right.unbounded);
             });
-        guarantee(new_state_out->config.config.shards.size() ==
-            new_state_out->config.shard_scheme.num_shards());
 
         /* Copy over server names for all servers that are in the new config, into the
         server names map for the config. (Note that there are two separate server name
         maps, one for the config and one for the contracts.) */
-        for (const table_config_t::shard_t &shard :
-                new_state_out->config.config.shards) {
+        {
+            table_config_t::shard_t shard = new_state_out->config.config.the_shard;
             {
                 server_id_t server = shard.primary_replica;
                 /* Since the new config is derived from the new contracts which are

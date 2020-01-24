@@ -795,7 +795,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
                 rdb_context,
                 name_resolver,
                 cluster_semilattice_view,
-                real_reql_cluster_interface,
                 static_cast<admin_identifier_format_t>(format),
                 server_config_client,
                 table_meta_client));

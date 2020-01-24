@@ -120,8 +120,8 @@ ql::datum_t convert_table_status_to_datum(
         builder.overwrite("shards", ql::datum_t::null());
     } else {
         ql::datum_array_builder_t shards_builder(ql::configured_limits_t::unlimited);
-        for (size_t i = 0; i < status.config->config.shards.size(); ++i) {
-            key_range_t range = status.config->shard_scheme.get_shard_range(i);
+        {
+            key_range_t range = status.config->shard_scheme.get_shard_range();
             std::map<server_id_t, table_shard_status_t> states;
             for (const auto &pair : status.server_shards) {
                 pair.second.visit(
@@ -134,7 +134,7 @@ ql::datum_t convert_table_status_to_datum(
                     });
             }
             shards_builder.add(convert_shard_status_to_datum(
-                status.config->config.shards[i], states, status.disconnected,
+                status.config->config.the_shard, states, status.disconnected,
                 identifier_format, status.server_names));
         }
         builder.overwrite("shards", std::move(shards_builder).to_datum());

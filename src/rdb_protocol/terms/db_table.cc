@@ -202,9 +202,8 @@ private:
 
         // Parse the 'shards' optarg
         if (scoped_ptr_t<val_t> shards_optarg = args->optarg(env, "shards")) {
-            rcheck_target(shards_optarg, shards_optarg->as_int() > 0, base_exc_t::LOGIC,
-                          "Every table must have at least one shard.");
-            config_params.num_shards = shards_optarg->as_int();
+            rcheck_target(shards_optarg, shards_optarg->as_int() == 1, base_exc_t::LOGIC,
+                          "Every table must have exactly one shard.  (The configuration is obsolete.)");
         }
 
         // Parse the 'replicas', 'nonvoting_replica_tags', and
@@ -698,10 +697,9 @@ private:
 
             // Parse the 'shards' optarg
             scoped_ptr_t<val_t> shards_optarg = required_optarg(env, args, "shards");
-            rcheck_target(shards_optarg, shards_optarg->as_int() > 0,
+            rcheck_target(shards_optarg, shards_optarg->as_int() == 1,
                           base_exc_t::LOGIC,
-                          "Every table must have at least one shard.");
-            config_params.num_shards = shards_optarg->as_int();
+                          "Every table must have exactly one shard.  (The configuration is obsolete.)");
 
             // Parse the 'replicas', 'nonvoting_replica_tags', and
             // 'primary_replica_tag' optargs

@@ -42,7 +42,8 @@ private:
 void calculate_server_usage(
         const table_config_t &config,
         std::map<server_id_t, int> *usage) {
-    for (const table_config_t::shard_t &shard : config.shards) {
+    {
+        table_config_t::shard_t shard = config.the_shard;
         {
             server_id_t server = shard.primary_replica;
             (*usage)[server] += SECONDARY_USAGE_COST;
@@ -57,10 +58,6 @@ static void validate_params(
         const std::map<name_string_t, std::set<server_id_t> > &servers_with_tags,
         const server_name_map_t &server_names)
         THROWS_ONLY(admin_op_exc_t) {
-    if (params.num_shards <= 0) {
-        throw admin_op_exc_t("Every table must have at least one shard.",
-                             query_state_t::FAILED);
-    }
     size_t total_replicas = 0;
     for (const auto &pair : params.num_replicas) {
         total_replicas += pair.second;
@@ -70,12 +67,6 @@ static void validate_params(
             "You must set `replicas` to at least one. `replicas` "
             "includes the primary replica; if there are zero replicas, there is nowhere "
             "to put the data.",
-            query_state_t::FAILED);
-    }
-    static const size_t max_shards = 64;
-    if (params.num_shards > max_shards) {
-        throw admin_op_exc_t(
-            strprintf("Maximum number of shards is %zu.", max_shards),
             query_state_t::FAILED);
     }
     if (params.num_replicas.count(params.primary_replica_tag) == 0 ||
@@ -127,29 +118,8 @@ static void validate_params(
 /* `estimate_backfill_cost()` estimates the cost of backfilling the data in `range` from
 the locations specified in `old_config` to the server `server`. The cost is measured in
 arbitrary units that are only comparable to each other. */
-double estimate_backfill_cost(
-        const key_range_t &range,
-        const table_config_and_shards_t &old_config,
-        const server_id_t &server) {
-    /* If `range` aligns perfectly to an existing shard, the cost is 0.0 if `server` is
-    already primary for that shard; 1.0 if it's a voting non-primary replica; 2.0 if it's
-    a non-voting replica; and 3.0 otherwise. If `range` overlaps multiple existing
-    shards' ranges, we average over all of them. */
-    guarantee(!range.is_empty());
-    double numerator = 0;
-    int denominator = 0;
-    for (size_t i = 0; i < old_config.shard_scheme.num_shards(); ++i) {
-        if (old_config.shard_scheme.get_shard_range(i).overlaps(range)) {
-            ++denominator;
-            if (old_config.config.shards[i].primary_replica == server) {
-                numerator += 0.0;
-            } else {
-                numerator += 3.0;
-            }
-        }
-    }
-    guarantee(denominator != 0);
-    return numerator / denominator;
+double estimate_backfill_cost() {
+    return 0;
 }
 
 /* A `pairing_t` represents the possibility of using the given server as a replica for
@@ -211,22 +181,22 @@ bool operator<(const counted_t<countable_wrapper_t<server_pairings_t> > &x,
 /* `pick_best_pairings()` chooses the `num_replicas` best pairings for each shard from
 the given set of pairings. It reports its choices by calling `callback`. */
 void pick_best_pairings(
-        size_t num_shards,
         size_t num_replicas,
         std::multiset<counted_t<countable_wrapper_t<server_pairings_t> > > &&pairings,
         int usage_cost,
         long_calculation_yielder_t *yielder,
         signal_t *interruptor,
         const std::function<void(size_t, server_id_t)> &callback) {
-    std::vector<size_t> shard_replicas(num_shards, 0);
+    const size_t num_shards = 1;
+    size_t shard_replicas = 0;
     size_t total_replicas = 0;
     while (total_replicas < num_shards * num_replicas) {
         counted_t<countable_wrapper_t<server_pairings_t> > sp = *pairings.begin();
         pairings.erase(pairings.begin());
         auto it = sp->pairings.begin();
-        if (shard_replicas[it->shard] < num_replicas) {
+        if (shard_replicas < num_replicas) {
             callback(it->shard, sp->server);
-            ++shard_replicas[it->shard];
+            ++shard_replicas;
             ++total_replicas;
             sp->self_usage_cost += usage_cost;
         }
@@ -243,9 +213,8 @@ void table_generate_config(
         namespace_id_t table_id,
         table_meta_client_t *table_meta_client,
         const table_generate_config_params_t &params,
-        const table_shard_scheme_t &shard_scheme,
         signal_t *interruptor,
-        std::vector<table_config_t::shard_t> *config_shards_out,
+        table_config_t::shard_t *config_the_shard_out,
         server_name_map_t *server_names_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             admin_op_exc_t) {
@@ -306,8 +275,6 @@ void table_generate_config(
         calculate_server_usage(pair.second.config, &server_usage);
     }
 
-    config_shards_out->resize(params.num_shards);
-
     size_t total_replicas = 0;
     for (auto it = params.num_replicas.begin(); it != params.num_replicas.end(); ++it) {
         if (it->second == 0) {
@@ -337,12 +304,12 @@ void table_generate_config(
             sp.self_usage_cost = 0;
             auto u_it = server_usage.find(server);
             sp.other_usage_cost = (u_it == server_usage.end()) ? 0 : u_it->second;
-            for (size_t shard = 0; shard < params.num_shards; ++shard) {
+            {
+                const size_t shard = 0;
                 pairing_t p;
                 p.shard = shard;
                 if (!table_id.is_nil()) {
-                    p.backfill_cost = estimate_backfill_cost(
-                        shard_scheme.get_shard_range(shard), *old_config, server);
+                    p.backfill_cost = estimate_backfill_cost();
                 } else {
                     /* We're creating a new table, so we won't have to backfill no matter
                     which servers we choose. */
@@ -382,15 +349,15 @@ void table_generate_config(
                 }
             }
             pick_best_pairings(
-                params.num_shards,
                 1,   /* only one primary replica per shard */
                 std::move(s),
                 PRIMARY_USAGE_COST,
                 &yielder,
                 interruptor,
                 [&](size_t shard, const server_id_t &server) {
-                    guarantee(config_shards_out->at(shard).primary_replica.get_uuid().is_unset());
-                    config_shards_out->at(shard).primary_replica = server;
+                    guarantee(shard == 0);
+                    guarantee(config_the_shard_out->primary_replica.get_uuid().is_unset());
+                    config_the_shard_out->primary_replica = server;
                     /* We have to update `pairings` as priamry replicas are selected so
                     that our second call to `pick_best_pairings()` will take into account
                     the choices made in this round. */
@@ -407,8 +374,8 @@ void table_generate_config(
         }
     }
 
-    for (size_t shard_ix = 0; shard_ix < params.num_shards; ++shard_ix) {
-        const table_config_t::shard_t &shard = (*config_shards_out)[shard_ix];
+    {
+        const table_config_t::shard_t &shard = *config_the_shard_out;
         guarantee(!shard.primary_replica.get_uuid().is_unset());
         guarantee(1 == total_replicas);
         {

@@ -60,7 +60,7 @@ public:
         server_id_t primary_replica;
     };
     table_basic_config_t basic;
-    std::vector<shard_t> shards;
+    shard_t the_shard;
     std::map<std::string, sindex_config_t> sindexes;
     optional<write_hook_config_t> write_hook;
     write_ack_config_t write_ack_config;
@@ -97,18 +97,12 @@ struct virtual_key_ptr {
 
 class table_shard_scheme_t {
 public:
-    std::vector<store_key_t> split_points;
-
     static table_shard_scheme_t one_shard() {
         return table_shard_scheme_t();
     }
 
-    size_t num_shards() const {
-        return split_points.size() + 1;
-    }
-
-    key_range_t get_shard_range(size_t i) const;
-    size_t find_shard_for_key(const virtual_key_ptr &key) const;
+    key_range_t get_shard_range() const { return key_range_t::universe(); }
+    // TODO: Remove virtual_key_ptr.
 };
 
 RDB_DECLARE_SERIALIZABLE(table_shard_scheme_t);
@@ -120,6 +114,7 @@ sync with the `table_shard_scheme_t` and the server name mapping. */
 class table_config_and_shards_t {
 public:
     table_config_t config;
+    // TODO: Remove this.
     table_shard_scheme_t shard_scheme;
 
     /* This contains an entry for every server mentioned in the config. The `uint64_t`s

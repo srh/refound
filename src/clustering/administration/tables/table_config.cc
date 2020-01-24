@@ -15,7 +15,6 @@ table_config_artificial_table_backend_t::table_config_artificial_table_backend_t
         lifetime_t<name_resolver_t const &> name_resolver,
         std::shared_ptr< semilattice_readwrite_view_t<
             cluster_semilattice_metadata_t> > _semilattice_view,
-        real_reql_cluster_interface_t *_reql_cluster_interface,
         admin_identifier_format_t _identifier_format,
         server_config_client_t *_server_config_client,
         table_meta_client_t *_table_meta_client)
@@ -27,7 +26,6 @@ table_config_artificial_table_backend_t::table_config_artificial_table_backend_t
         _table_meta_client,
         _identifier_format),
       rdb_context(_rdb_context),
-      reql_cluster_interface(_reql_cluster_interface),
       server_config_client(_server_config_client) {
 }
 
@@ -401,12 +399,9 @@ ql::datum_t convert_table_config_to_datum(
     builder.overwrite("write_hook", convert_write_hook_to_datum(config.write_hook));
     builder.overwrite("primary_key", convert_string_to_datum(config.basic.primary_key));
     builder.overwrite("shards",
-        convert_vector_to_datum<table_config_t::shard_t>(
-            [&](const table_config_t::shard_t &shard) {
-                return convert_table_config_shard_to_datum(
-                    shard, identifier_format, server_names);
-            },
-            config.shards));
+            ql::datum_t(std::vector<ql::datum_t>(1, convert_table_config_shard_to_datum(
+                          config.the_shard, identifier_format, server_names)),
+                        ql::configured_limits_t::unlimited));
     builder.overwrite("write_acks",
         convert_write_ack_config_to_datum(config.write_ack_config));
     builder.overwrite("durability",
@@ -536,6 +531,7 @@ bool convert_table_config_and_name_from_datum(
         if (!converter.get("shards", &shards_datum, error_out)) {
             return false;
         }
+        std::vector<table_config_t::shard_t> shards;
         if (!convert_vector_from_datum<table_config_t::shard_t>(
                 [&](ql::datum_t shard_datum, table_config_t::shard_t *shard_out,
                         admin_err_t *error_out_2) {
@@ -545,23 +541,23 @@ bool convert_table_config_and_name_from_datum(
                         error_out_2);
                 },
                 shards_datum,
-                &config_out->shards,
+                &shards,
                 error_out)) {
             error_out->msg = "In `shards`: " + error_out->msg;
             return false;
         }
-        if (config_out->shards.empty()) {
+        if (shards.size() != 1) {
             *error_out = admin_err_t{
-                "In `shards`: You must specify at least one shard.",
+                "In `shards`: You must specify exactly one shard.",
                 query_state_t::FAILED};
-            return false;
         }
+        config_out->the_shard = shards.at(0);
     } else {
         try {
             table_generate_config(
                 server_config_client, nil_uuid(), table_meta_client,
-                table_generate_config_params_t::make_default(), table_shard_scheme_t(),
-                interruptor, &config_out->shards, server_names_out);
+                table_generate_config_params_t::make_default(),
+                interruptor, &config_out->the_shard, server_names_out);
         } catch (const admin_op_exc_t &msg) {
             throw admin_op_exc_t(
                 "Unable to automatically generate configuration for "
@@ -679,10 +675,6 @@ void table_config_artificial_table_backend_t::do_modify(
         }
     }
 
-    calculate_split_points_intelligently(table_id, reql_cluster_interface,
-        new_config.config.shards.size(), old_config.shard_scheme, interruptor,
-        &new_config.shard_scheme);
-
     table_config_and_shards_change_t table_config_and_shards_change(
         table_config_and_shards_change_t::set_table_config_and_shards_t{ new_config });
     table_meta_client->set_config(
@@ -708,9 +700,6 @@ void table_config_artificial_table_backend_t::do_create(
                       new_db_name.c_str(), new_config.config.basic.name.c_str()),
             query_state_t::FAILED);
     }
-
-    calculate_split_points_for_uuids(
-        new_config.config.shards.size(), &new_config.shard_scheme);
 
     table_meta_client->create(table_id, new_config, interruptor);
 }

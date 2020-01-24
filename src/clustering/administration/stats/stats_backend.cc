@@ -137,16 +137,11 @@ bool stats_artificial_table_backend_t::read_all_rows_as_vector(
     for (const auto &table_pair : configs) {
         maybe_append_result(table_stats_request_t(table_pair.first), parsed_stats,
             metadata, server_config_client, table_meta_client, admin_format, rows_out);
-        std::set<server_id_t> servers;
-        for (const auto &shard : table_pair.second.config.shards) {
-            servers.insert(shard.primary_replica);
-        }
-        for (const auto &server : servers) {
-            maybe_append_result(
-                table_server_stats_request_t(table_pair.first, server),
-                parsed_stats, metadata, server_config_client, table_meta_client,
-                admin_format, rows_out);
-        }
+        server_id_t server = table_pair.second.config.the_shard.primary_replica;
+        maybe_append_result(
+            table_server_stats_request_t(table_pair.first, server),
+            parsed_stats, metadata, server_config_client, table_meta_client,
+            admin_format, rows_out);
     }
 
     return true;

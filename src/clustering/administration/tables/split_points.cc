@@ -16,6 +16,7 @@ store_key_t max_store_key() {
 static const store_key_t store_key_max = max_store_key();
 
 
+// TODO: Remove if unused.
 /* `interpolate_key()` produces a `store_key_t` that is interpolated between `in1` and
 `in2`. For example, if `fraction` is 0.50, the return value will be halfway between `in1`
 and `in2`; if it's 0.25, the return value will be closer to `in1`; and so on. This
@@ -93,6 +94,7 @@ bool decrement_key(store_key_t *key) {
     }
 }
 
+// TODO: Remove if unused.
 /* `ensure_distinct()` ensures that all of the `store_key_t`s in the given vector are
 distinct from eachother. Initially, they should be non-strictly monotonically increasing;
 upon return, they will be strictly monotonically increasing. */
@@ -119,6 +121,7 @@ void ensure_distinct(std::vector<store_key_t> *split_points) {
     }
 }
 
+// TODO: Remove if unused.
 void fetch_distribution(
         const namespace_id_t &table_id,
         real_reql_cluster_interface_t *reql_cluster_interface,
@@ -151,45 +154,7 @@ void fetch_distribution(
         boost::get<distribution_read_response_t>(resp.response).key_counts);
 }
 
-bool calculate_split_points_with_distribution(
-        const std::map<store_key_t, int64_t> &counts,
-        size_t num_shards,
-        table_shard_scheme_t *split_points_out) {
-    std::vector<std::pair<int64_t, store_key_t> > pairs;
-    int64_t total_count = 0;
-    for (auto const &pair : counts) {
-        if (pair.second != 0) {
-            pairs.push_back(std::make_pair(total_count, pair.first));
-        }
-        total_count += pair.second;
-    }
-    if (pairs.size() < static_cast<size_t>(num_shards)) {
-        return false;
-    }
-
-    split_points_out->split_points.clear();
-    size_t left_pair = 0;
-    for (size_t split_index = 1; split_index < num_shards; ++split_index) {
-        int64_t split_count = (split_index * total_count) / num_shards;
-        rassert(pairs[left_pair].first <= split_count);
-        while (left_pair+1 < pairs.size() &&
-                pairs[left_pair+1].first <= split_count) {
-            ++left_pair;
-        }
-        std::pair<int64_t, store_key_t> left = pairs[left_pair];
-        std::pair<int64_t, lower_key_bound> right =
-            (left_pair == pairs.size() - 1)
-                ? std::make_pair(total_count, lower_key_bound::infinity())
-                : std::make_pair(pairs[left_pair+1].first, lower_key_bound(pairs[left_pair+1].second));
-        store_key_t split_key = interpolate_key(left.second, right.second,
-            (split_count - left.first) / static_cast<double>(right.first - left.first));
-        split_points_out->split_points.push_back(split_key);
-    }
-    ensure_distinct(&split_points_out->split_points);
-
-    return true;
-}
-
+// TODO: Remove if unused.
 store_key_t key_for_uuid(uint64_t first_8_bytes) {
     uuid_u uuid;
     memset(uuid.data(), 0, uuid_u::static_size());
@@ -198,80 +163,5 @@ store_key_t key_for_uuid(uint64_t first_8_bytes) {
         uuid.data()[i] = (first_8_bytes >> (8 * (7 - i))) & 0xFF;
     }
     return store_key_t(ql::datum_t(datum_string_t(uuid_to_str(uuid))).print_primary());
-}
-
-/* `calculate_split_points_for_uuids` generates a set of split points that will divide
-the range of UUIDs evenly. */
-void calculate_split_points_for_uuids(
-        size_t num_shards,
-        table_shard_scheme_t *split_points_out) {
-    split_points_out->split_points.clear();
-    for (size_t i = 0; i < num_shards-1; ++i) {
-        split_points_out->split_points.push_back(key_for_uuid(
-            (std::numeric_limits<uint64_t>::max() / num_shards) * (i+1)));
-        guarantee(i == 0 ||
-            split_points_out->split_points[i] > split_points_out->split_points[i-1]);
-    }
-}
-
-/* In practice this will only ever be used to decrease the number of shards, but it still
-works correctly whether the number of shards is increased, decreased, or stays the same.
-*/
-void calculate_split_points_by_interpolation(
-        size_t num_shards,
-        const table_shard_scheme_t &old_split_points,
-        table_shard_scheme_t *split_points_out) {
-    /* Short circuit this case because it's both trivial and common */
-    if (num_shards == old_split_points.num_shards()) {
-        *split_points_out = old_split_points;
-        return;
-    }
-    split_points_out->split_points.clear();
-    for (size_t split_index = 1; split_index < num_shards; ++split_index) {
-        double split_old_index = split_index *
-            (old_split_points.num_shards() / static_cast<double>(num_shards));
-        guarantee(split_old_index >= 0);
-        guarantee(split_old_index <= old_split_points.num_shards());
-        size_t left_old_index = floor(split_old_index);
-        guarantee(left_old_index <= old_split_points.num_shards() - 1);
-        store_key_t left_key =
-            (left_old_index == 0)
-                ? store_key_t::min()
-                : old_split_points.split_points[left_old_index-1];
-        lower_key_bound right_key =
-            (left_old_index == old_split_points.num_shards() - 1)
-                ? lower_key_bound::infinity()
-                : lower_key_bound(old_split_points.split_points[left_old_index]);
-        store_key_t split_key = interpolate_key(left_key, right_key,
-            split_old_index-left_old_index);
-        split_points_out->split_points.push_back(split_key);
-    }
-    ensure_distinct(&split_points_out->split_points);
-}
-
-void calculate_split_points_intelligently(
-        namespace_id_t table_id,
-        real_reql_cluster_interface_t *reql_cluster_interface,
-        size_t num_shards,
-        const table_shard_scheme_t &old_split_points,
-        signal_t *interruptor,
-        table_shard_scheme_t *split_points_out)
-        THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t, no_such_table_exc_t) {
-    if (num_shards > old_split_points.num_shards()) {
-        std::map<store_key_t, int64_t> counts;
-        fetch_distribution(table_id, reql_cluster_interface, interruptor, &counts);
-        if (!calculate_split_points_with_distribution(
-                counts, num_shards, split_points_out)) {
-            /* There aren't enough documents to calculate distribution. We'll just assume
-            the user is going to use UUID primary keys. If we got it wrong, they will end
-            up with horribly unbalanced data, but it's the best we can do. */
-            calculate_split_points_for_uuids(num_shards, split_points_out);
-        }
-    } else if (num_shards == old_split_points.num_shards()) {
-        *split_points_out = old_split_points;
-    } else {
-        calculate_split_points_by_interpolation(
-            num_shards, old_split_points, split_points_out);
-    }
 }
 

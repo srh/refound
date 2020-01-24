@@ -202,8 +202,8 @@ table_raft_state_t make_new_table_raft_state(
         const table_config_and_shards_t &config) {
     table_raft_state_t state;
     state.config = config;
-    for (size_t i = 0; i < config.shard_scheme.num_shards(); ++i) {
-        const table_config_t::shard_t &shard_conf = config.config.shards[i];
+    {
+        const table_config_t::shard_t &shard_conf = config.config.the_shard;
         contract_t contract;
         contract.the_replica = shard_conf.primary_replica;
         contract.the_voter = shard_conf.primary_replica;
@@ -214,7 +214,7 @@ table_raft_state_t make_new_table_raft_state(
         }
         contract.after_emergency_repair = false;
         {
-            region_t region(config.shard_scheme.get_shard_range(i));
+            region_t region = key_range_t::universe();
             state.contracts.insert(std::make_pair(generate_uuid(),
                 std::make_pair(region, contract)));
         }

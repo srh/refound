@@ -98,25 +98,23 @@ void get_table_status(
     they might not be hosting the server currently. In the former case we insert them
     into `disconnected`, and in the latter case we set their state to `transitioning` in
     `server_shards`. */
-    for (const table_config_t::shard_t &shard : config.config.shards) {
-        {
-            server_id_t server = shard.primary_replica;
-            if (status_out->server_shards.count(server) == 0 &&
-                    status_out->disconnected.count(server) == 0) {
-                if (server_config_client->
-                        get_server_to_peer_map()->get_key(server).has_value()) {
-                    table_shard_status_t status;
-                    status.transitioning = true;
-                    status_out->server_shards.insert(std::make_pair(server,
-                        range_map_t<key_range_t::right_bound_t,
-                                    table_shard_status_t>(
-                            key_range_t::right_bound_t(store_key_t()),
-                            key_range_t::right_bound_t::make_unbounded(),
-                            std::move(status))));
+    {
+        server_id_t server = config.config.the_shard.primary_replica;
+        if (status_out->server_shards.count(server) == 0 &&
+                status_out->disconnected.count(server) == 0) {
+            if (server_config_client->
+                    get_server_to_peer_map()->get_key(server).has_value()) {
+                table_shard_status_t status;
+                status.transitioning = true;
+                status_out->server_shards.insert(std::make_pair(server,
+                    range_map_t<key_range_t::right_bound_t,
+                                table_shard_status_t>(
+                        key_range_t::right_bound_t(store_key_t()),
+                        key_range_t::right_bound_t::make_unbounded(),
+                        std::move(status))));
 
-                } else {
-                    status_out->disconnected.insert(server);
-                }
+            } else {
+                status_out->disconnected.insert(server);
             }
         }
     }
