@@ -461,6 +461,7 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
+        // TODO: Fdb-ize this function.
         scoped_ptr_t<val_t> target = args->arg(env, 0);
         scoped_ptr_t<val_t> selection;
         bool success;
@@ -507,6 +508,7 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
+        // TODO: Fdb-ize this function
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
 
@@ -579,12 +581,16 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
 	    const counted_t<const ql::db_t> &db,
             const optional<name_string_t> &name_if_table) const {
-      // Don't allow a wait call without explicit database
-      if (args->num_args() == 0) {
-	rfail(base_exc_t::LOGIC, "`wait` can only be called on a table or database.");
-      }
+        // TODO: FDB-ize this function.  I think it's just table index building that
+        // we'd need to wait for -- and for db's, it's all the db's tables' index
+        // building operations.
 
-      // Handle 'wait_for' optarg
+        // Don't allow a wait call without explicit database
+        if (args->num_args() == 0) {
+            rfail(base_exc_t::LOGIC, "`wait` can only be called on a table or database.");
+        }
+
+        // Handle 'wait_for' optarg
         table_readiness_t readiness = table_readiness_t::finished;
         if (scoped_ptr_t<val_t> wait_for = args->optarg(env, "wait_for")) {
             if (wait_for->as_str() == wait_outdated_str) {
@@ -665,6 +671,9 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
             const counted_t<const ql::db_t> &db,
             const optional<name_string_t> &name_if_table) const {
+        // TODO: Fdb-ize?  Remove this?  Make it a no-op?  Gradually let the shards
+        // table config params and such wither away?
+
         // Don't allow a reconfigure call without explicit database
         if (args->num_args() == 0) {
 	  rfail(base_exc_t::LOGIC, "`reconfigure` can only be called on a table or database.");
@@ -802,6 +811,8 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
             const counted_t<const ql::db_t> &db,
             const optional<name_string_t> &name_if_table) const {
+        // TODO: Fdb-ize?  Remove this?  Or make it a no-op.
+
         // Don't allow a rebalance call without explicit database
         if (args->num_args() == 0) {
 	  rfail(base_exc_t::LOGIC, "`rebalance` can only be called on a table or database.");
@@ -846,6 +857,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
+        // TODO: Fdb-ize?  Fdb already syncs.  Maybe there's a mode which controls this.
         counted_t<table_t> t = args->arg(env, 0)->as_table();
         bool success = t->sync(env->env);
         r_sanity_check(success);
@@ -864,6 +876,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
+        // TODO: Fdb-ize.  (Add user-config to fdb.)
         auth::username_t username(
             args->arg(env, args->num_args() - 2)->as_str().to_std());
         ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum();
@@ -927,6 +940,7 @@ public:
                     optargspec_t({"read_mode", "use_outdated", "identifier_format"})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
+        // TODO: Fdb-ize this.
         read_mode_t read_mode = read_mode_t::SINGLE;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "use_outdated")) {
             rfail(base_exc_t::LOGIC, "%s",
