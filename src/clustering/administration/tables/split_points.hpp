@@ -12,7 +12,6 @@
 
 class real_reql_cluster_interface_t;
 class signal_t;
-class table_shard_scheme_t;
 
 /* `fetch_distribution` fetches the distribution information from the database. */
 void fetch_distribution(

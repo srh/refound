@@ -95,27 +95,12 @@ struct virtual_key_ptr {
     }
 };
 
-class table_shard_scheme_t {
-public:
-    static table_shard_scheme_t one_shard() {
-        return table_shard_scheme_t();
-    }
-
-    key_range_t get_shard_range() const { return key_range_t::universe(); }
-    // TODO: Remove virtual_key_ptr.
-};
-
-RDB_DECLARE_SERIALIZABLE(table_shard_scheme_t);
-RDB_DECLARE_EQUALITY_COMPARABLE(table_shard_scheme_t);
-
 /* `table_config_and_shards_t` exists because the `table_config_t` needs to be changed in
 sync with the `table_shard_scheme_t` and the server name mapping. */
 
 class table_config_and_shards_t {
 public:
     table_config_t config;
-    // TODO: Remove this.
-    table_shard_scheme_t shard_scheme;
 
     /* This contains an entry for every server mentioned in the config. The `uint64_t`s
     are server config versions. */

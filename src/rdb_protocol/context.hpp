@@ -132,6 +132,7 @@ public:
 };
 } // namespace ql
 
+// TODO: Remove this?
 class table_generate_config_params_t {
 public:
     static table_generate_config_params_t make_default() {

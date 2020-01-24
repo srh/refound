@@ -121,7 +121,7 @@ ql::datum_t convert_table_status_to_datum(
     } else {
         ql::datum_array_builder_t shards_builder(ql::configured_limits_t::unlimited);
         {
-            key_range_t range = status.config->shard_scheme.get_shard_range();
+            key_range_t range = key_range_t::universe();
             std::map<server_id_t, table_shard_status_t> states;
             for (const auto &pair : status.server_shards) {
                 pair.second.visit(

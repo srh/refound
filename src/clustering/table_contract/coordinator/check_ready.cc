@@ -9,7 +9,7 @@ bool check_all_replicas_ready(
         /* Find the config shard corresponding to this contract */
         const table_config_t::shard_t *shard = nullptr;
         {
-            if (table_state.config.shard_scheme.get_shard_range() ==
+            if (key_range_t::universe() ==
                     pair.second.first) {
                 shard = &table_state.config.config.the_shard;
                 break;

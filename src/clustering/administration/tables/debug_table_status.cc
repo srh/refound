@@ -130,8 +130,7 @@ ql::datum_t convert_debug_contracts_to_datum(
     return std::move(builder).to_datum();
 }
 
-ql::datum_t convert_debug_table_shard_scheme_to_datum(
-        const table_shard_scheme_t &) {
+ql::datum_t convert_debug_table_shard_scheme_to_datum() {
     ql::datum_object_builder_t builder;
     builder.overwrite("split_points", ql::datum_t(
         std::vector<ql::datum_t>(),
@@ -304,7 +303,7 @@ void debug_table_status_artificial_table_backend_t::format_row(
             config_and_shards.server_names));
     builder.overwrite(
         "shard_scheme",
-        convert_debug_table_shard_scheme_to_datum(config_and_shards.shard_scheme));
+        convert_debug_table_shard_scheme_to_datum());
     builder.overwrite(
         "table_server_status",
         convert_debug_statuses_to_datum(statuses));

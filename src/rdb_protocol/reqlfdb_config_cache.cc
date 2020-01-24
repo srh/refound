@@ -417,7 +417,6 @@ bool outer_config_cache_table_create(
         FDBTransaction *txn,
         const uuid_u &db_id,
         const name_string_t &table_name,
-        const table_generate_config_params_t &config_params,
         const std::string &primary_key,
         write_durability_t durability,
         const signal_t *interruptor) {

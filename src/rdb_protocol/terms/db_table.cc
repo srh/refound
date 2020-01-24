@@ -240,7 +240,7 @@ private:
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
             // TODO: after we build the table_config_t locally, specify precise capture list.
             bool success = outer_config_cache_table_create(txn, db->id,
-                tbl_name, config_params, primary_key, durability,
+                tbl_name, primary_key, durability,
                 env->env->interruptor);
             if (success) {
                 commit(txn, env->env->interruptor);

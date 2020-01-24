@@ -115,13 +115,10 @@ RDB_IMPL_SERIALIZABLE_7_SINCE_v2_5(table_config_t,
 RDB_IMPL_EQUALITY_COMPARABLE_7(table_config_t,
     basic, the_shard, write_hook, sindexes, write_ack_config, durability, user_data);
 
-RDB_IMPL_SERIALIZABLE_0_SINCE_v2_5(table_shard_scheme_t);
-RDB_IMPL_EQUALITY_COMPARABLE_0(table_shard_scheme_t);
-
-RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(table_config_and_shards_t,
-                                    config, shard_scheme, server_names);
-RDB_IMPL_EQUALITY_COMPARABLE_3(table_config_and_shards_t,
-                               config, shard_scheme, server_names);
+RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(table_config_and_shards_t,
+                                    config, server_names);
+RDB_IMPL_EQUALITY_COMPARABLE_2(table_config_and_shards_t,
+                               config, server_names);
 
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(
     table_config_and_shards_change_t::set_table_config_and_shards_t,
