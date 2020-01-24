@@ -158,11 +158,12 @@ void table_query_client_t::write(
 
 std::set<region_t> table_query_client_t::get_sharding_scheme()
         THROWS_ONLY(cannot_perform_query_exc_t) {
+    // TODO: This whole function just returns a monokey set now, I hope.
     std::vector<region_t> s;
     relationships.visit(relationships.get_domain(),
     [&](const region_t &, const std::set<relationship_t *> &rels) {
         for (relationship_t *rel : rels) {
-            s.push_back(rel->region);
+            s.push_back(region_t::universe());
         }
     });
     region_t whole;
@@ -212,7 +213,8 @@ void table_query_client_t::dispatch_immediate_op(
                 // of the relationships in `rels`.
                 // We need to test for that, so we don't send operations to a shard with
                 // the wrong boundaries.
-                if ((*jt)->primary_client && (*jt)->region == reg) {
+                // TODO: Weird region_t::universe stuff.
+                if ((*jt)->primary_client && region_t::universe() == reg) {
                     if (chosen_relationship) {
                         throw cannot_perform_query_exc_t(
                             "too many primary replicas available",
@@ -350,7 +352,8 @@ void table_query_client_t::dispatch_outdated_read(
             for (auto jt = rels.begin(); jt != rels.end(); ++jt) {
                 // See the comment in `dispatch_immediate_op` about why we need to
                 // check that `region` and the relationship's region are the same.
-                if ((*jt)->direct_bcard != nullptr && (*jt)->region == region) {
+                // TODO: More weird region_t::universe stuff.
+                if ((*jt)->direct_bcard != nullptr && region_t::universe() == region) {
                     if ((*jt)->is_local) {
                         chosen_relationship = *jt;
                         break;
@@ -524,7 +527,6 @@ void table_query_client_t::relationship_coroutine(
         relationship_t relationship_record;
         relationship_record.is_local =
             (key.first == mailbox_manager->get_connectivity_cluster()->get_me());
-        relationship_record.region = bcard.region;
 
         scoped_ptr_t<primary_query_client_t> primary_client;
         if (static_cast<bool>(bcard.primary)) {
@@ -542,7 +544,7 @@ void table_query_client_t::relationship_coroutine(
         }
 
         region_map_set_membership_t<relationship_t *> relationship_map_insertion(
-            &relationships, bcard.region, &relationship_record);
+            &relationships, region_t::universe(), &relationship_record);
 
         if (is_start) {
             guarantee(start_count > 0);

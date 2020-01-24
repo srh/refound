@@ -95,7 +95,6 @@ void secondary_execution_t::run(auto_drainer_t::lock_t keepalive) {
                 directory_entry;
             {
                 table_query_bcard_t tq_bcard;
-                tq_bcard.region = region_t::universe();
                 tq_bcard.direct = make_optional(direct_query_server.get_bcard());
                 directory_entry.create(
                     context->local_table_query_bcards, generate_uuid(), tq_bcard);
@@ -198,7 +197,6 @@ void secondary_execution_t::run(auto_drainer_t::lock_t keepalive) {
             /* Resume serving outdated reads now that the backfill is over */
             {
                 table_query_bcard_t tq_bcard;
-                tq_bcard.region = region_t::universe();
                 tq_bcard.direct = make_optional(direct_query_server.get_bcard());
                 directory_entry.create(
                     context->local_table_query_bcards, generate_uuid(), tq_bcard);

@@ -71,7 +71,6 @@ private:
     class relationship_t {
     public:
         bool is_local;
-        region_t region;
         primary_query_client_t *primary_client;
         const direct_query_bcard_t *direct_bcard;
         auto_drainer_t drainer;

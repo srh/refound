@@ -179,7 +179,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         /* Put an entry in the global directory so clients can find us for outdated reads
         */
         table_query_bcard_t tq_bcard_direct;
-        tq_bcard_direct.region = region_t::universe();  // TODO: Always universe?
         tq_bcard_direct.primary = r_nullopt;
         tq_bcard_direct.direct = make_optional(direct_query_server.get_bcard());
         watchable_map_var_t<uuid_u, table_query_bcard_t>::entry_t directory_entry_direct(
@@ -274,7 +273,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         /* Put an entry in the global directory so clients can find us for up-to-date
         writes and reads */
         table_query_bcard_t tq_bcard_primary;
-        tq_bcard_primary.region = region_t::universe();
         tq_bcard_primary.primary =
             make_optional(primary_query_server.get_bcard());
         tq_bcard_primary.direct = r_nullopt;

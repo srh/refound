@@ -92,7 +92,6 @@ into a single object for convenience. */
 
 class table_query_bcard_t {
 public:
-    region_t region;
     optional<primary_query_bcard_t> primary;
     optional<direct_query_bcard_t> direct;
 };

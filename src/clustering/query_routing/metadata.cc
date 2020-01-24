@@ -19,6 +19,6 @@ RDB_IMPL_EQUALITY_COMPARABLE_2(primary_query_bcard_t, region, multi_client);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(direct_query_bcard_t, read_mailbox);
 RDB_IMPL_EQUALITY_COMPARABLE_1(direct_query_bcard_t, read_mailbox);
 
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(table_query_bcard_t, region, primary, direct);
-RDB_IMPL_EQUALITY_COMPARABLE_3(table_query_bcard_t, region, primary, direct);
+RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(table_query_bcard_t, primary, direct);
+RDB_IMPL_EQUALITY_COMPARABLE_2(table_query_bcard_t, primary, direct);
 
