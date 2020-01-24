@@ -44,7 +44,7 @@ public:
     };
 
     primary_query_server_t(
-        mailbox_manager_t *mm, region_t r, query_callback_t *callback);
+        mailbox_manager_t *mm, query_callback_t *callback);
     ~primary_query_server_t();
 
     primary_query_bcard_t get_bcard();
@@ -65,7 +65,6 @@ private:
 
     mailbox_manager_t *const mailbox_manager;
     query_callback_t *const query_callback;
-    region_t const region;
 
     /* See note in `client_t::perform_request()` for what this is about */
     cond_t shutdown_cond;

@@ -5,10 +5,9 @@
 #include "containers/archive/boost_types.hpp"
 
 primary_query_server_t::primary_query_server_t(
-        mailbox_manager_t *mm, region_t r, query_callback_t *cb)
+        mailbox_manager_t *mm, query_callback_t *cb)
     : mailbox_manager(mm),
       query_callback(cb),
-      region(r),
       multi_client_server(mm, this) {
 }
 
@@ -18,7 +17,7 @@ primary_query_server_t::~primary_query_server_t() {
 
 primary_query_bcard_t primary_query_server_t::get_bcard() {
     return primary_query_bcard_t(
-        region, multi_client_server.get_business_card());
+        multi_client_server.get_business_card());
 }
 
 void primary_query_server_t::client_t::perform_request(

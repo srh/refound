@@ -19,7 +19,6 @@ primary_query_client_t::primary_query_client_t(
         signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) :
     mailbox_manager(mm),
-    region(master.region),
     multi_client_client(
         mailbox_manager,
         master.multi_client,
@@ -37,7 +36,6 @@ void primary_query_client_t::read(
         fifo_enforcer_sink_t::exit_read_t *token,
         signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
-    rassert(region_is_superset(region, _read.get_region()));
     otok.assert_read_mode();
 
     promise_t<boost::variant<read_response_t, cannot_perform_query_exc_t> >
@@ -86,7 +84,6 @@ void primary_query_client_t::write(
         fifo_enforcer_sink_t::exit_write_t *token,
         signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
-    rassert(region_is_superset(region, _write.get_region()));
     otok.assert_write_mode();
 
     promise_t<boost::variant<write_response_t, cannot_perform_query_exc_t> > result_or_failure;

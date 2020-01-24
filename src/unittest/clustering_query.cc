@@ -68,7 +68,7 @@ TPTEST(ClusteringQuery, ReadWrite) {
     simple_mailbox_cluster_t cluster;
     query_counter_t query_counter;
     primary_query_server_t server(
-        cluster.get_mailbox_manager(), region_t::universe(), &query_counter);
+        cluster.get_mailbox_manager(), &query_counter);
 
     /* Set up a client */
     cond_t non_interruptor;
@@ -118,7 +118,7 @@ TPTEST(ClusteringQuery, Failure) {
     query_counter_t query_counter;
     query_counter.should_succeed = false;
     primary_query_server_t server(
-        cluster.get_mailbox_manager(), region_t::universe(), &query_counter);
+        cluster.get_mailbox_manager(), &query_counter);
 
     /* Set up a client */
     cond_t non_interruptor;

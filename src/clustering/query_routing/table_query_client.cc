@@ -543,6 +543,7 @@ void table_query_client_t::relationship_coroutine(
             relationship_record.direct_bcard = nullptr;
         }
 
+        // TODO: relationships is always a one-entry region_map.
         region_map_set_membership_t<relationship_t *> relationship_map_insertion(
             &relationships, region_t::universe(), &relationship_record);
 

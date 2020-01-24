@@ -239,7 +239,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         primary_query_server_t primary_query_server(
             context->mailbox_manager,
-            region_t::universe(),  // TODO: Always universe?
             this);
 
         on_thread_t thread_switcher_4(home_thread());

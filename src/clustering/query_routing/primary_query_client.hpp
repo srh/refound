@@ -21,10 +21,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
-    region_t get_region() {
-        return region;
-    }
-
     void new_read_token(fifo_enforcer_sink_t::exit_read_t *out);
 
     void read(
@@ -54,7 +50,6 @@ private:
 
     mailbox_manager_t *mailbox_manager;
 
-    region_t region;
     fifo_enforcer_source_t internal_fifo_source;
     fifo_enforcer_sink_t internal_fifo_sink;
 

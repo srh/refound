@@ -52,13 +52,9 @@ public:
     typedef boost::variant< read_request_t, write_request_t > request_t;
 
     primary_query_bcard_t() { }
-    primary_query_bcard_t(
-            const region_t &r,
+    explicit primary_query_bcard_t(
             const multi_client_business_card_t<request_t> &mc)
-        : region(r), multi_client(mc) { }
-
-    /* The region that this master covers */
-    region_t region;
+        : multi_client(mc) { }
 
     /* Contact info for the master itself */
     multi_client_business_card_t<request_t> multi_client;
