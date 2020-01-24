@@ -65,7 +65,6 @@ primary_execution_t::primary_execution_t(
     const contract_t &contract = raft_state.contracts.at(contract_id);
     guarantee(static_cast<bool>(contract.primary));
     guarantee(contract.primary->server == context->server_id);
-    guarantee(key_range_t::universe() == region);
     latest_contract_home_thread = make_counted<contract_info_t>(
         contract_id, contract, raft_state.config.config.durability,
         raft_state.config.config.write_ack_config);
@@ -88,7 +87,7 @@ void primary_execution_t::update_contract_or_raft_state(
     /* Has our branch ID been registered yet? */
     if (!branch_registered.is_pulsed()) {
         bool branch_matches = true;
-        raft_state.current_branches.visit(region,
+        raft_state.current_branches.visit(region_t::universe(),
         [&](const region_t &, const branch_id_t &b) {
             if (make_optional(b) != our_branch_id) {
                 branch_matches = false;
@@ -109,7 +108,6 @@ void primary_execution_t::update_contract_or_raft_state(
     const contract_t &contract = raft_state.contracts.at(contract_id);
     guarantee(static_cast<bool>(contract.primary));
     guarantee(contract.primary->server == context->server_id);
-    guarantee(key_range_t::universe() == region);
 
     counted_t<contract_info_t> new_contract = make_counted<contract_info_t>(
         contract_id,
@@ -163,7 +161,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         store->new_read_token(&token);
         region_map_t<version_t> initial_version = store->get_metainfo(
             order_source.check_in("primary_t").with_read_mode(),
-            &token, region, &interruptor_store_thread);
+            &token, region_t::universe(), &interruptor_store_thread);
 
         perfmon_collection_t perfmon_collection;
         perfmon_membership_t perfmon_membership(params->get_parent_perfmon_collection(),
@@ -181,7 +179,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         /* Put an entry in the global directory so clients can find us for outdated reads
         */
         table_query_bcard_t tq_bcard_direct;
-        tq_bcard_direct.region = region;
+        tq_bcard_direct.region = region_t::universe();  // TODO: Always universe?
         tq_bcard_direct.primary = r_nullopt;
         tq_bcard_direct.direct = make_optional(direct_query_server.get_bcard());
         watchable_map_var_t<uuid_u, table_query_bcard_t>::entry_t directory_entry_direct(
@@ -242,7 +240,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         primary_query_server_t primary_query_server(
             context->mailbox_manager,
-            region,
+            region_t::universe(),  // TODO: Always universe?
             this);
 
         on_thread_t thread_switcher_4(home_thread());
@@ -276,7 +274,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         /* Put an entry in the global directory so clients can find us for up-to-date
         writes and reads */
         table_query_bcard_t tq_bcard_primary;
-        tq_bcard_primary.region = region;
+        tq_bcard_primary.region = region_t::universe();
         tq_bcard_primary.primary =
             make_optional(primary_query_server.get_bcard());
         tq_bcard_primary.direct = r_nullopt;
@@ -618,7 +616,7 @@ void primary_execution_t::sync_contract_with_replicas(
         } write_callback;
         write_callback.contract = contract;
         our_dispatcher->spawn_write(
-            write_t::make_sync(region, profile_bool_t::DONT_PROFILE),
+            write_t::make_sync(region_t::universe(), profile_bool_t::DONT_PROFILE),
             order_token_t::ignore, &write_callback);
         wait_interruptible(&write_callback.done, interruptor);
         if (is_contract_ackable(contract, write_callback.servers)) {

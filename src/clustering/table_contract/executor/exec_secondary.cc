@@ -27,7 +27,7 @@ secondary_execution_t::secondary_execution_t(
     existing primary, since it's impossible to subscribe to a primary with a different
     region. */
     if (static_cast<bool>(c.primary) && !_branch.is_nil() &&
-            raft_state.branch_history.branches.at(_branch).get_region() == region) {
+            raft_state.branch_history.branches.at(_branch).get_region() == region_t::universe()) {
         connect_to_primary = true;
         primary = c.primary->server;
     } else {
@@ -78,7 +78,7 @@ void secondary_execution_t::run(auto_drainer_t::lock_t keepalive) {
             initial_ack.version.set(
                 store->get_metainfo(
                     order_source.check_in("secondary_execution_t").with_read_mode(),
-                    &token, region, &interruptor_on_store_thread));
+                    &token, region_t::universe(), &interruptor_on_store_thread));
 
             direct_query_server_t direct_query_server(context->mailbox_manager, store);
 
@@ -95,7 +95,7 @@ void secondary_execution_t::run(auto_drainer_t::lock_t keepalive) {
                 directory_entry;
             {
                 table_query_bcard_t tq_bcard;
-                tq_bcard.region = region;
+                tq_bcard.region = region_t::universe();
                 tq_bcard.direct = make_optional(direct_query_server.get_bcard());
                 directory_entry.create(
                     context->local_table_query_bcards, generate_uuid(), tq_bcard);
@@ -198,7 +198,7 @@ void secondary_execution_t::run(auto_drainer_t::lock_t keepalive) {
             /* Resume serving outdated reads now that the backfill is over */
             {
                 table_query_bcard_t tq_bcard;
-                tq_bcard.region = region;
+                tq_bcard.region = region_t::universe();
                 tq_bcard.direct = make_optional(direct_query_server.get_bcard());
                 directory_entry.create(
                     context->local_table_query_bcards, generate_uuid(), tq_bcard);

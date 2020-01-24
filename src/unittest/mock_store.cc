@@ -42,7 +42,7 @@ std::string mock_parse_read_response(const read_response_t &rr) {
 
 std::string mock_lookup(store_view_t *store, std::string key) {
 #ifndef NDEBUG
-    metainfo_checker_t checker(store->get_region(),
+    metainfo_checker_t checker(region_t::universe(),
         [](const region_t &, const version_t &) { });
 #endif
     read_token_t token;
@@ -62,7 +62,7 @@ std::string mock_lookup(store_view_t *store, std::string key) {
 
 mock_store_t::mock_store_t(version_t universe_metainfo)
     : store_view_t(),
-      metainfo_(get_region(), universe_metainfo) { }
+      metainfo_(region_t::universe(), universe_metainfo) { }
 mock_store_t::~mock_store_t() { }
 
 void mock_store_t::new_read_token(read_token_t *token_out) {
@@ -102,7 +102,6 @@ void mock_store_t::set_metainfo(const region_map_t<version_t> &new_metainfo,
                                 UNUSED write_durability_t durability,
                                 signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
-    rassert(region_is_superset(get_region(), new_metainfo.get_domain()));
 
     object_buffer_t<fifo_enforcer_sink_t::exit_write_t>::destruction_sentinel_t destroyer(&token->main_write_token);
 
@@ -126,8 +125,6 @@ void mock_store_t::read(
         read_token_t *token,
         signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
-    rassert(region_is_superset(get_region(), metainfo_checker.region));
-    rassert(region_is_superset(get_region(), _read.get_region()));
 
     {
         object_buffer_t<fifo_enforcer_sink_t::exit_read_t>::destruction_sentinel_t
@@ -190,9 +187,6 @@ void mock_store_t::write(
         write_token_t *token,
         signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
-    rassert(region_is_superset(get_region(), metainfo_checker.region));
-    rassert(region_is_superset(get_region(), new_metainfo.get_domain()));
-    rassert(region_is_superset(get_region(), _write.get_region()));
 
     {
         object_buffer_t<fifo_enforcer_sink_t::exit_write_t>::destruction_sentinel_t destroyer(&token->main_write_token);
@@ -525,7 +519,6 @@ void mock_store_t::reset_data(
         UNUSED write_durability_t durability,
         signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
-    rassert(region_is_superset(get_region(), subregion));
 
     write_token_t token;
     new_write_token(&token);
@@ -534,8 +527,6 @@ void mock_store_t::reset_data(
         destroyer(&token.main_write_token);
 
     wait_interruptible(token.main_write_token.get(), interruptor);
-
-    rassert(region_is_superset(get_region(), subregion));
 
     auto it = table_.lower_bound(subregion.left);
     while (it != table_.end() && subregion.contains_key(it->first)) {

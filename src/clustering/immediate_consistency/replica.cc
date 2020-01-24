@@ -26,7 +26,6 @@ void replica_t::do_read(
         signal_t *interruptor,
         read_response_t *response_out) {
     assert_thread();
-    rassert(region_is_superset(store->get_region(), read.get_region()));
     rassert(!read.get_region().is_empty());
 
     if (boost::get<dummy_read_t>(&read.read) != nullptr) {
@@ -44,7 +43,7 @@ void replica_t::do_read(
     read_token_t read_token;
 
 #ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(store->get_region(),
+    metainfo_checker_t metainfo_checker(region_t::universe(),
         [](const region_t &, const version_t &) { });
 #endif
 
@@ -65,7 +64,6 @@ void replica_t::do_write(
         signal_t *interruptor,
         write_response_t *response_out) {
     assert_thread();
-    rassert(region_is_superset(store->get_region(), write.get_region()));
     rassert(!region_is_empty(write.get_region()));
     order_token.assert_write_mode();
 
@@ -83,7 +81,7 @@ void replica_t::do_write(
     }
 
 #ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(store->get_region(),
+    metainfo_checker_t metainfo_checker(region_t::universe(),
         [&](const region_t &, const version_t &bb) {
             rassert(bb.timestamp <= timestamp.pred());
         });
@@ -93,7 +91,7 @@ void replica_t::do_write(
     store->write(
         DEBUG_ONLY(metainfo_checker, )
         region_map_t<version_t>(
-            store->get_region(),
+            region_t::universe(),
             version_t(branch_id, timestamp)),
         write,
         response_out,

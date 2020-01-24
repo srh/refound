@@ -29,7 +29,7 @@ void erase_execution_t::run(auto_drainer_t::lock_t keepalive) {
         on_thread_t thread_switcher(store->home_thread());
         try {
             store->reset_data(
-                region,
+                region_t::universe(),  // TODO: Always universe, right?
                 write_durability_t::HARD,
                 &interruptor_store_thread);
         } catch (const interrupted_exc_t &) {

@@ -47,11 +47,6 @@ public:
         home_thread_mixin_t::assert_thread();
     }
 
-    region_t get_region() const {
-        /* Safe to call on any thread */
-        return key_range_t::universe();
-    }
-
     virtual void note_reshard(const region_t &shard_region) = 0;
 
     virtual void new_read_token(read_token_t *token_out) = 0;

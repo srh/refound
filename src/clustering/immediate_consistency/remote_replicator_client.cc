@@ -152,7 +152,7 @@ remote_replicator_client_t::remote_replicator_client_t(
 
     mailbox_manager_(mailbox_manager),
     store_(store),
-    region_(store->get_region()),
+    region_(region_t::universe()),  // TODO: Always universe?  (Who cares?)
     branch_id_(branch_id),
     mode_(backfill_mode_t::PAUSED),
 

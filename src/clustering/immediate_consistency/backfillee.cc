@@ -72,7 +72,7 @@ public:
 
     void wait_done(signal_t *interruptor) {
         wait_interruptible(&done_cond, interruptor);
-        guarantee(threshold == parent->store->get_region().right
+        guarantee(threshold.unbounded
             || callback_returned_false);
         guarantee(got_ack_end_session.is_pulsed());
     }
@@ -88,7 +88,7 @@ private:
                 parent->fifo_source.enter_write(), threshold);
 
             /* Loop until we reach the end of the backfill range. */
-            while (threshold != parent->store->get_region().right) {
+            while (!threshold.unbounded) {
                 /* Wait until we receive some items from the backfiller so we have
                 something to do, or the session is terminated. */
                 while (items.empty_domain()) {
@@ -123,7 +123,7 @@ private:
 
                 /* Set up a `region_t` describing the range that still needs to be
                 backfilled */
-                region_t subregion = parent->store->get_region();
+                region_t subregion = key_range_t::universe();
                 subregion.left = threshold.key();
 
                 /* Copy items from `items` into the store until we finish the backfill
@@ -333,7 +333,7 @@ backfillee_t::backfillee_t(
     ack_pre_items_mailbox(mailbox_manager,
         std::bind(&backfillee_t::on_ack_pre_items, this, ph::_1, ph::_2, ph::_3))
 {
-    guarantee(region_is_superset(backfiller.region, store->get_region()));
+    guarantee(region_is_superset(backfiller.region, region_t::universe()));
 
     backfiller_bcard_t::intro_1_t our_intro;
     our_intro.config = backfill_config;
@@ -347,7 +347,7 @@ backfillee_t::backfillee_t(
         read_token_t read_token;
         store->new_read_token(&read_token);
         our_intro.initial_version = store->get_metainfo(
-            order_token_t::ignore.with_read_mode(), &read_token, store->get_region(),
+            order_token_t::ignore.with_read_mode(), &read_token, region_t::universe(),
             interruptor);
     }
     {
@@ -442,8 +442,8 @@ void backfillee_t::send_pre_items(auto_drainer_t::lock_t keepalive) {
     with_priority_t p(CORO_PRIORITY_BACKFILL_RECEIVER);
     try {
         key_range_t::right_bound_t pre_item_sent_threshold(
-            store->get_region().left);
-        while (pre_item_sent_threshold != store->get_region().right) {
+            store_key_t::min());
+        while (!pre_item_sent_threshold.unbounded) {
             /* Wait until there's room in the semaphore for the chunk we're about to
             process */
             new_semaphore_in_line_t sem_acq(
@@ -453,7 +453,7 @@ void backfillee_t::send_pre_items(auto_drainer_t::lock_t keepalive) {
 
             /* Set up a `region_t` describing the range that still needs to be
             backfilled */
-            region_t subregion = store->get_region();
+            region_t subregion = region_t::universe();
             subregion.left = pre_item_sent_threshold.key();
 
             /* Copy pre-items from the store into `chunk ` until the total size hits

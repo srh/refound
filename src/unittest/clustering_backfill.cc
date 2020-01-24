@@ -101,7 +101,7 @@ TPTEST(ClusteringBackfill, BackfillTest) {
         backfill_progress_tracker_t backfill_progress_tracker;
         backfill_progress_tracker_t::progress_tracker_t *progress_tracker =
             backfill_progress_tracker.insert_progress_tracker(
-                backfillee_store.get_region());
+                region_t::universe());
 
         backfillee_t backfillee(
             cluster.get_mailbox_manager(),
@@ -119,7 +119,7 @@ TPTEST(ClusteringBackfill, BackfillTest) {
         } callback;
         backfillee.go(
             &callback,
-            key_range_t::right_bound_t(backfillee_store.get_region().left),
+            key_range_t::right_bound_t(store_key_t::min()),
             &non_interruptor);
     }
 
@@ -137,7 +137,7 @@ TPTEST(ClusteringBackfill, BackfillTest) {
     region_map_t<version_t> backfillee_metadata =
         backfillee_store.get_metainfo(
             order_source.check_in("backfillee_store.get_metainfo").with_read_mode(),
-            &token1, backfillee_store.get_region(), &non_interruptor);
+            &token1, region_t::universe(), &non_interruptor);
 
     read_token_t token2;
     backfiller_store.new_read_token(&token2);
@@ -145,7 +145,7 @@ TPTEST(ClusteringBackfill, BackfillTest) {
     region_map_t<version_t> backfiller_metadata =
         backfiller_store.get_metainfo(
             order_source.check_in("backfiller_store.get_metainfo").with_read_mode(),
-            &token2, backfiller_store.get_region(), &non_interruptor);
+            &token2, region_t::universe(), &non_interruptor);
 
     EXPECT_TRUE(backfillee_metadata == backfiller_metadata);
 

@@ -77,8 +77,7 @@ public:
     };
 
     execution_t(const context_t *_context, params_t *_params) :
-        context(_context), params(_params), store(params->get_store()),
-        region(store->get_region()) { }
+        context(_context), params(_params), store(params->get_store()) { }
 
     /* Note: Subclass destructors may block. */
     virtual ~execution_t() { }
@@ -91,7 +90,6 @@ protected:
     context_t const *const context;
     params_t *const params;
     store_view_t *const store;
-    region_t const region;
 };
 
 #endif /* CLUSTERING_TABLE_CONTRACT_EXECUTOR_EXEC_HPP_ */

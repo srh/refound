@@ -127,7 +127,7 @@ region_map_t<version_t> get_store_version_map(store_view_t *store) {
     store->new_read_token(&token);
     cond_t non_interruptor;
     return store->get_metainfo(
-        order_token_t::ignore, &token, store->get_region(), &non_interruptor);
+        order_token_t::ignore, &token, region_t::universe(), &non_interruptor);
 }
 
 backfill_config_t unlimited_queues_config() {

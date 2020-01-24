@@ -101,8 +101,9 @@ backfiller_t::backfiller_t(
 backfiller_t::~backfiller_t() { }
 
 backfiller_bcard_t backfiller_t::get_business_card() const {
+    // TODO: backfiller_bcard_t region always universe
     return backfiller_bcard_t {
-        store->get_region(),
+        region_t::universe(),
         registrar.get_business_card() };
 }
 
@@ -132,7 +133,7 @@ backfiller_t::client_t::client_t(
         parent->store->new_read_token(&read_token);
         our_version = parent->store->get_metainfo(
             order_token_t::ignore.with_read_mode(), &read_token,
-            parent->store->get_region(), interruptor);
+            region_t::universe(), interruptor);
     }
 
     /* Compute the common ancestor of `intro.initial_version` and `our_version`, storing

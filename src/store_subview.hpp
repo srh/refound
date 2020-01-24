@@ -55,11 +55,9 @@ public:
 
     // TODO: Remove, presumably.
     void note_reshard(const region_t &shard_region) {
-        guarantee(get_region() == shard_region);
+        guarantee(region_t::universe() == shard_region);
         store_view->note_reshard(shard_region);
     }
-
-    using store_view_t::get_region;
 
     void new_read_token(read_token_t *token_out) {
         home_thread_mixin_t::assert_thread();
@@ -78,7 +76,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), _region));
         return store_view->get_metainfo(order_token, token, _region, interruptor);
     }
 
@@ -88,7 +85,6 @@ public:
                       write_durability_t durability,
                       signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), new_metainfo.get_domain()));
         store_view->set_metainfo(
             new_metainfo, order_token, token, durability, interruptor);
     }
@@ -101,7 +97,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), metainfo_checker.region));
 
         store_view->read(DEBUG_ONLY(metainfo_checker, ) _read, response, token,
             interruptor);
@@ -119,8 +114,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), metainfo_checker.region));
-        rassert(region_is_superset(get_region(), new_metainfo.get_domain()));
 
         store_view->write(DEBUG_ONLY(metainfo_checker, ) new_metainfo, _write, response,
             durability, timestamp, order_token, token, interruptor);
@@ -132,7 +125,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), start_point.get_domain()));
         return store_view->send_backfill_pre(
             start_point, pre_item_consumer, interruptor);
     }
@@ -145,7 +137,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), start_point.get_domain()));
         return store_view->send_backfill(
             start_point,
             pre_item_producer,
@@ -160,7 +151,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), _region));
         return store_view->receive_backfill(_region, item_producer, interruptor);
     }
 
@@ -173,13 +163,13 @@ public:
         return store_view->check_ok_to_receive_backfill();
     }
 
+    // TODO: subregion is always universe.  Right?
     void reset_data(
             const region_t &subregion,
             write_durability_t durability,
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
-        rassert(region_is_superset(get_region(), subregion));
         store_view->reset_data(subregion, durability, interruptor);
     }
 

@@ -12,7 +12,7 @@ distribution_progress_estimator_t::distribution_progress_estimator_t(
 
 #ifndef NDEBUG
     metainfo_checker_t metainfo_checker(
-        store->get_region(),
+        region_t::universe(),  // TODO: Always?
         [](const region_t &, const version_t &) { });
 #endif
 

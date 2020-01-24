@@ -27,9 +27,9 @@ local_replicator_t::local_replicator_t(
     store->new_read_token(&read_token);
     region_map_t<version_t> origin = store->get_metainfo(
         order_source.check_in("local_replica_t(read)").with_read_mode(),
-        &read_token, store->get_region(), interruptor);
+        &read_token, region_t::universe(), interruptor);
     guarantee(origin == primary->get_branch_birth_certificate().origin);
-    guarantee(store->get_region() ==
+    guarantee(region_t::universe() ==
         primary->get_branch_birth_certificate().get_region());
 #endif
 
@@ -49,7 +49,7 @@ local_replicator_t::local_replicator_t(
     store->new_write_token(&write_token);
     store->set_metainfo(
         region_map_t<version_t>(
-            store->get_region(),
+            region_t::universe(),
             version_t(
                 primary->get_branch_id(),
                 primary->get_branch_birth_certificate().initial_timestamp)),
@@ -72,7 +72,7 @@ local_replicator_t::~local_replicator_t() {
     /* Since `local_replicator_t` is the primary dispatchee, changefeeds are always
     routed here. But when the primary changes we need to shut off the changefeed. This
     destructor is a good place to do it. */
-    store->note_reshard(store->get_region());
+    store->note_reshard(region_t::universe());
 }
 
 void local_replicator_t::do_read(

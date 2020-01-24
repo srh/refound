@@ -13,7 +13,7 @@ void dummy_performer_t::read(const read_t &_read,
     store->new_read_token(&token);
 
 #ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(store->get_region(),
+    metainfo_checker_t metainfo_checker(region_t::universe(),
         [&](const region_t &, const version_t &bb) {
             rassert(bb.timestamp == expected_timestamp);
         });
@@ -29,7 +29,7 @@ void dummy_performer_t::read_outdated(const read_t &_read,
     store->new_read_token(&token);
 
 #ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(store->get_region(),
+    metainfo_checker_t metainfo_checker(region_t::universe(),
         [](const region_t &, const version_t &) { });
 #endif
 
@@ -45,7 +45,7 @@ void dummy_performer_t::write(const write_t &_write,
     cond_t non_interruptor;
 
 #ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(store->get_region(),
+    metainfo_checker_t metainfo_checker(region_t::universe(),
         [](const region_t &, const version_t &) { });
 #endif
 
@@ -54,7 +54,7 @@ void dummy_performer_t::write(const write_t &_write,
 
     store->write(
             DEBUG_ONLY(metainfo_checker, )
-            region_map_t<version_t>(store->get_region(), version_t(uuid_u(), timestamp)),
+            region_map_t<version_t>(region_t::universe(), version_t(uuid_u(), timestamp)),
             _write, response, write_durability_t::SOFT, timestamp, order_token, &token, &non_interruptor);
 }
 
@@ -70,7 +70,7 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
     region_map_t<version_t> metainfo = next->store->get_metainfo(
         order_source->check_in("dummy_timestamper_t").with_read_mode(),
         &read_token,
-        next->store->get_region(),
+        region_t::universe(),
         &interruptor);
 
     current_timestamp = state_timestamp_t::zero();

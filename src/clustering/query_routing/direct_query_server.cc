@@ -38,7 +38,7 @@ void direct_query_server_t::on_read(
         read_token_t token;
 
 #ifndef NDEBUG
-        metainfo_checker_t metainfo_checker(svs->get_region(),
+        metainfo_checker_t metainfo_checker(region_t::universe(),
             [](const region_t &, const version_t &) { });
 #endif
 
