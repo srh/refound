@@ -426,6 +426,18 @@ private:
             db = args->arg(env, 0)->as_db();
         }
 
+        std::vector<name_string_t> table_list;
+        bool fdb_result;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            // TODO: Use a snapshot read for this?  Config txn appropriately?
+            fdb_result = config_cache_table_list(txn, db->id, env->env->interruptor, &table_list);
+            // TODO: We don't need to commit read only txns, right?  Right??
+        });
+        guarantee_fdb_TODO(loop_err, "db_list txn failed");
+        guarantee(fdb_result, "table_list got false result");
+
+        // TODO: Fdb-ize, use table_list, remove old code.
+
         std::set<name_string_t> tables;
         admin_err_t error;
         if (!env->env->reql_cluster_interface()->table_list(db,

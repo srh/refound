@@ -189,10 +189,12 @@ bool config_cache_db_drop(
     return true;
 }
 
+constexpr const char *table_by_name_separator = ".";
+
 // The thing to which we append the table name.
 std::string table_by_name_ukey_prefix(const database_id_t db_id) {
     // We make an aesthetic key.  UUID's are fixed-width so it's OK.
-    return uuid_to_str(db_id) + ".";
+    return uuid_to_str(db_id) + table_by_name_separator;
 }
 
 // Takes a std::string we don't know is a valid table name.  If the format ever changes
@@ -210,13 +212,19 @@ ukey_string table_by_name_key(
     return table_by_unverified_name_key(db_id, table_name.str());
 }
 
+std::string unserialize_table_by_name_table_name_part(key_view table_name_part) {
+    return std::string(as_char(table_name_part.data), table_name_part.length);
+}
+
 std::pair<database_id_t, std::string> unserialize_table_by_name_key(key_view key) {
     std::string prefix = REQLFDB_TABLE_CONFIG_BY_NAME;
     key_view chopped = key.guarantee_without_prefix(prefix);
     std::pair<database_id_t, std::string> ret;
-    // + 1 is for the ".".
-    key_view table_name = chopped.without_prefix(uuid_u::kStringSize + 1);
-    ret.second = std::string(as_char(table_name.data), size_t(table_name.length));
+    key_view table_name = chopped.without_prefix(uuid_u::kStringSize + strlen(table_by_name_separator));
+    // TODO: rassert_prefix function, that I can lower to an assertion at some point.
+    guarantee(chopped.data[uuid_u::kStringSize] == table_by_name_separator[0] &&
+              strlen(table_by_name_separator) == 1);
+    ret.second = unserialize_table_by_name_table_name_part(table_name);
     bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first);
     guarantee(is_uuid);
     return ret;
@@ -227,7 +235,7 @@ std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_
         ukey_string{table_by_name_ukey_prefix(db_id)});
 
     key_view chopped = key.guarantee_without_prefix(prefix);
-    return std::string(as_char(chopped.data), chopped.length);
+    return unserialize_table_by_name_table_name_part(chopped);
 }
 
 ukey_string table_by_name_bound(
@@ -306,9 +314,9 @@ bool config_cache_table_drop(
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     const ukey_string table_index_key = table_by_name_key(db_id, table_name);
-    const ukey_string db_pkey_key = db_by_id_key(db_id);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    const ukey_string db_pkey_key = db_by_id_key(db_id);
     fdb_future db_by_id_fut = transaction_lookup_pkey_index(
         txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
 
@@ -491,4 +499,52 @@ std::vector<counted_t<const ql::db_t>> config_cache_db_list(
             return true;
         });
     return dbs;
+}
+
+// TODO: If we can't iterate the tables in a single txn, we could do a snapshot read
+// or check the config version, or something.
+
+// This is listed in ascending order.
+MUST_USE bool config_cache_table_list(
+        FDBTransaction *txn,
+        const database_id_t &db_id,
+        const signal_t *interruptor,
+        std::vector<name_string_t> *out) {
+
+    const ukey_string db_pkey_key = db_by_id_key(db_id);
+    fdb_future db_by_id_fut = transaction_lookup_pkey_index(
+        txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
+
+    std::vector<name_string_t> table_names;
+
+    std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
+        ukey_string{table_by_name_ukey_prefix(db_id)});
+    std::string end = prefix_end(prefix);
+
+    transaction_read_whole_range_coro(txn, prefix, end, interruptor,
+    [&prefix, &table_names](const FDBKeyValue &kv) {
+        key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+        key_view table_name_part = whole_key.guarantee_without_prefix(prefix);
+        // Basically unserialize_table_by_name_table_name without recomputing
+        // the prefix.
+        std::string table_name
+            = unserialize_table_by_name_table_name_part(table_name_part);
+        name_string_t name;
+        bool res = name.assign_value(table_name);
+        guarantee(res, "invalid table name unserialized from table_by_name key");
+        table_names.push_back(std::move(name));
+        return true;
+    });
+
+
+    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
+    if (!db_by_id_value.present) {
+        // TODO: This might mean the id came from an out-of-date cache.  We should
+        // report the error back to the user (which is broken) but with a distinguished
+        // error return value than "table doesn't exist".
+        return false;
+    }
+
+    *out = std::move(table_names);
+    return true;
 }

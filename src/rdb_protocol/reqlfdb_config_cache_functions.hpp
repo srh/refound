@@ -85,7 +85,14 @@ MUST_USE bool config_cache_db_drop(
     const name_string_t &db_name, const signal_t *interruptor);
 
 std::vector<counted_t<const ql::db_t>> config_cache_db_list(
-        FDBTransaction *txn,
-        const signal_t *interruptor);
+    FDBTransaction *txn,
+    const signal_t *interruptor);
+
+
+MUST_USE bool config_cache_table_list(
+    FDBTransaction *txn,
+    const database_id_t &db_id,
+    const signal_t *interruptor,
+    std::vector<name_string_t> *out);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_
