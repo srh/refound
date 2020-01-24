@@ -56,7 +56,6 @@ to the branch that is currently in use, and `base` will point to the Raft state 
 history. */
 void mark_ancestors_since_base_live(
         const branch_id_t &root,
-        const region_t &region,
         const branch_history_reader_t *reader,
         const branch_history_reader_t *base,
         std::set<branch_id_t> *remove_branches_out);

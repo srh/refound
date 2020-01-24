@@ -70,17 +70,15 @@ void mark_all_ancestors_live(
     }
 }
 
-// TODO: region always universe?
 void mark_ancestors_since_base_live(
         const branch_id_t &root,
-        const region_t &region,
         const branch_history_reader_t *branch_reader,
         const branch_history_reader_t *base,
         std::set<branch_id_t> *remove_branches_out) {
     guarantee(!root.is_nil());
     std::multimap<branch_id_t, region_t> todo;
     std::set<branch_id_t> done;
-    todo.insert(std::make_pair(root, region));
+    todo.insert(std::make_pair(root, region_t::universe()));
     while (!todo.empty()) {
         std::pair<branch_id_t, region_t> next = *todo.begin();
         todo.erase(todo.begin());

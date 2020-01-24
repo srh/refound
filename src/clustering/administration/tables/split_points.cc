@@ -1,8 +1,6 @@
 #include "clustering/administration/tables/split_points.hpp"
 
 #include "clustering/administration/real_reql_cluster_interface.hpp"
-#include "math.hpp"   /* for `clamp()` */
-#include "rdb_protocol/real_table.hpp"
 
 
 // TODO: Remove if unused.

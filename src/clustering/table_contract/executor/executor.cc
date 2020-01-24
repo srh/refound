@@ -329,7 +329,6 @@ void contract_executor_t::gc_branch_history(signal_t *interruptor) {
             if (!pair.second->enable_gc_branch->is_nil()) {
                 mark_ancestors_since_base_live(
                     *pair.second->enable_gc_branch,
-                    region_t::universe(),
                     execution_context.branch_history_manager,
                     &state->branch_history,
                     &remove_branches);
