@@ -152,7 +152,6 @@ remote_replicator_client_t::remote_replicator_client_t(
 
     mailbox_manager_(mailbox_manager),
     store_(store),
-    region_(region_t::universe()),  // TODO: Always universe?  (Who cares?)
     branch_id_(branch_id),
     mode_(backfill_mode_t::PAUSED),
 
@@ -172,10 +171,9 @@ remote_replicator_client_t::remote_replicator_client_t(
             ph::_1, ph::_2, ph::_3, ph::_4))
 {
     guarantee(remote_replicator_server_bcard.branch == branch_id);
-    guarantee(remote_replicator_server_bcard.region == region_);
 
     auto progress_tracker =
-        backfill_progress_tracker->insert_progress_tracker(region_);
+        backfill_progress_tracker->insert_progress_tracker(region_t::universe());
     progress_tracker->is_ready = false;
     progress_tracker->start_time = current_microtime();
     progress_tracker->source_server_id = primary_server_id;
@@ -198,7 +196,7 @@ remote_replicator_client_t::remote_replicator_client_t(
                 timestamp_enforcer_.init(new timestamp_enforcer_t(
                     intro.streaming_begin_timestamp));
                 tracker_.init(new timestamp_range_tracker_t(
-                    region_, intro.streaming_begin_timestamp));
+                    region_t::universe(), intro.streaming_begin_timestamp));
                 got_intro.pulse();
             });
         remote_replicator_client_bcard_t our_bcard {
@@ -220,7 +218,7 @@ remote_replicator_client_t::remote_replicator_client_t(
     backfillee_t backfillee(mailbox_manager, branch_history_manager, store,
         replica_bcard.backfiller_bcard, backfill_config, progress_tracker, interruptor);
 
-    while (tracker_->get_backfill_threshold() != region_.right) {
+    while (!tracker_->get_backfill_threshold().unbounded) {
 
         /* If the store is currently constructing a secondary index, wait until it
         finishes before we do the next phase of the backfill. This is the correct phase
@@ -294,7 +292,7 @@ remote_replicator_client_t::remote_replicator_client_t(
             tracker_->get_backfill_threshold(),
             interruptor);
 
-        if (tracker_->get_backfill_threshold() != region_.right) {
+        if (!tracker_->get_backfill_threshold().unbounded) {
             /* Switch mode to `PAUSED` so that writes can proceed while we wait to
             reacquire the throttler lock */
             mutex_assertion_t::acq_t mutex_assertion_acq(&mutex_assertion_);
@@ -326,11 +324,11 @@ remote_replicator_client_t::remote_replicator_client_t(
         read_token_t read_token;
         store->new_read_token(&read_token);
         region_map_t<version_t> version = store->get_metainfo(
-            order_token_t::ignore.with_read_mode(), &read_token, region_,
+            order_token_t::ignore.with_read_mode(), &read_token, region_t::universe(),
             interruptor);
         version_t expect(branch_id,
             timestamp_enforcer_->get_latest_all_before_completed());
-        version.visit(region_,
+        version.visit(region_t::universe(),
         [&](const region_t &region, const version_t &actual) {
             rassert(actual == expect, "Expected version %s for sub-range %s, but "
                 "got version %s.", debug_strprint(expect).c_str(),

@@ -8,7 +8,7 @@ RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
     remote_replicator_client_bcard_t,
     server_id, intro_mailbox, write_async_mailbox, write_sync_mailbox,
     dummy_write_mailbox, read_mailbox);
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     remote_replicator_server_bcard_t,
-    branch, region, registrar);
+    branch, registrar);
 

@@ -112,7 +112,6 @@ private:
 
     mailbox_manager_t *const mailbox_manager_;
     store_view_t *const store_;
-    region_t const region_;   /* same as `store_->get_region()` */
     branch_id_t const branch_id_;
 
     /* During the constructor, we alternate between `PAUSED` and `BACKFILLING`. When the

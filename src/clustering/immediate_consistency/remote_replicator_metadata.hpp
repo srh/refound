@@ -51,7 +51,6 @@ RDB_DECLARE_SERIALIZABLE(remote_replicator_client_bcard_t);
 class remote_replicator_server_bcard_t {
 public:
     branch_id_t branch;
-    region_t region;
     registrar_business_card_t<remote_replicator_client_bcard_t> registrar;
 };
 
