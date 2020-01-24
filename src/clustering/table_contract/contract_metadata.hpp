@@ -69,7 +69,7 @@ public:
 #endif /* NDEBUG */
 
     bool is_voter(const server_id_t &s) const {
-        return voters.count(s) == 1 ||
+        return the_voter == s ||
             (static_cast<bool>(temp_voters) && temp_voters->count(s) == 1);
     }
 
@@ -77,8 +77,8 @@ public:
     non-voting. `voters` is a subset of `replicas` that just contains the voting
     replicas. If we're in the middle of a transition between two sets of voters, then
     `temp_voters` will contain the new set. */
-    std::set<server_id_t> replicas;
-    std::set<server_id_t> voters;
+    server_id_t the_replica;
+    server_id_t the_voter;
     optional<std::set<server_id_t> > temp_voters;
 
     /* `primary` contains the server that's supposed to be primary. If we're in the

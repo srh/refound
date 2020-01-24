@@ -157,6 +157,16 @@ ql::datum_t convert_set_to_datum(
 }
 
 template<class T>
+ql::datum_t convert_monoset_to_datum(
+        const std::function<ql::datum_t(const T&)> &conv,
+        const T &elem) {
+    ql::datum_array_builder_t builder((ql::configured_limits_t::unlimited));
+    builder.reserve(1);
+    builder.add(conv(elem));
+    return std::move(builder).to_datum();
+}
+
+template<class T>
 bool convert_set_from_datum(
         const std::function<bool(ql::datum_t, T *, admin_err_t *)> &conv,
         bool allow_duplicates,

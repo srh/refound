@@ -14,16 +14,13 @@ void calculate_server_names(
     std::set<server_id_t> all_replicas;
     for (const auto &pair : old_state.contracts) {
         if (remove_contracts.count(pair.first) == 0) {
-            all_replicas.insert(
-                pair.second.second.replicas.begin(),
-                pair.second.second.replicas.end());
+            all_replicas.insert(pair.second.second.the_replica);
         }
     }
     for (const auto &pair : add_contracts) {
-        all_replicas.insert(
-            pair.second.second.replicas.begin(),
-            pair.second.second.replicas.end());
-        for (const server_id_t &server : pair.second.second.replicas) {
+        all_replicas.insert(pair.second.second.the_replica);
+        {
+            server_id_t server = pair.second.second.the_replica;
             if (old_state.server_names.names.count(server) == 0) {
                 add_server_names_out->names.insert(std::make_pair(server,
                     old_state.config.server_names.names.at(server)));
@@ -59,18 +56,15 @@ void calculate_member_ids_and_raft_config(
     /* Assemble a set of all of the servers that ought to be in `member_ids`. */
     std::set<server_id_t> members_goal;
     for (const table_config_t::shard_t &shard : sc.state.config.config.shards) {
-        members_goal.insert(shard.all_replicas.begin(), shard.all_replicas.end());
+        members_goal.insert(shard.primary_replica);
     }
     for (const auto &pair : sc.state.contracts) {
-        members_goal.insert(
-            pair.second.second.replicas.begin(), pair.second.second.replicas.end());
+        members_goal.insert(pair.second.second.the_replica);
     }
     /* Assemble a set of all of the servers that ought to be Raft voters. */
     std::set<server_id_t> voters_goal;
     for (const auto &pair : sc.state.contracts) {
-        voters_goal.insert(
-            pair.second.second.voters.begin(),
-            pair.second.second.voters.end());
+        voters_goal.insert(pair.second.second.the_voter);
     }
     /* Create entries in `add_member_ids_out` for any servers in `goal` that don't
     already have entries in `member_ids` */

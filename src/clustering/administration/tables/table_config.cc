@@ -123,11 +123,12 @@ bool convert_server_id_from_datum(
 }
 
 ql::datum_t convert_replica_list_to_datum(
-        const std::set<server_id_t> &replicas,
+        const server_id_t &replicas,
         admin_identifier_format_t identifier_format,
         const server_name_map_t &server_names) {
     ql::datum_array_builder_t replicas_builder(ql::configured_limits_t::unlimited);
-    for (const server_id_t &replica : replicas) {
+    {
+        server_id_t replica = replicas;
         replicas_builder.add(convert_name_or_uuid_to_datum(
             server_names.get(replica), replica.get_uuid(), identifier_format));
     }
@@ -235,10 +236,9 @@ ql::datum_t convert_table_config_shard_to_datum(
 
     builder.overwrite("replicas",
         convert_replica_list_to_datum(
-            shard.all_replicas, identifier_format, server_names));
+            shard.primary_replica, identifier_format, server_names));
     builder.overwrite("nonvoting_replicas",
-        convert_replica_list_to_datum(
-            shard.nonvoting_replicas, identifier_format, server_names));
+        ql::datum_t(std::vector<ql::datum_t>(), ql::configured_limits_t::unlimited));
     builder.overwrite("primary_replica",
         convert_name_or_uuid_to_datum(server_names.get(shard.primary_replica),
             shard.primary_replica.get_uuid(), identifier_format));
@@ -263,29 +263,32 @@ bool convert_table_config_shard_from_datum(
     if (!converter.get("replicas", &all_replicas_datum, error_out)) {
         return false;
     }
+
+    std::set<server_id_t> all_replicas;
     if (!convert_replica_list_from_datum(all_replicas_datum, identifier_format,
-            server_config_client, old_server_names, &shard_out->all_replicas,
+            server_config_client, old_server_names, &all_replicas,
             server_names_out, error_out)) {
         error_out->msg = "In `replicas`: " + error_out->msg;
         return false;
     }
-    if (shard_out->all_replicas.empty()) {
+    if (all_replicas.empty()) {
         *error_out = admin_err_t{
             "You must specify at least one replica for each shard.",
             query_state_t::FAILED};
         return false;
     }
 
+    std::set<server_id_t> nonvoting_replicas;
     ql::datum_t nonvoting_replicas_datum;
     if (converter.get("nonvoting_replicas", &nonvoting_replicas_datum, error_out)) {
         if (!convert_replica_list_from_datum(nonvoting_replicas_datum, identifier_format,
-                server_config_client, old_server_names, &shard_out->nonvoting_replicas,
+                server_config_client, old_server_names, &nonvoting_replicas,
                 server_names_out, error_out)) {
             error_out->msg = "In `nonvoting_replicas`: " + error_out->msg;
             return false;
         }
-        for (const server_id_t &server : shard_out->nonvoting_replicas) {
-            if (shard_out->all_replicas.count(server) != 1) {
+        for (const server_id_t &server : nonvoting_replicas) {
+            if (all_replicas.count(server) != 1) {
                 *error_out = admin_err_t{
                     "Every server listed in the `nonvoting_replicas` field "
                     "must also appear in `replicas`.",
@@ -293,8 +296,6 @@ bool convert_table_config_shard_from_datum(
                 return false;
             }
         }
-    } else {
-        shard_out->nonvoting_replicas.clear();
     }
 
     ql::datum_t primary_replica_datum;
@@ -308,7 +309,7 @@ bool convert_table_config_shard_from_datum(
         error_out->msg = "In `primary_replica`: " + error_out->msg;
         return false;
     }
-    if (shard_out->all_replicas.count(shard_out->primary_replica) != 1) {
+    if (all_replicas.count(shard_out->primary_replica) != 1) {
         *error_out = admin_err_t{
             strprintf("The server listed in the `primary_replica` field "
                       "(`%s`) must also appear in `replicas`.",
@@ -316,7 +317,7 @@ bool convert_table_config_shard_from_datum(
             query_state_t::FAILED};
         return false;
     }
-    if (shard_out->nonvoting_replicas.count(shard_out->primary_replica) == 1) {
+    if (nonvoting_replicas.count(shard_out->primary_replica) == 1) {
         *error_out = admin_err_t{
             strprintf("The primary replica (`%s`) must not be a nonvoting replica.",
                       server_names_out->get(shard_out->primary_replica).c_str()),

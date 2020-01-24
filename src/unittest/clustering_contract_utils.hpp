@@ -61,31 +61,6 @@ cpu_branch_ids_t quick_cpu_branch(
         branch_history_t *bhist,
         std::initializer_list<quick_cpu_version_map_args_t> origin);
 
-/* `quick_contract_*()` are convenience functions to create collections of CPU-sharded
-contracts. */
-cpu_contracts_t quick_contract_simple(
-        const std::set<server_id_t> &voters,
-        const server_id_t &primary);
-cpu_contracts_t quick_contract_extra_replicas(
-        const std::set<server_id_t> &voters,
-        const std::set<server_id_t> &extras,
-        const server_id_t &primary);
-cpu_contracts_t quick_contract_no_primary(
-        const std::set<server_id_t> &voters);
-cpu_contracts_t quick_contract_hand_over(
-        const std::set<server_id_t> &voters,
-        const server_id_t &primary,
-        const server_id_t &hand_over);
-cpu_contracts_t quick_contract_temp_voters(
-        const std::set<server_id_t> &voters,
-        const std::set<server_id_t> &temp_voters,
-        const server_id_t &primary);
-cpu_contracts_t quick_contract_temp_voters_hand_over(
-        const std::set<server_id_t> &voters,
-        const std::set<server_id_t> &temp_voters,
-        const server_id_t &primary,
-        const server_id_t &hand_over);
-
 } /* namespace unittest */
 
 #endif /* UNITTEST_CLUSTERING_CONTRACT_UTILS_HPP_ */

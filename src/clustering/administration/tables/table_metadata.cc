@@ -8,15 +8,6 @@
 #include "containers/archive/versioned.hpp"
 #include "rdb_protocol/protocol.hpp"
 
-std::set<server_id_t> table_config_t::shard_t::voting_replicas() const {
-    std::set<server_id_t> s;
-    std::set_difference(
-        all_replicas.begin(), all_replicas.end(),
-        nonvoting_replicas.begin(), nonvoting_replicas.end(),
-        std::inserter(s, s.end()));
-    return s;
-}
-
 // We start with an empty object, not null -- because a good user would set fields of
 // that object.
 user_data_t default_user_data() {
@@ -137,10 +128,8 @@ RDB_IMPL_SERIALIZABLE_3_SINCE_v2_1(table_basic_config_t,
 RDB_IMPL_EQUALITY_COMPARABLE_3(table_basic_config_t,
     name, database, primary_key);
 
-RDB_IMPL_SERIALIZABLE_3_SINCE_v2_1(table_config_t::shard_t,
-    all_replicas, nonvoting_replicas, primary_replica);
-RDB_IMPL_EQUALITY_COMPARABLE_3(table_config_t::shard_t,
-    all_replicas, nonvoting_replicas, primary_replica);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_1(table_config_t::shard_t, primary_replica);
+RDB_IMPL_EQUALITY_COMPARABLE_1(table_config_t::shard_t, primary_replica);
 
 RDB_IMPL_SERIALIZABLE_7_SINCE_v2_5(table_config_t,
     basic, shards, sindexes, write_hook, write_ack_config, durability, user_data);

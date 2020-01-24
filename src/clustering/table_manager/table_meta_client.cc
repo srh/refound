@@ -554,9 +554,8 @@ void table_meta_client_t::create_or_emergency_repair(
 
     std::set<server_id_t> all_servers, voting_servers;
     for (const table_config_t::shard_t &shard : raft_state.config.config.shards) {
-        all_servers.insert(shard.all_replicas.begin(), shard.all_replicas.end());
-        std::set<server_id_t> voters = shard.voting_replicas();
-        voting_servers.insert(voters.begin(), voters.end());
+        all_servers.insert(shard.primary_replica);
+        voting_servers.insert(shard.primary_replica);
     }
 
     raft_config_t raft_config;

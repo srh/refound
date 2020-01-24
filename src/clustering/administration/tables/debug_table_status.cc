@@ -102,15 +102,15 @@ ql::datum_t convert_debug_contracts_to_datum(
         contract_builder.overwrite(
             "region", convert_debug_region_to_datum(contract.second.first));
         contract_builder.overwrite(
-            "replicas", convert_set_to_datum<server_id_t>(
+            "replicas", convert_monoset_to_datum<server_id_t>(
                 [] (const server_id_t &sid) {
                     return convert_uuid_to_datum(sid.get_uuid());
-                }, contract.second.second.replicas));
+                }, contract.second.second.the_replica));
         contract_builder.overwrite(
-            "voters", convert_set_to_datum<server_id_t>(
+            "voters", convert_monoset_to_datum<server_id_t>(
                 [] (const server_id_t &sid) {
                     return convert_uuid_to_datum(sid.get_uuid());
-                }, contract.second.second.voters));
+                }, contract.second.second.the_voter));
         contract_builder.overwrite(
             "temp_voters",
             static_cast<bool>(contract.second.second.temp_voters)

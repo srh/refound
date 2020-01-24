@@ -57,12 +57,6 @@ class table_config_t {
 public:
     class shard_t {
     public:
-        std::set<server_id_t> voting_replicas() const;
-
-        /* `nonvoting_replicas` must be a subset of `all_replicas`. `primary_replica`
-        must be in `all_replicas` and not in `nonvoting_replicas`. */
-        std::set<server_id_t> all_replicas;
-        std::set<server_id_t> nonvoting_replicas;
         server_id_t primary_replica;
     };
     table_basic_config_t basic;

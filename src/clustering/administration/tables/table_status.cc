@@ -81,7 +81,8 @@ ql::datum_t convert_shard_status_to_datum(
             pair.first, status, identifier_format, server_names));
     }
 
-    for (const server_id_t &server : shard.all_replicas) {
+    {
+        server_id_t server = shard.primary_replica;
         guarantee(states.count(server) != 0 || disconnected.count(server) != 0);
         if (disconnected.count(server) != 0) {
             replicas_builder.add(convert_replica_status_to_datum(

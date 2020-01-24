@@ -6,27 +6,25 @@
 #ifndef NDEBUG
 void contract_t::sanity_check() const {
     if (static_cast<bool>(primary)) {
-        guarantee(replicas.count(primary->server) == 1);
+        guarantee(the_replica == primary->server);
         if (static_cast<bool>(primary->hand_over)
             && !primary->hand_over->get_uuid().is_nil()) {
-            guarantee(replicas.count(*primary->hand_over) == 1);
+            guarantee(the_replica == *primary->hand_over);
         }
     }
-    for (const server_id_t &s : voters) {
-        guarantee(replicas.count(s) == 1);
-    }
+    guarantee(the_replica == the_voter);
 }
 #endif /* NDEBUG */
 
 RDB_IMPL_EQUALITY_COMPARABLE_2(
     contract_t::primary_t, server, hand_over);
 RDB_IMPL_EQUALITY_COMPARABLE_5(
-    contract_t, replicas, voters, temp_voters, primary, after_emergency_repair);
+    contract_t, the_replica, the_voter, temp_voters, primary, after_emergency_repair);
 
 RDB_IMPL_SERIALIZABLE_2_SINCE_v2_1(
     contract_t::primary_t, server, hand_over);
 RDB_IMPL_SERIALIZABLE_5_SINCE_v2_1(
-    contract_t, replicas, voters, temp_voters, primary, after_emergency_repair);
+    contract_t, the_replica, the_voter, temp_voters, primary, after_emergency_repair);
 
 #ifndef NDEBUG
 void contract_ack_t::sanity_check(
@@ -36,7 +34,7 @@ void contract_ack_t::sanity_check(
     const region_t &region = raft_state.contracts.at(contract_id).first;
     const contract_t &contract = raft_state.contracts.at(contract_id).second;
 
-    guarantee(contract.replicas.count(server) == 1,
+    guarantee(contract.the_replica == server,
         "A server sent an ack for a contract that it wasn't a replica for.");
 
     bool ack_says_primary = state == state_t::primary_need_branch ||
@@ -53,7 +51,7 @@ void contract_ack_t::sanity_check(
     guarantee(!static_cast<bool>(version) || version->get_domain() == region,
         "version has wrong region");
 
-    bool is_voter = contract.voters.count(server) == 1 ||
+    bool is_voter = contract.the_voter == server ||
         (static_cast<bool>(contract.temp_voters) &&
             contract.temp_voters->count(server) == 1);
     if (!contract.after_emergency_repair && is_voter) {
@@ -155,7 +153,8 @@ void table_raft_state_t::sanity_check() const {
     std::set<server_id_t> all_replicas;
     for (const auto &pair : contracts) {
         pair.second.second.sanity_check();
-        for (const server_id_t &replica : pair.second.second.replicas) {
+        {
+            server_id_t replica = pair.second.second.the_replica;
             all_replicas.insert(replica);
             guarantee(server_names.names.count(replica) == 1);
         }
@@ -206,9 +205,10 @@ table_raft_state_t make_new_table_raft_state(
     for (size_t i = 0; i < config.shard_scheme.num_shards(); ++i) {
         const table_config_t::shard_t &shard_conf = config.config.shards[i];
         contract_t contract;
-        contract.replicas = shard_conf.all_replicas;
-        contract.voters = shard_conf.voting_replicas();
-        if (!shard_conf.primary_replica.get_uuid().is_nil()) {
+        contract.the_replica = shard_conf.primary_replica;
+        contract.the_voter = shard_conf.primary_replica;
+        guarantee(!shard_conf.primary_replica.get_uuid().is_nil());
+        {
             contract.primary.set(
                 contract_t::primary_t { shard_conf.primary_replica, r_nullopt });
         }
@@ -218,7 +218,8 @@ table_raft_state_t make_new_table_raft_state(
             state.contracts.insert(std::make_pair(generate_uuid(),
                 std::make_pair(region, contract)));
         }
-        for (const server_id_t &server_id : shard_conf.all_replicas) {
+        {
+            server_id_t server_id = shard_conf.primary_replica;
             if (state.member_ids.count(server_id) == 0) {
                 state.member_ids[server_id] = raft_member_id_t(generate_uuid());
             }
@@ -243,10 +244,10 @@ void debug_print(printf_buffer_t *buf, const contract_t::primary_t &primary) {
 }
 
 void debug_print(printf_buffer_t *buf, const contract_t &contract) {
-    buf->appendf("contract_t { replicas = ");
-    debug_print(buf, contract.replicas);
-    buf->appendf(" voters = ");
-    debug_print(buf, contract.voters);
+    buf->appendf("contract_t { the_replica = ");
+    debug_print(buf, contract.the_replica);
+    buf->appendf(" the_voter = ");
+    debug_print(buf, contract.the_voter);
     buf->appendf(" temp_voters = ");
     debug_print(buf, contract.temp_voters);
     buf->appendf(" primary = ");

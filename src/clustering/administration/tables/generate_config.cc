@@ -43,7 +43,8 @@ void calculate_server_usage(
         const table_config_t &config,
         std::map<server_id_t, int> *usage) {
     for (const table_config_t::shard_t &shard : config.shards) {
-        for (const server_id_t &server : shard.all_replicas) {
+        {
+            server_id_t server = shard.primary_replica;
             (*usage)[server] += SECONDARY_USAGE_COST;
         }
         (*usage)[shard.primary_replica] += (PRIMARY_USAGE_COST - SECONDARY_USAGE_COST);
@@ -142,12 +143,6 @@ double estimate_backfill_cost(
             ++denominator;
             if (old_config.config.shards[i].primary_replica == server) {
                 numerator += 0.0;
-            } else if (old_config.config.shards[i].all_replicas.count(server)) {
-                if (old_config.config.shards[i].nonvoting_replicas.count(server) == 0) {
-                    numerator += 1.0;
-                } else {
-                    numerator += 2.0;
-                }
             } else {
                 numerator += 3.0;
             }
@@ -395,7 +390,6 @@ void table_generate_config(
                 interruptor,
                 [&](size_t shard, const server_id_t &server) {
                     guarantee(config_shards_out->at(shard).primary_replica.get_uuid().is_unset());
-                    config_shards_out->at(shard).all_replicas.insert(server);
                     config_shards_out->at(shard).primary_replica = server;
                     /* We have to update `pairings` as priamry replicas are selected so
                     that our second call to `pick_best_pairings()` will take into account
@@ -411,35 +405,14 @@ void table_generate_config(
                     }
                 });
         }
-
-        /* Now select the remaining secondary replicas. */
-        std::multiset<counted_t<countable_wrapper_t<server_pairings_t> > > s;
-        for (const auto &x : pairings) {
-            if (!x.second.pairings.empty()) {
-                s.insert(make_counted<countable_wrapper_t<server_pairings_t> >(
-                    std::move(x.second)));
-            }
-        }
-        pick_best_pairings(
-            params.num_shards,
-            it->second - (server_tag == params.primary_replica_tag ? 1 : 0),
-            std::move(s),
-            SECONDARY_USAGE_COST,
-            &yielder,
-            interruptor,
-            [&](size_t shard, const server_id_t &server) {
-                (*config_shards_out)[shard].all_replicas.insert(server);
-                if (params.nonvoting_replica_tags.count(it->first) == 1) {
-                    (*config_shards_out)[shard].nonvoting_replicas.insert(server);
-                }
-            });
     }
 
     for (size_t shard_ix = 0; shard_ix < params.num_shards; ++shard_ix) {
         const table_config_t::shard_t &shard = (*config_shards_out)[shard_ix];
         guarantee(!shard.primary_replica.get_uuid().is_unset());
-        guarantee(shard.all_replicas.size() == total_replicas);
-        for (const server_id_t &replica : shard.all_replicas) {
+        guarantee(1 == total_replicas);
+        {
+            server_id_t replica = shard.primary_replica;
             server_names_out->names[replica] = server_names.names.at(replica);
         }
     }

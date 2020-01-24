@@ -184,7 +184,7 @@ contract_executor_t::get_shard_status() {
         key_range_t::right_bound_t::make_unbounded());
     raft_state->apply_read([&](const table_raft_state_t *state) {
         for (const auto &pair : state->contracts) {
-            if (pair.second.second.replicas.count(server_id) == 0) {
+            if (pair.second.second.the_replica != server_id) {
                 continue;
             }
             result.visit_mutable(
@@ -237,7 +237,7 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
         key.role = execution_key_t::role_t::primary;
         key.primary = server_id_t::from_server_uuid(nil_uuid());
         key.branch = nil_uuid();
-    } else if (pair.second.replicas.count(server_id) == 1) {
+    } else if (pair.second.the_replica == server_id) {
         key.role = execution_key_t::role_t::secondary;
         if (static_cast<bool>(pair.second.primary)) {
             key.primary = pair.second.primary->server;

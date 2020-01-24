@@ -151,7 +151,7 @@ contract_t calculate_contract(
     contract_t new_c = old_c;
 
     /* If there are new servers in `config.all_replicas`, add them to `c.replicas` */
-    new_c.replicas.insert(config.all_replicas.begin(), config.all_replicas.end());
+    new_c.the_replica = config.primary_replica;
 
     /* If there is a mismatch between `config.voting_replicas()` and `c.voters`, then
     add and/or remove voters until both sets match.
@@ -172,76 +172,8 @@ contract_t calculate_contract(
        To avoid this condition, we only add a replica to the voters list after it
        has started streaming.
        See https://github.com/rethinkdb/rethinkdb/issues/4866 for more details. */
-    std::set<server_id_t> config_voting_replicas = config.voting_replicas();
-    if (!static_cast<bool>(old_c.temp_voters) &&
-            old_c.voters != config_voting_replicas) {
-        bool voters_changed = false;
-        std::set<server_id_t> new_voters = old_c.voters;
-
-        /* Step 1: Check if we can add any voters */
-        for (const server_id_t &server : config_voting_replicas) {
-            if (old_c.voters.count(server)) {
-                /* The replica is already a voter */
-                continue;
-            }
-            if (is_streaming(old_c, acks, server)) {
-                /* The replica is streaming. We can add it to the voter set. */
-                new_voters.insert(server);
-                voters_changed = true;
-            }
-        }
-
-        /* Step 2: Remove voters */
-        /* We try to remove non-streaming replicas first before we start removing
-        streaming ones to maximize availability in case a replica fails. */
-        std::vector<server_id_t> to_remove_last;
-        std::vector<server_id_t> to_remove;
-        for (const server_id_t &server : new_voters) {
-            if (config_voting_replicas.count(server) > 0) {
-                /* The replica should remain a voter */
-                continue;
-            }
-            if (is_streaming(old_c, acks, server)) {
-                /* The replica is streaming. Put it at the end of the `to_remove`
-                list. */
-                to_remove_last.push_back(server);
-            } else {
-                /* The replica is not streaming. Removing it doesn't hurt
-                availability, so we put it at the front of the `to_remove` list. */
-                to_remove.push_back(server);
-            }
-        }
-        to_remove.insert(to_remove.end(), to_remove_last.begin(), to_remove_last.end());
-
-        size_t num_streaming = 0;
-        for (const server_id_t &server : new_voters) {
-            if (is_streaming(old_c, acks, server)) {
-                ++num_streaming;
-            }
-        }
-        size_t min_voters_size = std::min(old_c.voters.size(),
-                                          config_voting_replicas.size());
-        for (const server_id_t &server_to_remove : to_remove) {
-            /* Check if we can remove more voters without going below
-            `min_voters_size`, and without losing a majority of streaming voters. */
-            size_t remaining_streaming = is_streaming(old_c, acks, server_to_remove)
-                                         ? num_streaming - 1
-                                         : num_streaming;
-            size_t remaining_total = new_voters.size() - 1;
-            bool would_lose_majority = remaining_streaming <= remaining_total / 2;
-            if (would_lose_majority || new_voters.size() <= min_voters_size) {
-                break;
-            }
-            new_voters.erase(server_to_remove);
-            voters_changed = true;
-        }
-
-        /* Step 3: If anything changed, stage the new voter set into `temp_voters` */
-        rassert(voters_changed == (old_c.voters != new_voters));
-        if (voters_changed) {
-            new_c.temp_voters.set(new_voters);
-        }
-    }
+    std::set<server_id_t> config_voting_replicas;
+    config_voting_replicas.insert(config.primary_replica);
 
     /* If we already initiated a voter change by setting `temp_voters`, it might be time
     to commit that change by setting `voters` to `temp_voters`. */
@@ -263,7 +195,8 @@ contract_t calculate_contract(
             commit any different set of `temp_voters`. */
             guarantee(new_c.temp_voters == old_c.temp_voters);
             /* OK, it's safe to commit. */
-            new_c.voters = *new_c.temp_voters;
+            guarantee(new_c.temp_voters->size() == 1);
+            new_c.the_voter = *new_c.temp_voters->begin();
             new_c.temp_voters.reset();
         }
     }
@@ -274,39 +207,14 @@ contract_t calculate_contract(
     other server; this reduces spurious failovers when the coordinator loses contact with
     other servers. */
     std::set<server_id_t> visible_voters;
-    for (const server_id_t &server : new_c.replicas) {
-        if (new_c.voters.count(server) == 0 &&
-                (!static_cast<bool>(new_c.temp_voters) ||
-                    new_c.temp_voters->count(server) == 0)) {
-            continue;
-        }
-        if (invisible_to_majority_of_set(server, new_c.voters, connections_map)) {
-            continue;
-        }
-        if (static_cast<bool>(new_c.temp_voters)) {
-            if (invisible_to_majority_of_set(
-                    server, *new_c.temp_voters, connections_map)) {
-                continue;
-            }
-        }
+    {
+        server_id_t server = new_c.the_replica;
         visible_voters.insert(server);
     }
 
     /* If a server was removed from `config.replicas` and `c.voters` but it's still in
     `c.replicas`, then remove it. And if it's primary, then make it not be primary. */
     bool should_kill_primary = false;
-    for (const server_id_t &server : old_c.replicas) {
-        if (config.all_replicas.count(server) == 0 &&
-                new_c.voters.count(server) == 0 &&
-                (!static_cast<bool>(new_c.temp_voters) ||
-                    new_c.temp_voters->count(server) == 0)) {
-            new_c.replicas.erase(server);
-            if (static_cast<bool>(old_c.primary) && old_c.primary->server == server) {
-                /* Actual killing happens further down */
-                should_kill_primary = true;
-            }
-        }
-    }
 
     /* If we don't have a primary, choose a primary. Servers are not eligible to be a
     primary unless they are carrying every acked write. There will be at least one
@@ -330,7 +238,8 @@ contract_t calculate_contract(
         tend to pick the same server if we run the algorithm twice; this helps to reduce
         unnecessary fragmentation. */
         std::vector<std::pair<state_timestamp_t, server_id_t> > sorted_candidates;
-        for (const server_id_t &server : new_c.voters) {
+        {
+            const server_id_t server = new_c.the_voter;
             if (acks.count(server) == 1 && acks.at(server).state ==
                     contract_ack_t::state_t::secondary_need_primary) {
                 sorted_candidates.push_back(
@@ -363,7 +272,7 @@ contract_t calculate_contract(
             }
             /* OK, now `up_to_date_count` is the number of servers that this server is
             at least as up-to-date as. */
-            if (up_to_date_count > new_c.voters.size() / 2) {
+            if (up_to_date_count > 0 /* new_c.voters.size() / 2 */) {
                 eligible_candidates.push_back(server);
             }
         }
@@ -410,7 +319,8 @@ contract_t calculate_contract(
         server_id_t best_primary = server_id_t::from_server_uuid(nil_uuid());
         state_timestamp_t best_timestamp = state_timestamp_t::zero();
         bool all_present = true;
-        for (const server_id_t &server : new_c.voters) {
+        {
+            server_id_t server = new_c.the_voter;
             if (acks.count(server) == 1 && acks.at(server).state ==
                     contract_ack_t::state_t::secondary_need_primary) {
                 state_timestamp_t timestamp = acks.at(server).version->timestamp;
@@ -420,7 +330,6 @@ contract_t calculate_contract(
                 }
             } else {
                 all_present = false;
-                break;
             }
         }
         if (all_present) {
@@ -589,7 +498,7 @@ void calculate_all_contracts(
                 In these situations, we don't need the common ancestor, but computing it
                 might be dangerous because the branch history might be incomplete. */
                 bool compute_common_ancestor =
-                    (cpair.second.second.voters.count(pair.first) == 1 ||
+                    (cpair.second.second.the_voter == pair.first ||
                         (static_cast<bool>(cpair.second.second.temp_voters) &&
                             cpair.second.second.temp_voters->count(pair.first) == 1)) &&
                     !cpair.second.second.after_emergency_repair;
@@ -673,7 +582,8 @@ void calculate_all_contracts(
                 whether we can switch off the `after_emergency_repair` flag (if it was
                 on). */
                 bool can_gc_branch_history = true, can_end_after_emergency_repair = true;
-                for (const server_id_t &server : new_contract.replicas) {
+                {
+                    server_id_t server = new_contract.the_replica;
                     auto it = this_contract_acks->find(server);
                     if (it == this_contract_acks->end() || (
                             it->second.state !=
@@ -685,7 +595,7 @@ void calculate_all_contracts(
                         order to make it easy for that replica to rejoin later. */
                         can_gc_branch_history = false;
 
-                        if (new_contract.voters.count(server) == 1 ||
+                        if (new_contract.the_voter == server ||
                                 (static_cast<bool>(new_contract.temp_voters) &&
                                     new_contract.temp_voters->count(server) == 1)) {
                             /* If the `after_emergency_repair` flag is set to `true`, we

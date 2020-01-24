@@ -16,7 +16,7 @@ void ack_counter_t::note_ack(const server_id_t &server) {
     if (static_cast<bool>(contract.primary)) {
         primary_ack |= (server == contract.primary->server);
     }
-    voter_acks += contract.voters.count(server);
+    voter_acks += contract.the_voter == server ? 1 : 0;
     if (static_cast<bool>(contract.temp_voters)) {
         temp_voter_acks += contract.temp_voters->count(server);
     }
@@ -24,7 +24,7 @@ void ack_counter_t::note_ack(const server_id_t &server) {
 
 bool ack_counter_t::is_safe() const {
     return primary_ack &&
-        voter_acks * 2 > contract.voters.size() &&
+        voter_acks * 2 > 1 /* contract.voters.size() */ &&
         (!static_cast<bool>(contract.temp_voters) ||
             temp_voter_acks * 2 > contract.temp_voters->size());
 }

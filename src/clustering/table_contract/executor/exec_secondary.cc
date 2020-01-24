@@ -16,7 +16,7 @@ secondary_execution_t::secondary_execution_t(
     execution_t(_context, _params)
 {
     const contract_t &c = raft_state.contracts.at(cid).second;
-    guarantee(c.replicas.count(context->server_id) == 1);
+    guarantee(c.the_replica == context->server_id);
     guarantee(raft_state.contracts.at(cid).first == region);
 
     /* If the current contract doesn't have a primary, we won't attempt to connect to the
@@ -50,7 +50,7 @@ void secondary_execution_t::update_contract_or_raft_state(
     assert_thread();
     const contract_t &c = raft_state.contracts.at(cid).second;
     guarantee(raft_state.contracts.at(cid).first == region);
-    guarantee(c.replicas.count(context->server_id) == 1);
+    guarantee(c.the_replica == context->server_id);
     guarantee(primary.get_uuid().is_nil() || primary == c.primary->server);
     if (contract_id != cid && static_cast<bool>(last_ack)) {
         params->send_ack(cid, *last_ack);
