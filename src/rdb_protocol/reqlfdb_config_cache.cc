@@ -44,6 +44,69 @@ name_string_t unparse_db_by_name_key(key_view k) {
     return str;
 }
 
+
+constexpr const char *table_by_name_separator = ".";
+
+// The thing to which we append the table name.
+std::string table_by_name_ukey_prefix(const database_id_t db_id) {
+    // We make an aesthetic key.  UUID's are fixed-width so it's OK.
+    return uuid_to_str(db_id) + table_by_name_separator;
+}
+
+// Takes a std::string we don't know is a valid table name.  If the format ever changes
+// such that an invalid name wouldn't work as a key, we'd have to remove this function.
+ukey_string table_by_unverified_name_key(
+        const database_id_t &db_id,
+        const std::string &table_name) {
+    // TODO: Use standard compound index key format, so db_list works well.
+    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name};
+}
+
+ukey_string table_by_name_key(
+        const database_id_t &db_id,
+        const name_string_t &table_name) {
+    return table_by_unverified_name_key(db_id, table_name.str());
+}
+
+std::string unserialize_table_by_name_table_name_part(key_view table_name_part) {
+    return std::string(as_char(table_name_part.data), table_name_part.length);
+}
+
+std::pair<database_id_t, std::string> unserialize_table_by_name_key(key_view key) {
+    std::string prefix = REQLFDB_TABLE_CONFIG_BY_NAME;
+    key_view chopped = key.guarantee_without_prefix(prefix);
+    std::pair<database_id_t, std::string> ret;
+    key_view table_name = chopped.without_prefix(uuid_u::kStringSize + strlen(table_by_name_separator));
+    // TODO: rassert_prefix function, that I can lower to an assertion at some point.
+    guarantee(chopped.data[uuid_u::kStringSize] == table_by_name_separator[0] &&
+              strlen(table_by_name_separator) == 1);
+    ret.second = unserialize_table_by_name_table_name_part(table_name);
+    bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first);
+    guarantee(is_uuid);
+    return ret;
+}
+
+std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id) {
+    std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
+        ukey_string{table_by_name_ukey_prefix(db_id)});
+
+    key_view chopped = key.guarantee_without_prefix(prefix);
+    return unserialize_table_by_name_table_name_part(chopped);
+}
+
+ukey_string table_by_name_bound(
+        const database_id_t &db_id,
+        const std::string &table_name_bound) {
+    // Follows the table_by_name_key format.
+    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name_bound};
+}
+
+
+ukey_string table_by_id_key(const uuid_u &table_id) {
+    return ukey_string{uuid_to_str(table_id)};
+}
+
+
 fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
         FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_config_version>(transaction_get_c_str(
@@ -187,67 +250,6 @@ bool config_cache_db_drop(
     serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
 
     return true;
-}
-
-constexpr const char *table_by_name_separator = ".";
-
-// The thing to which we append the table name.
-std::string table_by_name_ukey_prefix(const database_id_t db_id) {
-    // We make an aesthetic key.  UUID's are fixed-width so it's OK.
-    return uuid_to_str(db_id) + table_by_name_separator;
-}
-
-// Takes a std::string we don't know is a valid table name.  If the format ever changes
-// such that an invalid name wouldn't work as a key, we'd have to remove this function.
-ukey_string table_by_unverified_name_key(
-        const database_id_t &db_id,
-        const std::string &table_name) {
-    // TODO: Use standard compound index key format, so db_list works well.
-    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name};
-}
-
-ukey_string table_by_name_key(
-        const database_id_t &db_id,
-        const name_string_t &table_name) {
-    return table_by_unverified_name_key(db_id, table_name.str());
-}
-
-std::string unserialize_table_by_name_table_name_part(key_view table_name_part) {
-    return std::string(as_char(table_name_part.data), table_name_part.length);
-}
-
-std::pair<database_id_t, std::string> unserialize_table_by_name_key(key_view key) {
-    std::string prefix = REQLFDB_TABLE_CONFIG_BY_NAME;
-    key_view chopped = key.guarantee_without_prefix(prefix);
-    std::pair<database_id_t, std::string> ret;
-    key_view table_name = chopped.without_prefix(uuid_u::kStringSize + strlen(table_by_name_separator));
-    // TODO: rassert_prefix function, that I can lower to an assertion at some point.
-    guarantee(chopped.data[uuid_u::kStringSize] == table_by_name_separator[0] &&
-              strlen(table_by_name_separator) == 1);
-    ret.second = unserialize_table_by_name_table_name_part(table_name);
-    bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first);
-    guarantee(is_uuid);
-    return ret;
-}
-
-std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id) {
-    std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
-        ukey_string{table_by_name_ukey_prefix(db_id)});
-
-    key_view chopped = key.guarantee_without_prefix(prefix);
-    return unserialize_table_by_name_table_name_part(chopped);
-}
-
-ukey_string table_by_name_bound(
-        const database_id_t &db_id,
-        const std::string &table_name_bound) {
-    // Follows the table_by_name_key format.
-    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name_bound};
-}
-
-
-ukey_string table_by_id_key(const uuid_u &table_id) {
-    return ukey_string{uuid_to_str(table_id)};
 }
 
 // Returns TABLE_CONFIG_BY_NAME range in database db_id, in [lower_bound_table_name,
