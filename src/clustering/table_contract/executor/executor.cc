@@ -18,8 +18,7 @@ public:
             const table_raft_state_t &state) :
         parent(_parent), contract_id(_contract_id),
         store_subview(
-            parent->multistore->get_store(),
-            key.region),
+            parent->multistore->get_store()),
         perfmon_name(strprintf("%s-%d", key.role_name().c_str(), ++parent->perfmon_counter))
     {
         switch (key.role) {
@@ -231,7 +230,6 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
         const contract_t &contract,
         const branch_id_t &branch) {
     execution_key_t key;
-    key.region = key_range_t::universe();  // TODO: execution_key_t::region always universe.
     if (static_cast<bool>(contract.primary) &&
             contract.primary->server == server_id) {
         key.role = execution_key_t::role_t::primary;
@@ -331,7 +329,7 @@ void contract_executor_t::gc_branch_history(signal_t *interruptor) {
             if (!pair.second->enable_gc_branch->is_nil()) {
                 mark_ancestors_since_base_live(
                     *pair.second->enable_gc_branch,
-                    pair.first.region,
+                    region_t::universe(),
                     execution_context.branch_history_manager,
                     &state->branch_history,
                     &remove_branches);

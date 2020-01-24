@@ -47,9 +47,9 @@ public:
         home_thread_mixin_t::assert_thread();
     }
 
-    region_t get_region() {
+    region_t get_region() const {
         /* Safe to call on any thread */
-        return region;
+        return key_range_t::universe();
     }
 
     virtual void note_reshard(const region_t &shard_region) = 0;
@@ -251,11 +251,9 @@ public:
             THROWS_ONLY(interrupted_exc_t) = 0;
 
 protected:
-    explicit store_view_t(region_t r) : region(r) { }
+    store_view_t() { }
 
 private:
-    const region_t region;
-
     DISABLE_COPYING(store_view_t);
 };
 

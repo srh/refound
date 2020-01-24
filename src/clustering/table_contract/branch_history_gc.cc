@@ -70,6 +70,7 @@ void mark_all_ancestors_live(
     }
 }
 
+// TODO: region always universe?
 void mark_ancestors_since_base_live(
         const branch_id_t &root,
         const region_t &region,

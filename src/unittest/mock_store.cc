@@ -61,7 +61,7 @@ std::string mock_lookup(store_view_t *store, std::string key) {
 
 
 mock_store_t::mock_store_t(version_t universe_metainfo)
-    : store_view_t(region_t::universe()),
+    : store_view_t(),
       metainfo_(get_region(), universe_metainfo) { }
 mock_store_t::~mock_store_t() { }
 

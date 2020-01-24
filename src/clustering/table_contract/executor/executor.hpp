@@ -64,7 +64,7 @@ private:
     /* When a contract changes, we sometimes want to create a new execution and we
     sometimes want to update an existing one. Specifically, we want to create a new
     execution when:
-    - The region of the contract changes
+    - The region of the contract changes (now always universe)
     - This server's role in the contract (primary, secondary, or neither) changes
     - This server's role is a secondary but the primary or branch has changed
 
@@ -87,10 +87,9 @@ private:
         }
         /* This is just so we can use it as a `std::set`/`std::map` key */
         bool operator<(const execution_key_t &k) const {
-            return std::tie(region, role, primary, branch) <
-                std::tie(k.region, k.role, k.primary, k.branch);
+            return std::tie(role, primary, branch) <
+                std::tie(k.role, k.primary, k.branch);
         }
-        region_t region;
         role_t role;
         server_id_t primary;
         branch_id_t branch;

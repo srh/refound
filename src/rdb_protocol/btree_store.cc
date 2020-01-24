@@ -89,7 +89,7 @@ store_t::store_t(rockstore::store *_rocks,
                  const base_path_t &base_path,
                  namespace_id_t _table_id,
                  update_sindexes_t _update_sindexes)
-    : store_view_t(region_t::universe()),
+    : store_view_t(),
       perfmon_collection(),
       rocks(_rocks),
       io_backender_(io_backender), base_path_(base_path),

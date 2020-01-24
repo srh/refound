@@ -44,16 +44,16 @@ public:
     /* Note that `store_subview_t` can be created and deleted on any thread, but its
     "home thread" will be set as the home thread of the underlying store. */
 
-    store_subview_t(store_view_t *_store_view, region_t _region)
-        : store_view_t(_region), store_view(_store_view) {
+    explicit store_subview_t(store_view_t *_store_view)
+        : store_view_t(), store_view(_store_view) {
         home_thread_mixin_t::real_home_thread = store_view->home_thread();
-        rassert(region_is_superset(_store_view->get_region(), _region));
     }
 
     ~store_subview_t() {
         home_thread_mixin_t::real_home_thread = get_thread_id();
     }
 
+    // TODO: Remove, presumably.
     void note_reshard(const region_t &shard_region) {
         guarantee(get_region() == shard_region);
         store_view->note_reshard(shard_region);
