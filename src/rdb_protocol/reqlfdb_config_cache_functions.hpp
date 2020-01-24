@@ -71,6 +71,10 @@ MUST_USE bool help_remove_table_if_exists(
     const std::string &table_name,
     const signal_t *interruptor);
 
+MUST_USE bool config_cache_table_drop(
+        FDBTransaction *txn, database_id_t db_id, const name_string_t &table_name,
+        const signal_t *interruptor);
+
 MUST_USE bool config_cache_db_drop(
     FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);

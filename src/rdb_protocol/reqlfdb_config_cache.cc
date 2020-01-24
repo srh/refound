@@ -255,6 +255,9 @@ bool help_remove_table_if_exists(
         database_id_t db_id,
         const std::string &table_name,
         const signal_t *interruptor) {
+    // TODO: Split this function up into future creation part and blocking part, to
+    // avoid multiple latency round-trips.
+
     const ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
     fdb_value_fut<namespace_id_t> table_by_name_fut{transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key)};
@@ -276,6 +279,48 @@ bool help_remove_table_if_exists(
     fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
         as_uint8(end.data()), int(end.size()));
 
+    return true;
+}
+
+bool config_cache_table_drop(
+        FDBTransaction *txn, database_id_t db_id, const name_string_t &table_name,
+        const signal_t *interruptor) {
+
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    const ukey_string table_index_key = table_by_name_key(db_id, table_name);
+    const ukey_string db_pkey_key = db_by_id_key(db_id);
+    fdb_future table_by_name_fut = transaction_lookup_unique_index(
+        txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    fdb_future db_by_id_fut = transaction_lookup_pkey_index(
+        txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
+
+    fdb_value table_by_name_value
+        = future_block_on_value(table_by_name_fut.fut, interruptor);
+    if (!table_by_name_value.present) {
+        return false;
+    }
+
+    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
+    if (!db_by_id_value.present) {
+        // TODO: This might mean the id came from an out-of-date cache.  We should
+        // report the error back to the user (which is broken) but with a distinguished
+        // error return value than "table doesn't exist".
+        return false;
+    }
+
+    // Okay, the db's present, and the table's present.  Drop the table.
+
+    bool table_present = help_remove_table_if_exists(
+        txn, db_id, table_name.str(), interruptor);
+    if (!table_present) {
+        return false;
+    }
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+
+    cv.value++;
+    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
     return true;
 }
 

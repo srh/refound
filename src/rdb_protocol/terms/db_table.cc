@@ -340,6 +340,21 @@ private:
             tbl_name = get_name(args->arg(env, 1), "Table");
         }
 
+        bool fdb_result;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            bool success = config_cache_table_drop(txn, db->id, tbl_name,
+                env->env->interruptor);
+            if (success) {
+                commit(txn, env->env->interruptor);
+            }
+            fdb_result = success;
+        });
+        guarantee_fdb_TODO(loop_err, "table_drop txn failed");
+        guarantee(fdb_result, "table doesn't exist (or something) in table_drop");  // TODO: remove.
+        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
+
+        // TODO: fdb-ize:  Remove non-fdb stuff, make use of fdb_result.
+
         ql::datum_t result;
         try {
             admin_err_t error;
