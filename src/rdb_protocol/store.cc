@@ -153,7 +153,6 @@ void do_snap_read(
             snap.snap,
             rocksh,
             btree,
-            region_t::universe(),  // TODO: current_shard
             rget.region,
             rget.primary_keys,
             env,

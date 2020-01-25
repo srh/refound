@@ -110,7 +110,6 @@ void rdb_rget_snapshot_slice(
     const rocksdb::Snapshot *snap,
     rockshard rocksh,
     btree_slice_t *slice,
-    const region_t &shard,
     const key_range_t &range,
     const optional<std::map<store_key_t, uint64_t> > &primary_keys,
     ql::env_t *ql_env,
