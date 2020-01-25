@@ -39,6 +39,7 @@
     be able to fake it by using a key as a "lock".
 */
 
+// TODO: We don't really need store_subview_t any more, do we?
 class store_subview_t final : public store_view_t {
 public:
     /* Note that `store_subview_t` can be created and deleted on any thread, but its

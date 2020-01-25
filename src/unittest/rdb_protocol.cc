@@ -46,10 +46,6 @@ void run_with_namespace_interface(
         store_shards.push_back(region_t(key_range_t(key_range_t::closed, store_key_t("n"), key_range_t::none, store_key_t() )));
     }
 
-    std::vector<region_t> nsi_shards;
-
-    nsi_shards.push_back(region_t::universe());
-
     temp_file_t temp_file;
 
     temp_rockstore temp_rocks;
@@ -69,15 +65,13 @@ void run_with_namespace_interface(
                     base_path_t("."), table_id, update_sindexes_t::UPDATE);
 
         // These vectors are for shards; there is just one shard now.
-        std::vector<scoped_ptr_t<store_view_t> > stores;
         std::vector<store_view_t *> store_ptrs;
-        stores.push_back(make_scoped<store_subview_t>(underlying_store.get()));
-        store_ptrs.push_back(stores.back().get());
+        scoped_ptr_t<store_view_t> the_store
+            = make_scoped<store_subview_t>(underlying_store.get());
 
         /* Set up namespace interface */
         order_source_t order_source;
-        dummy_namespace_interface_t nsi(nsi_shards,
-                                        store_ptrs.data(),
+        dummy_namespace_interface_t nsi(the_store.get(),
                                         &order_source,
                                         &ctx,
                                         do_create);

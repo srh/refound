@@ -56,30 +56,29 @@ class dummy_sharder_t {
 
 public:
     struct shard_t {
-        shard_t(dummy_timestamper_t *ts, dummy_performer_t *pf, region_t r) :
-            timestamper(ts), performer(pf), region(r) { }
+        shard_t(dummy_timestamper_t *ts, dummy_performer_t *pf) :
+            timestamper(ts), performer(pf) { }
         dummy_timestamper_t *timestamper;
         dummy_performer_t *performer;
-        region_t region;
+        // Region is universe.
     };
 
-    explicit dummy_sharder_t(std::vector<shard_t> _shards,
+    explicit dummy_sharder_t(shard_t &&_the_shard,
                              rdb_context_t *_ctx)
-        : shards(_shards), ctx(_ctx) { }
+        : the_shard(std::move(_the_shard)), ctx(_ctx) { }
 
     void read(const read_t &read, read_response_t *response, order_token_t tok, signal_t *interruptor);
 
     void write(const write_t &write, write_response_t *response, order_token_t tok, signal_t *interruptor);
 
 private:
-    std::vector<shard_t> shards;
+    shard_t the_shard;
     rdb_context_t *ctx;
 };
 
 class dummy_namespace_interface_t : public namespace_interface_t {
 public:
-    dummy_namespace_interface_t(std::vector<region_t> shards,
-                                store_view_t *const *stores, order_source_t
+    dummy_namespace_interface_t(store_view_t *stores, order_source_t
                                 *order_source, rdb_context_t *_ctx,
                                 bool initialize_metadata);
 
@@ -110,8 +109,9 @@ public:
     }
 
 private:
-    std::vector<scoped_ptr_t<dummy_performer_t> > performers;
-    std::vector<scoped_ptr_t<dummy_timestamper_t> > timestampers;
+    // Just one performer and timestamper now.
+    scoped_ptr_t<dummy_performer_t> the_performer;
+    scoped_ptr_t<dummy_timestamper_t> the_timestamper;
     scoped_ptr_t<dummy_sharder_t> sharder;
     rdb_context_t *ctx;
 };

@@ -104,17 +104,17 @@ void dummy_sharder_t::read(const read_t &_read,
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
     std::vector<read_response_t> responses;
-    responses.reserve(shards.size());
+    responses.reserve(1);
 
-    for (auto it = shards.begin(); it != shards.end(); ++it) {
+    {
         read_t subread;
-        if (_read.shard(it->region, &subread)) {
+        if (_read.shard(region_t::universe(), &subread)) {
             responses.push_back(read_response_t());
             if (_read.read_mode == read_mode_t::OUTDATED ||
                 _read.read_mode == read_mode_t::DEBUG_DIRECT) {
-                it->performer->read_outdated(subread, &responses.back(), interruptor);
+                the_shard.performer->read_outdated(subread, &responses.back(), interruptor);
             } else {
-                it->timestamper->read(subread, &responses.back(), tok, interruptor);
+                the_shard.timestamper->read(subread, &responses.back(), tok, interruptor);
             }
             if (interruptor->is_pulsed()) {
                 throw interrupted_exc_t();
@@ -132,13 +132,13 @@ void dummy_sharder_t::write(const write_t &_write,
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
     std::vector<write_response_t> responses;
-    responses.reserve(shards.size());
+    responses.reserve(1);
 
-    for (auto it = shards.begin(); it != shards.end(); ++it) {
+    {
         write_t subwrite;
-        if (_write.shard(it->region, &subwrite)) {
+        if (_write.shard(region_t::universe(), &subwrite)) {
             responses.push_back(write_response_t());
-            it->timestamper->write(subwrite, &responses.back(), tok);
+            the_shard.timestamper->write(subwrite, &responses.back(), tok);
             if (interruptor->is_pulsed()) {
                 throw interrupted_exc_t();
             }
@@ -149,61 +149,49 @@ void dummy_sharder_t::write(const write_t &_write,
 }
 
 dummy_namespace_interface_t::
-dummy_namespace_interface_t(std::vector<region_t> shards,
-                            store_view_t *const *stores, order_source_t
+dummy_namespace_interface_t(store_view_t *the_store, order_source_t
                             *order_source, rdb_context_t *_ctx,
                             bool initialize_metadata)
     : ctx(_ctx)
 {
-    /* Make sure shards are non-overlapping and stuff */
-    {
-        region_t join;
-        region_join_result_t result = region_join(shards, &join);
-        if (result != REGION_JOIN_OK) {
-            throw std::runtime_error("bad region join");
-        }
-    }
+    /* Initialize metadata everywhere */
+    if (initialize_metadata) {
+        cond_t interruptor;
 
-    std::vector<dummy_sharder_t::shard_t> shards_of_this_db;
-    for (size_t i = 0; i < shards.size(); ++i) {
-        /* Initialize metadata everywhere */
-        if (initialize_metadata) {
-            cond_t interruptor;
+        read_token_t read_token;
+        the_store->new_read_token(&read_token);
 
-            read_token_t read_token;
-            stores[i]->new_read_token(&read_token);
+        region_map_t<version_t> metainfo = the_store->get_metainfo(
+            order_source->check_in("dummy_namespace_interface_t::"
+                "dummy_namespace_interface_t (get_metainfo)").with_read_mode(),
+            &read_token,
+            region_t::universe(),
+            &interruptor);
 
-            region_map_t<version_t> metainfo = stores[i]->get_metainfo(
+        rassert(metainfo.get_domain() == region_t::universe());
+        metainfo.visit(region_t::universe(), [&](const region_t &, const version_t &b) {
+            guarantee(b == version_t::zero());
+        });
+
+        write_token_t write_token;
+        the_store->new_write_token(&write_token);
+
+        the_store->set_metainfo(
+                region_map_t<version_t>(
+                    region_t::universe(), version_t::zero()),
                 order_source->check_in("dummy_namespace_interface_t::"
-                    "dummy_namespace_interface_t (get_metainfo)").with_read_mode(),
-                &read_token,
-                shards[i],
+                    "dummy_namespace_interface_t (set_metainfo)"),
+                &write_token,
+                write_durability_t::SOFT,
                 &interruptor);
-
-            rassert(metainfo.get_domain() == shards[i]);
-            metainfo.visit(shards[i], [&](const region_t &, const version_t &b) {
-                guarantee(b == version_t::zero());
-            });
-
-            write_token_t write_token;
-            stores[i]->new_write_token(&write_token);
-
-            stores[i]->set_metainfo(
-                    region_map_t<version_t>(
-                        shards[i], version_t::zero()),
-                    order_source->check_in("dummy_namespace_interface_t::"
-                        "dummy_namespace_interface_t (set_metainfo)"),
-                    &write_token,
-                    write_durability_t::SOFT,
-                    &interruptor);
-        }
-
-        performers.push_back(make_scoped<dummy_performer_t>(stores[i]));
-        timestampers.push_back(make_scoped<dummy_timestamper_t>(performers.back().get(), order_source));
-        shards_of_this_db.push_back(dummy_sharder_t::shard_t(timestampers.back().get(), performers.back().get(), shards[i]));
     }
 
-    sharder.init(new dummy_sharder_t(shards_of_this_db, ctx));
+    the_performer = make_scoped<dummy_performer_t>(the_store);
+    the_timestamper = make_scoped<dummy_timestamper_t>(the_performer.get(), order_source);
+    // Just one shard now.
+    dummy_sharder_t::shard_t shards_of_this_db = dummy_sharder_t::shard_t(the_timestamper.get(), the_performer.get());
+
+    sharder.init(new dummy_sharder_t(std::move(shards_of_this_db), ctx));
 }
 
 
