@@ -172,8 +172,6 @@ struct stream_t {
         : substreams{{
             std::move(region),
                 keyed_stream_t{raw_stream_t(), std::move(last_key)}}} { }
-    explicit stream_t(std::map<region_t, keyed_stream_t> &&_substreams)
-        : substreams(std::move(_substreams)) { }
     stream_t() { }
     std::map<region_t, keyed_stream_t> substreams;
 };
