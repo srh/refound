@@ -94,8 +94,10 @@ private:
         auto_drainer_t::lock_t keepalive;
     };
 
+    // These templates now only get instantiated one way now that reads/writes are split
+    // up -- I'm being lazy about code cleanup.
     template <class op_type, class fifo_enforcer_token_type, class op_response_type>
-    void dispatch_immediate_op(
+    void dispatch_immediate_read(
             /* `how_to_make_token` and `how_to_run_query` have type pointer-to-member-function. */
             void (primary_query_client_t::*how_to_make_token)(fifo_enforcer_token_type *),
             void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *response, order_token_t, fifo_enforcer_token_type *, signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
@@ -110,7 +112,33 @@ private:
     // fix a confusing violation of C++.  This function is called only by
     // dispatch_immediate_op, which still has the exception specification.
     template <class op_type, class fifo_enforcer_token_type, class op_response_type>
-    void perform_immediate_op(
+    void perform_immediate_read(
+            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
+            std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > > *masters_to_contact,
+            std::vector<op_response_type> *results,
+            std::vector<optional<cannot_perform_query_exc_t> > *failures,
+            order_token_t order_token,
+            size_t i,
+            signal_t *interruptor)
+        THROWS_NOTHING;
+
+    template <class op_type, class fifo_enforcer_token_type, class op_response_type>
+    void dispatch_immediate_write(
+            /* `how_to_make_token` and `how_to_run_query` have type pointer-to-member-function. */
+            void (primary_query_client_t::*how_to_make_token)(fifo_enforcer_token_type *),
+            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *response, order_token_t, fifo_enforcer_token_type *, signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
+            const op_type &op,
+            op_response_type *response,
+            order_token_t order_token,
+            signal_t *interruptor)
+        THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
+
+    // The exception specification of `how_to_run_query` is commented out in
+    // order to bypass a clang bug seen on certain versions for OS X, or perhaps
+    // fix a confusing violation of C++.  This function is called only by
+    // dispatch_immediate_op, which still has the exception specification.
+    template <class op_type, class fifo_enforcer_token_type, class op_response_type>
+    void perform_immediate_write(
             void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
             std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > > *masters_to_contact,
             std::vector<op_response_type> *results,
