@@ -549,7 +549,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             geo_read.batchspec,
             geo_read.transforms,
             geo_read.terminal,
-            region_t::universe(),  // TODO: geo read shard region
             sindex_info,
             geo_read.stamp ? is_stamp_read_t::YES : is_stamp_read_t::NO,
             res);
@@ -607,7 +606,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             geo_read.max_results,
             geo_read.geo_system,
             &ql_env,
-            region_t::universe(),  // TODO: geo read shard region
             sindex_info,
             res);
     }

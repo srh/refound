@@ -181,7 +181,6 @@ void rdb_get_intersecting_slice(
         const ql::batchspec_t &batchspec,
         const std::vector<ql::transform_variant_t> &transforms,
         const optional<ql::terminal_variant_t> &terminal,
-        const key_range_t &pk_range,
         const sindex_disk_info_t &sindex_info,
         is_stamp_read_t is_stamp_read,
         rget_read_response_t *response);
@@ -196,7 +195,6 @@ void rdb_get_nearest_slice(
     uint64_t max_results,
     const ellipsoid_spec_t &geo_system,
     ql::env_t *ql_env,
-    const key_range_t &pk_range,
     const sindex_disk_info_t &sindex_info,
     nearest_geo_read_response_t *response);
 

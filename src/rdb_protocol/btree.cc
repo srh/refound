@@ -1360,7 +1360,6 @@ void rdb_get_intersecting_slice(
         const ql::batchspec_t &batchspec,
         const std::vector<ql::transform_variant_t> &transforms,
         const optional<ql::terminal_variant_t> &terminal,
-        const key_range_t &pk_range,
         const sindex_disk_info_t &sindex_info,
         is_stamp_read_t is_stamp_read,
         rget_read_response_t *response) {
@@ -1383,7 +1382,7 @@ void rdb_get_intersecting_slice(
                        transforms,
                        terminal,
                        is_stamp_read),
-        geo_sindex_data_t(pk_range, sindex_info.mapping,
+        geo_sindex_data_t(sindex_info.mapping,
                           sindex_func_reql_version, sindex_info.multi),
         query_geometry,
         response);
@@ -1404,7 +1403,6 @@ void rdb_get_nearest_slice(
     uint64_t max_results,
     const ellipsoid_spec_t &geo_system,
     ql::env_t *ql_env,
-    const key_range_t &pk_range,
     const sindex_disk_info_t &sindex_info,
     nearest_geo_read_response_t *response) {
 
@@ -1427,7 +1425,7 @@ void rdb_get_nearest_slice(
         try {
             nearest_traversal_cb_t callback(
                 slice,
-                geo_sindex_data_t(pk_range, sindex_info.mapping,
+                geo_sindex_data_t(sindex_info.mapping,
                                   sindex_func_reql_version, sindex_info.multi),
                 ql_env,
                 &state);

@@ -57,17 +57,14 @@ private:
 class geo_sindex_data_t {
 public:
     geo_sindex_data_t(
-            const key_range_t &_pkey_range,
             const ql::map_wire_func_t &_wire_func,
             reql_version_t _func_reql_version,
             sindex_multi_bool_t _multi) :
-        pkey_range(_pkey_range),
         func(_wire_func.compile_wire_func()),
         func_reql_version(_func_reql_version),
         multi(_multi) { }
 private:
     friend class geo_intersecting_cb_t;
-    const key_range_t pkey_range;
     const counted_t<const ql::func_t> func;
     const reql_version_t func_reql_version;
     const sindex_multi_bool_t multi;

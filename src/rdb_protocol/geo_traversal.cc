@@ -113,10 +113,6 @@ continue_bool_t geo_intersecting_cb_t::on_candidate(
 
     store_key_t store_key(key.second, reinterpret_cast<const uint8_t *>(key.first));
     store_key_t primary_key(ql::datum_t::extract_primary(store_key));
-    // Check if the primary key is in the range of the current slice
-    if (!sindex.pkey_range.contains_key(primary_key)) {
-        return continue_bool_t::CONTINUE;
-    }
 
     // Check if this document has already been processed (lower bound).
     optional<uint64_t> tag = ql::datum_t::extract_tag(store_key);
