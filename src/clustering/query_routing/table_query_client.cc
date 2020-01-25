@@ -182,7 +182,7 @@ void table_query_client_t::dispatch_immediate_read(
         new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
     {
         // TODO: We're sharding by universe.
-        if (op.shard(region_t::universe(), &new_op_info->sharded_op)) {
+        if (op.shard_universe(&new_op_info->sharded_op)) {
             relationship_t *chosen_relationship = nullptr;
             for (relationship_t *rel : relationships) {
                 // If some shards are currently intersecting (this should only happen
@@ -258,7 +258,7 @@ void table_query_client_t::dispatch_immediate_read(
         throw *first_failure;
     }
 
-    op.unshard(results.data(), results.size(), response, ctx, interruptor);
+    op.unshard1(results.data(), results.size(), response, ctx, interruptor);
 }
 
 template<class op_type, class fifo_enforcer_token_type, class op_response_type>
@@ -475,7 +475,7 @@ void table_query_client_t::dispatch_outdated_read(
     scoped_ptr_t<outdated_read_info_t> new_op_info(new outdated_read_info_t());
     {
         // TODO: We're sharding by universe().
-        if (op.shard(region_t::universe(), &new_op_info->sharded_op)) {
+        if (op.shard_universe(&new_op_info->sharded_op)) {
             std::vector<relationship_t *> potential_relationships;
             relationship_t *chosen_relationship = nullptr;
             for (relationship_t *rel : relationships) {
@@ -524,7 +524,7 @@ void table_query_client_t::dispatch_outdated_read(
         }
     }
 
-    op.unshard(results.data(), results.size(), response, ctx, interruptor);
+    op.unshard1(results.data(), results.size(), response, ctx, interruptor);
 }
 
 void table_query_client_t::perform_outdated_read(

@@ -497,10 +497,9 @@ struct read_t {
     region_t get_region() const THROWS_NOTHING;
     // Returns true if the read has any operation for this region.  Returns
     // false if read_out has not been touched.
-    bool shard(const region_t &region,
-               read_t *read_out) const THROWS_NOTHING;
+    bool shard_universe(read_t *read_out) const THROWS_NOTHING;
 
-    void unshard(read_response_t *responses, size_t count,
+    void unshard1(read_response_t *responses, size_t count,
                  read_response_t *response, rdb_context_t *ctx,
                  signal_t *interruptor) const
         THROWS_ONLY(interrupted_exc_t);

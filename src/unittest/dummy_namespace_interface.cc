@@ -108,7 +108,7 @@ void dummy_sharder_t::read(const read_t &_read,
 
     {
         read_t subread;
-        if (_read.shard(region_t::universe(), &subread)) {
+        if (_read.shard_universe(&subread)) {
             responses.push_back(read_response_t());
             if (_read.read_mode == read_mode_t::OUTDATED ||
                 _read.read_mode == read_mode_t::DEBUG_DIRECT) {
@@ -122,7 +122,7 @@ void dummy_sharder_t::read(const read_t &_read,
         }
     }
 
-    _read.unshard(responses.data(), responses.size(), response, ctx, interruptor);
+    _read.unshard1(responses.data(), responses.size(), response, ctx, interruptor);
 }
 
 void dummy_sharder_t::write(const write_t &_write,

@@ -601,10 +601,9 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
     read_t::variant_t *payload_out;
 };
 
-bool read_t::shard(const region_t &region,
-                   read_t *read_out) const THROWS_NOTHING {
+bool read_t::shard_universe(read_t *read_out) const THROWS_NOTHING {
     read_t::variant_t payload;
-    bool result = boost::apply_visitor(rdb_r_shard_visitor_t(region, &payload), read);
+    bool result = boost::apply_visitor(rdb_r_shard_visitor_t(region_t::universe(), &payload), read);
     *read_out = read_t(payload, profile, read_mode);
     return result;
 }
@@ -914,7 +913,7 @@ void rdb_r_unshard_visitor_t::operator()(const dummy_read_t &) {
     *response_out = responses[0];
 }
 
-void read_t::unshard(read_response_t *responses, size_t count,
+void read_t::unshard1(read_response_t *responses, size_t count,
                      read_response_t *response_out, rdb_context_t *ctx,
                      signal_t *interruptor) const
     THROWS_ONLY(interrupted_exc_t) {
