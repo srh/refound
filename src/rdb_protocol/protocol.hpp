@@ -320,7 +320,7 @@ public:
     optional<changefeed_stamp_t> stamp;
 
     region_t region; // We need this even for sindex reads due to sharding.
-    optional<region_t> current_shard;
+    optional<region_t> current_shard;  // Always at most region_t::universe().  TODO: Remove.
     optional<std::map<region_t, lower_key_bound> > hints;
 
     // The `uint64_t`s here are counts.  This map is used to make `get_all` more

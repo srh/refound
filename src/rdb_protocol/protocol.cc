@@ -449,20 +449,15 @@ region_t read_t::get_region() const THROWS_NOTHING {
 }
 
 struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
-    explicit rdb_r_shard_visitor_t(const key_range_t &_region,
-                                   read_t::variant_t *_payload_out)
-        : region(_region), payload_out(_payload_out) {
+    explicit rdb_r_shard_visitor_t(read_t::variant_t *_payload_out)
+        : payload_out(_payload_out) {
     }
 
     // The key was somehow already extracted from the arg.
     template <class T>
     bool keyed_read(const T &arg, const store_key_t &key) const {
-        if (region.contains_key(key)) {
-            *payload_out = arg;
-            return true;
-        } else {
-            return false;
-        }
+        *payload_out = arg;
+        return true;
     }
 
     bool operator()(const point_read_t &pr) const {
@@ -471,21 +466,17 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
 
     template <class T>
     bool rangey_read(const T &arg) const {
-        const region_t intersection
-            = region_intersection(region, arg.region);
-        if (!intersection.is_empty()) {
-            T tmp = arg;
-            tmp.region = intersection;
-            *payload_out = std::move(tmp);
-            return true;
-        } else {
-            return false;
-        }
+        // TODO: Ensure that read regions are never empty (but who cares if they are in
+        // the end?)
+        rassert(!arg.region.is_empty());
+        *payload_out = tmp;
+        return true;
     }
 
     bool operator()(const changefeed_subscribe_t &s) const {
+        // TODO: changefeed_subscribe_t shard_region is always universe?
         changefeed_subscribe_t tmp = s;
-        tmp.shard_region = region;
+        tmp.shard_region = region_t::universe();
         *payload_out = std::move(tmp);
         return true;
     }
@@ -494,7 +485,7 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
         bool do_read = rangey_read(s);
         if (do_read) {
             auto *out = boost::get<changefeed_limit_subscribe_t>(payload_out);
-            out->current_shard.set(region);
+            out->current_shard.set(region_t::universe());
         }
         return do_read;
     }
@@ -509,8 +500,9 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
 
     bool operator()(const rget_read_t &rg) const {
         bool do_read;
+        // TODO: What is hints, and does hints always contain region_t::universe?
         if (rg.hints.has_value()) {
-            auto it = rg.hints->find(region);
+            auto it = rg.hints->find(region_t::universe());
             if (it != rg.hints->end()) {
                 do_read = rangey_read(rg);
                 auto *rr = boost::get<rget_read_t>(payload_out);
@@ -550,7 +542,7 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
         }
         if (do_read) {
             auto *rg_out = boost::get<rget_read_t>(payload_out);
-            rg_out->current_shard.set(region);
+            rg_out->current_shard.set(region_t::universe());
             rg_out->batchspec = rg_out->batchspec.scale_down(
                 rg.hints.has_value() ? rg.hints->size() : 1);
             if (rg_out->primary_keys.has_value()) {
@@ -597,13 +589,12 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
         return rangey_read(d);
     }
 
-    region_t region;
     read_t::variant_t *payload_out;
 };
 
 bool read_t::shard_universe(read_t *read_out) const THROWS_NOTHING {
     read_t::variant_t payload;
-    bool result = boost::apply_visitor(rdb_r_shard_visitor_t(region_t::universe(), &payload), read);
+    bool result = boost::apply_visitor(rdb_r_shard_visitor_t(&payload), read);
     *read_out = read_t(payload, profile, read_mode);
     return result;
 }
