@@ -57,13 +57,6 @@ std::string mock_namespace_interface_t::get_primary_key() const {
     return primary_key.to_std();
 }
 
-std::set<region_t> mock_namespace_interface_t::get_sharding_scheme()
-    THROWS_ONLY(cannot_perform_query_exc_t) {
-    std::set<region_t> s;
-    s.insert(region_t::universe());
-    return s;
-}
-
 bool mock_namespace_interface_t::check_readiness(table_readiness_t, signal_t *) {
     throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
 }

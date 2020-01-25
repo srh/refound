@@ -65,8 +65,6 @@ public:
             THROWS_ONLY(
                 interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t);
 
-    std::set<region_t> get_sharding_scheme() THROWS_ONLY(cannot_perform_query_exc_t);
-
 private:
     class relationship_t {
     public:

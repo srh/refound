@@ -156,12 +156,6 @@ void table_query_client_t::write(
         w, response, order_token, interruptor);
 }
 
-// TODO: Remove this?
-std::set<region_t> table_query_client_t::get_sharding_scheme()
-        THROWS_ONLY(cannot_perform_query_exc_t) {
-    return std::set<region_t>{region_t::universe()};
-}
-
 template<class op_type, class fifo_enforcer_token_type, class op_response_type>
 void table_query_client_t::dispatch_immediate_op(
     /* `how_to_make_token` and `how_to_run_query` have type pointer-to-

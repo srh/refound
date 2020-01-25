@@ -85,11 +85,6 @@ public:
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) = 0;
 
-    /* These calls are for the sole purpose of optimizing queries; don't rely
-    on them for correctness. They should not block. */
-    virtual std::set<region_t> get_sharding_scheme()
-        THROWS_ONLY(cannot_perform_query_exc_t) = 0;
-
     virtual signal_t *get_initial_ready_signal() { return nullptr; }
 
     virtual bool check_readiness(table_readiness_t readiness,
