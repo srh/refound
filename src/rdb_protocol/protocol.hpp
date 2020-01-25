@@ -286,6 +286,7 @@ struct changefeed_stamp_t {
     explicit changefeed_stamp_t(ql::changefeed::client_t::addr_t _addr)
         : addr(std::move(_addr)), region(region_t::universe()) { }
     ql::changefeed::client_t::addr_t addr;
+    // TODO: Is region ever not universe?
     region_t region;
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_stamp_t);
@@ -320,7 +321,6 @@ public:
     optional<changefeed_stamp_t> stamp;
 
     region_t region; // We need this even for sindex reads due to sharding.
-    optional<region_t> current_shard;  // Always at most region_t::universe().  TODO: Remove.
     optional<std::map<region_t, lower_key_bound> > hints;
 
     // The `uint64_t`s here are counts.  This map is used to make `get_all` more
@@ -467,7 +467,6 @@ struct changefeed_limit_subscribe_t {
     std::string table;
     serializable_env_t serializable_env;
     region_t region;
-    optional<region_t> current_shard;
 };
 RDB_DECLARE_SERIALIZABLE(changefeed_limit_subscribe_t);
 

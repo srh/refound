@@ -469,7 +469,7 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
         // TODO: Ensure that read regions are never empty (but who cares if they are in
         // the end?)
         rassert(!arg.region.is_empty());
-        *payload_out = tmp;
+        *payload_out = arg;
         return true;
     }
 
@@ -483,10 +483,6 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
 
     bool operator()(const changefeed_limit_subscribe_t &s) const {
         bool do_read = rangey_read(s);
-        if (do_read) {
-            auto *out = boost::get<changefeed_limit_subscribe_t>(payload_out);
-            out->current_shard.set(region_t::universe());
-        }
         return do_read;
     }
 
@@ -542,7 +538,6 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
         }
         if (do_read) {
             auto *rg_out = boost::get<rget_read_t>(payload_out);
-            rg_out->current_shard.set(region_t::universe());
             rg_out->batchspec = rg_out->batchspec.scale_down(
                 rg.hints.has_value() ? rg.hints->size() : 1);
             if (rg_out->primary_keys.has_value()) {
@@ -1333,11 +1328,10 @@ RDB_IMPL_SERIALIZABLE_4_FOR_CLUSTER(sindex_rangespec_t,
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
         sorting_t, int8_t,
         sorting_t::UNORDERED, sorting_t::DESCENDING);
-RDB_IMPL_SERIALIZABLE_12_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_11_FOR_CLUSTER(
     rget_read_t,
     stamp,
     region,
-    current_shard,
     hints,
     primary_keys,
     serializable_env,
@@ -1373,15 +1367,14 @@ RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
         distribution_read_t, max_depth, result_limit, region);
 
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_subscribe_t, addr, shard_region);
-RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
     changefeed_limit_subscribe_t,
     addr,
     uuid,
     spec,
     table,
     serializable_env,
-    region,
-    current_shard);
+    region);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_stamp_t, addr, region);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_point_stamp_t, addr, key);
 

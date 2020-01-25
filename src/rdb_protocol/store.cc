@@ -141,7 +141,6 @@ void do_snap_read(
         scoped_ptr_t<real_superblock_lock> superblock,
         const rget_read_t &rget,
         rget_read_response_t *res) {
-    guarantee(rget.current_shard.has_value());
     if (!rget.sindex.has_value()) {
         superblock->read_acq_signal()->wait_lazily_ordered();
         rockstore::snapshot snap = make_snapshot(rocksh.rocks);
@@ -151,7 +150,7 @@ void do_snap_read(
             snap.snap,
             rocksh,
             btree,
-            *rget.current_shard,
+            region_t::universe(),  // TODO: current_shard
             rget.region,
             rget.primary_keys,
             env,
@@ -199,7 +198,7 @@ void do_snap_read(
                 rocksh,
                 sindex_uuid,
                 store->get_sindex_slice(sindex_uuid),
-                *rget.current_shard,
+                region_t::universe(),  // TODO: current_shard
                 rget.sindex->datumspec,
                 sindex_range,
                 env,
@@ -232,14 +231,13 @@ void do_read_for_changefeed(rockshard rocksh,
              const rget_read_t &rget,
              rget_read_response_t *res,
              optional<uuid_u> *sindex_id_out) {
-    guarantee(rget.current_shard.has_value());
     if (!rget.sindex.has_value()) {
         // rget using a primary index
         *sindex_id_out = r_nullopt;
         rdb_rget_slice(
             rocksh,
             btree,
-            *rget.current_shard,
+            region_t::universe(),  // TODO: current_shard
             rget.region,
             rget.primary_keys,
             superblock,
@@ -285,7 +283,7 @@ void do_read_for_changefeed(rockshard rocksh,
                 rocksh,
                 sindex_uuid,
                 store->get_sindex_slice(sindex_uuid),
-                *rget.current_shard,
+                region_t::universe(),  // TODO: current_shard
                 rget.sindex->datumspec,
                 sindex_range,
                 superblock,
@@ -340,7 +338,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             }
             rget_read_t rget;
             rget.region = s.region;
-            rget.current_shard = s.current_shard;
             rget.table_name = s.table;
             rget.batchspec = ql::batchspec_t::all(); // Terminal takes care of stopping.
             if (s.spec.range.sindex) {
@@ -396,8 +393,8 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             s.spec.range.sorting,
             s.spec.limit);
 
-        guarantee(s.current_shard.has_value());
-        auto cserver = store->get_or_make_changefeed_server(*s.current_shard);
+        // TODO: Do we ever pass anything to get_or_make_changefeed_server besides universe?
+        auto cserver = store->get_or_make_changefeed_server(region_t::universe());
         guarantee(cserver.first != nullptr);
         cserver.first->add_limit_client(
             s.addr,
@@ -624,7 +621,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
 
         if (rget.stamp) {
             res->stamp_response.set(changefeed_stamp_response_t());
-            r_sanity_check(rget.current_shard);
             r_sanity_check(rget.sorting == sorting_t::UNORDERED);
             store_key_t read_left;
             if (rget.sindex) {
@@ -639,7 +635,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             }
             changefeed_stamp_response_t r = do_stamp(
                 *rget.stamp,
-                *rget.current_shard,
+                region_t::universe(),  // TODO: current_shard
                 read_left);
             if (r.stamp_infos) {
                 res->stamp_response.set(r);
