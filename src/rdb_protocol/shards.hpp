@@ -487,8 +487,7 @@ public:
         const ql::configured_limits_t &limits) = 0;
 };
 
-scoped_ptr_t<accumulator_t> make_append(region_t region,
-                                        limit_read_last_key last_key,
+scoped_ptr_t<accumulator_t> make_append(limit_read_last_key last_key,
                                         sorting_t sorting,
                                         batcher_t *batcher,
                                         require_sindexes_t require_sindex_val);

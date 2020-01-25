@@ -234,13 +234,13 @@ private:
     require_sindexes_t require_sindex_val;
 };
 
-scoped_ptr_t<accumulator_t> make_append(region_t region,
-                                        limit_read_last_key last_key,
+scoped_ptr_t<accumulator_t> make_append(limit_read_last_key last_key,
                                         sorting_t sorting,
                                         batcher_t *batcher,
                                         require_sindexes_t require_sindex_val) {
+    // TODO: region universe shard region
     return make_scoped<append_t>(
-        std::move(region), std::move(last_key), sorting, require_sindex_val, batcher);
+        region_t::universe(), std::move(last_key), sorting, require_sindex_val, batcher);
 }
 
 scoped_ptr_t<accumulator_t> make_unsharding_append() {

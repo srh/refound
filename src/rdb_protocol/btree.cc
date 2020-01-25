@@ -551,8 +551,7 @@ public:
           sorting(_sorting),
           accumulator(_terminal.has_value()
                       ? ql::make_terminal(*_terminal)
-                      : ql::make_append(region_t::universe(),
-                                        std::move(last_key),
+                      : ql::make_append(std::move(last_key),
                                         sorting,
                                         batcher.get(),
                                         require_sindex_val)) {
