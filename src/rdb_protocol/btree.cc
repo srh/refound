@@ -1550,13 +1550,10 @@ bool rdb_modification_report_cb_t::has_pkey_cfeeds(
         if (max == nullptr || key > *max) max = &key;
     }
     if (min != nullptr && max != nullptr) {
-        key_range_t range(key_range_t::closed, *min,
-                          key_range_t::closed, *max);
-        auto cservers = store_->access_changefeed_servers();
-        for (auto &&pair : *cservers.first) {
-            if (pair.first.overlaps(range)
-                && pair.second->has_limit(r_nullopt,
-                                          pair.second->get_keepalive())) {
+        auto cservers = store_->access_the_changefeed_server();
+        if ((*cservers.first).has()) {
+            if ((*cservers.first)->has_limit(r_nullopt,
+                                       (*cservers.first)->get_keepalive())) {
                 return true;
             }
         }
@@ -1566,9 +1563,9 @@ bool rdb_modification_report_cb_t::has_pkey_cfeeds(
 
 void rdb_modification_report_cb_t::finish(
     btree_slice_t *btree, real_superblock_lock *superblock) {
-    auto cservers = store_->access_changefeed_servers();
-    for (auto &&pair : *cservers.first) {
-        pair.second->foreach_limit(
+    auto cservers = store_->access_the_changefeed_server();
+    if ((*cservers.first).has()) {
+        (*cservers.first)->foreach_limit(
             r_nullopt,
             r_nullopt,
             nullptr,
@@ -1583,7 +1580,7 @@ void rdb_modification_report_cb_t::finish(
                     lm->commit(lm_spot,
                                ql::changefeed::primary_ref_t{btree, superblock});
                 }
-            }, pair.second->get_keepalive());
+            }, (*cservers.first)->get_keepalive());
     }
 }
 

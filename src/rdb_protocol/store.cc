@@ -25,12 +25,12 @@ void store_t::note_reshard(const region_t &shard_region) {
     // and was at the same time trying to acquire the `changefeed_servers_lock`.
     scoped_ptr_t<ql::changefeed::server_t> to_destruct;
     {
-        rwlock_acq_t acq(&changefeed_servers_lock, access_t::write);
+        rwlock_acq_t acq(&the_changefeed_server_lock, access_t::write);
         ASSERT_NO_CORO_WAITING;
-        auto it = changefeed_servers.find(shard_region);
-        if (it != changefeed_servers.end()) {
-            to_destruct = std::move(it->second);
-            changefeed_servers.erase(it);
+        // TODO: shard_region is never _not_ universe, right?
+        if (the_changefeed_server.has() && shard_region == region_t::universe()) {
+            to_destruct = std::move(the_changefeed_server);
+            the_changefeed_server.reset();
         }
     }
     // The changefeed server is actually getting destructed here. This might
@@ -312,8 +312,7 @@ void do_read_for_changefeed(rockshard rocksh,
 // TODO: get rid of this extra response_t copy on the stack
 struct rdb_read_visitor_t : public boost::static_visitor<void> {
     void operator()(const changefeed_subscribe_t &s) {
-        // TODO: We always pass universe?
-        auto cserver = store->get_or_make_changefeed_server(region_t::universe());
+        auto cserver = store->get_or_make_changefeed_server();
         guarantee(cserver.first != nullptr);
         // TODO: We always pass universe?
         cserver.first->add_client(s.addr, region_t::universe(), cserver.second);
@@ -395,8 +394,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             s.spec.range.sorting,
             s.spec.limit);
 
-        // TODO: Do we ever pass anything to get_or_make_changefeed_server besides universe?
-        auto cserver = store->get_or_make_changefeed_server(region_t::universe());
+        auto cserver = store->get_or_make_changefeed_server();
         guarantee(cserver.first != nullptr);
         cserver.first->add_limit_client(
             s.addr,
@@ -1083,59 +1081,52 @@ store_t::sindex_context_map_t *store_t::get_sindex_context_map() {
     return &sindex_context;
 }
 
+// TODO: Cleanup this fluff.
+
 std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> store_t::changefeed_server(
-        const region_t &_region,
         const rwlock_acq_t *acq) {
-    acq->guarantee_is_holding(&changefeed_servers_lock);
-    for (auto &&pair : changefeed_servers) {
-        if (pair.first.is_superset(_region)) {
-            return std::make_pair(pair.second.get(), pair.second->get_keepalive());
-        }
+    acq->guarantee_is_holding(&the_changefeed_server_lock);
+    if (the_changefeed_server.has()) {
+        return std::make_pair(the_changefeed_server.get(), the_changefeed_server->get_keepalive());
     }
     return std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t>(
         nullptr, auto_drainer_t::lock_t());
 }
 
-std::pair<const std::map<region_t, scoped_ptr_t<ql::changefeed::server_t> > *,
-          scoped_ptr_t<rwlock_acq_t> > store_t::access_changefeed_servers() {
-    return std::make_pair(&changefeed_servers,
-                          make_scoped<rwlock_acq_t>(&changefeed_servers_lock,
+std::pair<const scoped_ptr_t<ql::changefeed::server_t> *,
+          scoped_ptr_t<rwlock_acq_t> > store_t::access_the_changefeed_server() {
+    return std::make_pair(&the_changefeed_server,
+                          make_scoped<rwlock_acq_t>(&the_changefeed_server_lock,
                                                     access_t::read));
 }
 
 std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> store_t::changefeed_server(
-        const region_t &_region) {
-    rwlock_acq_t acq(&changefeed_servers_lock, access_t::read);
-    return changefeed_server(_region, &acq);
+        const region_t &) {
+    // TODO: What is region?  Region is unused.
+    rwlock_acq_t acq(&the_changefeed_server_lock, access_t::read);
+    return changefeed_server(&acq);
 }
 
 std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> store_t::changefeed_server(
-        const store_key_t &key) {
-    rwlock_acq_t acq(&changefeed_servers_lock, access_t::read);
-    for (auto &&pair : changefeed_servers) {
-        if (pair.first.contains_key(key)) {
-            return std::make_pair(pair.second.get(), pair.second->get_keepalive());
-        }
+        const store_key_t &) {
+    rwlock_acq_t acq(&the_changefeed_server_lock, access_t::read);
+    if (the_changefeed_server.has()) {
+        return std::make_pair(the_changefeed_server.get(), the_changefeed_server->get_keepalive());
     }
     return std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t>(
         nullptr, auto_drainer_t::lock_t());
 }
 
 std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t>
-        store_t::get_or_make_changefeed_server(const region_t &_region) {
-    rwlock_acq_t acq(&changefeed_servers_lock, access_t::write);
+        store_t::get_or_make_changefeed_server() {
+    rwlock_acq_t acq(&the_changefeed_server_lock, access_t::write);
     guarantee(ctx != nullptr);
     guarantee(ctx->manager != nullptr);
-    auto existing = changefeed_server(_region, &acq);
+    auto existing = changefeed_server(&acq);
     if (existing.first != nullptr) {
         return existing;
     }
-    for (auto &&pair : changefeed_servers) {
-        guarantee(!pair.first.overlaps(_region));
-    }
-    auto it = changefeed_servers.insert(
-        std::make_pair(
-            _region,
-            make_scoped<ql::changefeed::server_t>(ctx->manager, this))).first;
-    return std::make_pair(it->second.get(), it->second->get_keepalive());
+    the_changefeed_server =
+            make_scoped<ql::changefeed::server_t>(ctx->manager, this);
+    return std::make_pair(the_changefeed_server.get(), the_changefeed_server->get_keepalive());
 }

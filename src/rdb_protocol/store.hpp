@@ -359,17 +359,16 @@ private:
     rdb_context_t *ctx;
     // In the future we may use these `region_t`s instead of the `uuid_u`s in
     // the changefeed server.
-    std::map<region_t, scoped_ptr_t<ql::changefeed::server_t> > changefeed_servers;
-    rwlock_t changefeed_servers_lock;
+    scoped_ptr_t<ql::changefeed::server_t> the_changefeed_server;  // Possibly null.
+    rwlock_t the_changefeed_server_lock;
 
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> changefeed_server(
-            const region_t &region,
             const rwlock_acq_t *acq);
 public:
     // Returns a pointer to `changefeed_servers` together with a read acquisition
     // on `changefeed_servers_lock`.
-    std::pair<const std::map<region_t, scoped_ptr_t<ql::changefeed::server_t> > *,
-              scoped_ptr_t<rwlock_acq_t> > access_changefeed_servers();
+    std::pair<const scoped_ptr_t<ql::changefeed::server_t> *,
+              scoped_ptr_t<rwlock_acq_t> > access_the_changefeed_server();
     // Return a pointer to a specific changefeed server if it exists. These can
     // block.
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> changefeed_server(
@@ -378,7 +377,7 @@ public:
             const store_key_t &key);
     // Like `changefeed_server()`, but creates the server if it doesn't exist.
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t>
-            get_or_make_changefeed_server(const region_t &region);
+            get_or_make_changefeed_server();
 
 private:
     namespace_id_t table_id;
