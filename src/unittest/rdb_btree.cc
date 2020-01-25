@@ -148,7 +148,6 @@ ql::grouped_t<ql::stream_t> read_row_via_sindex(
         store->rocksh(),
         sindex_uuid,
         store->get_sindex_slice(sindex_uuid),
-        region_t(),
         ql::datumspec_t(datum_range),
         datum_range.to_sindex_keyrange(),
         superblock.get(),

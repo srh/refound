@@ -283,7 +283,6 @@ void do_read_for_changefeed(rockshard rocksh,
                 rocksh,
                 sindex_uuid,
                 store->get_sindex_slice(sindex_uuid),
-                region_t::universe(),  // TODO: current_shard
                 rget.sindex->datumspec,
                 sindex_range,
                 superblock,

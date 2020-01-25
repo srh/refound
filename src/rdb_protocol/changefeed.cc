@@ -1056,7 +1056,6 @@ public:
             rocksh,
             ref.sindex_uuid,
             ref.btree,
-            region_t(),
             ql::datumspec_t(srange),
             srange.to_sindex_keyrange(),
             ref.superblock,
