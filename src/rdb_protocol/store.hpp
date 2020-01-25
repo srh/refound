@@ -73,7 +73,7 @@ public:
             update_sindexes_t update_sindexes);
     ~store_t();
 
-    void note_reshard(const region_t &shard_region);
+    void note_reshard();
 
     /* store_view_t interface */
 

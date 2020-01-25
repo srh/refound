@@ -16,7 +16,11 @@
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/table_common.hpp"
 
-void store_t::note_reshard(const region_t &shard_region) {
+void store_t::note_reshard() {
+    // This is no longer for resharding, it just shuts off changefeeds for
+    // local_replicator_t.  Maybe this is unnecessary; maybe we could let the destructor
+    // do its work.
+
     // We acquire `changefeed_servers_lock` and move the matching pointer out of
     // `changefeed_servers`. We then destruct the server in a separate step,
     // after releasing the lock.
@@ -27,8 +31,7 @@ void store_t::note_reshard(const region_t &shard_region) {
     {
         rwlock_acq_t acq(&the_changefeed_server_lock, access_t::write);
         ASSERT_NO_CORO_WAITING;
-        // TODO: shard_region is never _not_ universe, right?
-        if (the_changefeed_server.has() && shard_region == region_t::universe()) {
+        if (the_changefeed_server.has()) {
             to_destruct = std::move(the_changefeed_server);
             the_changefeed_server.reset();
         }

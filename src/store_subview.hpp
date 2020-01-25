@@ -55,9 +55,8 @@ public:
     }
 
     // TODO: Remove, presumably.
-    void note_reshard(const region_t &shard_region) {
-        guarantee(region_t::universe() == shard_region);
-        store_view->note_reshard(shard_region);
+    void note_reshard() {
+        store_view->note_reshard();
     }
 
     void new_read_token(read_token_t *token_out) {
