@@ -10,6 +10,13 @@
 #include "errors.hpp"
 #include "region/region.hpp"
 
+// TODO: Remove.
+template <class value_t>
+class universe_map_t {
+public:
+    value_t value;
+};
+
 /* `region_map_t` is a mapping from contiguous non-overlapping `region_t`s to `value_t`s.
 It will automatically merge contiguous regions with the same value (in most cases).
 Internally, it's implemented as two nested `range_map_t`s. */

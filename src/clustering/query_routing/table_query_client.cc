@@ -156,27 +156,10 @@ void table_query_client_t::write(
         w, response, order_token, interruptor);
 }
 
+// TODO: Remove this?
 std::set<region_t> table_query_client_t::get_sharding_scheme()
         THROWS_ONLY(cannot_perform_query_exc_t) {
-    // TODO: This whole function just returns a monokey set now, I hope.
-    std::vector<region_t> s;
-    relationships.visit(relationships.get_domain(),
-    [&](const region_t &, const std::set<relationship_t *> &rels) {
-        for (relationship_t *rel : rels) {
-            s.push_back(region_t::universe());
-        }
-    });
-    region_t whole;
-    region_join_result_t res = region_join(s, &whole);
-    if (res != REGION_JOIN_OK || whole != region_t::universe()) {
-        throw cannot_perform_query_exc_t("cannot compute sharding scheme "
-                                         "because primary replicas are "
-                                         "unavailable or duplicated",
-                                         query_state_t::FAILED);
-    }
-    return std::set<region_t>(
-        std::make_move_iterator(s.begin()),
-        std::make_move_iterator(s.end()));
+    return std::set<region_t>{region_t::universe()};
 }
 
 template<class op_type, class fifo_enforcer_token_type, class op_response_type>
@@ -203,30 +186,28 @@ void table_query_client_t::dispatch_immediate_op(
         primaries_to_contact;
     scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> >
         new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
-    relationships.visit(region_t::universe(),
-    [&](const region_t &reg, const std::set<relationship_t *> &rels) {
-        if (op.shard(reg, &new_op_info->sharded_op)) {
+    {
+        // TODO: We're sharding by universe.
+        if (op.shard(region_t::universe(), &new_op_info->sharded_op)) {
             relationship_t *chosen_relationship = nullptr;
-            for (auto jt = rels.begin(); jt != rels.end(); ++jt) {
+            for (relationship_t *rel : relationships) {
                 // If some shards are currently intersecting (this should only happen
                 // temporarily while resharding). `reg` might be a subset of the region
                 // of the relationships in `rels`.
                 // We need to test for that, so we don't send operations to a shard with
                 // the wrong boundaries.
-                // TODO: Weird region_t::universe stuff.
-                if ((*jt)->primary_client && region_t::universe() == reg) {
+                if (rel->primary_client) {
                     if (chosen_relationship) {
                         throw cannot_perform_query_exc_t(
                             "too many primary replicas available",
                             query_state_t::FAILED);
                     }
-                    chosen_relationship = *jt;
+                    chosen_relationship = rel;
                 }
             }
             if (!chosen_relationship) {
                 throw cannot_perform_query_exc_t(
-                    strprintf("primary replica for shard %s not available",
-                              key_range_to_string(reg).c_str()),
+                    strprintf("primary replica not available"),
                     query_state_t::FAILED);
             }
             new_op_info->primary_client = chosen_relationship->primary_client;
@@ -238,7 +219,7 @@ void table_query_client_t::dispatch_immediate_op(
             new_op_info.init(
                 new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
         }
-    });
+    }
 
     std::vector<op_response_type> results(primaries_to_contact.size());
     std::vector<optional<cannot_perform_query_exc_t> >
@@ -339,26 +320,27 @@ void table_query_client_t::dispatch_outdated_read(
     signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
 
-    if (interruptor->is_pulsed()) throw interrupted_exc_t();
+    if (interruptor->is_pulsed()) {
+        throw interrupted_exc_t();
+    }
 
     std::vector<scoped_ptr_t<outdated_read_info_t> > replicas_to_contact;
 
     scoped_ptr_t<outdated_read_info_t> new_op_info(new outdated_read_info_t());
-    relationships.visit(region_t::universe(),
-    [&](const region_t &region, const std::set<relationship_t *> &rels) {
-        if (op.shard(region, &new_op_info->sharded_op)) {
+    {
+        // TODO: We're sharding by universe().
+        if (op.shard(region_t::universe(), &new_op_info->sharded_op)) {
             std::vector<relationship_t *> potential_relationships;
             relationship_t *chosen_relationship = nullptr;
-            for (auto jt = rels.begin(); jt != rels.end(); ++jt) {
+            for (relationship_t *rel : relationships) {
                 // See the comment in `dispatch_immediate_op` about why we need to
                 // check that `region` and the relationship's region are the same.
-                // TODO: More weird region_t::universe stuff.
-                if ((*jt)->direct_bcard != nullptr && region_t::universe() == region) {
-                    if ((*jt)->is_local) {
-                        chosen_relationship = *jt;
+                if (rel->direct_bcard != nullptr) {
+                    if (rel->is_local) {
+                        chosen_relationship = rel;
                         break;
                     } else {
-                        potential_relationships.push_back(*jt);
+                        potential_relationships.push_back(rel);
                     }
                 }
             }
@@ -379,7 +361,7 @@ void table_query_client_t::dispatch_outdated_read(
             replicas_to_contact.push_back(std::move(new_op_info));
             new_op_info.init(new outdated_read_info_t());
         }
-    });
+    }
 
     std::vector<read_response_t> results(replicas_to_contact.size());
     std::vector<std::string> failures(replicas_to_contact.size());
@@ -491,28 +473,23 @@ void table_query_client_t::update_registrant(
 }
 
 template <class value_t>
-class region_map_set_membership_t {
+class universe_map_set_membership_t {
 public:
-    region_map_set_membership_t(region_map_t<std::set<value_t> > *m, const region_t &r, const value_t &v) :
-        map(m), region(r), value(v) {
+    universe_map_set_membership_t(universe_map_t<std::set<value_t> > *m, const value_t &v) :
+            map(m), value(v) {
         // Note that `visit_mutable` might split the region up if there are existing
         // partially overlapping entries (e.g. during a rebalance).
         // Once those entries go away, `region_map_t` should automatically merge the
         // regions again.
-        map->visit_mutable(region, [&](const region_t &, std::set<value_t> *set) {
-            rassert(set->count(value) == 0);
-            set->insert(value);
-        });
+        rassert(map->value.count(value) == 0);
+        map->value.insert(value);
     }
-    ~region_map_set_membership_t() {
-        map->visit_mutable(region, [&](const region_t &, std::set<value_t> *set) {
-            rassert(set->count(value) == 1);
-            set->erase(value);
-        });
+    ~universe_map_set_membership_t() {
+        rassert(map->value.count(value) == 1);
+        map->value.erase(value);
     }
 private:
-    region_map_t<std::set<value_t> > *map;
-    region_t region;
+    universe_map_t<std::set<value_t> > *map;
     value_t value;
 };
 
@@ -543,9 +520,8 @@ void table_query_client_t::relationship_coroutine(
             relationship_record.direct_bcard = nullptr;
         }
 
-        // TODO: relationships is always a one-entry region_map.
-        region_map_set_membership_t<relationship_t *> relationship_map_insertion(
-            &relationships, region_t::universe(), &relationship_record);
+        set_insertion_sentry_t<relationship_t *> relationship_set_insertion(
+            &relationships, &relationship_record);
 
         if (is_start) {
             guarantee(start_count > 0);

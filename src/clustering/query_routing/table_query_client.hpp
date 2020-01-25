@@ -160,7 +160,7 @@ private:
     table_meta_client_t *m_table_meta_client;
 
     std::map<std::pair<peer_id_t, uuid_u>, scoped_ptr_t<cond_t> > coro_stoppers;
-    region_map_t<std::set<relationship_t *> > relationships;
+    std::set<relationship_t *> relationships;
 
     /* `start_cond` will be pulsed when we have either successfully connected to
     or tried and failed to connect to every peer present when the constructor
