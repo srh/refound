@@ -466,27 +466,6 @@ void table_query_client_t::update_registrant(
     }
 }
 
-template <class value_t>
-class universe_map_set_membership_t {
-public:
-    universe_map_set_membership_t(universe_map_t<std::set<value_t> > *m, const value_t &v) :
-            map(m), value(v) {
-        // Note that `visit_mutable` might split the region up if there are existing
-        // partially overlapping entries (e.g. during a rebalance).
-        // Once those entries go away, `region_map_t` should automatically merge the
-        // regions again.
-        rassert(map->value.count(value) == 0);
-        map->value.insert(value);
-    }
-    ~universe_map_set_membership_t() {
-        rassert(map->value.count(value) == 1);
-        map->value.erase(value);
-    }
-private:
-    universe_map_t<std::set<value_t> > *map;
-    value_t value;
-};
-
 void table_query_client_t::relationship_coroutine(
         const std::pair<peer_id_t, uuid_u> &key,
         const table_query_bcard_t &bcard,
