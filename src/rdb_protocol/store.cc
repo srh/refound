@@ -240,7 +240,6 @@ void do_read_for_changefeed(rockshard rocksh,
         rdb_rget_slice(
             rocksh,
             btree,
-            region_t::universe(),  // TODO: current_shard
             rget.region,
             rget.primary_keys,
             superblock,

@@ -124,7 +124,6 @@ void rdb_rget_snapshot_slice(
 void rdb_rget_slice(
     rockshard rocksh,
     btree_slice_t *slice,
-    const region_t &shard,
     const key_range_t &range,
     const optional<std::map<store_key_t, uint64_t> > &primary_keys,
     real_superblock_lock *superblock,

@@ -979,7 +979,6 @@ public:
         rdb_rget_slice(
             rocksh,
             ref.btree,
-            region_t(),
             range,
             r_nullopt,
             ref.superblock,

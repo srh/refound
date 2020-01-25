@@ -1114,7 +1114,6 @@ void rdb_rget_snapshot_slice(
 void rdb_rget_slice(
         rockshard rocksh,
         btree_slice_t *slice,
-        const region_t &shard,
         const key_range_t &range,
         const optional<std::map<store_key_t, uint64_t> > &primary_keys,
         real_superblock_lock *superblock,
@@ -1137,7 +1136,7 @@ void rdb_rget_slice(
                    batchspec,
                    transforms,
                    terminal,
-                   shard,
+                   region_t::universe(),  // TODO: Shard
                    !reversed(sorting)
                        ? ql::limit_read_last_key(range.left)
                        : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
