@@ -193,7 +193,6 @@ std::vector<nearest_geo_read_response_t::dist_pair_t> perform_get_nearest(
     std::string idx_name = "geo";
     read_t read(
         nearest_geo_read_t(
-            region_t::universe(),
             center,
             max_distance,
             max_results,
@@ -329,7 +328,6 @@ std::vector<datum_t> perform_get_intersecting(
     read_t read(
         intersecting_geo_read_t(
             optional<changefeed_stamp_t>(),
-            region_t::universe(),
             serializable_env_t{
                 ql::global_optargs_t(),
                 auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),

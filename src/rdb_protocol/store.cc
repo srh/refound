@@ -494,7 +494,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
 
             changefeed_stamp_response_t r = do_stamp(
                 *geo_read.stamp,
-                geo_read.region,
+                region_t::universe(),
                 read_left);
             if (r.stamp_infos) {
                 res->stamp_response.set(r);
@@ -545,14 +545,14 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             store->rocksh(),
             sindex_uuid,
             store->get_sindex_slice(sindex_uuid),
-            geo_read.region, // This happens to always be the shard for geo reads.
+            region_t::universe(),  // TODO: geo read shard region
             geo_read.query_geometry,
             *geo_read.sindex.region,
             &ql_env,
             geo_read.batchspec,
             geo_read.transforms,
             geo_read.terminal,
-            geo_read.region,
+            region_t::universe(),  // TODO: geo read shard region
             sindex_info,
             geo_read.stamp ? is_stamp_read_t::YES : is_stamp_read_t::NO,
             res);
@@ -610,7 +610,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             geo_read.max_results,
             geo_read.geo_system,
             &ql_env,
-            geo_read.region,
+            region_t::universe(),  // TODO: geo read shard region
             sindex_info,
             res);
     }

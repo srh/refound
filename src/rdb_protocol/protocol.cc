@@ -411,12 +411,12 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
         return rg.region;
     }
 
-    region_t operator()(const intersecting_geo_read_t &gr) const {
-        return gr.region;
+    region_t operator()(const intersecting_geo_read_t &) const {
+        return region_t::universe();
     }
 
-    region_t operator()(const nearest_geo_read_t &gr) const {
-        return gr.region;
+    region_t operator()(const nearest_geo_read_t &) const {
+        return region_t::universe();
     }
 
     region_t operator()(const distribution_read_t &dg) const {
@@ -455,7 +455,7 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
 
     // The key was somehow already extracted from the arg.
     template <class T>
-    bool keyed_read(const T &arg, const store_key_t &key) const {
+    bool keyed_read(const T &arg, const store_key_t &) const {
         *payload_out = arg;
         return true;
     }
@@ -560,20 +560,19 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
     }
 
     bool operator()(const intersecting_geo_read_t &gr) const {
-        bool do_read = rangey_read(gr);
-        if (do_read) {
-            // If we're in an include_initial changefeed, we need to copy the
-            // new region onto the stamp.
-            auto *out = boost::get<intersecting_geo_read_t>(payload_out);
-            if (out->stamp.has_value()) {
-                out->stamp->region = out->region;
-            }
+        *payload_out = gr;
+        // If we're in an include_initial changefeed, we need to copy the
+        // new region onto the stamp.
+        auto *out = boost::get<intersecting_geo_read_t>(payload_out);
+        if (out->stamp.has_value()) {
+            out->stamp->region = region_t::universe();
         }
-        return do_read;
+        return true;
     }
 
     bool operator()(const nearest_geo_read_t &gr) const {
-        return rangey_read(gr);
+        *payload_out = gr;
+        return true;
     }
 
     bool operator()(const distribution_read_t &dg) const {
@@ -1341,10 +1340,9 @@ RDB_IMPL_SERIALIZABLE_11_FOR_CLUSTER(
     terminal,
     sindex,
     sorting);
-RDB_IMPL_SERIALIZABLE_9_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(
     intersecting_geo_read_t,
     stamp,
-    region,
     serializable_env,
     table_name,
     batchspec,
@@ -1352,14 +1350,13 @@ RDB_IMPL_SERIALIZABLE_9_FOR_CLUSTER(
     terminal,
     sindex,
     query_geometry);
-RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
     nearest_geo_read_t,
     serializable_env,
     center,
     max_dist,
     max_results,
     geo_system,
-    region,
     table_name,
     sindex_id);
 

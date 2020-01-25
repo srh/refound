@@ -1245,7 +1245,6 @@ intersecting_geo_read_t intersecting_readgen_t::next_read_impl(
     batchspec_t actual_batchspec = stamp ? batchspec.all() : batchspec;
     return intersecting_geo_read_t(
         std::move(stamp),
-        region_t::universe(),
         serializable_env,
         table_name,
         actual_batchspec,

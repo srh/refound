@@ -350,7 +350,6 @@ public:
 
     intersecting_geo_read_t(
         optional<changefeed_stamp_t> &&_stamp,
-        region_t _region,
         serializable_env_t s_env,
         std::string _table_name,
         ql::batchspec_t _batchspec,
@@ -359,7 +358,6 @@ public:
         sindex_rangespec_t &&_sindex,
         ql::datum_t _query_geometry)
         : stamp(std::move(_stamp)),
-          region(std::move(_region)),
           serializable_env(s_env),
           table_name(std::move(_table_name)),
           batchspec(std::move(_batchspec)),
@@ -370,7 +368,6 @@ public:
 
     optional<changefeed_stamp_t> stamp;
 
-    region_t region; // Primary key range. We need this because of sharding.
     serializable_env_t serializable_env;
     std::string table_name;
     ql::batchspec_t batchspec; // used to size batches
@@ -390,7 +387,6 @@ public:
     nearest_geo_read_t() { }
 
     nearest_geo_read_t(
-            const region_t &_region,
             lon_lat_point_t _center,
             double _max_dist,
             uint64_t _max_results,
@@ -403,7 +399,6 @@ public:
           max_dist(_max_dist),
           max_results(_max_results),
           geo_system(_geo_system),
-          region(_region),
           table_name(_table_name),
           sindex_id(_sindex_id) { }
 
@@ -414,7 +409,6 @@ public:
     uint64_t max_results;
     ellipsoid_spec_t geo_system;
 
-    region_t region; // We need this even for sindex reads due to sharding.
     std::string table_name;
 
     std::string sindex_id;
@@ -423,6 +417,7 @@ RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_t);
 
 class distribution_read_t {
 public:
+    // TODO: Is region ever not universe?
     distribution_read_t()
         : max_depth(0), result_limit(0), region(region_t::universe())
     { }
@@ -438,6 +433,7 @@ public:
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(distribution_read_t);
 
 struct changefeed_subscribe_t {
+    // TODO: shard_region, universe?
     changefeed_subscribe_t() { }
     explicit changefeed_subscribe_t(ql::changefeed::client_t::addr_t _addr)
         : addr(_addr), shard_region(region_t::universe()) { }

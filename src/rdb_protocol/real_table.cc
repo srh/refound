@@ -140,7 +140,6 @@ ql::datum_t real_table_t::read_nearest(
         const ql::configured_limits_t &limits) {
 
     nearest_geo_read_t geo_read(
-        region_t::universe(),
         center,
         max_dist,
         max_results,
