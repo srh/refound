@@ -433,12 +433,10 @@ public:
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(distribution_read_t);
 
 struct changefeed_subscribe_t {
-    // TODO: shard_region, universe?
     changefeed_subscribe_t() { }
     explicit changefeed_subscribe_t(ql::changefeed::client_t::addr_t _addr)
-        : addr(_addr), shard_region(region_t::universe()) { }
+        : addr(_addr) { }
     ql::changefeed::client_t::addr_t addr;
-    region_t shard_region;
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_subscribe_t);
 

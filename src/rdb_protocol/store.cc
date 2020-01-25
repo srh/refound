@@ -312,9 +312,11 @@ void do_read_for_changefeed(rockshard rocksh,
 // TODO: get rid of this extra response_t copy on the stack
 struct rdb_read_visitor_t : public boost::static_visitor<void> {
     void operator()(const changefeed_subscribe_t &s) {
-        auto cserver = store->get_or_make_changefeed_server(s.shard_region);
+        // TODO: We always pass universe?
+        auto cserver = store->get_or_make_changefeed_server(region_t::universe());
         guarantee(cserver.first != nullptr);
-        cserver.first->add_client(s.addr, s.shard_region, cserver.second);
+        // TODO: We always pass universe?
+        cserver.first->add_client(s.addr, region_t::universe(), cserver.second);
         response->response = changefeed_subscribe_response_t();
         auto res = boost::get<changefeed_subscribe_response_t>(&response->response);
         guarantee(res != NULL);

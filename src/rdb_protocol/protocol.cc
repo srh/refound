@@ -423,8 +423,8 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
         return dg.region;
     }
 
-    region_t operator()(const changefeed_subscribe_t &s) const {
-        return s.shard_region;
+    region_t operator()(const changefeed_subscribe_t &) const {
+        return region_t::universe();
     }
 
     region_t operator()(const changefeed_limit_subscribe_t &s) const {
@@ -474,9 +474,7 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
     }
 
     bool operator()(const changefeed_subscribe_t &s) const {
-        // TODO: changefeed_subscribe_t shard_region is always universe?
         changefeed_subscribe_t tmp = s;
-        tmp.shard_region = region_t::universe();
         *payload_out = std::move(tmp);
         return true;
     }
@@ -998,18 +996,6 @@ struct rdb_w_get_region_visitor : public boost::static_visitor<region_t> {
         return rdb_protocol::monokey_region(pd.key);
     }
 
-    region_t operator()(const changefeed_subscribe_t &s) const {
-        return s.shard_region;
-    }
-
-    region_t operator()(const changefeed_limit_subscribe_t &s) const {
-        return s.region;
-    }
-
-    region_t operator()(const changefeed_stamp_t &t) const {
-        return t.region;
-    }
-
     region_t operator()(const sync_t &s) const {
         return s.region;
     }
@@ -1363,7 +1349,7 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
 RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
         distribution_read_t, max_depth, result_limit, region);
 
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_subscribe_t, addr, shard_region);
+RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_subscribe_t, addr);
 RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
     changefeed_limit_subscribe_t,
     addr,
