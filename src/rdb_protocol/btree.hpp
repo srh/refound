@@ -139,7 +139,6 @@ void rdb_rget_secondary_snapshot_slice(
     rockshard rocksh,
     uuid_u sindex_uuid,
     btree_slice_t *slice,
-    const region_t &shard,
     const ql::datumspec_t &datumspec,
     const key_range_t &sindex_range,
     ql::env_t *ql_env,

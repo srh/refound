@@ -1203,7 +1203,6 @@ void rdb_rget_secondary_snapshot_slice(
         rockshard rocksh,
         uuid_u sindex_uuid,
         btree_slice_t *slice,
-        const region_t &shard,
         const ql::datumspec_t &datumspec,
         const key_range_t &sindex_region_range,
         ql::env_t *ql_env,
@@ -1232,7 +1231,7 @@ void rdb_rget_secondary_snapshot_slice(
                    batchspec,
                    transforms,
                    terminal,
-                   shard,
+                   region_t::universe(),  // TODO: Shard.
                    !reversed(sorting)
                        ? ql::limit_read_last_key(sindex_region_range.left)
                        : ql::limit_read_last_key(key_or_max::from_right_bound(sindex_region_range.right)),

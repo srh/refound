@@ -200,7 +200,6 @@ void do_snap_read(
                 rocksh,
                 sindex_uuid,
                 store->get_sindex_slice(sindex_uuid),
-                region_t::universe(),  // TODO: current_shard
                 rget.sindex->datumspec,
                 sindex_range,
                 env,
