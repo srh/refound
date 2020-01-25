@@ -396,18 +396,11 @@ void server_t::limit_stop_mailbox_cb(signal_t *,
 
 void server_t::add_client(
         const client_t::addr_t &addr,
-        region_t region,
         const auto_drainer_t::lock_t &keepalive) {
     keepalive.assert_is_holding(&drainer);
     rwlock_in_line_t spot(&clients_lock, access_t::write);
     spot.write_signal()->wait_lazily_unordered();
     client_info_t *info = &clients[addr];
-
-    // We do this regardless of whether there's already an entry for this
-    // address, because we might be subscribed to multiple regions if we're
-    // oversharded.  This will have to become smarter once you can unsubscribe
-    // at finer granularity (i.e. when we support changefeeds on selections).
-    info->regions.push_back(std::move(region));
 
     // The entry might already exist if we have multiple shards per btree, but
     // that's fine.
@@ -541,11 +534,7 @@ void server_t::send_all(
         // We don't need a write lock as long as we make sure the coroutine
         // doesn't block between reading and updating the stamp.
         ASSERT_NO_CORO_WAITING;
-        if (std::any_of(pair.second.regions.begin(),
-                        pair.second.regions.end(),
-                        std::bind(&region_contains_key, ph::_1, std::cref(key)))) {
-            stamps[pair.first] = pair.second.stamp++;
-        }
+        stamps[pair.first] = pair.second.stamp++;
     }
     acq.reset();
     stamp_spot->reset(); // Done stamping, no need to hold onto it while we send.

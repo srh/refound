@@ -317,8 +317,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
     void operator()(const changefeed_subscribe_t &s) {
         auto cserver = store->get_or_make_changefeed_server();
         guarantee(cserver.first != nullptr);
-        // TODO: We always pass universe?
-        cserver.first->add_client(s.addr, region_t::universe(), cserver.second);
+        cserver.first->add_client(s.addr, cserver.second);
         response->response = changefeed_subscribe_response_t();
         auto res = boost::get<changefeed_subscribe_response_t>(&response->response);
         guarantee(res != NULL);

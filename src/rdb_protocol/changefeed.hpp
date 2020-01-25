@@ -474,7 +474,6 @@ public:
     ~server_t();
     void add_client(
         const client_t::addr_t &addr,
-        region_t region,
         const auto_drainer_t::lock_t &keepalive);
     void add_limit_client(
         const client_t::addr_t &addr,
@@ -537,7 +536,6 @@ private:
         client_info_t();
         scoped_ptr_t<cond_t> cond;
         uint64_t stamp;
-        std::vector<region_t> regions;
         std::map<optional<std::string>,
                  std::vector<scoped_ptr_t<limit_manager_t>>> limit_clients;
         scoped_ptr_t<rwlock_t> limit_clients_lock;
