@@ -543,7 +543,6 @@ public:
                const ql::batchspec_t &batchspec,
                const std::vector<transform_variant_t> &_transforms,
                const optional<terminal_variant_t> &_terminal,
-               region_t region,
                ql::limit_read_last_key last_key,
                sorting_t _sorting,
                require_sindexes_t require_sindex_val)
@@ -552,7 +551,7 @@ public:
           sorting(_sorting),
           accumulator(_terminal.has_value()
                       ? ql::make_terminal(*_terminal)
-                      : ql::make_append(std::move(region),
+                      : ql::make_append(region_t::universe(),
                                         std::move(last_key),
                                         sorting,
                                         batcher.get(),
@@ -1058,7 +1057,6 @@ void rdb_rget_snapshot_slice(
                    batchspec,
                    transforms,
                    terminal,
-                   region_t::universe(),  // TODO: Shard
                    !reversed(sorting)
                        ? ql::limit_read_last_key(range.left)
                        : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
@@ -1135,7 +1133,6 @@ void rdb_rget_slice(
                    batchspec,
                    transforms,
                    terminal,
-                   region_t::universe(),  // TODO: Shard
                    !reversed(sorting)
                        ? ql::limit_read_last_key(range.left)
                        : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
@@ -1231,7 +1228,6 @@ void rdb_rget_secondary_snapshot_slice(
                    batchspec,
                    transforms,
                    terminal,
-                   region_t::universe(),  // TODO: Shard.
                    !reversed(sorting)
                        ? ql::limit_read_last_key(sindex_region_range.left)
                        : ql::limit_read_last_key(key_or_max::from_right_bound(sindex_region_range.right)),
@@ -1306,7 +1302,6 @@ void rdb_rget_secondary_slice(
                    batchspec,
                    transforms,
                    terminal,
-                   region_t::universe(),  // TODO: Shard
                    !reversed(sorting)
                        ? ql::limit_read_last_key(sindex_region_range.left)
                        : ql::limit_read_last_key(key_or_max::from_right_bound(sindex_region_range.right)),
@@ -1360,7 +1355,6 @@ void rdb_get_intersecting_slice(
         rockshard rocksh,
         uuid_u sindex_uuid,
         btree_slice_t *slice,
-        const region_t &shard,
         const ql::datum_t &query_geometry,
         const key_range_t &sindex_range,
         ql::env_t *ql_env,
@@ -1384,7 +1378,6 @@ void rdb_get_intersecting_slice(
     collect_all_geo_intersecting_cb_t callback(
         slice,
         geo_job_data_t(ql_env,
-                       shard,
                        // The sorting is never `DESCENDING`, so this is always right.
                        ql::limit_read_last_key(sindex_range.left),
                        batchspec,

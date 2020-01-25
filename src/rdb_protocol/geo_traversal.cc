@@ -49,7 +49,6 @@ const unsigned int NEAREST_NUM_VERTICES = 8;
 
 geo_job_data_t::geo_job_data_t(
     ql::env_t *_env,
-    region_t region,
     ql::limit_read_last_key last_key,
     const ql::batchspec_t &batchspec,
     const std::vector<ql::transform_variant_t> &_transforms,
@@ -59,7 +58,7 @@ geo_job_data_t::geo_job_data_t(
       batcher(make_scoped<ql::batcher_t>(batchspec.to_batcher())),
       accumulator(_terminal.has_value()
                   ? ql::make_terminal(*_terminal)
-                  : ql::make_append(std::move(region),
+                  : ql::make_append(region_t::universe(),
                                     std::move(last_key),
                                     // This causes the accumulator to include sindex_val
                                     // in the result, which we need for post-filtering in

@@ -175,7 +175,6 @@ void rdb_get_intersecting_slice(
         rockshard rocksh,
         uuid_u sindex_uuid,
         btree_slice_t *slice,
-        const region_t &shard,
         const ql::datum_t &query_geometry,
         const key_range_t &sindex_range,
         ql::env_t *ql_env,

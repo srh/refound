@@ -543,7 +543,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             store->rocksh(),
             sindex_uuid,
             store->get_sindex_slice(sindex_uuid),
-            region_t::universe(),  // TODO: geo read shard region
             geo_read.query_geometry,
             *geo_read.sindex.region,
             &ql_env,
