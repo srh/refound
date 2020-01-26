@@ -13,6 +13,7 @@ struct contract_id_t {
 RDB_MAKE_SERIALIZABLE_1(contract_id_t, value);  // Could be declared/impled jsut for cluster.
 RDB_MAKE_SERIALIZABLE_1(namespace_id_t, value);
 RDB_MAKE_SERIALIZABLE_1(database_id_t, value);
+RDB_MAKE_SERIALIZABLE_1(branch_id_t, value);
 
 #define RDB_ID_TYPES_OP(typ, op) \
     inline bool operator op(const typ &x, const typ &y) { \
@@ -23,6 +24,7 @@ RDB_MAKE_SERIALIZABLE_1(database_id_t, value);
 RDB_ID_TYPES_OP(contract_id_t, <);
 RDB_ID_TYPES_OP(namespace_id_t, <);
 RDB_ID_TYPES_OP(database_id_t, <);
+RDB_ID_TYPES_OP(branch_id_t, <);
 
 RDB_ID_TYPES_OP(contract_id_t, ==);
 RDB_ID_TYPES_OP(contract_id_t, !=);
@@ -30,6 +32,8 @@ RDB_ID_TYPES_OP(namespace_id_t, ==);
 RDB_ID_TYPES_OP(namespace_id_t, !=);
 RDB_ID_TYPES_OP(database_id_t, ==);
 RDB_ID_TYPES_OP(database_id_t, !=);
+RDB_ID_TYPES_OP(branch_id_t, ==);
+RDB_ID_TYPES_OP(branch_id_t, !=);
 
 #undef RDB_ID_TYPES_OP
 
@@ -39,8 +43,14 @@ inline std::string uuid_to_str(const namespace_id_t &x) {
 inline std::string uuid_to_str(const database_id_t &x) {
     return uuid_to_str(x.value);
 }
+inline std::string uuid_to_str(const branch_id_t &x) {
+    return uuid_to_str(x.value);
+}
 
 inline void debug_print(printf_buffer_t *buf, const contract_id_t &x) {
+    debug_print(buf, x.value);
+}
+inline void debug_print(printf_buffer_t *buf, const branch_id_t &x) {
     debug_print(buf, x.value);
 }
 

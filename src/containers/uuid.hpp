@@ -67,9 +67,13 @@ struct namespace_id_t {
 struct database_id_t {
     uuid_u value;
 };
-typedef uuid_u backfill_session_id_t;
-typedef uuid_u branch_id_t;
-typedef uuid_u issue_id_t;
+struct branch_id_t {
+    uuid_u value;
+    // The nil branch is an actual value of branch id (deepest ancestor), so we wrap the
+    // is_nil method only for this struct wrapper type.
+    bool is_nil() const { return value.is_nil(); }
+};
+using issue_id_t = uuid_u;
 
 namespace std {
 template<> struct hash<uuid_u> {

@@ -62,7 +62,7 @@ TPTEST(BtreeMetainfo, MetainfoTest) {
     for (int i = 0; i < 3; ++i) {
         std::map<std::string, version_t> metainfo;
         for (int j = 0; j < 100; ++j) {
-            metainfo[random_string()] = version_t(generate_uuid(), state_timestamp_t::zero());
+            metainfo[random_string()] = version_t(branch_id_t{generate_uuid()}, state_timestamp_t::zero());
         }
         {
             scoped_ptr_t<txn_t> txn;

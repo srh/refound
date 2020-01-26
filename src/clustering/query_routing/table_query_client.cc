@@ -14,7 +14,7 @@
 table_query_client_t::table_query_client_t(
         const namespace_id_t &_table_id,
         mailbox_manager_t *mm,
-        watchable_map_t<std::pair<peer_id_t, uuid_u>, table_query_bcard_t> *d,
+        watchable_map_t<std::pair<peer_id_t, branch_id_t>, table_query_bcard_t> *d,
         multi_table_manager_t *mtm,
         rdb_context_t *_ctx,
         table_meta_client_t *table_meta_client)
@@ -602,7 +602,7 @@ void table_query_client_t::dispatch_debug_direct_read(
 }
 
 void table_query_client_t::update_registrant(
-        const std::pair<peer_id_t, uuid_u> &key,
+        const std::pair<peer_id_t, branch_id_t> &key,
         const table_query_bcard_t *bcard) {
     auto it = coro_stoppers.find(key);
     if (bcard == nullptr && it != coro_stoppers.end()) {
@@ -619,7 +619,7 @@ void table_query_client_t::update_registrant(
 }
 
 void table_query_client_t::relationship_coroutine(
-        const std::pair<peer_id_t, uuid_u> &key,
+        const std::pair<peer_id_t, branch_id_t> &key,
         const table_query_bcard_t &bcard,
         bool is_start,
         auto_drainer_t::lock_t lock) THROWS_NOTHING {

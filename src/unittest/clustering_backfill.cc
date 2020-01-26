@@ -24,7 +24,7 @@ TPTEST(ClusteringBackfill, BackfillTest) {
     mock_store_t backfillee_store;
 
     in_memory_branch_history_manager_t branch_history_manager;
-    branch_id_t dummy_branch_id = generate_uuid();
+    branch_id_t dummy_branch_id{generate_uuid()};
     {
         branch_birth_certificate_t dummy_branch;
         dummy_branch.initial_timestamp = state_timestamp_t::zero();

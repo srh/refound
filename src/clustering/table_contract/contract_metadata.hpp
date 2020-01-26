@@ -226,7 +226,7 @@ public:
     };
 
     table_raft_state_t()
-        : current_branches(region_t::universe(), nil_uuid()) { }
+        : current_branches(region_t::universe(), branch_id_t{nil_uuid()}) { }
 
     void apply_change(const change_t &c);
 

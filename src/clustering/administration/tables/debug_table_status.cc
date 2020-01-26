@@ -160,7 +160,7 @@ ql::datum_t convert_debug_contract_ack_state_to_datum(
 
 ql::datum_t convert_debug_version_to_datum(const version_t &version) {
     ql::datum_object_builder_t builder;
-    builder.overwrite("branch", convert_uuid_to_datum(version.branch));
+    builder.overwrite("branch", convert_uuid_to_datum(version.branch.value));
     builder.overwrite("timestamp", ql::datum_t(static_cast<double>(
         version.timestamp.to_repli_timestamp().longtime)));
     return std::move(builder).to_datum();
@@ -192,7 +192,7 @@ ql::datum_t convert_debug_current_branches_to_datum(
             pair_builder.overwrite("region",
                 convert_debug_region_to_datum(region));
             pair_builder.overwrite("branch",
-                convert_uuid_to_datum(branch));
+                convert_uuid_to_datum(branch.value));
             builder.add(std::move(pair_builder).to_datum());
         });
     return std::move(builder).to_datum();
@@ -213,7 +213,7 @@ ql::datum_t convert_debug_branch_history_to_datum(
     ql::datum_array_builder_t builder(ql::configured_limits_t::unlimited);
     for (const auto &branch : branch_history.branches) {
         ql::datum_object_builder_t branch_builder;
-        branch_builder.overwrite("branch", convert_uuid_to_datum(branch.first));
+        branch_builder.overwrite("branch", convert_uuid_to_datum(branch.first.value));
         branch_builder.overwrite(
             "branch_birth_certificate",
             convert_debug_branch_birth_certificate_to_datum(branch.second));

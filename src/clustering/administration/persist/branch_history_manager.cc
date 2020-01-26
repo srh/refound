@@ -12,7 +12,7 @@ void real_branch_history_manager_t::erase(
     write_txn->read_many<branch_birth_certificate_t>(
         mdprefix_branch_birth_certificate().suffix(uuid_to_str(table_id) + "/"),
         [&](const std::string &branch_id_str, const branch_birth_certificate_t &) {
-            branch_id_t branch_id = str_to_uuid(branch_id_str);
+            branch_id_t branch_id{str_to_uuid(branch_id_str)};
             branch_ids.insert(branch_id);
         },
         &non_interruptor);
@@ -34,7 +34,7 @@ real_branch_history_manager_t::real_branch_history_manager_t(
     metadata_read_txn->read_many<branch_birth_certificate_t>(
         mdprefix_branch_birth_certificate().suffix(uuid_to_str(table_id) + "/"),
         [&](const std::string &branch_id_str, const branch_birth_certificate_t &bc) {
-            branch_id_t branch_id = str_to_uuid(branch_id_str);
+            branch_id_t branch_id{str_to_uuid(branch_id_str)};
             cache.branches.insert(std::make_pair(branch_id, bc));
         },
         interruptor);

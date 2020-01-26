@@ -54,7 +54,7 @@ void dummy_performer_t::write(const write_t &_write,
 
     store->write(
             DEBUG_ONLY(metainfo_checker, )
-            region_map_t<version_t>(region_t::universe(), version_t(uuid_u(), timestamp)),
+            region_map_t<version_t>(region_t::universe(), version_t(branch_id_t{uuid_u()}, timestamp)),
             _write, response, write_durability_t::SOFT, timestamp, order_token, &token, &non_interruptor);
 }
 

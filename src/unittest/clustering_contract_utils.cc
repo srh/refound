@@ -57,7 +57,7 @@ cpu_branch_ids_t quick_cpu_branch(
 
     /* Register the branches */
     for (size_t i = 0; i < CPU_SHARDING_FACTOR; ++i) {
-        branch_id_t bid = generate_uuid();
+        branch_id_t bid{generate_uuid()};
         bhist->branches.insert(std::make_pair(bid, bcs[i]));
         res.branch_ids[i] = bid;
     }

@@ -76,7 +76,7 @@ primary_dispatcher_t::primary_dispatcher_t(
         });
     most_recent_acked_write_timestamp = current_timestamp;
 
-    branch_id = generate_uuid();
+    branch_id = branch_id_t{generate_uuid()};
     branch_bc.origin = base_version;
     branch_bc.initial_timestamp = current_timestamp;
 }

@@ -30,7 +30,7 @@ public:
     table_query_client_t(
             const namespace_id_t &table_id,
             mailbox_manager_t *mm,
-            watchable_map_t<std::pair<peer_id_t, uuid_u>, table_query_bcard_t>
+            watchable_map_t<std::pair<peer_id_t, branch_id_t>, table_query_bcard_t>
                 *directory,
             multi_table_manager_t *multi_table_manager,
             rdb_context_t *,
@@ -168,24 +168,24 @@ private:
             signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
-    void update_registrant(const std::pair<peer_id_t, uuid_u> &key,
+    void update_registrant(const std::pair<peer_id_t, branch_id_t> &key,
                            const table_query_bcard_t *bcard);
 
     void relationship_coroutine(
-        const std::pair<peer_id_t, uuid_u> &key,
+        const std::pair<peer_id_t, branch_id_t> &key,
         const table_query_bcard_t &bcard,
         bool is_start,
         auto_drainer_t::lock_t lock) THROWS_NOTHING;
 
     namespace_id_t const table_id;
     mailbox_manager_t *const mailbox_manager;
-    watchable_map_t<std::pair<peer_id_t, uuid_u>, table_query_bcard_t>
+    watchable_map_t<std::pair<peer_id_t, branch_id_t>, table_query_bcard_t>
         *const directory;
     multi_table_manager_t *const multi_table_manager;
     rdb_context_t *const ctx;
     table_meta_client_t *m_table_meta_client;
 
-    std::map<std::pair<peer_id_t, uuid_u>, scoped_ptr_t<cond_t> > coro_stoppers;
+    std::map<std::pair<peer_id_t, branch_id_t>, scoped_ptr_t<cond_t> > coro_stoppers;
     std::set<relationship_t *> relationships;
 
     /* `start_cond` will be pulsed when we have either successfully connected to
@@ -199,7 +199,7 @@ private:
 
     auto_drainer_t relationship_coroutine_auto_drainer;
 
-    watchable_map_t<std::pair<peer_id_t, uuid_u>, table_query_bcard_t>::all_subs_t subs;
+    watchable_map_t<std::pair<peer_id_t, branch_id_t>, table_query_bcard_t>::all_subs_t subs;
 
     DISABLE_COPYING(table_query_client_t);
 };

@@ -234,7 +234,7 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
             contract.primary->server == server_id) {
         key.role = execution_key_t::role_t::primary;
         key.primary = server_id_t::from_server_uuid(nil_uuid());
-        key.branch = nil_uuid();
+        key.branch = branch_id_t{nil_uuid()};
     } else if (contract.the_replica == server_id) {
         key.role = execution_key_t::role_t::secondary;
         if (static_cast<bool>(contract.primary)) {
@@ -246,7 +246,7 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
     } else {
         key.role = execution_key_t::role_t::erase;
         key.primary = server_id_t::from_server_uuid(nil_uuid());
-        key.branch = nil_uuid();
+        key.branch = branch_id_t{nil_uuid()};
     }
     return key;
 }
@@ -261,7 +261,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
                 /* Extract the current branch ID for the region covered by this contract.
                 If there are multiple branches for different subregions, we consider the
                 branch as incoherent and don't set a branch ID. */
-                branch_id_t branch = nil_uuid();
+                branch_id_t branch{nil_uuid()};
                 bool branch_mismatch = false;
                 new_state->current_branches.visit(key_range_t::universe(),
                 [&](const region_t &, const branch_id_t &b) {
@@ -272,7 +272,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
                     }
                 });
                 if (branch_mismatch) {
-                    branch = nil_uuid();
+                    branch = branch_id_t{nil_uuid()};
                 }
 
                 execution_key_t key = get_contract_key(new_pair.second, branch);

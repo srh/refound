@@ -1,5 +1,7 @@
 #include "clustering/immediate_consistency/version.hpp"
 
+#include "clustering/id_types.hpp"
+
 void debug_print(printf_buffer_t *buf, const version_t &v) {
     buf->appendf("v{");
     debug_print(buf, v.branch);

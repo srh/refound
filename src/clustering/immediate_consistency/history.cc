@@ -3,6 +3,8 @@
 
 #include <stack>
 
+#include "clustering/id_types.hpp"
+
 RDB_IMPL_SERIALIZABLE_2_SINCE_v1_13(version_t, branch, timestamp);
 
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(branch_birth_certificate_t,

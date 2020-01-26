@@ -30,7 +30,7 @@ template <class> class watchable_t;
 class namespace_repo_t : public home_thread_mixin_t {
 public:
     /* Alias to reduce verbosity */
-    typedef std::pair<peer_id_t, std::pair<namespace_id_t, uuid_u> >
+    typedef std::pair<peer_id_t, std::pair<namespace_id_t, branch_id_t> >
         directory_key_t;
 
     namespace_repo_t(

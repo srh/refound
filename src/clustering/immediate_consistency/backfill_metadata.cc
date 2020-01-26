@@ -1,6 +1,8 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/immediate_consistency/backfill_metadata.hpp"
 
+#include "clustering/id_types.hpp"
+
 backfill_config_t::backfill_config_t() :
     item_queue_mem_size(4 * MEGABYTE),
     item_chunk_mem_size(100 * KILOBYTE),

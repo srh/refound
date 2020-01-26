@@ -35,7 +35,7 @@ void erase_execution_t::run(auto_drainer_t::lock_t keepalive) {
             /* do nothing */
         }
     }
-    params->enable_gc(nil_uuid());
+    params->enable_gc(branch_id_t{nil_uuid()});
 }
 
 

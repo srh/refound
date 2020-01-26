@@ -87,7 +87,7 @@ void namespace_repo_t::create_and_destroy_namespace_interface(
     class table_directory_converter_t :
         public watchable_map_transform_t<
             directory_key_t, table_query_bcard_t,
-            std::pair<peer_id_t, uuid_u>, table_query_bcard_t> {
+            std::pair<peer_id_t, branch_id_t>, table_query_bcard_t> {
     public:
         table_directory_converter_t(
                 watchable_map_t<directory_key_t, table_query_bcard_t> *_directory,
@@ -97,7 +97,7 @@ void namespace_repo_t::create_and_destroy_namespace_interface(
             { }
         bool key_1_to_2(
                 const directory_key_t &key1,
-                std::pair<peer_id_t, uuid_u> *key2_out) {
+                std::pair<peer_id_t, branch_id_t> *key2_out) {
             if (key1.second.first == table_id) {
                 key2_out->first = key1.first;
                 key2_out->second = key1.second.second;
@@ -112,7 +112,7 @@ void namespace_repo_t::create_and_destroy_namespace_interface(
             *value2_out = value1;
         }
         bool key_2_to_1(
-                const std::pair<peer_id_t, uuid_u> &key2,
+                const std::pair<peer_id_t, branch_id_t> &key2,
                 directory_key_t *key1_out) {
             key1_out->first = key2.first;
             key1_out->second.first = table_id;
@@ -122,7 +122,7 @@ void namespace_repo_t::create_and_destroy_namespace_interface(
     private:
         namespace_id_t table_id;
     } directory_converter_on_home_thread(directory, table_id);
-    cross_thread_watchable_map_var_t<std::pair<peer_id_t, uuid_u>, table_query_bcard_t>
+    cross_thread_watchable_map_var_t<std::pair<peer_id_t, branch_id_t>, table_query_bcard_t>
         directory_converter_on_this_thread(&directory_converter_on_home_thread, thread);
     on_thread_t switch_back(thread);
 

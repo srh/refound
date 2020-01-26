@@ -31,11 +31,11 @@ public:
     version_t(branch_id_t bid, state_timestamp_t ts) :
         branch(bid), timestamp(ts) { }
     static version_t zero() {
-        return version_t(nil_uuid(), state_timestamp_t::zero());
+        return version_t(branch_id_t{nil_uuid()}, state_timestamp_t::zero());
     }
 
     bool operator==(const version_t &v) const{
-        return branch == v.branch && timestamp == v.timestamp;
+        return branch.value == v.branch.value && timestamp == v.timestamp;
     }
     bool operator!=(const version_t &v) const {
         return !(*this == v);

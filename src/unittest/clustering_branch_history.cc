@@ -1,6 +1,7 @@
 // Copyright 2010-2013 RethinkDB, all rights reserved.
 #include "unittest/gtest.hpp"
 
+#include "clustering/id_types.hpp"
 #include "clustering/immediate_consistency/history.hpp"
 #include "containers/uuid.hpp"
 #include "rdb_protocol/protocol.hpp"
@@ -40,14 +41,14 @@ branch_id_t quick_branch(
     bc.origin.visit(bc.get_region(), [&](const region_t &, const version_t &version) {
         bc.initial_timestamp = std::max(bc.initial_timestamp, version.timestamp);
     });
-    branch_id_t bid = generate_uuid();
+    branch_id_t bid{generate_uuid()};
     bhist->branches.insert(std::make_pair(bid, bc));
     return bid;
 }
 
 TPTEST(ClusteringBranchHistory, IsAncestor) {
     branch_history_t bh;
-    branch_id_t b1 = quick_branch(&bh, { {"A-Z", nil_uuid(), 0} });
+    branch_id_t b1 = quick_branch(&bh, { {"A-Z", branch_id_t{nil_uuid()}, 0} });
     branch_id_t b2 = quick_branch(&bh, { {"A-M", b1, 123} });
     branch_id_t b3 = quick_branch(&bh, { {"N-Z", b1, 456} });
     branch_id_t b4 = quick_branch(&bh, { {"A-M", b2, 1000}, {"N-Z", b3, 1000} });
@@ -84,7 +85,7 @@ TPTEST(ClusteringBranchHistory, IsAncestor) {
 
 TPTEST(ClusteringBranchHistory, CommonAncestor) {
     branch_history_t bh;
-    branch_id_t b1 = quick_branch(&bh, { {"A-Z", nil_uuid(), 0} });
+    branch_id_t b1 = quick_branch(&bh, { {"A-Z", branch_id_t{nil_uuid()}, 0} });
     branch_id_t b2 = quick_branch(&bh, { {"A-Z", b1, 123} });
     branch_id_t b3 = quick_branch(&bh, { {"A-Z", b1, 456} });
 
@@ -124,8 +125,8 @@ TPTEST(ClusteringBranchHistory, CommonAncestor) {
 
 TPTEST(ClusteringBranchHistory, CommonAncestorSplit) {
     branch_history_t bh;
-    branch_id_t b1l = quick_branch(&bh, { {"A-M", nil_uuid(), 0} });
-    branch_id_t b1r = quick_branch(&bh, { {"N-Z", nil_uuid(), 0} });
+    branch_id_t b1l = quick_branch(&bh, { {"A-M", branch_id_t{nil_uuid()}, 0} });
+    branch_id_t b1r = quick_branch(&bh, { {"N-Z", branch_id_t{nil_uuid()}, 0} });
     branch_id_t b2 = quick_branch(&bh, { {"A-M", b1l, 123}, {"N-Z", b1r, 456} });
     branch_id_t b3 = quick_branch(&bh, { {"A-M", b1l, 456}, {"N-Z", b1r, 123} });
 
@@ -146,7 +147,7 @@ TPTEST(ClusteringBranchHistory, CommonAncestorSameOrigin) {
     All of the branches descending from `b1` have exactly the same starting timestamp.
     This hits a weird corner case in `version_find_common()`. */
     branch_history_t bh;
-    branch_id_t b1 = quick_branch(&bh, { {"A-Z", nil_uuid(), 0} });
+    branch_id_t b1 = quick_branch(&bh, { {"A-Z", branch_id_t{nil_uuid()}, 0} });
     branch_id_t b11 = quick_branch(&bh, { {"A-Z", b1, 123} });
     branch_id_t b12 = quick_branch(&bh, { {"A-Z", b1, 123} });
     branch_id_t b111 = quick_branch(&bh, { {"A-Z", b11, 123} });
