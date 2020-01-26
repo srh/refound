@@ -2,6 +2,7 @@
 #include "clustering/administration/tables/table_metadata.hpp"
 
 #include "clustering/administration/tables/database_metadata.hpp"
+#include "clustering/id_types.hpp"
 #include "containers/archive/archive.hpp"
 #include "containers/archive/boost_types.hpp"
 #include "containers/archive/stl_types.hpp"

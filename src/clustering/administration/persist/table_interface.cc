@@ -11,6 +11,7 @@
 #include "clustering/administration/persist/file_keys.hpp"
 #include "clustering/administration/persist/raft_storage_interface.hpp"
 #include "clustering/administration/perfmon_collection_repo.hpp"
+#include "clustering/id_types.hpp"
 #include "clustering/table_contract/store_ptr.hpp"
 #include "logger.hpp"
 #include "rdb_protocol/store.hpp"
@@ -128,7 +129,7 @@ void real_table_persistence_interface_t::read_all_metadata(
     read_txn.read_many<table_active_persistent_state_t>(
         mdprefix_table_active(),
         [&](const std::string &uuid_str, const table_active_persistent_state_t &state) {
-            active_tables[str_to_uuid(uuid_str)] = state;
+            active_tables[namespace_id_t{str_to_uuid(uuid_str)}] = state;
         },
         interruptor);
     storage_interfaces.clear();
@@ -142,7 +143,7 @@ void real_table_persistence_interface_t::read_all_metadata(
     read_txn.read_many<table_inactive_persistent_state_t>(
         mdprefix_table_inactive(),
         [&](const std::string &uuid_str, const table_inactive_persistent_state_t &s) {
-            inactive_cb(str_to_uuid(uuid_str), s, &read_txn);
+            inactive_cb(namespace_id_t{str_to_uuid(uuid_str)}, s, &read_txn);
         },
         interruptor);
 }

@@ -80,7 +80,10 @@ private:
 
     static std::string item_to_str(const name_string_t &str);
     static std::string item_to_str(const std::string &str);
-    static std::string item_to_str(const uuid_u &id);
+    static std::string item_to_str(const namespace_id_t &id);
+    static std::string item_to_str(const database_id_t &id);
+
+    static std::string help_item_to_str(const uuid_u &id);
 };
 
 class issue_tracker_t {

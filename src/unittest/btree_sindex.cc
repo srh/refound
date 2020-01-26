@@ -44,7 +44,9 @@ TPTEST(BTreeSindex, LowLevelOps) {
 
     cache_t cache(&get_global_perfmon_collection());
     cache_conn_t cache_conn(&cache);
-    namespace_id_t table_id = str_to_uuid("12345678-abcd-abcd-abcd-12345678abcd");
+    namespace_id_t table_id = namespace_id_t{
+        str_to_uuid("12345678-abcd-abcd-abcd-12345678abcd")
+    };
 
     rockshard rocksh(io_backender.rocks(), table_id);
 

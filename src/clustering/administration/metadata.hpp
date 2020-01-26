@@ -161,11 +161,11 @@ public:
 
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(cluster_directory_metadata_t);
 
-template<class T>
+template<class IdType, class T>
 bool search_metadata_by_uuid(
-        std::map<uuid_u, deletable_t<T> > *map,
-        const uuid_u &uuid,
-        typename std::map<uuid_u, deletable_t<T> >::iterator *it_out) {
+        std::map<IdType, deletable_t<T> > *map,
+        const IdType &uuid,
+        typename std::map<IdType, deletable_t<T> >::iterator *it_out) {
     auto it = map->find(uuid);
     if (it != map->end() && !it->second.is_deleted()) {
         *it_out = it;

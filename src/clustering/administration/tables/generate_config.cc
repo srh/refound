@@ -2,6 +2,7 @@
 #include "clustering/administration/tables/generate_config.hpp"
 
 #include "clustering/administration/servers/config_client.hpp"
+#include "clustering/id_types.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "containers/counted.hpp"
 
@@ -253,7 +254,7 @@ void table_generate_config(
 
     /* Find the config for the specific table we're reconfiguring, if any */
     const table_config_and_shards_t *old_config = nullptr;
-    if (!table_id.is_nil()) {
+    if (!table_id.value.is_nil()) {
         auto it = old_table_configs.find(table_id);
         if (it == old_table_configs.end()) {
             if (disconnected_tables.count(table_id) == 1) {
@@ -308,7 +309,7 @@ void table_generate_config(
                 const size_t shard = 0;
                 pairing_t p;
                 p.shard = shard;
-                if (!table_id.is_nil()) {
+                if (!table_id.value.is_nil()) {
                     p.backfill_cost = estimate_backfill_cost();
                 } else {
                     /* We're creating a new table, so we won't have to backfill no matter

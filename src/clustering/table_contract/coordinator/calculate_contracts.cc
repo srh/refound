@@ -650,7 +650,8 @@ void calculate_all_contracts(
         /* The contracts remaining in `new_contract_map` are actually new; whatever
         contracts used to cover their region have been deleted. So assign them contract
         IDs and export them. */
-        add_contracts_out->insert(std::make_pair(generate_uuid(), pair.second));
+        add_contracts_out->insert(
+            std::make_pair(contract_id_t{generate_uuid()}, pair.second));
     }
 }
 

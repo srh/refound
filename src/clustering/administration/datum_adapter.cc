@@ -175,7 +175,7 @@ bool convert_table_id_to_datums(
     }
     if (table_name_or_uuid_out != nullptr) {
         *table_name_or_uuid_out = convert_name_or_uuid_to_datum(
-            basic_config.name, table_id, identifier_format);
+            basic_config.name, table_id.value, identifier_format);
     }
     if (table_name_out != nullptr) *table_name_out = basic_config.name;
     name_string_t db_name;
@@ -187,7 +187,7 @@ bool convert_table_id_to_datums(
     }
     if (db_name_or_uuid_out != nullptr) {
         *db_name_or_uuid_out = convert_name_or_uuid_to_datum(
-            db_name, basic_config.database, identifier_format);
+            db_name, basic_config.database.value, identifier_format);
     }
     if (db_name_out != nullptr) *db_name_out = db_name;
     return true;
@@ -207,7 +207,7 @@ bool convert_database_id_to_datum(
     name_string_t db_name = it->second.get_ref().name.get_ref();
     if (db_name_or_uuid_out != nullptr) {
         *db_name_or_uuid_out =
-            convert_name_or_uuid_to_datum(db_name, db_id, identifier_format);
+            convert_name_or_uuid_to_datum(db_name, db_id.value, identifier_format);
     }
     if (db_name_out != nullptr) *db_name_out = db_name;
     return true;
@@ -235,7 +235,7 @@ bool convert_database_id_from_datum(
         return true;
     } else {
         database_id_t db_id;
-        if (!convert_uuid_from_datum(db_name_or_uuid, &db_id, error_out)) {
+        if (!convert_uuid_from_datum(db_name_or_uuid, &db_id.value, error_out)) {
             return false;
         }
         auto it = metadata.databases.databases.find(db_id);
@@ -246,8 +246,12 @@ bool convert_database_id_from_datum(
                 query_state_t::FAILED};
             return false;
         }
-        if (db_id_out != nullptr) *db_id_out = db_id;
-        if (db_name_out != nullptr) *db_name_out = it->second.get_ref().name.get_ref();
+        if (db_id_out != nullptr) {
+            *db_id_out = db_id;
+        }
+        if (db_name_out != nullptr) {
+            *db_name_out = it->second.get_ref().name.get_ref();
+        }
         return true;
     }
 }

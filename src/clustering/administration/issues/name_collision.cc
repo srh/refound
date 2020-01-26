@@ -146,7 +146,15 @@ std::vector<std::string> server_ids_to_str_ids(const std::vector<server_id_t> &i
     }
     return res;
 }
-std::vector<std::string> uuids_to_str_ids(const std::vector<uuid_u> &ids) {
+std::vector<std::string> table_ids_to_str_ids(const std::vector<namespace_id_t> &ids) {
+    std::vector<std::string> res;
+    res.reserve(ids.size());
+    for (const auto &id : ids) {
+        res.push_back(uuid_to_str(id));
+    }
+    return res;
+}
+std::vector<std::string> database_ids_to_str_ids(const std::vector<database_id_t> &ids) {
     std::vector<std::string> res;
     res.reserve(ids.size());
     for (const auto &id : ids) {
@@ -180,7 +188,7 @@ db_name_collision_issue_t::db_name_collision_issue_t(
         const std::vector<database_id_t> &_collided_ids) :
     name_collision_issue_t(from_hash(base_issue_id, _name),
                            _name,
-                           uuids_to_str_ids(_collided_ids)) { }
+                           database_ids_to_str_ids(_collided_ids)) { }
 
 bool db_name_collision_issue_t::build_info_and_description(
         UNUSED const metadata_t &metadata,
@@ -201,7 +209,7 @@ table_name_collision_issue_t::table_name_collision_issue_t(
         const std::vector<namespace_id_t> &_collided_ids) :
     name_collision_issue_t(from_hash(base_issue_id, _db_id, _name),
                            _name,
-                           uuids_to_str_ids(_collided_ids)),
+                           table_ids_to_str_ids(_collided_ids)),
     db_id(_db_id) { }
 
 bool table_name_collision_issue_t::build_info_and_description(

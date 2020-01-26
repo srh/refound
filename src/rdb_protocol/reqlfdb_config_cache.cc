@@ -2,6 +2,7 @@
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
 #include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/id_types.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs.hpp"
@@ -28,7 +29,7 @@ void config_cache_wipe(reqlfdb_config_cache *cache) {
     *cache = std::move(tmp);
 }
 
-ukey_string db_by_id_key(const uuid_u &db_id) {
+ukey_string db_by_id_key(const database_id_t &db_id) {
     // We make an aesthetic key.
     return ukey_string{uuid_to_str(db_id)};
 }
@@ -81,7 +82,7 @@ std::pair<database_id_t, std::string> unserialize_table_by_name_key(key_view key
     guarantee(chopped.data[uuid_u::kStringSize] == table_by_name_separator[0] &&
               strlen(table_by_name_separator) == 1);
     ret.second = unserialize_table_by_name_table_name_part(table_name);
-    bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first);
+    bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first.value);
     guarantee(is_uuid);
     return ret;
 }
@@ -102,7 +103,7 @@ ukey_string table_by_name_bound(
 }
 
 
-ukey_string table_by_id_key(const uuid_u &table_id) {
+ukey_string table_by_id_key(const namespace_id_t &table_id) {
     return ukey_string{uuid_to_str(table_id)};
 }
 
@@ -189,7 +190,7 @@ bool config_cache_db_create(
 
     ASSERT_NO_CORO_WAITING;
 
-    database_id_t db_id = generate_uuid();
+    database_id_t db_id = database_id_t{generate_uuid()};
     // TODO: Use uniform reql datum primary key serialization, how about that idea?
     ukey_string db_id_key = db_by_id_key(db_id);
     std::string db_id_value = serialize_for_cluster_to_string(db_id);
@@ -394,7 +395,7 @@ bool config_cache_table_create(
 
     // Okay, the db's present, the table is not present.  Create the table.
 
-    const uuid_u table_id = generate_uuid();
+    const namespace_id_t table_id = namespace_id_t{generate_uuid()};
 
     // TODO: Figure out how to name these sorts of variables.
     ukey_string table_pkey = table_by_id_key(table_id);
@@ -415,7 +416,7 @@ bool config_cache_table_create(
 
 bool outer_config_cache_table_create(
         FDBTransaction *txn,
-        const uuid_u &db_id,
+        const database_id_t &db_id,
         const name_string_t &table_name,
         const std::string &primary_key,
         write_durability_t durability,
@@ -493,7 +494,7 @@ std::vector<counted_t<const ql::db_t>> config_cache_db_list(
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view key = whole_key.guarantee_without_prefix(db_by_name_prefix);
             name_string_t name = unparse_db_by_name_key(key);
-            database_id_t db_id = str_to_uuid(void_as_char(kv.value), size_t(kv.value_length));
+            database_id_t db_id = database_id_t{str_to_uuid(void_as_char(kv.value), size_t(kv.value_length))};
             dbs.push_back(make_counted<ql::db_t>(db_id, name));
             return true;
         });

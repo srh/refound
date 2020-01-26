@@ -120,7 +120,7 @@ private:
         admin_err_t *error_out) = 0;
 
     name_string_t m_table_name;
-    uuid_u m_table_id;
+    namespace_id_t m_table_id;
     rdb_context_t *m_rdb_context;
     cross_thread_mutex_t transaction_mutex;
 };

@@ -16,7 +16,7 @@ table_config_and_shards_t make_table_config_and_shards() {
     table_config_and_shards_t table_config_and_shards;
 
     table_config_and_shards.config.basic.name = name_string_t::guarantee_valid("test");
-    table_config_and_shards.config.basic.database = generate_uuid();
+    table_config_and_shards.config.basic.database = database_id_t{generate_uuid()};
     table_config_and_shards.config.basic.primary_key = "id";
     table_config_t::shard_t shard;
     shard.primary_replica = server_id_t::generate_server_id();
@@ -50,7 +50,7 @@ TPTEST(ClusteringRaft, StorageRoundtrip) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());
@@ -84,7 +84,7 @@ TPTEST(ClusteringRaft, StorageErase) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());
@@ -129,7 +129,7 @@ TPTEST(ClusteringRaft, StorageWriteCurrentTermAndVotedFor) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());
@@ -174,7 +174,7 @@ TPTEST(ClusteringRaft, StorageWriteCommitIndex) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id = namespace_id_t{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());
@@ -215,7 +215,7 @@ TPTEST(ClusteringRaft, StorageWriteLogReplaceTail) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id = namespace_id_t{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());
@@ -268,7 +268,7 @@ TPTEST(ClusteringRaft, StorageWriteLogAppendOne) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id = namespace_id_t{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());
@@ -316,7 +316,7 @@ TPTEST(ClusteringRaft, StorageWriteSnapshot) {
     temp_rockstore temp_rocks;
     io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
     cond_t non_interruptor;
-    namespace_id_t table_id = generate_uuid();
+    namespace_id_t table_id = namespace_id_t{generate_uuid()};
 
     table_raft_state_t table_raft_state =
         make_new_table_raft_state(make_table_config_and_shards());

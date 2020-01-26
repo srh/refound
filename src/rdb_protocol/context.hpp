@@ -126,8 +126,8 @@ RDB_DECLARE_SERIALIZABLE(sindex_status_t);
 namespace ql {
 class db_t : public single_threaded_countable_t<db_t> {
 public:
-    db_t(uuid_u _id, const name_string_t &_name) : id(_id), name(_name) { }
-    const uuid_u id;
+    db_t(database_id_t _id, const name_string_t &_name) : id(_id), name(_name) { }
+    const database_id_t id;
     const name_string_t name;
 };
 } // namespace ql

@@ -213,7 +213,7 @@ table_raft_state_t make_new_table_raft_state(
                 contract_t::primary_t { shard_conf.primary_replica, r_nullopt });
         }
         contract.after_emergency_repair = false;
-        state.contracts.insert(std::make_pair(generate_uuid(),
+        state.contracts.insert(std::make_pair(contract_id_t{generate_uuid()},
             contract));
         {
             server_id_t server_id = shard_conf.primary_replica;

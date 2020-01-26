@@ -14,9 +14,9 @@
 /* This is public because it's used by `real_reql_cluster_interface_t`. It's kind of a
 trivial function right now, but it will become non-trivial if we ever add more
 configuration to databases. */
-ql::datum_t convert_db_config_and_name_to_datum(
+ql::datum_t convert_db_or_table_config_and_name_to_datum(
         name_string_t db_name,
-        namespace_id_t id);
+        uuid_u id);
 
 class real_reql_cluster_interface_t;
 

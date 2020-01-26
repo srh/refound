@@ -48,7 +48,7 @@ public:
             store(io_backender->rocks(),
                 temp_file.name().permanent_path().c_str(), true,
                 &get_global_perfmon_collection(), ctx, io_backender, base_path_t("."),
-                generate_uuid(), update_sindexes_t::UPDATE) {
+                namespace_id_t{generate_uuid()}, update_sindexes_t::UPDATE) {
         /* Initialize store metadata */
         cond_t non_interruptor;
         write_token_t token;

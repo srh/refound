@@ -108,7 +108,7 @@ bool real_reql_cluster_interface_t::db_create(
             }
         }
 
-        database_id_t db_id = generate_uuid();
+        database_id_t db_id = database_id_t{generate_uuid()};
         database_semilattice_metadata_t db;
         db.name = versioned_t<name_string_t>(name);
         metadata.databases.databases.insert(std::make_pair(db_id, make_deletable(db)));
@@ -116,7 +116,7 @@ bool real_reql_cluster_interface_t::db_create(
         m_cluster_semilattice_view->join(metadata);
         metadata = m_cluster_semilattice_view->get();
 
-        new_config = convert_db_config_and_name_to_datum(name, db_id);
+        new_config = convert_db_or_table_config_and_name_to_datum(name, db_id.value);
     }
     wait_for_cluster_metadata_to_propagate(metadata, interruptor_on_caller);
 
@@ -184,7 +184,7 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
 
     if (result_out != nullptr) {
         ql::datum_t old_config =
-            convert_db_config_and_name_to_datum(name, database_id);
+            convert_db_or_table_config_and_name_to_datum(name, database_id.value);
 
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("dbs_dropped", ql::datum_t(1.0));
@@ -285,7 +285,7 @@ bool real_reql_cluster_interface_t::db_config(
         make_single_selection(
             user_context,
             name_string_t::guarantee_valid("db_config"),
-            db->id,
+            db->id.value,
             backtrace_id,
             env,
             selection_out);
@@ -344,7 +344,7 @@ bool real_reql_cluster_interface_t::table_create(
 
         /* Pick which servers to host the data */
         table_generate_config(
-            m_server_config_client, nil_uuid(), m_table_meta_client,
+            m_server_config_client, namespace_id_t{nil_uuid()}, m_table_meta_client,
             config_params, &interruptor_on_home,
             &config.config.the_shard, &config.server_names);
 
@@ -352,7 +352,7 @@ bool real_reql_cluster_interface_t::table_create(
         config.config.durability = durability;
         config.config.user_data = default_user_data();
 
-        table_id = generate_uuid();
+        table_id = namespace_id_t{generate_uuid()};
         // TODO: What does m_table_meta_client do?  Is it bloat?
         m_table_meta_client->create(/* txn.txn, TODO, beware thread */ table_id, config, &interruptor_on_home);
 
@@ -439,7 +439,7 @@ bool real_reql_cluster_interface_t::table_drop(
         guarantee(config_backend != nullptr);
         if (!config_backend->read_row(/* txn.txn, TODO */
                 user_context,
-                convert_uuid_to_datum(table_id),
+                convert_uuid_to_datum(table_id.value),
                 &interruptor_on_home,
                 &old_config,
                 error_out)) {
@@ -572,7 +572,7 @@ bool real_reql_cluster_interface_t::table_config(
         make_single_selection(
             user_context,
             name_string_t::guarantee_valid("table_config"),
-            table_id,
+            table_id.value,
             bt,
             env,
             selection_out);
@@ -597,7 +597,7 @@ bool real_reql_cluster_interface_t::table_status(
         make_single_selection(
             env->get_user_context(),
             name_string_t::guarantee_valid("table_status"),
-            table_id,
+            table_id.value,
             bt,
             env,
             selection_out);
@@ -697,7 +697,7 @@ void real_reql_cluster_interface_t::reconfigure_internal(
     admin_err_t error;
     if (!status_backend->read_row(
             user_context,
-            convert_uuid_to_datum(table_id),
+            convert_uuid_to_datum(table_id.value),
             interruptor_on_home,
             &old_status,
             &error)) {
@@ -733,7 +733,7 @@ void real_reql_cluster_interface_t::reconfigure_internal(
     ql::datum_t new_status;
     if (!status_backend->read_row(
             user_context,
-            convert_uuid_to_datum(table_id),
+            convert_uuid_to_datum(table_id.value),
             interruptor_on_home,
             &new_status,
             &error)) {
@@ -885,7 +885,7 @@ void real_reql_cluster_interface_t::emergency_repair_internal(
     admin_err_t error;
     if (!status_backend->read_row(
             user_context,
-            convert_uuid_to_datum(table_id),
+            convert_uuid_to_datum(table_id.value),
             interruptor_on_home,
             &old_status,
             &error)) {
@@ -931,7 +931,7 @@ void real_reql_cluster_interface_t::emergency_repair_internal(
     ql::datum_t new_status;
     if (!status_backend->read_row(
             user_context,
-            convert_uuid_to_datum(table_id),
+            convert_uuid_to_datum(table_id.value),
             interruptor_on_home,
             &new_status,
             &error)) {
@@ -1021,7 +1021,7 @@ void real_reql_cluster_interface_t::rebalance_internal(
     admin_err_t error;
     if (!status_backend->read_row(
             user_context,
-            convert_uuid_to_datum(table_id),
+            convert_uuid_to_datum(table_id.value),
             interruptor_on_home,
             &old_status,
             &error)) {
@@ -1046,7 +1046,7 @@ void real_reql_cluster_interface_t::rebalance_internal(
     ql::datum_t new_status;
     if (!status_backend->read_row(
             user_context,
-            convert_uuid_to_datum(table_id),
+            convert_uuid_to_datum(table_id.value),
             interruptor_on_home,
             &new_status, &error)) {
         throw admin_op_exc_t(error);

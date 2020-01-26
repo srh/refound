@@ -6,9 +6,9 @@
 #include "clustering/administration/real_reql_cluster_interface.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 
-ql::datum_t convert_db_config_and_name_to_datum(
+ql::datum_t convert_db_or_table_config_and_name_to_datum(
         name_string_t db_name,
-        namespace_id_t id) {
+        uuid_u id) {
     ql::datum_object_builder_t builder;
     builder.overwrite("name", convert_name_to_datum(db_name));
     builder.overwrite("id", convert_uuid_to_datum(id));
@@ -18,7 +18,7 @@ ql::datum_t convert_db_config_and_name_to_datum(
 bool convert_db_config_and_name_from_datum(
         ql::datum_t datum,
         name_string_t *db_name_out,
-        namespace_id_t *id_out,
+        uuid_u *id_out,
         admin_err_t *error_out) {
     /* In practice, the input will always be an object and the `id` field will always
     be valid, because `artificial_table_t` will check those thing before passing the
@@ -94,7 +94,7 @@ bool db_config_artificial_table_backend_t::read_all_rows_as_vector(
         }
 
         name_string_t db_name = it->second.get_ref().name.get_ref();
-        rows_out->push_back(convert_db_config_and_name_to_datum(db_name, it->first));
+        rows_out->push_back(convert_db_or_table_config_and_name_to_datum(db_name, it->first.value));
     }
     return true;
 }
@@ -109,15 +109,15 @@ bool db_config_artificial_table_backend_t::read_row(
     databases_semilattice_metadata_t md = database_sl_view->get();
     database_id_t database_id;
     admin_err_t dummy_error;
-    if (!convert_uuid_from_datum(primary_key, &database_id, &dummy_error)) {
+    if (!convert_uuid_from_datum(primary_key, &database_id.value, &dummy_error)) {
         /* If the primary key was not a valid UUID, then it must refer to a nonexistent
         row. */
-        database_id = nil_uuid();
+        database_id.value = nil_uuid();
     }
     std::map<database_id_t, deletable_t<database_semilattice_metadata_t> >::iterator it;
     if (search_metadata_by_uuid(&md.databases, database_id, &it)) {
         name_string_t db_name = it->second.get_ref().name.get_ref();
-        *row_out = convert_db_config_and_name_to_datum(db_name, database_id);
+        *row_out = convert_db_or_table_config_and_name_to_datum(db_name, database_id.value);
     } else {
         *row_out = ql::datum_t();
     }
@@ -136,12 +136,12 @@ bool db_config_artificial_table_backend_t::write_row(
     databases_semilattice_metadata_t md = database_sl_view->get();
 
     /* Look for an existing DB with the given UUID */
-    namespace_id_t database_id;
+    database_id_t database_id;
     admin_err_t dummy_error;
-    if (!convert_uuid_from_datum(primary_key, &database_id, &dummy_error)) {
+    if (!convert_uuid_from_datum(primary_key, &database_id.value, &dummy_error)) {
         /* If the primary key was not a valid UUID, then it must refer to a nonexistent
         row. */
-        database_id = nil_uuid();
+        database_id.value = nil_uuid();
     }
     std::map<database_id_t, deletable_t<database_semilattice_metadata_t> >::iterator it;
     bool existed_before = search_metadata_by_uuid(&md.databases, database_id, &it);
@@ -158,9 +158,9 @@ bool db_config_artificial_table_backend_t::write_row(
 
         /* Parse the new value the user provided for the database */
         name_string_t new_db_name;
-        namespace_id_t new_database_id;
+        database_id_t new_database_id;
         if (!convert_db_config_and_name_from_datum(*new_value_inout,
-                &new_db_name, &new_database_id, error_out)) {
+                &new_db_name, &new_database_id.value, error_out)) {
             error_out->msg = "The change you're trying to make to "
                 "`rethinkdb.db_config` has the wrong format. " + error_out->msg;
             return false;

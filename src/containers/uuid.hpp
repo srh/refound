@@ -61,8 +61,12 @@ uuid_u str_to_uuid(const char *buf, size_t len);
 MUST_USE bool str_to_uuid(const std::string &str, uuid_u *out);
 MUST_USE bool str_to_uuid(const char *str, size_t count, uuid_u *out);
 
-typedef uuid_u namespace_id_t;
-typedef uuid_u database_id_t;
+struct namespace_id_t {
+    uuid_u value;
+};
+struct database_id_t {
+    uuid_u value;
+};
 typedef uuid_u backfill_session_id_t;
 typedef uuid_u branch_id_t;
 typedef uuid_u issue_id_t;

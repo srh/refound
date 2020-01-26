@@ -100,7 +100,7 @@ bool common_table_artificial_table_backend_t::read_row(
     cluster_semilattice_metadata_t metadata = semilattice_view->get();
     namespace_id_t table_id;
     admin_err_t dummy_error;
-    if (!convert_uuid_from_datum(primary_key, &table_id, &dummy_error)) {
+    if (!convert_uuid_from_datum(primary_key, &table_id.value, &dummy_error)) {
         /* If the primary key was not a valid UUID, then it must refer to a nonexistent
         row. */
         *row_out = ql::datum_t();
@@ -146,7 +146,7 @@ void common_table_artificial_table_backend_t::format_error_row(
         const name_string_t &table_name,
         ql::datum_t *row_out) {
     ql::datum_object_builder_t builder;
-    builder.overwrite("id", convert_uuid_to_datum(table_id));
+    builder.overwrite("id", convert_uuid_to_datum(table_id.value));
     builder.overwrite("db", db_name_or_uuid);
     builder.overwrite("name", convert_name_to_datum(table_name));
     builder.overwrite("error",

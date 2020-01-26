@@ -3841,7 +3841,7 @@ counted_t<datum_stream_t> client_t::new_stream(
     const namespace_id_t &table_id,
     backtrace_id_t bt) {
     bool is_second_try = false;
-    uuid_u last_feed_uuid;
+    namespace_id_t last_feed_uuid;
     for (;;) {
         try {
             scoped_ptr_t<subscription_t> sub;
@@ -3860,7 +3860,7 @@ counted_t<datum_stream_t> client_t::new_stream(
                 auto feed_it = feeds.find(table_id);
 
                 if (is_second_try) {
-                    guarantee(!last_feed_uuid.is_unset());
+                    guarantee(!last_feed_uuid.value.is_unset());
                     if (feed_it != feeds.end()
                         && feed_it->second->get_table_id() == last_feed_uuid) {
                         // We enter this branch if we got a `RESUMABLE_OP_FAILED`
@@ -3934,7 +3934,7 @@ counted_t<datum_stream_t> client_t::new_stream(
 }
 
 void client_t::maybe_remove_feed(
-    const auto_drainer_t::lock_t &lock, const uuid_u &uuid) {
+    const auto_drainer_t::lock_t &lock, const namespace_id_t &uuid) {
     assert_thread();
     lock.assert_is_holding(&drainer);
     scoped_ptr_t<real_feed_t> destroy;

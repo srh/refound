@@ -57,7 +57,7 @@ void calculate_emergency_repair(
         identical to the old contract. In practice this doesn't matter since contract IDs
         from the old epoch will never be compared to contract IDs from the new epoch. */
         new_state_out->contracts.insert(std::make_pair(
-            generate_uuid(),
+            contract_id_t{generate_uuid()},
             contract));
     }
 

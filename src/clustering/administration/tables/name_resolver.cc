@@ -123,7 +123,7 @@ resolved_id_optional_t<namespace_id_t> name_resolver_t::table_name_to_id(
                 iterator->second.first->get_table_id());
         } else {
             return resolved_id_optional_t<namespace_id_t>(
-                resolved_id_optional_t<database_id_t>::no_such_name_t());
+                resolved_id_optional_t<namespace_id_t>::no_such_name_t());
         }
     }
 
@@ -133,14 +133,14 @@ resolved_id_optional_t<namespace_id_t> name_resolver_t::table_name_to_id(
             m_table_meta_client->find(database_id, table_name, &table_id);
         } catch (no_such_table_exc_t const &) {
             return resolved_id_optional_t<namespace_id_t>(
-                resolved_id_optional_t<database_id_t>::no_such_name_t());
+                resolved_id_optional_t<namespace_id_t>::no_such_name_t());
         } catch (ambiguous_table_exc_t const &) {
             return resolved_id_optional_t<namespace_id_t>(
-                resolved_id_optional_t<database_id_t>::ambiguous_name_t());
+                resolved_id_optional_t<namespace_id_t>::ambiguous_name_t());
         }
-        return resolved_id_optional_t<database_id_t>(table_id);
+        return resolved_id_optional_t<namespace_id_t>(table_id);
     } else {
         return resolved_id_optional_t<namespace_id_t>(
-            resolved_id_optional_t<database_id_t>::no_such_name_t());
+            resolved_id_optional_t<namespace_id_t>::no_such_name_t());
     }
 }

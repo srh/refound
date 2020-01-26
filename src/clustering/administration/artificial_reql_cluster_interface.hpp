@@ -44,7 +44,7 @@ class artificial_reql_cluster_interface_t
     : public reql_cluster_interface_t,
       public home_thread_mixin_t {
 public:
-    static const uuid_u database_id;
+    static const database_id_t database_id;
     static const name_string_t database_name;
 
     artificial_reql_cluster_interface_t(

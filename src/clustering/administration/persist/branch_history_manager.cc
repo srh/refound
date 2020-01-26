@@ -2,6 +2,7 @@
 #include "clustering/administration/persist/branch_history_manager.hpp"
 
 #include "clustering/administration/persist/file_keys.hpp"
+#include "clustering/id_types.hpp"
 
 void real_branch_history_manager_t::erase(
         metadata_file_t::write_txn_t *write_txn,

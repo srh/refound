@@ -98,7 +98,7 @@ ql::datum_t convert_debug_contracts_to_datum(
     for (const auto &contract : contracts) {
         ql::datum_object_builder_t contract_builder;
         contract_builder.overwrite(
-            "contract", convert_uuid_to_datum(contract.first));
+            "contract", convert_uuid_to_datum(contract.first.value));
         contract_builder.overwrite(
             "region", convert_debug_region_to_datum(key_range_t::universe()));
         contract_builder.overwrite(
@@ -228,7 +228,7 @@ ql::datum_t convert_debug_contract_acks_to_datum(
     for (const auto &contract_ack : contract_acks) {
         ql::datum_object_builder_t contract_builder;
         contract_builder.overwrite(
-            "contract", convert_uuid_to_datum(contract_ack.first));
+            "contract", convert_uuid_to_datum(contract_ack.first.value));
         contract_builder.overwrite(
             "state",
             convert_debug_contract_ack_state_to_datum(contract_ack.second.state));
@@ -289,7 +289,7 @@ void debug_table_status_artificial_table_backend_t::format_row(
         &statuses);
 
     ql::datum_object_builder_t builder;
-    builder.overwrite("id", convert_uuid_to_datum(table_id));
+    builder.overwrite("id", convert_uuid_to_datum(table_id.value));
     builder.overwrite("name",
         convert_name_to_datum(config_and_shards.config.basic.name));
     builder.overwrite("db", db_name_or_uuid);

@@ -105,7 +105,7 @@ In order to facilitiate CPU sharding, each contract's region must apply to exact
 CPU shard. */
 
 // Defined in id_types.hpp.
-// typedef uuid_u contract_id_t;
+// struct contract_id_t { uuid_u value; };
 
 /* The `contract_executor_t` looks at what each `contract_t` says about its server ID,
 and reacts according to the following rules:

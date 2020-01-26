@@ -172,7 +172,7 @@ void table_status_artificial_table_backend_t::format_row(
         server_config_client, interruptor_on_home, &status);
     ql::datum_t status_datum = convert_table_status_to_datum(status, identifier_format);
     ql::datum_object_builder_t builder(status_datum);
-    builder.overwrite("id", convert_uuid_to_datum(table_id));
+    builder.overwrite("id", convert_uuid_to_datum(table_id.value));
     builder.overwrite("db", db_name_or_uuid);
     builder.overwrite("name", convert_name_to_datum(status.config->config.basic.name));
     *row_out = std::move(builder).to_datum();
@@ -190,7 +190,7 @@ void table_status_artificial_table_backend_t::format_error_row(
     status.total_loss = true;
     ql::datum_t status_datum = convert_table_status_to_datum(status, identifier_format);
     ql::datum_object_builder_t builder(status_datum);
-    builder.overwrite("id", convert_uuid_to_datum(table_id));
+    builder.overwrite("id", convert_uuid_to_datum(table_id.value));
     builder.overwrite("db", db_name_or_uuid);
     builder.overwrite("name", convert_name_to_datum(table_name));
     *row_out = std::move(builder).to_datum();

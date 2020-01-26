@@ -54,7 +54,9 @@ void run_with_namespace_interface(
     extproc_pool_t extproc_pool(2);
     dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
     rdb_context_t ctx(TODO_fdb(), &extproc_pool, nullptr, auth_manager.get_view());
-    namespace_id_t table_id = str_to_uuid("12345678-aaaa-bbbb-cccc-12345678abcd");
+    namespace_id_t table_id = namespace_id_t{
+        str_to_uuid("12345678-aaaa-bbbb-cccc-12345678abcd")
+    };
 
     for (int rep = 0; rep < num_restarts; ++rep) {
         const bool do_create = rep == 0;
@@ -836,7 +838,7 @@ TPTEST(RDBProtocol, ArtificialChangefeeds) {
     class dummy_artificial_t : public artificial_t {
     public:
         explicit dummy_artificial_t(lifetime_t<name_resolver_t const &> name_resolver_)
-            : artificial_t(generate_uuid(), name_resolver_) { }
+            : artificial_t(namespace_id_t{generate_uuid()}, name_resolver_) { }
         /* This gets a notification when the last changefeed disconnects, but we don't
         care about that. */
         void maybe_remove() { }

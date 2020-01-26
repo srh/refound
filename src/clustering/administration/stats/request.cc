@@ -67,7 +67,7 @@ parsed_stats_t::parsed_stats_t(const std::vector<ql::datum_t> &stats) {
                 store_query_engine_stats(perf_pair.second, &serv_stats);
             } else {
                 namespace_id_t table_id;
-                res = str_to_uuid(perf_pair.first.to_std(), &table_id);
+                res = str_to_uuid(perf_pair.first.to_std(), &table_id.value);
                 if (res) {
                     store_table_stats(table_id, perf_pair.second, &serv_stats);
                 }
@@ -332,7 +332,7 @@ bool table_stats_request_t::parse(const ql::datum_t &info,
 
     admin_err_t dummy_error;
     namespace_id_t t;
-    if (!convert_uuid_from_datum(info.get(1), &t, &dummy_error)) {
+    if (!convert_uuid_from_datum(info.get(1), &t.value, &dummy_error)) {
         return false;
     }
     request_out->init(new table_stats_request_t(t));
@@ -363,7 +363,7 @@ bool table_stats_request_t::to_datum(const parsed_stats_t &stats,
     ql::datum_object_builder_t row_builder;
     ql::datum_array_builder_t id_builder(ql::configured_limits_t::unlimited);
     id_builder.add(ql::datum_t(get_name()));
-    id_builder.add(convert_uuid_to_datum(table_id));
+    id_builder.add(convert_uuid_to_datum(table_id.value));
     row_builder.overwrite("id", std::move(id_builder).to_datum());
 
     if (!add_table_fields(table_id, metadata, table_meta_client, admin_format,
@@ -477,7 +477,7 @@ bool table_server_stats_request_t::parse(const ql::datum_t &info,
     admin_err_t dummy_error;
     namespace_id_t t;
     server_id_t s;
-    if (!convert_uuid_from_datum(info.get(1), &t, &dummy_error)) {
+    if (!convert_uuid_from_datum(info.get(1), &t.value, &dummy_error)) {
         return false;
     }
     if (!convert_server_id_from_datum(info.get(2), &s, &dummy_error)) {
@@ -517,7 +517,7 @@ bool table_server_stats_request_t::to_datum(const parsed_stats_t &stats,
     ql::datum_object_builder_t row_builder;
     ql::datum_array_builder_t id_builder(ql::configured_limits_t::unlimited);
     id_builder.add(ql::datum_t(get_name()));
-    id_builder.add(convert_uuid_to_datum(table_id));
+    id_builder.add(convert_uuid_to_datum(table_id.value));
     id_builder.add(convert_uuid_to_datum(server_id.get_uuid()));
     row_builder.overwrite("id", std::move(id_builder).to_datum());
 

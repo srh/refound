@@ -5,6 +5,7 @@
 #include "rocksdb/utilities/optimistic_transaction_db.h"
 
 #include "arch/runtime/thread_pool.hpp"
+#include "clustering/id_types.hpp"
 #include "paths.hpp"
 #include "utils.hpp"
 

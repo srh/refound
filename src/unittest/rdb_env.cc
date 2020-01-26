@@ -303,7 +303,7 @@ test_rdb_env_t::instance_t::instance_t(test_rdb_env_t &&test_env) :
 
     // Set up any databases, tables, and data
     for (auto const &db_name : test_env.databases) {
-        databases[db_name] = generate_uuid();
+        databases[db_name] = database_id_t{generate_uuid()};
     }
 
     for (auto &&db_table_pair : test_env.tables) {
@@ -474,7 +474,7 @@ bool test_rdb_env_t::instance_t::table_find(const name_string_t &name,
             it->second.get(), &fake_ref_tracker, get_thread_id());
         table_out->reset(
             new real_table_t(
-                nil_uuid(),
+                namespace_id_t{nil_uuid()},
                 table_access,
                 it->second->get_primary_key(),
                 nullptr,

@@ -295,7 +295,7 @@ bool permissions_artificial_table_backend_t::write_row(
                         {
                             database_id_t database_id_secondary;
                             if (!convert_uuid_from_datum(
-                                    database, &database_id_secondary, error_out)) {
+                                    database, &database_id_secondary.value, error_out)) {
                                 return false;
                             }
 
@@ -344,7 +344,7 @@ bool permissions_artificial_table_backend_t::write_row(
                         {
                             namespace_id_t table_id_secondary;
                             if (!convert_uuid_from_datum(
-                                    table, &table_id_secondary, error_out)) {
+                                    table, &table_id_secondary.value, error_out)) {
                                 return false;
                             }
 
@@ -495,7 +495,7 @@ uint8_t permissions_artificial_table_backend_t::parse_primary_key(
     if (primary_key.arr_size() > 1) {
         ql::datum_t database = primary_key.get(1, ql::NOTHROW);
         if (database.get_type() != ql::datum_t::R_STR ||
-                !str_to_uuid(database.as_str().to_std(), database_id_out)) {
+                !str_to_uuid(database.as_str().to_std(), &database_id_out->value)) {
             if (admin_err_out != nullptr) {
                 *admin_err_out = admin_err_t{
                     "Expected a UUID as the database, got " + database.print() + ".",
@@ -521,7 +521,7 @@ uint8_t permissions_artificial_table_backend_t::parse_primary_key(
     if (primary_key.arr_size() > 2) {
         ql::datum_t table = primary_key.get(2, ql::NOTHROW);
         if (table.get_type() != ql::datum_t::R_STR ||
-                !str_to_uuid(table.as_str().to_std(), table_id_out)) {
+                !str_to_uuid(table.as_str().to_std(), &table_id_out->value)) {
             if (admin_err_out != nullptr) {
                 *admin_err_out = admin_err_t{
                     "Expected a UUID as the table, got " + table.print() + ".",
@@ -592,7 +592,7 @@ bool permissions_artificial_table_backend_t::database_to_datum(
 
         ql::datum_array_builder_t id_builder(ql::configured_limits_t::unlimited);
         id_builder.add(convert_string_to_datum(username.to_string()));
-        id_builder.add(convert_uuid_to_datum(database_id));
+        id_builder.add(convert_uuid_to_datum(database_id.value));
 
         ql::datum_t database_name_or_uuid;
         switch (m_identifier_format) {
@@ -641,8 +641,8 @@ bool permissions_artificial_table_backend_t::table_to_datum(
 
         ql::datum_array_builder_t id_builder(ql::configured_limits_t::unlimited);
         id_builder.add(convert_string_to_datum(username.to_string()));
-        id_builder.add(convert_uuid_to_datum(table_basic_config->database));
-        id_builder.add(convert_uuid_to_datum(table_id));
+        id_builder.add(convert_uuid_to_datum(table_basic_config->database.value));
+        id_builder.add(convert_uuid_to_datum(table_id.value));
 
         ql::datum_t database_name_or_uuid;
         ql::datum_t table_name_or_uuid;

@@ -50,7 +50,7 @@ private:
 
     void create_and_destroy_namespace_interface(
             namespace_cache_t *cache,
-            const uuid_u &namespace_id,
+            const namespace_id_t &namespace_id,
             auto_drainer_t::lock_t keepalive)
             THROWS_NOTHING;
 

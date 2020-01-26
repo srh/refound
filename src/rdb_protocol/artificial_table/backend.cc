@@ -14,14 +14,14 @@ artificial_table_backend_t::artificial_table_backend_t(
         name_string_t const &table_name,
         rdb_context_t *rdb_context)
     : m_table_name(table_name),
-      m_table_id(uuid_u::from_hash(base_table_id, table_name.str())),
+      m_table_id(namespace_id_t{uuid_u::from_hash(base_table_id, table_name.str())}),
       m_rdb_context(rdb_context) {
 }
 
 artificial_table_backend_t::~artificial_table_backend_t() {
 }
 
-uuid_u const &artificial_table_backend_t::get_table_id() const {
+namespace_id_t const &artificial_table_backend_t::get_table_id() const {
     return m_table_id;
 }
 

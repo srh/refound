@@ -6,6 +6,7 @@
 #include <string>
 
 #include "clustering/administration/admin_op_exc.hpp"
+#include "clustering/id_types.hpp"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "rdb_protocol/datum_stream.hpp"
@@ -372,14 +373,14 @@ private:
         switch (type) {
         case DB_TYPE: {
             counted_t<const db_t> database = v->as_db();
-            r_sanity_check(!database->id.is_nil());
+            r_sanity_check(!database->id.value.is_nil());
 
             b |= info.add("name", datum_t(database->name.str()));
             b |= info.add("id", datum_t(uuid_to_str(database->id)));
         } break;
         case TABLE_TYPE: {
             counted_t<table_t> table = v->as_table();
-            r_sanity_check(!table->get_id().is_nil());
+            r_sanity_check(!table->get_id().value.is_nil());
 
             b |= info.add("name", datum_t(table->name));
             b |= info.add("primary_key", datum_t(table->get_pkey()));

@@ -32,7 +32,15 @@ std::string issue_t::item_to_str(const std::string &str) {
     return 'S' + str + '\0';
 }
 
-std::string issue_t::item_to_str(const uuid_u &id) {
+std::string issue_t::help_item_to_str(const uuid_u &id) {
     return 'U' + std::string(reinterpret_cast<const char *>(id.data()),
                              id.static_size()) + '\0';
+}
+
+std::string issue_t::item_to_str(const namespace_id_t &id) {
+    return help_item_to_str(id.value);
+}
+
+std::string issue_t::item_to_str(const database_id_t &id) {
+    return help_item_to_str(id.value);
 }

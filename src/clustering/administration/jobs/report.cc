@@ -2,6 +2,7 @@
 #include "clustering/administration/jobs/report.hpp"
 
 #include "clustering/administration/servers/config_client.hpp"
+#include "clustering/id_types.hpp"
 
 bool convert_job_type_and_id_from_datum(ql::datum_t primary_key,
                                         std::string *type_out,

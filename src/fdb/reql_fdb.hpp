@@ -265,7 +265,7 @@ inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
     std::string ret;
     ret.reserve(200);  // TODO: how much?
     ret += "rethinkdb/table_config/";
-    uuid_onto_str(table_id, &ret);
+    uuid_onto_str(table_id.value, &ret);
     ret += "/config";
     return ret;
 }
