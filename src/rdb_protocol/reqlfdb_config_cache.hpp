@@ -3,8 +3,15 @@
 
 #include <map>
 
+#include "clustering/administration/auth/username.hpp"
+#include "clustering/administration/auth/user.hpp"
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"
+
+namespace auth {
+class username_t;
+class user_t;
+}
 
 struct reqlfdb_config_version {
     uint64_t value;
@@ -27,6 +34,8 @@ public:
 
     std::map<database_id_t, name_string_t> db_id_index;
     std::map<namespace_id_t, table_config_t> table_id_index;
+
+    std::map<auth::username_t, auth::user_t> auth_index;
 
     MOVABLE_BUT_NOT_COPYABLE(reqlfdb_config_cache);
 };
