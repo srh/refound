@@ -130,7 +130,21 @@ optional<config_info<database_id_t>> try_lookup_cached_db(
     optional<config_info<database_id_t>> ret;
     ASSERT_NO_CORO_WAITING;  // mutex assertion
     auto it = cache->db_name_index.find(db_name);
-    if (it == cache->db_name_index.end()) {
+    if (it != cache->db_name_index.end()) {
+        ret.emplace();
+        ret->ci_value = it->second;
+        ret->ci_cv = cache->config_version;
+    }
+    return ret;
+}
+
+optional<config_info<namespace_id_t>> try_lookup_cached_table(
+        const reqlfdb_config_cache *cache,
+        const std::pair<database_id_t, name_string_t> &table_name) {
+    optional<config_info<namespace_id_t>> ret;
+    ASSERT_NO_CORO_WAITING;  // mutex assertion
+    auto it = cache->table_name_index.find(table_name);
+    if (it == cache->table_name_index.end()) {
         ret.emplace();
         ret->ci_value = it->second;
         ret->ci_cv = cache->config_version;
@@ -140,7 +154,6 @@ optional<config_info<database_id_t>> try_lookup_cached_db(
 
 
 
-// TODO: Any callers?
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(
         const reqlfdb_config_cache *cache,

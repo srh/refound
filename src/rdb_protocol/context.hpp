@@ -123,12 +123,21 @@ public:
 };
 RDB_DECLARE_SERIALIZABLE(sindex_status_t);
 
+struct reqlfdb_config_version {
+    uint64_t value;
+};
+// TODO: Serialization impled in reqlfdb_config_cache.cc
+RDB_DECLARE_SERIALIZABLE(reqlfdb_config_version);
+
 namespace ql {
 class db_t : public single_threaded_countable_t<db_t> {
 public:
     db_t(database_id_t _id, const name_string_t &_name) : id(_id), name(_name) { }
     const database_id_t id;
     const name_string_t name;
+    // The config version behind the db id lookup, if there is one.
+    // NNN: Force everybody accessing database_id_t to use this value.
+    optional<reqlfdb_config_version> cv;
 };
 } // namespace ql
 

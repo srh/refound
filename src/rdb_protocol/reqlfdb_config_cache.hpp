@@ -7,18 +7,22 @@
 #include "clustering/administration/auth/user.hpp"
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"
+#include "rdb_protocol/context.hpp"
 
 namespace auth {
 class username_t;
 class user_t;
 }
 
-struct reqlfdb_config_version {
-    uint64_t value;
+// TODO: Make use of this.
+class config_version_exc_t : public std::exception {
+public:
+    config_version_exc_t() {}
+
+    const char *what() const noexcept override {
+        return "Config version out of date";
+    }
 };
-
-RDB_DECLARE_SERIALIZABLE(reqlfdb_config_version);
-
 
 // Carries config information and its provenance.
 template <class T>
@@ -39,7 +43,7 @@ public:
 
     // TODO: unordered maps?
     std::map<name_string_t, database_id_t> db_name_index;
-    std::map<name_string_t, namespace_id_t> table_name_index;
+    std::map<std::pair<database_id_t, name_string_t>, namespace_id_t> table_name_index;
 
     std::map<database_id_t, name_string_t> db_id_index;
     std::map<namespace_id_t, table_config_t> table_id_index;
@@ -65,6 +69,9 @@ public:
 optional<config_info<database_id_t>>
 try_lookup_cached_db(const reqlfdb_config_cache *cache, const name_string_t &db_name);
 
+optional<config_info<namespace_id_t>>
+try_lookup_cached_table(const reqlfdb_config_cache *cache,
+    const std::pair<database_id_t, name_string_t> &table_name);
 
 
 

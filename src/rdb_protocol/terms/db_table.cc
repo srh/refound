@@ -135,8 +135,9 @@ private:
             cc, db_name);
         if (cached.has_value()) {
             // NNN: Put config_info into db_t (or into val's version of it).
-            counted_t<const db_t> db = make_counted<db_t>(cached->ci_value, db_name);
-            return new_val(std::move(db));
+            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name);
+            db->cv.set(cached->ci_cv);
+            return new_val(counted_t<const db_t>(std::move(db)));
         }
 
         config_info<optional<database_id_t>> result;
@@ -154,8 +155,9 @@ private:
             cc->add_db(db_id, db_name);
 
             // NNN: Put config_info into db_t (or into val's version of it).
-            counted_t<const db_t> db = make_counted<db_t>(cached->ci_value, db_name);
-            return new_val(std::move(db));
+            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name);
+            db->cv.set(result.ci_cv);
+            return new_val(counted_t<const db_t>(std::move(db)));
         } else {
             admin_err_t error = db_not_found_error(db_name);
             REQL_RETHROW(error);
@@ -1011,6 +1013,12 @@ private:
             db = args->arg(env, 0)->as_db();
             table_name = get_name(args->arg(env, 1), "Table");
         }
+
+        reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
+
+
+
+
 
         admin_err_t error;
         counted_t<base_table_t> table;
