@@ -40,6 +40,12 @@ RDB_IMPL_SERIALIZABLE_12_FOR_CLUSTER(cluster_directory_metadata_t,
      server_config_business_card,
      peer_type);
 
+admin_err_t db_not_found_error(const name_string_t &name) {
+    return admin_err_t{
+            strprintf("Database `%s` does not exist.", name.c_str()),
+            query_state_t::FAILED};
+}
+
 bool search_db_metadata_by_name(
         const databases_semilattice_metadata_t &metadata,
         const name_string_t &name,
@@ -53,9 +59,7 @@ bool search_db_metadata_by_name(
         }
     }
     if (found == 0) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` does not exist.", name.c_str()),
-            query_state_t::FAILED};
+        *error_out = db_not_found_error(name);
         return false;
     } else if (found >= 2) {
         *error_out = admin_err_t{

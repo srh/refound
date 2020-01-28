@@ -194,5 +194,6 @@ bool search_db_metadata_by_name(
         const name_string_t &name,
         database_id_t *id_out,
         admin_err_t *error_out);
+admin_err_t db_not_found_error(const name_string_t &name);
 
 #endif  // CLUSTERING_ADMINISTRATION_METADATA_HPP_

@@ -24,9 +24,20 @@ reqlfdb_config_cache::reqlfdb_config_cache()
     : config_version{0} {}
 reqlfdb_config_cache::~reqlfdb_config_cache() {}
 
-void config_cache_wipe(reqlfdb_config_cache *cache) {
+void reqlfdb_config_cache::wipe() {
     reqlfdb_config_cache tmp;
-    *cache = std::move(tmp);
+    *this = std::move(tmp);
+}
+
+void reqlfdb_config_cache::add_db(
+        const database_id_t &db_id, const name_string_t &db_name) {
+    db_id_index.emplace(db_id, db_name);
+    db_name_index.emplace(db_name, db_id);
+}
+
+// TODO: Remove.
+void config_cache_wipe(reqlfdb_config_cache *cache) {
+    cache->wipe();
 }
 
 ukey_string db_by_id_key(const database_id_t &db_id) {
@@ -114,23 +125,27 @@ fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
         txn, REQLFDB_CONFIG_VERSION_KEY));
 }
 
-config_info<optional<database_id_t>>
-config_cache_db_by_name(
-        reqlfdb_config_cache *cache, FDBTransaction *txn,
-        const name_string_t &db_name, const signal_t *interruptor) {
+optional<config_info<database_id_t>> try_lookup_cached_db(
+        const reqlfdb_config_cache *cache, const name_string_t &db_name) {
+    optional<config_info<database_id_t>> ret;
+    ASSERT_NO_CORO_WAITING;  // mutex assertion
     auto it = cache->db_name_index.find(db_name);
-    if (it != cache->db_name_index.end()) {
-        // TODO: Some sort of mutex assertion is in order.
-        config_info<optional<database_id_t>> ret;
-        ret.value = make_optional(it->second);
-        ret.check_later.expected_config_version = cache->config_version;
-        ret.check_later.config_version_future
-            = transaction_get_config_version(txn);
-        return ret;
+    if (it == cache->db_name_index.end()) {
+        ret.emplace();
+        ret->ci_value = it->second;
+        ret->ci_cv = cache->config_version;
     }
+    return ret;
+}
 
-    // We couldn't find the db name.  Maybe it's just uncached.
 
+
+// TODO: Any callers?
+config_info<optional<database_id_t>>
+config_cache_retrieve_db_by_name(
+        const reqlfdb_config_cache *cache,
+        FDBTransaction *txn,
+        const name_string_t &db_name, const signal_t *interruptor) {
     fdb_future fut = transaction_lookup_unique_index(
         txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
@@ -139,32 +154,22 @@ config_cache_db_by_name(
     fdb_value value = future_block_on_value(fut.fut, interruptor);
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
-    ASSERT_NO_CORO_WAITING;
-
     if (cv.value < cache->config_version.value) {
         // Throw a retryable exception.
         throw fdb_transaction_exception(REQLFDB_not_committed);
     }
 
-    if (cv.value > cache->config_version.value) {
-        config_cache_wipe(cache);
-        cache->config_version = cv;
-    }
-
     database_id_t id;
     bool present = deserialize_off_fdb_value(value, &id);
 
+    config_info<optional<database_id_t>> ret;
+    ret.ci_cv = cv;
     if (!present) {
-        config_info<optional<database_id_t>> ret;
-        ret.value = r_nullopt;
         return ret;
     } else {
-        cache->db_id_index.emplace(id, db_name);
-        cache->db_name_index.emplace(db_name, id);
-        config_info<optional<database_id_t>> ret;
-        ret.value = make_optional(id);
-        return ret;
+        ret.ci_value.set(id);
     }
+    return ret;
 }
 
 bool config_cache_db_create(

@@ -189,6 +189,11 @@ public:
     env_t *const env;
     const var_scope_t scope;
 
+    // TODO: No, just do env->env, and take these out when full txn implementation makes this disallowable.
+    FDBDatabase *fdb() {
+        return env->get_rdb_ctx()->fdb;
+    }
+
     DISABLE_COPYING(scope_env_t);
 };
 

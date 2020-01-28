@@ -48,6 +48,8 @@ public:
     virtual ~runtime_term_t();
     scoped_ptr_t<val_t> eval(scope_env_t *env, eval_flags_t eval_flags = NO_FLAGS) const;
     virtual deterministic_t is_deterministic() const = 0;
+    // TODO: Make this = 0.
+    virtual bool is_fdb_only() const { return false; }
     virtual const char *name() const = 0;
 
     // Allocates a new value in the current environment.

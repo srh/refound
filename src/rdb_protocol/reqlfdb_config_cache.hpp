@@ -19,6 +19,15 @@ struct reqlfdb_config_version {
 
 RDB_DECLARE_SERIALIZABLE(reqlfdb_config_version);
 
+
+// Carries config information and its provenance.
+template <class T>
+class config_info {
+public:
+    T ci_value;
+    reqlfdb_config_version ci_cv;
+};
+
 class table_config_t;
 
 class reqlfdb_config_cache {
@@ -37,7 +46,27 @@ public:
 
     std::map<auth::username_t, auth::user_t> auth_index;
 
+    void wipe();
+
+    void note_version(reqlfdb_config_version cv) {
+        rassert(cv.value >= config_version.value);
+        if (cv.value > config_version.value) {
+            wipe();
+        }
+        config_version = cv;
+    }
+
+    void add_db(const database_id_t &db_id, const name_string_t &db_name);
+
     MOVABLE_BUT_NOT_COPYABLE(reqlfdb_config_cache);
 };
+
+// Returns r_nullopt if the cache doesn't have it.
+optional<config_info<database_id_t>>
+try_lookup_cached_db(const reqlfdb_config_cache *cache, const name_string_t &db_name);
+
+
+
+
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_

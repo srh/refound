@@ -27,18 +27,9 @@ public:
     fdb_value_fut<reqlfdb_config_version> config_version_future;
 };
 
-// Carries config information, but possibly also an fdb_future for the
-// config_version that you need to block on and check later.
-template <class T>
-class config_info {
-public:
-    T value;
-    config_version_check_later check_later;
-};
-
 config_info<optional<database_id_t>>
-config_cache_db_by_name(
-    reqlfdb_config_cache *cache, FDBTransaction *txn,
+config_cache_retrieve_db_by_name(
+    const reqlfdb_config_cache *cc, FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);
 
 MUST_USE bool config_cache_db_create(

@@ -7,6 +7,8 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
+// TODO: Move db_not_found_error to a different location
+#include "clustering/administration/metadata.hpp"
 #include "containers/name_string.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
@@ -113,6 +115,10 @@ private:
     deterministic_t is_deterministic() const final { return deterministic_t::no(); }
 };
 
+// TODO: OOO comments -- must be done later (soon)
+// TODO: NNN comments -- must be done later (now-ish, immediate cleanup)
+// TODO: FTX comments -- relevant to fdb transactions exposed to user.
+
 class db_term_t final : public meta_op_term_t {
 public:
     db_term_t(compile_env_t *env, const raw_term_t &term)
@@ -120,22 +126,40 @@ public:
 private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
-        fdb_transaction txn{env->env->get_rdb_ctx()->fdb};
-        // TODO: fdb-ize:  make use of config_cache_db_by_name result.
-        // TODO: Impl special handling of "rethinkdb" db
-        config_info<optional<database_id_t>> db_id = config_cache_db_by_name(
-            env->env->get_rdb_ctx()->config_caches.get(),
-            txn.txn,
-            db_name,
-            env->env->interruptor);
 
-        counted_t<const db_t> db;
-        admin_err_t error;
-        if (!env->env->reql_cluster_interface()->db_find(
-                db_name, env->env->interruptor, &db, &error)) {
+        // FTX: config_version logic here.
+
+        reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
+
+        optional<config_info<database_id_t>> cached = try_lookup_cached_db(
+            cc, db_name);
+        if (cached.has_value()) {
+            // NNN: Put config_info into db_t (or into val's version of it).
+            counted_t<const db_t> db = make_counted<db_t>(cached->ci_value, db_name);
+            return new_val(std::move(db));
+        }
+
+        config_info<optional<database_id_t>> result;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
+        [&](FDBTransaction *txn) {
+            result = config_cache_retrieve_db_by_name(
+                cc, txn, db_name, env->env->interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_by_name loop");
+
+        cc->note_version(result.ci_cv);
+
+        if (result.ci_value.has_value()) {
+            database_id_t db_id = *result.ci_value;
+            cc->add_db(db_id, db_name);
+
+            // NNN: Put config_info into db_t (or into val's version of it).
+            counted_t<const db_t> db = make_counted<db_t>(cached->ci_value, db_name);
+            return new_val(std::move(db));
+        } else {
+            admin_err_t error = db_not_found_error(db_name);
             REQL_RETHROW(error);
         }
-        return new_val(db);
     }
     const char *name() const override { return "db"; }
 };

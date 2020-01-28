@@ -73,6 +73,15 @@ public:
         }
     }
 
+    template <class... Args>
+    void emplace(Args &&... rhs) {
+        if (has_value_) {
+            reset();
+        }
+        new (&value_) T(std::forward<Args>(rhs)...);
+        has_value_ = true;
+    }
+
     // These are called get(), like boost's optional, unlike C++17's
     // optional, which uses value().  The reason is, these check with
     // a guarantee and abort, instead of throwing an exception.
