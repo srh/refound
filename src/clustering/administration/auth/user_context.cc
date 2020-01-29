@@ -33,6 +33,44 @@ void user_context_t::require_admin_user() const THROWS_ONLY(permission_error_t) 
     }
 }
 
+template <class F, class T>
+fdb_user_fut<T> require_permission_internal(
+        FDBTransaction *txn,
+        boost::variant<permissions_t, username_t> const &context,
+        bool read_only,
+        F &&permissions_selector_function,
+        T &&checker)
+    THROWS_ONLY(permission_error_t) {
+    if (const permissions_t *permissions = boost::get<permissions_t>(&context)) {
+        if (!permissions_selector_function(*permissions)) {
+            throw permission_error_t(checker.permission_name());
+        }
+        return fdb_user_fut<T>::success();
+    } else if (const username_t *username = boost::get<username_t>(&context)) {
+        if (read_only) {
+            throw permission_error_t(*username, checker.permission_name());
+        }
+        if (username->is_admin()) {
+            return fdb_user_fut<T>::success();
+        }
+
+        fdb_user_fut<T> ret(txn, *username, std::forward<T>(checker));
+        return ret;
+    } else {
+        unreachable();
+    }
+}
+
+fdb_user_fut<config_permission> user_context_t::transaction_require_config_permission(
+        FDBTransaction *txn) const {
+    return require_permission_internal(txn, m_context, m_read_only,
+        [](permissions_t const &permissions) -> bool {
+            return permissions.get_config() == tribool::True;
+        },
+        config_permission{});
+}
+
+
 template <typename F, typename G>
 void require_permission_internal(
         boost::variant<permissions_t, username_t> const &context,

@@ -195,19 +195,25 @@ private:
 
         database_id_t db_id{generate_uuid()};
         bool fdb_result;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            // TODO: Make sure config_cache_db_create checks auth permission.
-            bool success = config_cache_db_create(
-                txn,
-                db_name,
-                db_id,
-                env->env->interruptor);
-            if (success) {
-                commit(txn, env->env->interruptor);
-            }
-            fdb_result = success;
-        });
-        guarantee_fdb_TODO(loop_err, "db_create txn failed");
+        try {
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Make sure config_cache_db_create checks auth permission.
+                bool success = config_cache_db_create(
+                    txn,
+                    env->env->get_user_context(),
+                    db_name,
+                    db_id,
+                    env->env->interruptor);
+                if (success) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_result = success;
+            });
+            guarantee_fdb_TODO(loop_err, "db_create txn failed");
+        } catch (auth::permission_error_t const &permission_error) {
+            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
+
         // TODO: Wipe config cache after txn succeeds?  Why not.
 
         if (!fdb_result) {

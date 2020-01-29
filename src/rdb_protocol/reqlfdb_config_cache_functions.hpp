@@ -40,6 +40,7 @@ config_cache_retrieve_table_by_name(
 
 MUST_USE bool config_cache_db_create(
     FDBTransaction *txn,
+    const auth::user_context_t &user_context,
     const name_string_t &db_name,
     const database_id_t &new_db_id,
     const signal_t *interruptor);
@@ -82,5 +83,9 @@ std::vector<name_string_t> config_cache_table_list(
     FDBTransaction *txn,
     const database_id_t &db_id,
     const signal_t *interruptor);
+
+fdb_value_fut<auth::user_t> transaction_get_user(
+    FDBTransaction *txn,
+    const auth::username_t &username);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

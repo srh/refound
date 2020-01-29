@@ -58,6 +58,10 @@ public:
         }
     }
 
+    bool empty() const {
+        return fut == nullptr;
+    }
+
     fdb_future(fdb_future &&movee) noexcept : fut(movee.fut) {
         movee.fut = nullptr;
     }
@@ -233,6 +237,8 @@ constexpr const char *REQLFDB_JOBS_TABLE = "rethinkdb/jobs/";
 constexpr const char *REQLFDB_JOBS_BY_ID = "rethinkdb/jobs//";
 constexpr const char *REQLFDB_JOBS_BY_LEASE_EXPIRATION = "rethinkdb/jobs/by_expiration/";
 constexpr const char *REQLFDB_JOBS_BY_TASK = "rethinkdb/jobs/by_task/";
+
+constexpr const char *REQLFDB_USERS_BY_USERNAME = "rethinkdb/users//";
 
 constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 

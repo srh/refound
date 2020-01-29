@@ -249,6 +249,7 @@ config_cache_retrieve_table_by_name(
 
 bool config_cache_db_create(
         FDBTransaction *txn,
+        const auth::user_context_t &user_context,
         const name_string_t &db_name,
         const database_id_t &new_db_id,
         const signal_t *interruptor) {
@@ -256,14 +257,16 @@ bool config_cache_db_create(
     // operation.
     guarantee(db_name.str() != "rethinkdb",
         "config_cache_db_create should never get queries for system tables");
-    // TODO: Ensure caller doesn't pass "rethinkdb".
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+    auth::fdb_user_fut<auth::config_permission> auth_fut
+        = user_context.transaction_require_config_permission(txn);
     fdb_future fut = transaction_lookup_unique_index(
         txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
 
-    fdb_value value = future_block_on_value(fut.fut, interruptor);
+    auth_fut.block_and_check(interruptor);
 
+    fdb_value value = future_block_on_value(fut.fut, interruptor);
     if (value.present) {
         // A db with this name already exists.
         return false;
@@ -613,4 +616,16 @@ std::vector<name_string_t> config_cache_table_list(
     }
 
     return table_names;
+}
+
+ukey_string username_pkey(const auth::username_t &username) {
+    return ukey_string{username.to_string()};
+}
+
+fdb_value_fut<auth::user_t> transaction_get_user(
+        FDBTransaction *txn,
+        const auth::username_t &username) {
+    ukey_string pkey = username_pkey(username);
+    return fdb_value_fut<auth::user_t>{transaction_lookup_pkey_index(
+        txn, REQLFDB_USERS_BY_USERNAME, pkey)};
 }

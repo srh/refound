@@ -12,12 +12,14 @@ public:
     explicit fdb_value_fut(fdb_future &&movee)
         : fdb_future(std::move(movee)) {}
 
-    MUST_USE bool block_and_deserialize(const signal_t *interruptor, T *out) {
+    MUST_USE bool block_and_deserialize(const signal_t *interruptor, T *out)
+            THROWS_ONLY(interrupted_exc_t) {
         fdb_value value = future_block_on_value(fut, interruptor);
         return deserialize_off_fdb_value(value, out);
     }
 
-    T block_and_deserialize(const signal_t *interruptor) {
+    T block_and_deserialize(const signal_t *interruptor)
+            THROWS_ONLY(interrupted_exc_t) {
         T ret;
         bool value_present = block_and_deserialize(interruptor, &ret);
         guarantee(value_present);  // TODO: Pass error.
@@ -39,6 +41,7 @@ public:
 inline fdb_value_fut<reqlfdb_clock> transaction_get_clock(FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_clock>(transaction_get_c_str(txn, REQLFDB_CLOCK_KEY));
 }
+
 
 
 #endif  // RETHINKDB_FDB_TYPED_HPP_
