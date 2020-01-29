@@ -285,7 +285,7 @@ bool config_cache_db_create(
     return true;
 }
 
-bool config_cache_db_drop(
+optional<database_id_t> config_cache_db_drop(
         FDBTransaction *txn, const name_string_t &db_name, const signal_t *interruptor) {
     // TODO: This function must read and verify user permissions when performing this
     // operation.
@@ -301,7 +301,7 @@ bool config_cache_db_drop(
     fdb_value value = future_block_on_value(fut.fut, interruptor);
     database_id_t db_id;
     if (!deserialize_off_fdb_value(value, &db_id)) {
-        return false;
+        return r_nullopt;
     }
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
@@ -331,7 +331,7 @@ bool config_cache_db_drop(
     cv.value++;
     serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
 
-    return true;
+    return make_optional(db_id);
 }
 
 // Returns TABLE_CONFIG_BY_NAME range in database db_id, in [lower_bound_table_name,

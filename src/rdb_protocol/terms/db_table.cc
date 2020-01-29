@@ -348,6 +348,8 @@ private:
     const char *name() const override { return "table_create"; }
 };
 
+// OOO: Re-fdb-ize stuff below (besides table_term_t).
+
 class db_drop_term_t : public meta_op_term_t {
 public:
     db_drop_term_t(compile_env_t *env, const raw_term_t &term)
@@ -357,33 +359,54 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t) const {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
 
-        bool fdb_result;
+        if (db_name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{
+                strprintf("Database `%s` is special; you can't delete it.",
+                          artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
+
+        optional<database_id_t> fdb_result;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            bool success = config_cache_db_drop(txn, db_name, env->env->interruptor);
-            if (success) {
+            database_id_t db_id_local;
+            optional<database_id_t> success
+                = config_cache_db_drop(txn, db_name, env->env->interruptor);
+            if (success.has_value()) {
                 commit(txn, env->env->interruptor);
             }
             fdb_result = success;
         });
         guarantee_fdb_TODO(loop_err, "db_drop txn failed");
-        guarantee(fdb_result, "db does not exist (or something) in db_drop");  // TODO: Remove.
-        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
-        // TODO: fdb-ize:  Remove the non-fdb stuff, make use of fdb_result.
 
-        ql::datum_t result;
-        try {
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->db_drop(
-                    env->env->get_user_context(),
-                    db_name,
-                    env->env->interruptor,
-                    &result,
-                    &error)) {
-                REQL_RETHROW(error);
-            }
+        if (!fdb_result.has_value()) {
+            admin_err_t error = db_not_found_error(db_name);
+            REQL_RETHROW(error);
+        }
+
+        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
+
+        ql::datum_t old_config
+            = convert_db_or_table_config_and_name_to_datum(db_name, fdb_result->value);
+        ql::datum_object_builder_t result_builder;
+        result_builder.overwrite("dbs_dropped", ql::datum_t(1.0));
+        result_builder.overwrite(
+            "tables_dropped", ql::datum_t::null());  // TODO: Maybe a string, "unknown".
+        // TODO: The db_drop term could wait for the job to complete.
+        // OOO: Or, the db_drop term should output the drop job id.
+        // ql::datum_t(static_cast<double>(tables_dropped)));
+        result_builder.overwrite(
+            "config_changes",
+            make_replacement_pair(std::move(old_config), ql::datum_t::null()));
+        ql::datum_t result = std::move(result_builder).to_datum();
+
+
+        /* TODO: Permissions check in db_drop.
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
+        */
 
         return new_val(result);
     }
