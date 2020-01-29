@@ -576,11 +576,10 @@ std::vector<counted_t<const ql::db_t>> config_cache_db_list(
 // or check the config version, or something.
 
 // This is listed in ascending order.
-MUST_USE bool config_cache_table_list(
+std::vector<name_string_t> config_cache_table_list(
         FDBTransaction *txn,
         const database_id_t &db_id,
-        const signal_t *interruptor,
-        std::vector<name_string_t> *out) {
+        const signal_t *interruptor) {
 
     const ukey_string db_pkey_key = db_by_id_key(db_id);
     fdb_future db_by_id_fut = transaction_lookup_pkey_index(
@@ -613,6 +612,5 @@ MUST_USE bool config_cache_table_list(
         throw config_version_exc_t();
     }
 
-    *out = std::move(table_names);
-    return true;
+    return table_names;
 }

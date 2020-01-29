@@ -78,10 +78,9 @@ std::vector<counted_t<const ql::db_t>> config_cache_db_list(
     const signal_t *interruptor);
 
 
-MUST_USE bool config_cache_table_list(
+std::vector<name_string_t> config_cache_table_list(
     FDBTransaction *txn,
     const database_id_t &db_id,
-    const signal_t *interruptor,
-    std::vector<name_string_t> *out);
+    const signal_t *interruptor);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

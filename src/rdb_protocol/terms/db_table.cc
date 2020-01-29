@@ -478,8 +478,6 @@ private:
     virtual const char *name() const { return "table_drop"; }
 };
 
-// OOO: Re-fdb-ize stuff below (besides table_term_t).
-
 class db_list_term_t : public meta_op_term_t {
 public:
     db_list_term_t(compile_env_t *env, const raw_term_t &term)
@@ -530,33 +528,36 @@ private:
         }
 
         std::vector<name_string_t> table_list;
-        bool fdb_result;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            // TODO: Use a snapshot read for this?  Config txn appropriately?
-            fdb_result = config_cache_table_list(txn, db->id, env->env->interruptor, &table_list);
-            // TODO: We don't need to commit read only txns, right?  Right??
-        });
-        guarantee_fdb_TODO(loop_err, "db_list txn failed");
-        guarantee(fdb_result, "table_list got false result");
-
-        // TODO: Fdb-ize, use table_list, remove old code.
-
-        std::set<name_string_t> tables;
-        admin_err_t error;
-        if (!env->env->reql_cluster_interface()->table_list(db,
-                env->env->interruptor, &tables, &error)) {
-            REQL_RETHROW(error);
+        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+            // TODO: Handle special case.
+            std::set<name_string_t> tables;
+            admin_err_t error;
+            if (!env->env->reql_cluster_interface()->table_list(db,
+                    env->env->interruptor, &tables, &error)) {
+                REQL_RETHROW(error);
+            }
+            table_list.insert(table_list.end(), tables.begin(), tables.end());
+        } else {
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Use a snapshot read for this?  Config txn appropriately?
+                table_list = config_cache_table_list(txn, db->id, env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "db_list txn failed");
         }
 
+        // table_list is in sorted order.
+
         std::vector<datum_t> arr;
-        arr.reserve(tables.size());
-        for (auto it = tables.begin(); it != tables.end(); ++it) {
-            arr.push_back(datum_t(datum_string_t(it->str())));
+        arr.reserve(table_list.size());
+        for (const auto &name : table_list) {
+            arr.push_back(datum_t(datum_string_t(name.str())));
         }
         return new_val(datum_t(std::move(arr), env->env->limits()));
     }
     virtual const char *name() const { return "table_list"; }
 };
+
+// OOO: Re-fdb-ize stuff below (besides table_term_t).
 
 class config_term_t : public meta_op_term_t {
 public:
