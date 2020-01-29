@@ -557,15 +557,13 @@ private:
     virtual const char *name() const { return "table_list"; }
 };
 
-// OOO: Re-fdb-ize stuff below (besides table_term_t).
-
 class config_term_t : public meta_op_term_t {
 public:
     config_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        // TODO: Fdb-ize this function.
+        // OOO: Fdb-ize this function.
         scoped_ptr_t<val_t> target = args->arg(env, 0);
         scoped_ptr_t<val_t> selection;
         bool success;
@@ -612,7 +610,7 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        // TODO: Fdb-ize this function
+        // OOO: Fdb-ize this function
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
 
@@ -685,7 +683,7 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
 	    const counted_t<const ql::db_t> &db,
             const optional<name_string_t> &name_if_table) const {
-        // TODO: FDB-ize this function.  I think it's just table index building that
+        // OOO: FDB-ize this function.  I think it's just table index building that
         // we'd need to wait for -- and for db's, it's all the db's tables' index
         // building operations.
 
@@ -775,7 +773,7 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
             const counted_t<const ql::db_t> &db,
             const optional<name_string_t> &name_if_table) const {
-        // TODO: Fdb-ize?  Remove this?  Make it a no-op?  Gradually let the shards
+        // OOO: Fdb-ize?  Remove this?  Make it a no-op?  Gradually let the shards
         // table config params and such wither away?
 
         // Don't allow a reconfigure call without explicit database
@@ -914,7 +912,7 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
             const counted_t<const ql::db_t> &db,
             const optional<name_string_t> &name_if_table) const {
-        // TODO: Fdb-ize?  Remove this?  Or make it a no-op.
+        // OOO: Fdb-ize?  Remove this?  Or make it a no-op.
 
         // Don't allow a rebalance call without explicit database
         if (args->num_args() == 0) {
@@ -960,7 +958,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        // TODO: Fdb-ize?  Fdb already syncs.  Maybe there's a mode which controls this.
+        // OOO: Fdb-ize?  Fdb already syncs.  Maybe there's a mode which controls this.
         counted_t<table_t> t = args->arg(env, 0)->as_table();
         bool success = t->sync(env->env);
         r_sanity_check(success);
@@ -979,7 +977,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        // TODO: Fdb-ize.  (Add user-config to fdb.)
+        // OOO: Fdb-ize.  (Add user-config to fdb.)
         auth::username_t username(
             args->arg(env, args->num_args() - 2)->as_str().to_std());
         ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum();
@@ -1043,7 +1041,6 @@ public:
                     optargspec_t({"read_mode", "use_outdated", "identifier_format"})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        // TODO: Fdb-ize this.
         read_mode_t read_mode = read_mode_t::SINGLE;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "use_outdated")) {
             rfail(base_exc_t::LOGIC, "%s",
@@ -1172,6 +1169,8 @@ private:
     virtual deterministic_t is_deterministic() const { return deterministic_t::no(); }
     virtual const char *name() const { return "table"; }
 };
+
+// OOO: Fdb-ize the terms below.
 
 class get_term_t : public op_term_t {
 public:
