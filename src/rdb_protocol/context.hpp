@@ -258,18 +258,6 @@ public:
     `base_table_t` is because their implementations fits better with the implementations
     of the other methods of `reql_cluster_interface_t` than `base_table_t`. */
 
-    virtual bool db_create(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out) = 0;
-    virtual bool db_drop(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out) = 0;
     virtual bool db_list(
             signal_t *interruptor,
             std::set<name_string_t> *names_out, admin_err_t *error_out) = 0;

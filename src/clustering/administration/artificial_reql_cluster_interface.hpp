@@ -52,18 +52,6 @@ public:
                 auth_semilattice_view,
             rdb_context_t *rdb_context);
 
-    bool db_create(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool db_drop(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
     bool db_list(
             signal_t *interruptor,
             std::set<name_string_t> *names_out, admin_err_t *error_out);

@@ -344,30 +344,6 @@ void test_rdb_env_t::instance_t::interrupt() {
     interruptor.pulse();
 }
 
-bool test_rdb_env_t::instance_t::db_create(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED const name_string_t &name,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support mutation",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::db_drop(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED const name_string_t &name,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support mutation",
-        query_state_t::FAILED};
-    return false;
-}
-
 bool test_rdb_env_t::instance_t::db_list(
         UNUSED signal_t *local_interruptor, std::set<name_string_t> *names_out,
         UNUSED admin_err_t *error_out) {

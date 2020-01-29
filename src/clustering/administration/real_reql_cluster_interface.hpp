@@ -46,23 +46,11 @@ public:
                 table_query_bcard_t> *table_query_directory,
             lifetime_t<name_resolver_t const &> name_resolver);
 
-    bool db_create(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
     bool db_drop_uuid(
             auth::user_context_t const &user_context,
             database_id_t database_id,
             const name_string_t &name,
             signal_t *interruptor_on_home,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool db_drop(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            signal_t *interruptor,
             ql::datum_t *result_out,
             admin_err_t *error_out);
     bool db_list(

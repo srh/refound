@@ -75,58 +75,6 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
     }
 }
 
-// TODO: Make an interface with a test database.
-
-bool real_reql_cluster_interface_t::db_create(
-        auth::user_context_t const &user_context,
-        const name_string_t &name,
-        signal_t *interruptor_on_caller,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-
-    // TODO: Make user permission check use fdb (somehow).
-    user_context.require_config_permission(m_rdb_context);
-
-    // TODO: fdb-ize this function.
-
-    cluster_semilattice_metadata_t metadata;
-    ql::datum_t new_config;
-    {
-        on_thread_t thread_switcher(home_thread());
-        metadata = m_cluster_semilattice_view->get();
-
-        /* Make sure there isn't an existing database with the same name. */
-        for (const auto &pair : metadata.databases.databases) {
-            if (!pair.second.is_deleted() &&
-                    pair.second.get_ref().name.get_ref() == name) {
-                *error_out = db_already_exists_error(name);
-                return false;
-            }
-        }
-
-        database_id_t db_id = database_id_t{generate_uuid()};
-        database_semilattice_metadata_t db;
-        db.name = versioned_t<name_string_t>(name);
-        metadata.databases.databases.insert(std::make_pair(db_id, make_deletable(db)));
-
-        m_cluster_semilattice_view->join(metadata);
-        metadata = m_cluster_semilattice_view->get();
-
-        new_config = convert_db_or_table_config_and_name_to_datum(name, db_id.value);
-    }
-    wait_for_cluster_metadata_to_propagate(metadata, interruptor_on_caller);
-
-    ql::datum_object_builder_t result_builder;
-    result_builder.overwrite("dbs_created", ql::datum_t(1.0));
-    result_builder.overwrite("config_changes",
-        make_replacement_pair(ql::datum_t::null(), new_config));
-    *result_out = std::move(result_builder).to_datum();
-
-    return true;
-}
-
 bool real_reql_cluster_interface_t::db_drop_uuid(
             auth::user_context_t const &user_context,
             database_id_t database_id,
@@ -192,44 +140,6 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
             "config_changes",
             make_replacement_pair(std::move(old_config), ql::datum_t::null()));
         *result_out = std::move(result_builder).to_datum();
-    }
-
-    return true;
-}
-
-bool real_reql_cluster_interface_t::db_drop(
-        auth::user_context_t const &user_context,
-        const name_string_t &name,
-        signal_t *interruptor_on_caller,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-
-    {
-        cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
-        on_thread_t thread_switcher(home_thread());
-
-        // TODO: fdb-ize this in one transaction.
-        cluster_semilattice_metadata_t metadata = m_cluster_semilattice_view->get();
-        database_id_t database_id;
-        if (!search_db_metadata_by_name(
-                metadata.databases,
-                name,
-                &database_id,
-                error_out)) {
-            return false;
-        }
-
-        if (!db_drop_uuid(
-                user_context,
-                database_id,
-                name,
-                &interruptor_on_home,
-                result_out,
-                error_out)) {
-            return false;
-        }
     }
 
     return true;
