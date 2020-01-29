@@ -266,6 +266,9 @@ public:
     table_meta_client_t *get_table_meta_client() {
         return m_table_meta_client;
     }
+    ql::changefeed::client_t *get_changefeed_client() {
+        return &m_changefeed_client;
+    }
     namespace_repo_t *get_namespace_repo() {
         return &m_namespace_repo;
     }

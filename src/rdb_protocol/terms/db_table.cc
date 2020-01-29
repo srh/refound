@@ -4,9 +4,11 @@
 #include <map>
 #include <string>
 
+#include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
+#include "clustering/administration/namespace_interface_repository.hpp"
 // TODO: Move db_not_found_error to a different location
 #include "clustering/administration/metadata.hpp"
 #include "containers/name_string.hpp"
@@ -16,6 +18,7 @@
 #include "rdb_protocol/datum_string.hpp"
 #include "rdb_protocol/op.hpp"
 #include "rdb_protocol/pseudo_geometry.hpp"
+#include "rdb_protocol/real_table.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rdb_protocol/terms/writes.hpp"
 
@@ -127,6 +130,11 @@ private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
 
+        if (db_name == artificial_reql_cluster_interface_t::database_name) {
+            counted_t<const db_t> db = make_counted<db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name);
+            return new_val(std::move(db));
+        }
+
         // FTX: config_version logic here.
 
         reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
@@ -142,7 +150,7 @@ private:
 
         config_info<optional<database_id_t>> result;
         fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
-        [&](FDBTransaction *txn) {
+                [&](FDBTransaction *txn) {
             result = config_cache_retrieve_db_by_name(
                 cc, txn, db_name, env->env->interruptor);
         });
@@ -1001,33 +1009,93 @@ private:
             }
         }
 
+        std::pair<database_id_t, name_string_t> db_table_name;
         counted_t<const db_t> db;
-        name_string_t table_name;
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv.has());
             db = dbv->as_db();
-            table_name = get_name(args->arg(env, 0), "Table");
+            db_table_name.first = db->id;
+            db_table_name.second = get_name(args->arg(env, 0), "Table");
         } else {
             r_sanity_check(args->num_args() == 2);
             db = args->arg(env, 0)->as_db();
-            table_name = get_name(args->arg(env, 1), "Table");
+            db_table_name.first = db->id;
+            db_table_name.second = get_name(args->arg(env, 1), "Table");
         }
 
         reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
 
-
-
-
-
-        admin_err_t error;
-        counted_t<base_table_t> table;
-        if (!env->env->reql_cluster_interface()->table_find(table_name, db,
-                identifier_format, env->env->interruptor, &table, &error)) {
-            REQL_RETHROW(error);
+        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+            // TODO: Don't need interruptor (because artificial interface won't chain to m_next)
+            admin_err_t error;
+            counted_t<base_table_t> table;
+            if (!env->env->reql_cluster_interface()->table_find(db_table_name.second, db, identifier_format, env->env->interruptor, &table, &error)) {
+                REQL_RETHROW(error);
+            }
+            return new_val(make_counted<table_t>(
+                std::move(table), db, db_table_name.second.str(), read_mode,
+                backtrace()));
         }
+
+        // NNN: Ensure db config version and table config version match.
+
+        optional<config_info<namespace_id_t>> cached = try_lookup_cached_table(
+            cc, db_table_name);
+
+        counted_t<real_table_t> table;
+        if (cached.has_value()) {
+            check_cv(db->cv.get(), cached->ci_cv);
+
+            std::string primary_key;
+            {
+                ASSERT_NO_CORO_WAITING;  // cc mutex assertion
+                auto it = cc->table_id_index.find(cached->ci_value);
+                r_sanity_check(it != cc->table_id_index.end());
+                primary_key = it->second.basic.primary_key;
+            }
+
+            reql_cluster_interface_t *rci = env->env->reql_cluster_interface();
+            // TODO: remove the get_namespace_interface param from real_table_t, no interruptor.
+            table.reset(new real_table_t(
+                cached->ci_value,
+                rci->get_namespace_repo()->get_namespace_interface(cached->ci_value, env->env->interruptor),
+                primary_key,
+                rci->get_changefeed_client(),
+                rci->get_table_meta_client()));
+            table->cv.set(cached->ci_cv);
+        } else {
+            config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
+            fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
+                    [&](FDBTransaction *txn) {
+                result = config_cache_retrieve_table_by_name(
+                    cc, txn, db_table_name, env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
+            check_cv(db->cv.get(), result.ci_cv);
+
+
+            cc->note_version(result.ci_cv);
+
+            if (result.ci_value.has_value()) {
+                const namespace_id_t &table_id = result.ci_value->first;
+                cc->add_table(table_id, result.ci_value->second);
+                reql_cluster_interface_t *rci = env->env->reql_cluster_interface();
+                table.reset(new real_table_t(
+                    table_id,
+                    rci->get_namespace_repo()->get_namespace_interface(table_id, env->env->interruptor),
+                    result.ci_value->second.basic.primary_key,
+                    rci->get_changefeed_client(),
+                    rci->get_table_meta_client()));
+                table->cv.set(result.ci_cv);
+            } else {
+                admin_err_t error = table_not_found_error(db->name, db_table_name.second);
+                REQL_RETHROW(error);
+            }
+        }
+
         return new_val(make_counted<table_t>(
-            std::move(table), db, table_name.str(), read_mode, backtrace()));
+            std::move(table), db, db_table_name.second.str(), read_mode, backtrace()));
     }
     virtual deterministic_t is_deterministic() const { return deterministic_t::no(); }
     virtual const char *name() const { return "table"; }

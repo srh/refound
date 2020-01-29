@@ -36,6 +36,9 @@ class permissions_t;
 
 }  // namespace auth
 
+class namespace_repo_t;
+class table_meta_client_t;
+
 namespace ql {
 class configured_limits_t;
 class datumspec_t;
@@ -44,6 +47,7 @@ class query_cache_t;
 
 namespace changefeed {
 class streamspec_t;
+class client_t;
 }
 }
 
@@ -456,6 +460,10 @@ public:
             admin_err_t *error_out,
             std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
                 *configs_and_statuses_out) = 0;
+
+    virtual namespace_repo_t *get_namespace_repo() = 0;
+    virtual ql::changefeed::client_t *get_changefeed_client() = 0;
+    virtual table_meta_client_t *get_table_meta_client() = 0;
 
 protected:
     virtual ~reql_cluster_interface_t() { }   // silence compiler warnings

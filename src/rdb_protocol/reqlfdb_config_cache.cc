@@ -35,6 +35,14 @@ void reqlfdb_config_cache::add_db(
     db_name_index.emplace(db_name, db_id);
 }
 
+void reqlfdb_config_cache::add_table(
+        const namespace_id_t &table_id, const table_config_t &config) {
+    table_id_index.emplace(table_id, config);
+    table_name_index.emplace(
+        std::make_pair(config.basic.database, config.basic.name),
+        table_id);
+}
+
 // TODO: Remove.
 void config_cache_wipe(reqlfdb_config_cache *cache) {
     cache->wipe();
@@ -163,8 +171,7 @@ config_cache_retrieve_db_by_name(
         txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
-    // We block here!
-    fdb_value value = future_block_on_value(fut.fut, interruptor);
+    // Block here (1st round-trip)
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     if (cv.value < cache->config_version.value) {
@@ -172,18 +179,73 @@ config_cache_retrieve_db_by_name(
         throw fdb_transaction_exception(REQLFDB_not_committed);
     }
 
+    // Block here (1st round-trip)
+    fdb_value value = future_block_on_value(fut.fut, interruptor);
+
     database_id_t id;
     bool present = deserialize_off_fdb_value(value, &id);
 
     config_info<optional<database_id_t>> ret;
     ret.ci_cv = cv;
-    if (!present) {
-        return ret;
-    } else {
+    if (present) {
         ret.ci_value.set(id);
     }
     return ret;
 }
+
+config_info<optional<std::pair<namespace_id_t, table_config_t>>>
+config_cache_retrieve_table_by_name(
+        const reqlfdb_config_cache *cc, FDBTransaction *txn,
+        const std::pair<database_id_t, name_string_t> &db_table_name,
+        const signal_t *interruptor) {
+    const ukey_string table_index_key = table_by_name_key(
+        db_table_name.first, db_table_name.second);
+
+    fdb_future table_id_fut = transaction_lookup_unique_index(
+        txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    // Block here (1st round-trip; for simplicity we always check config version)
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+
+    if (cv.value < cc->config_version.value) {
+        // Throw a retryable exception.
+        throw fdb_transaction_exception(REQLFDB_not_committed);
+    }
+
+    // Block here (still 1st round-trip)
+    fdb_value table_id_value = future_block_on_value(table_id_fut.fut, interruptor);
+
+    namespace_id_t table_id;
+    bool present = deserialize_off_fdb_value(table_id_value, &table_id);
+
+    config_info<optional<std::pair<namespace_id_t, table_config_t>>> ret;
+    ret.ci_cv = cc->config_version;
+    if (!present) {
+        return ret;
+    }
+
+    // Table exists, gotta do second lookup.
+    ukey_string table_id_key = table_by_id_key(table_id);
+
+    fdb_future table_by_id_fut = transaction_lookup_pkey_index(
+        txn, REQLFDB_TABLE_CONFIG_BY_ID, table_id_key);
+
+    // Block here (2nd round-trip)
+    fdb_value config_value = future_block_on_value(table_by_id_fut.fut, interruptor);
+
+    ret.ci_value.emplace();
+    ret.ci_value->first = table_id;
+
+    bool config_present = deserialize_off_fdb_value(config_value, &ret.ci_value->second);
+    guarantee(config_present);  // TODO: Nice error?  FDB in bad state.
+
+    guarantee(db_table_name.first == ret.ci_value->second.basic.database);  // TODO: fdb in bad state
+    guarantee(db_table_name.second == ret.ci_value->second.basic.name);  // TODO: fdb in bad state
+
+    return ret;
+}
+
 
 bool config_cache_db_create(
         FDBTransaction *txn,

@@ -267,6 +267,19 @@ public:
     table_backends_map_t *get_table_backends_map_mutable();
     table_backends_map_t const &get_table_backends_map() const;
 
+    table_meta_client_t *get_table_meta_client() {
+        guarantee(m_next != nullptr);
+        return m_next->get_table_meta_client();
+    }
+    ql::changefeed::client_t *get_changefeed_client() {
+        guarantee(m_next != nullptr);
+        return m_next->get_changefeed_client();
+    }
+    namespace_repo_t *get_namespace_repo() {
+        guarantee(m_next != nullptr);
+        return m_next->get_namespace_repo();
+    }
+
 private:
     bool next_or_error(admin_err_t *error_out) const;
 

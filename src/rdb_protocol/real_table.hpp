@@ -118,6 +118,9 @@ public:
     void read_with_profile(ql::env_t *env, const read_t &, read_response_t *response);
     void write_with_profile(ql::env_t *env, write_t *, write_response_t *response);
 
+    // NNN: Force everybody accessing the uuid to use this value.
+    optional<reqlfdb_config_version> cv;
+
 private:
     optional<counted_t<const ql::func_t> > get_write_hook(
         ql::env_t *env,

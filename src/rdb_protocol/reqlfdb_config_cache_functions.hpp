@@ -32,6 +32,12 @@ config_cache_retrieve_db_by_name(
     const reqlfdb_config_cache *cc, FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);
 
+config_info<optional<std::pair<namespace_id_t, table_config_t>>>
+config_cache_retrieve_table_by_name(
+    const reqlfdb_config_cache *cc, FDBTransaction *txn,
+    const std::pair<database_id_t, name_string_t> &db_table_name,
+    const signal_t *interruptor);
+
 MUST_USE bool config_cache_db_create(
     FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);

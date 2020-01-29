@@ -15,6 +15,7 @@ class user_t;
 }
 
 // TODO: Make use of this.
+// TODO: Handle this exception.
 class config_version_exc_t : public std::exception {
 public:
     config_version_exc_t() {}
@@ -23,6 +24,15 @@ public:
         return "Config version out of date";
     }
 };
+
+// TODO: Every caller could more gracefully check provenance to see if relevant subset
+// of config is actually different, between older and newer version.
+inline void check_cv(reqlfdb_config_version older, reqlfdb_config_version newer) {
+    rassert(older.value <= newer.value);
+    if (older.value != newer.value) {
+        throw config_version_exc_t();
+    }
+}
 
 // Carries config information and its provenance.
 template <class T>
@@ -41,11 +51,15 @@ public:
 
     reqlfdb_config_version config_version;
 
-    // TODO: unordered maps?
-    std::map<name_string_t, database_id_t> db_name_index;
-    std::map<std::pair<database_id_t, name_string_t>, namespace_id_t> table_name_index;
+    // These maps do _not_ contain the "rethinkdb" database or its system tables.
 
+    // TODO: unordered maps?
+    // These two maps are kept in sync.
+    std::map<name_string_t, database_id_t> db_name_index;
     std::map<database_id_t, name_string_t> db_id_index;
+
+    // These two maps are kept in sync.
+    std::map<std::pair<database_id_t, name_string_t>, namespace_id_t> table_name_index;
     std::map<namespace_id_t, table_config_t> table_id_index;
 
     std::map<auth::username_t, auth::user_t> auth_index;
@@ -61,6 +75,7 @@ public:
     }
 
     void add_db(const database_id_t &db_id, const name_string_t &db_name);
+    void add_table(const namespace_id_t &table_id, const table_config_t &config);
 
     MOVABLE_BUT_NOT_COPYABLE(reqlfdb_config_cache);
 };

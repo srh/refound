@@ -3,6 +3,7 @@
 #define CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
 
 #include "clustering/table_manager/table_meta_client.hpp"
+#include "containers/name_string.hpp"
 #include "query_state.hpp"
 #include "utils.hpp"
 
@@ -46,6 +47,16 @@ private:
     query_state_t m_query_state;
 };
 
+inline admin_err_t table_not_found_error(
+        const name_string_t &db_name, const name_string_t &table_name) {
+    return admin_err_t{
+        strprintf("Table `%s.%s` does not exist.", db_name.c_str(), table_name.c_str()),
+        query_state_t::FAILED
+    };
+}
+
+// TODO: There will be no ambiguous table exc.
+
 /* `CATCH_NAME_ERRORS` and `CATCH_OP_ERRORS` are helper macros for catching the
 exceptions thrown by the `table_meta_client_t` and producing consistent error messages.
 They're designed to be used as follows:
@@ -59,9 +70,7 @@ returning `false`. */
 
 #define CATCH_NAME_ERRORS(db, name, error_out)                                        \
     catch (const no_such_table_exc_t &) {                                             \
-        *(error_out) = admin_err_t{                                                   \
-            strprintf("Table `%s.%s` does not exist.", (db).c_str(), (name).c_str()), \
-            query_state_t::FAILED};                                                   \
+        *(error_out) = table_not_found_error((db), (name));                           \
         return false;                                                                 \
     } catch (const ambiguous_table_exc_t &) {                                         \
         *(error_out) = admin_err_t{                                                   \

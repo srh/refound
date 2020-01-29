@@ -355,6 +355,17 @@ public:
                 std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
                     *configs_and_statuses_out);
 
+        // OOO: This isn't going to work.
+        table_meta_client_t *get_table_meta_client() {
+            crash("unimplemented");
+        }
+        ql::changefeed::client_t *get_changefeed_client() {
+            crash("unimplemented");
+        }
+        namespace_repo_t *get_namespace_repo() {
+            crash("unimplemented");
+        }
+
     private:
         extproc_pool_t extproc_pool;
         dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
