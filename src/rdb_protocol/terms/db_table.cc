@@ -432,38 +432,50 @@ private:
             tbl_name = get_name(args->arg(env, 1), "Table");
         }
 
-        bool fdb_result;
+        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{
+                strprintf("Database `%s` is special; you can't drop tables in it.",
+                          artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
+        optional<std::pair<namespace_id_t, table_config_t>> fdb_result;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            bool success = config_cache_table_drop(txn, db->id, tbl_name,
-                env->env->interruptor);
-            if (success) {
+            optional<std::pair<namespace_id_t, table_config_t>> success
+                = config_cache_table_drop(txn, db->id, tbl_name,
+                    env->env->interruptor);
+            if (success.has_value()) {
                 commit(txn, env->env->interruptor);
             }
-            fdb_result = success;
+            fdb_result = std::move(success);
         });
         guarantee_fdb_TODO(loop_err, "table_drop txn failed");
-        guarantee(fdb_result, "table doesn't exist (or something) in table_drop");  // TODO: remove.
-        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
 
-        // TODO: fdb-ize:  Remove non-fdb stuff, make use of fdb_result.
+        if (!fdb_result.has_value()) {
+            admin_err_t error = table_not_found_error(db->name, tbl_name);
+            REQL_RETHROW(error);
+        }
 
-        ql::datum_t result;
-        try {
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->table_drop(
-                    env->env->get_user_context(),
-                    tbl_name,
-                    db,
-                    env->env->interruptor,
-                    &result,
-                    &error)) {
-                REQL_RETHROW(error);
-            }
+        server_name_map_t dummy_server_names;
+
+        // TODO: Wipe the config cache after the txn succeeds?
+        ql::datum_t old_config = convert_table_config_to_datum(
+            fdb_result->first, convert_name_to_datum(db->name), fdb_result->second,
+            admin_identifier_format_t::name, dummy_server_names);
+
+        ql::datum_object_builder_t result_builder;
+        result_builder.overwrite("tables_dropped", ql::datum_t(1.0));
+        result_builder.overwrite("config_changes",
+            make_replacement_pair(old_config, ql::datum_t::null()));
+        ql::datum_t result = std::move(result_builder).to_datum();
+        return new_val(std::move(result));
+
+        /* TODO permissions stuff.
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
-
-        return new_val(result);
+        */
     }
     virtual const char *name() const { return "table_drop"; }
 };

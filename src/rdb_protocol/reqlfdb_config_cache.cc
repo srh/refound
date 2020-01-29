@@ -357,6 +357,24 @@ fdb_future transaction_get_table_range(
         false)};
 }
 
+void help_remove_table(
+        FDBTransaction *txn,
+        database_id_t db_id,
+        const namespace_id_t &table_id,
+        const std::string &table_name) {
+    ukey_string table_pkey = table_by_id_key(table_id);
+    ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
+
+    // Wipe table config (from pkey and indices), and wipe table contents.
+    transaction_erase_pkey_index(txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
+    transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+
+    std::string prefix = table_key_prefix(table_id);
+    std::string end = prefix_end(prefix);
+    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
+        as_uint8(end.data()), int(end.size()));
+}
+
 // FYI, all callers right now do in fact pass a valid table name.  Doesn't touch the
 // reqlfdb_config_version, because this is also used by the db_drop cleanup job.
 bool help_remove_table_if_exists(
@@ -367,7 +385,7 @@ bool help_remove_table_if_exists(
     // TODO: Split this function up into future creation part and blocking part, to
     // avoid multiple latency round-trips.
 
-    const ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
+    ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
     fdb_value_fut<namespace_id_t> table_by_name_fut{transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key)};
 
@@ -377,21 +395,12 @@ bool help_remove_table_if_exists(
         return false;
     }
 
-    ukey_string table_pkey = table_by_id_key(table_id);
-
-    // Wipe table config (from pkey and indices), and wipe table contents.
-    transaction_erase_pkey_index(txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
-    transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
-
-    std::string prefix = table_key_prefix(table_id);
-    std::string end = prefix_end(prefix);
-    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
-        as_uint8(end.data()), int(end.size()));
-
+    help_remove_table(txn, db_id, table_id, table_name);
     return true;
 }
 
-bool config_cache_table_drop(
+
+optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         FDBTransaction *txn, database_id_t db_id, const name_string_t &table_name,
         const signal_t *interruptor) {
 
@@ -404,33 +413,40 @@ bool config_cache_table_drop(
     fdb_future db_by_id_fut = transaction_lookup_pkey_index(
         txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
 
-    fdb_value table_by_name_value
-        = future_block_on_value(table_by_name_fut.fut, interruptor);
-    if (!table_by_name_value.present) {
-        return false;
-    }
-
     fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
     if (!db_by_id_value.present) {
-        // TODO: This might mean the id came from an out-of-date cache.  We should
-        // report the error back to the user (which is broken) but with a distinguished
-        // error return value than "table doesn't exist".
-        return false;
+        throw config_version_exc_t();
+    }
+
+    fdb_value table_by_name_value
+        = future_block_on_value(table_by_name_fut.fut, interruptor);
+    namespace_id_t table_id;
+    if (!deserialize_off_fdb_value(table_by_name_value, &table_id)) {
+        return r_nullopt;
+    }
+
+    ukey_string table_pkey = table_by_id_key(table_id);
+    // Now for an extra round-trip (to produce pretty output for the user), we read the
+    // table config!
+    fdb_future table_by_id_fut = transaction_lookup_pkey_index(
+        txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
+
+    fdb_value table_by_id_value = future_block_on_value(table_by_id_fut.fut, interruptor);
+    table_config_t config;
+    if (!deserialize_off_fdb_value(table_by_id_value, &config)) {
+        // TODO: graceful error handling for corrupt fdb
+        crash("No table_config_by_id for key found in index");
     }
 
     // Okay, the db's present, and the table's present.  Drop the table.
 
-    bool table_present = help_remove_table_if_exists(
-        txn, db_id, table_name.str(), interruptor);
-    if (!table_present) {
-        return false;
-    }
+    help_remove_table(txn, db_id, table_id, table_name.str());
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     cv.value++;
     serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
-    return true;
+    return make_optional(std::make_pair(table_id, std::move(config)));
 }
 
 bool config_cache_table_create(
@@ -466,12 +482,12 @@ bool config_cache_table_create(
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
-    ASSERT_NO_CORO_WAITING;
-
     if (!db_by_id_value.present) {
         // TODO: We can throw this from within a retry loop, right?
         throw config_version_exc_t();
     }
+
+    ASSERT_NO_CORO_WAITING;
 
     // Okay, the db's present, the table is not present.  Create the table.
 
