@@ -1372,7 +1372,7 @@ bool real_reql_cluster_interface_t::sindex_create(
                       name.c_str(), db->name.c_str(), table.c_str()),
             query_state_t::FAILED};
         return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
+    } CATCH_NAME_ERRORS(db->name, table, error_out)
       CATCH_OP_ERRORS(db->name, table, error_out,
         "The secondary index was not created.",
         "The secondary index may or may not have been created.")
@@ -1417,8 +1417,8 @@ bool real_reql_cluster_interface_t::sindex_drop(
                       name.c_str(), db->name.c_str(), table.c_str()),
             query_state_t::FAILED};
         return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-      CATCH_OP_ERRORS(db->name, name, error_out,
+    } CATCH_NAME_ERRORS(db->name, table, error_out)
+      CATCH_OP_ERRORS(db->name, table, error_out,
         "The secondary index was not dropped.",
         "The secondary index may or may not have been dropped.")
 }
@@ -1472,8 +1472,8 @@ bool real_reql_cluster_interface_t::sindex_rename(
                 query_state_t::FAILED};
         }
         return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-      CATCH_OP_ERRORS(db->name, name, error_out,
+    } CATCH_NAME_ERRORS(db->name, table, error_out)
+      CATCH_OP_ERRORS(db->name, table, error_out,
         "The secondary index was not renamed.",
         "The secondary index may or may not have been renamed.")
 }
