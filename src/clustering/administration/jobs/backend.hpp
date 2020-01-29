@@ -8,8 +8,11 @@
 
 #include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 #include "rdb_protocol/context.hpp"
-#include "clustering/administration/auth/user_context.hpp"
 #include "concurrency/watchable.hpp"
+
+namespace auth {
+class user_context_t;
+}
 
 class cluster_directory_metadata_t;
 class cluster_semilattice_metadata_t;

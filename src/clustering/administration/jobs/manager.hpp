@@ -6,7 +6,6 @@
 #include <map>
 #include <set>
 
-#include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/jobs/report.hpp"
 #include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/table_manager/multi_table_manager.hpp"
@@ -19,6 +18,10 @@
 
 class rdb_context_t;
 class reactor_driver_t;
+
+namespace auth {
+class user_context_t;
+}
 
 class jobs_manager_t {
 public:
