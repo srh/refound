@@ -1106,8 +1106,6 @@ private:
                 backtrace()));
         }
 
-        // NNN: Ensure db config version and table config version match.
-
         optional<config_info<namespace_id_t>> cached = try_lookup_cached_table(
             cc, db_table_name);
 
@@ -1141,10 +1139,8 @@ private:
                     cc, txn, db_table_name, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
-            check_cv(db->cv.get(), result.ci_cv);
-
-
             cc->note_version(result.ci_cv);
+            check_cv(db->cv.get(), result.ci_cv);
 
             if (result.ci_value.has_value()) {
                 const namespace_id_t &table_id = result.ci_value->first;
