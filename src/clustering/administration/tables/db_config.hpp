@@ -15,7 +15,7 @@
 trivial function right now, but it will become non-trivial if we ever add more
 configuration to databases. */
 ql::datum_t convert_db_or_table_config_and_name_to_datum(
-        name_string_t db_name,
+        const name_string_t &db_name,
         uuid_u id);
 
 class real_reql_cluster_interface_t;

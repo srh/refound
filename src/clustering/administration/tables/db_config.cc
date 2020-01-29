@@ -4,10 +4,11 @@
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
+#include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 
 ql::datum_t convert_db_or_table_config_and_name_to_datum(
-        name_string_t db_name,
+        const name_string_t &db_name,
         uuid_u id) {
     ql::datum_object_builder_t builder;
     builder.overwrite("name", convert_name_to_datum(db_name));
@@ -190,11 +191,10 @@ bool db_config_artificial_table_backend_t::write_row(
 
         if (!existed_before || new_db_name != old_db_name) {
             /* Reserve the `rethinkdb` database name */
-            if (new_db_name == name_string_t::guarantee_valid("rethinkdb")) {
+            name_string_t rethinkdb_db_name = name_string_t::guarantee_valid("rethinkdb");
+            if (new_db_name == rethinkdb_db_name) {
                 if (!existed_before) {
-                    *error_out = admin_err_t{
-                        "Database `rethinkdb` already exists.",
-                        query_state_t::FAILED};
+                    *error_out = db_already_exists_error(rethinkdb_db_name);
                 } else {
                     *error_out = admin_err_t{
                         strprintf("Cannot rename database `%s` to `rethinkdb` "

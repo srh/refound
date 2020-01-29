@@ -361,4 +361,8 @@ private:
     backend_sentry_t debug_table_status_sentry;
 };
 
+// TODO: Move to appropriate file
+admin_err_t db_already_exists_error(const name_string_t &db_name);
+
 #endif /* CLUSTERING_ADMINISTRATION_ARTIFICIAL_REQL_CLUSTER_INTERFACE_HPP_ */
+

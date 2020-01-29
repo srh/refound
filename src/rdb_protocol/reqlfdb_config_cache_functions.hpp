@@ -40,7 +40,9 @@ config_cache_retrieve_table_by_name(
 
 MUST_USE bool config_cache_db_create(
     FDBTransaction *txn,
-    const name_string_t &db_name, const signal_t *interruptor);
+    const name_string_t &db_name,
+    const database_id_t &new_db_id,
+    const signal_t *interruptor);
 
 MUST_USE bool config_cache_table_create(
     FDBTransaction *txn,

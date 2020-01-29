@@ -101,9 +101,7 @@ bool real_reql_cluster_interface_t::db_create(
         for (const auto &pair : metadata.databases.databases) {
             if (!pair.second.is_deleted() &&
                     pair.second.get_ref().name.get_ref() == name) {
-                *error_out = admin_err_t{
-                    strprintf("Database `%s` already exists.", name.c_str()),
-                    query_state_t::FAILED};
+                *error_out = db_already_exists_error(name);
                 return false;
             }
         }

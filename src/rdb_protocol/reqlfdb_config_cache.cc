@@ -249,7 +249,9 @@ config_cache_retrieve_table_by_name(
 
 bool config_cache_db_create(
         FDBTransaction *txn,
-        const name_string_t &db_name, const signal_t *interruptor) {
+        const name_string_t &db_name,
+        const database_id_t &new_db_id,
+        const signal_t *interruptor) {
     // TODO: This function must read and verify user permissions when performing this
     // operation.
     guarantee(db_name.str() != "rethinkdb",
@@ -270,10 +272,9 @@ bool config_cache_db_create(
 
     ASSERT_NO_CORO_WAITING;
 
-    database_id_t db_id = database_id_t{generate_uuid()};
     // TODO: Use uniform reql datum primary key serialization, how about that idea?
-    ukey_string db_id_key = db_by_id_key(db_id);
-    std::string db_id_value = serialize_for_cluster_to_string(db_id);
+    ukey_string db_id_key = db_by_id_key(new_db_id);
+    std::string db_id_value = serialize_for_cluster_to_string(new_db_id);
 
     transaction_set_pkey_index(txn, REQLFDB_DB_CONFIG_BY_ID, db_id_key, db_name.str());
     transaction_set_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME,

@@ -9,6 +9,8 @@
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/namespace_interface_repository.hpp"
+// For utility function; maybe move convert_db_or_table_config_and_name_to_datum out.
+#include "clustering/administration/tables/db_config.hpp"
 // TODO: Move db_not_found_error to a different location
 #include "clustering/administration/metadata.hpp"
 #include "containers/name_string.hpp"
@@ -20,6 +22,7 @@
 #include "rdb_protocol/pseudo_geometry.hpp"
 #include "rdb_protocol/real_table.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
+#include "rdb_protocol/table_common.hpp"
 #include "rdb_protocol/terms/writes.hpp"
 
 namespace ql {
@@ -149,6 +152,7 @@ private:
         }
 
         config_info<optional<database_id_t>> result;
+        // TODO: Read-only txn.
         fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
                 [&](FDBTransaction *txn) {
             result = config_cache_retrieve_db_by_name(
@@ -183,12 +187,19 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
 
+        if (db_name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error = db_already_exists_error(db_name);
+            REQL_RETHROW(error);
+        }
+
+        database_id_t db_id{generate_uuid()};
         bool fdb_result;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&db_name, env, &fdb_result](FDBTransaction *txn) {
-            // TODO: impl artificial_reql_cluster_interface_t::db_create's check for "rethinkdb" db
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            // TODO: Make sure config_cache_db_create checks auth permission.
             bool success = config_cache_db_create(
                 txn,
                 db_name,
+                db_id,
                 env->env->interruptor);
             if (success) {
                 commit(txn, env->env->interruptor);
@@ -196,24 +207,29 @@ private:
             fdb_result = success;
         });
         guarantee_fdb_TODO(loop_err, "db_create txn failed");
-        guarantee(fdb_result, "fdb db already exists on db_create"); // TODO: Remove.
-        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
+        // TODO: Might as well return the config version above -- ^^ and try updating config cache.
 
-        // TODO: fdb-ize: remove non-fdb stuff, make use of fdb_result
-        ql::datum_t result;
-        try {
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->db_create(
-                    env->env->get_user_context(),
-                    db_name,
-                    env->env->interruptor,
-                    &result,
-                    &error)) {
-                REQL_RETHROW(error);
-            }
+        if (!fdb_result) {
+            admin_err_t error = db_already_exists_error(db_name);
+            REQL_RETHROW(error);
+        }
+
+        // TODO: Compute and return result.
+        ql::datum_t new_config = convert_db_or_table_config_and_name_to_datum(db_name, db_id.value);
+        ql::datum_object_builder_t result_builder;
+        result_builder.overwrite("dbs_created", ql::datum_t(1.0));
+        result_builder.overwrite("config_changes",
+            make_replacement_pair(ql::datum_t::null(), new_config));
+        ql::datum_t result = std::move(result_builder).to_datum();
+        return new_val(std::move(result));
+
+        /*
+        TODO: Check permissions as real_reql_cluster_interface db_create did, and throw this sort of permission error.
+
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
+        */
 
         return new_val(result);
     }
@@ -1066,6 +1082,7 @@ private:
             table->cv.set(cached->ci_cv);
         } else {
             config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
+            // TODO: Read-only txn.
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
                     [&](FDBTransaction *txn) {
                 result = config_cache_retrieve_table_by_name(

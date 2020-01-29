@@ -27,6 +27,12 @@ artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t(
     m_next(nullptr) {
 }
 
+admin_err_t db_already_exists_error(const name_string_t &db_name) {
+    return admin_err_t{
+            strprintf("Database `%s` already exists.", db_name.c_str()),
+            query_state_t::FAILED};
+}
+
 bool artificial_reql_cluster_interface_t::db_create(
         auth::user_context_t const &user_context,
         const name_string_t &name,
@@ -34,9 +40,7 @@ bool artificial_reql_cluster_interface_t::db_create(
         ql::datum_t *result_out,
         admin_err_t *error_out) {
     if (name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` already exists.", artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
+        *error_out = db_already_exists_error(artificial_reql_cluster_interface_t::database_name);
         return false;
     }
     return next_or_error(error_out) && m_next->db_create(
