@@ -299,6 +299,14 @@ bool real_reql_cluster_interface_t::db_config(
     }
 }
 
+admin_err_t table_already_exists_error(
+    const name_string_t &db_name, const name_string_t &table_name) {
+    return admin_err_t{
+        strprintf("Table `%s.%s` already exists.", db_name.c_str(), table_name.c_str()),
+        query_state_t::FAILED
+    };
+}
+
 bool real_reql_cluster_interface_t::table_create(
         auth::user_context_t const &user_context,
         const name_string_t &name,
@@ -325,10 +333,7 @@ bool real_reql_cluster_interface_t::table_create(
 
         /* Make sure there isn't an existing table with the same name */
         if (m_table_meta_client->exists(/* txn.txn, TODO, beware thread */ db->id, name)) {
-            *error_out = admin_err_t{
-                strprintf("Table `%s.%s` already exists.",
-                          db->name.c_str(), name.c_str()),
-                query_state_t::FAILED};
+            *error_out = table_already_exists_error(db->name, name);
             return false;
         }
 

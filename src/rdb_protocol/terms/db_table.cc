@@ -9,6 +9,7 @@
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/namespace_interface_repository.hpp"
+#include "clustering/administration/real_reql_cluster_interface.hpp"
 // For utility function; maybe move convert_db_or_table_config_and_name_to_datum out.
 #include "clustering/administration/tables/db_config.hpp"
 // TODO: Move db_not_found_error to a different location
@@ -207,14 +208,13 @@ private:
             fdb_result = success;
         });
         guarantee_fdb_TODO(loop_err, "db_create txn failed");
-        // TODO: Might as well return the config version above -- ^^ and try updating config cache.
+        // TODO: Wipe config cache after txn succeeds?  Why not.
 
         if (!fdb_result) {
             admin_err_t error = db_already_exists_error(db_name);
             REQL_RETHROW(error);
         }
 
-        // TODO: Compute and return result.
         ql::datum_t new_config = convert_db_or_table_config_and_name_to_datum(db_name, db_id.value);
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("dbs_created", ql::datum_t(1.0));
@@ -285,43 +285,63 @@ private:
             tbl_name = get_name(args->arg(env, 1), "Table");
         }
 
+        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{
+                strprintf("Database `%s` is special; you can't create new tables "
+                      "in it.", artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
+        // TODO: Fixup all '[&]' capture list usage.
+
+        table_config_t config;
+        config.basic.name = tbl_name;
+        config.basic.database = db->id;
+        config.basic.primary_key = primary_key;
+        // TODO: Remove sharding UI.
+        // TODO: Remove table_config_t::shards, ::write_ack_config, ::durability
+        config.write_ack_config = write_ack_config_t::MAJORITY;
+        config.durability = durability;
+        config.user_data = default_user_data();
+        namespace_id_t new_table_id{generate_uuid()};
+
         // TODO: Build the table config up here, remove outer_config_cache_table_create.
         bool fdb_result;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            // TODO: after we build the table_config_t locally, specify precise capture list.
-            bool success = outer_config_cache_table_create(txn, db->id,
-                tbl_name, primary_key, durability,
-                env->env->interruptor);
+            // TODO: Handle user auth permissions.
+            bool success = config_cache_table_create(txn, new_table_id, config, env->env->interruptor);
             if (success) {
                 commit(txn, env->env->interruptor);
             }
             fdb_result = success;
         });
         guarantee_fdb_TODO(loop_err, "table_create txn failed");
-        guarantee(fdb_result, "table already exists (or something) in table_create");  // TODO: Remove.
-        // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
 
-        // TODO: fdb-ize:  Remove non-fdb stuff, make use of fdb_result.
+        if (!fdb_result) {
+            admin_err_t error = table_already_exists_error(db->name, tbl_name);
+            REQL_RETHROW(error);
+        }
+        // TODO: Wipe the config cache after the txn succeeds?
 
-        /* Create the table */
-        ql::datum_t result;
-        try {
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->table_create(
-                    env->env->get_user_context(),
-                    tbl_name,
-                    db,
-                    config_params,
-                    primary_key,
-                    durability,
-                    env->env->interruptor,
-                    &result,
-                    &error)) {
-                REQL_RETHROW(error);
-            }
+        server_name_map_t dummy_map;
+        ql::datum_t new_config = convert_table_config_to_datum(new_table_id,
+            convert_name_to_datum(db->name), config,
+            admin_identifier_format_t::name, dummy_map);
+
+        ql::datum_object_builder_t result_builder;
+        result_builder.overwrite("tables_created", ql::datum_t(1.0));
+        result_builder.overwrite("config_changes",
+            make_replacement_pair(ql::datum_t::null(), new_config));
+        ql::datum_t result = std::move(result_builder).to_datum();
+
+        return new_val(std::move(result));
+
+        /* TODO: User auth stuff.
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
+*/
 
         return new_val(result);
     }

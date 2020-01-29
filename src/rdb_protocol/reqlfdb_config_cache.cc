@@ -435,6 +435,7 @@ bool config_cache_table_drop(
 
 bool config_cache_table_create(
         FDBTransaction *txn,
+        const namespace_id_t &new_table_id,
         const table_config_t &config,
         const signal_t *interruptor) {
     // TODO: This function must read and verify user permissions when performing this
@@ -468,20 +469,16 @@ bool config_cache_table_create(
     ASSERT_NO_CORO_WAITING;
 
     if (!db_by_id_value.present) {
-        // TODO: This might mean the id came from an out-of-date cache.  We should
-        // report the error back to the user (which is broken) but with a distinguished
-        // error return value than "table already exists".
-        return false;
+        // TODO: We can throw this from within a retry loop, right?
+        throw config_version_exc_t();
     }
 
     // Okay, the db's present, the table is not present.  Create the table.
 
-    const namespace_id_t table_id = namespace_id_t{generate_uuid()};
-
     // TODO: Figure out how to name these sorts of variables.
-    ukey_string table_pkey = table_by_id_key(table_id);
+    ukey_string table_pkey = table_by_id_key(new_table_id);
     std::string table_config_value = serialize_for_cluster_to_string(config);
-    std::string table_pkey_value = serialize_for_cluster_to_string(table_id);
+    std::string table_pkey_value = serialize_for_cluster_to_string(new_table_id);
 
     transaction_set_pkey_index(txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey,
         table_config_value);
@@ -494,29 +491,6 @@ bool config_cache_table_create(
     return true;
 }
 
-
-bool outer_config_cache_table_create(
-        FDBTransaction *txn,
-        const database_id_t &db_id,
-        const name_string_t &table_name,
-        const std::string &primary_key,
-        write_durability_t durability,
-        const signal_t *interruptor) {
-    table_config_t config;
-    config.basic.name = table_name;
-    config.basic.database = db_id;
-    config.basic.primary_key = primary_key;
-
-    // TODO: Remove sharding UI.
-
-    // TODO: Remove table_config_t::shards.
-    // TODO: Remove table_config_t::write_ack_config and -::durability.
-    config.write_ack_config = write_ack_config_t::MAJORITY;
-    config.durability = durability;
-    config.user_data = default_user_data();
-
-    return config_cache_table_create(txn, config, interruptor);
-}
 
 template <class Callable>
 void transaction_read_whole_range_coro(FDBTransaction *txn,
@@ -620,10 +594,7 @@ MUST_USE bool config_cache_table_list(
 
     fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
     if (!db_by_id_value.present) {
-        // TODO: This might mean the id came from an out-of-date cache.  We should
-        // report the error back to the user (which is broken) but with a distinguished
-        // error return value than "table doesn't exist".
-        return false;
+        throw config_version_exc_t();
     }
 
     *out = std::move(table_names);

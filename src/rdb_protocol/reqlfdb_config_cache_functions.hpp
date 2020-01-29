@@ -46,16 +46,8 @@ MUST_USE bool config_cache_db_create(
 
 MUST_USE bool config_cache_table_create(
     FDBTransaction *txn,
+    const namespace_id_t &new_table_id,
     const table_config_t &config,
-    const signal_t *interruptor);
-
-// TODO: Remove this, push table_config_t construction to caller(s).
-MUST_USE bool outer_config_cache_table_create(
-    FDBTransaction *txn,
-    const database_id_t &db_id,
-    const name_string_t &table_name,
-    const std::string &primary_key,
-    write_durability_t durability,
     const signal_t *interruptor);
 
 fdb_future transaction_get_table_range(

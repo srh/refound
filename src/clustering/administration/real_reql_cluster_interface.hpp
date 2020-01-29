@@ -350,5 +350,8 @@ private:
     DISABLE_COPYING(real_reql_cluster_interface_t);
 };
 
+admin_err_t table_already_exists_error(
+    const name_string_t &db_name, const name_string_t &table_name);
+
 #endif /* CLUSTERING_ADMINISTRATION_REAL_REQL_CLUSTER_INTERFACE_HPP_ */
 
