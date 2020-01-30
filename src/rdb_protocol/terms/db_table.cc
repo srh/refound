@@ -1012,14 +1012,38 @@ private:
         admin_err_t error;
         try {
             if (args->num_args() == 2) {
-                success = env->env->reql_cluster_interface()->grant_global(
-                    env->env->get_user_context(),
-                    std::move(username),
-                    std::move(permissions),
-                    env->env->interruptor,
-                    &result,
-                    &error);
+                bool fdb_success;
+                ql::datum_t fdb_result;
+                admin_err_t fdb_err;
+                fdb_error_t err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
+                        [&](FDBTransaction *txn) {
+                    ql::datum_t result;
+                    admin_err_t err;
+                    bool ret = auth::grant(
+                        txn,
+                        env->env->get_user_context(),
+                        std::move(username),
+                        std::move(permissions),
+                        env->env->interruptor,
+                        [](auth::user_t &user) -> auth::permissions_t & {
+                            return user.get_global_permissions();
+                        },
+                        &result,
+                        &err);
+                    if (ret) {  // TODO: Only commit if ret is true?
+                        commit(txn, env->env->interruptor);
+                    }
+                    fdb_success = ret;
+                    fdb_result = result;
+                    fdb_err = err;
+                });
+                guarantee_fdb_TODO(err, "retry loop in grant_term_t for grant_global");
+                if (!fdb_success) {
+                    REQL_RETHROW(fdb_err);
+                }
+                return new_val(std::move(fdb_result));
             } else {
+                // OOO: Fdb-ize this.
                 scoped_ptr_t<val_t> scope = args->arg(env, 0);
                 if (scope->get_type().is_convertible(val_t::type_t::DB)) {
                     success = env->env->reql_cluster_interface()->grant_database(

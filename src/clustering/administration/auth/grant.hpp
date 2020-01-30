@@ -13,6 +13,19 @@ namespace auth {
 
 class user_t;
 
+MUST_USE bool grant(
+        FDBTransaction *txn,
+        auth::user_context_t const &user_context,
+        auth::username_t username,
+        ql::datum_t permissions,
+        signal_t *interruptor,
+        std::function<auth::permissions_t &(auth::user_t &)> permission_selector_function,
+        ql::datum_t *result_out,
+        admin_err_t *error_out)
+    THROWS_ONLY(interrupted_exc_t, permissions_error_t);
+
+
+// OOO: Remove this.
 bool grant(
         FDBTransaction *txn,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
