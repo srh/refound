@@ -584,7 +584,7 @@ private:
                 }
 
                 // OOO: Fdb-ize this here.  Look at make_single_selection in
-                // real_reql_cluster_interface.
+                // real_reql_cluster_interface_t.
                 admin_err_t error;
                 if (!env->env->reql_cluster_interface()->db_config(
                         env->env->get_user_context(),
@@ -599,6 +599,8 @@ private:
                 counted_t<table_t> table = target->as_table();
                 name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
                 admin_err_t error;
+                /// OOO: Fdb-ize this here.  Look at make_single_selection in
+                /// real_reql_cluster_interface_t.
                 if (!env->env->reql_cluster_interface()->table_config(
                         env->env->get_user_context(),
                         table->db,
@@ -624,12 +626,21 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        // OOO: Fdb-ize this function
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
 
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{
+                strprintf("Database `%s` is special; the system tables in it don't "
+                          "have meaningful status information.", artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
         scoped_ptr_t<val_t> selection;
         try {
+            // OOO: Fdb-ize this, I guess.  Look at make_single_selection in
+            // real_reql_cluster_interface_t.
             admin_err_t error;
             if (!env->env->reql_cluster_interface()->table_status(
                     table->db, table_name, backtrace(), env->env, &selection, &error)) {
