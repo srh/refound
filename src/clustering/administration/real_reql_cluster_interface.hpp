@@ -69,13 +69,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out);
 
-    bool table_drop(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            counted_t<const ql::db_t> db,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
     bool table_list(
             counted_t<const ql::db_t> db,
             signal_t *interruptor,

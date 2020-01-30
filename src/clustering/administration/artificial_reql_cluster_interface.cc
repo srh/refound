@@ -74,24 +74,6 @@ bool artificial_reql_cluster_interface_t::db_config(
         user_context, db, bt, env, selection_out, error_out);
 }
 
-bool artificial_reql_cluster_interface_t::table_drop(
-        auth::user_context_t const &user_context,
-        const name_string_t &name,
-        counted_t<const ql::db_t> db,
-        signal_t *interruptor,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; you can't drop tables in it.",
-                      artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->table_drop(
-        user_context, name, db, interruptor, result_out, error_out);
-}
-
 bool artificial_reql_cluster_interface_t::table_list(counted_t<const ql::db_t> db,
         signal_t *interruptor,
         std::set<name_string_t> *names_out, admin_err_t *error_out) {

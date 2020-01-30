@@ -381,19 +381,6 @@ bool test_rdb_env_t::instance_t::db_config(
     return false;
 }
 
-bool test_rdb_env_t::instance_t::table_drop(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED const name_string_t &name,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support mutation",
-        query_state_t::FAILED};
-    return false;
-}
-
 bool test_rdb_env_t::instance_t::table_list(counted_t<const ql::db_t> db,
         UNUSED signal_t *local_interruptor, std::set<name_string_t> *names_out,
         UNUSED admin_err_t *error_out) {

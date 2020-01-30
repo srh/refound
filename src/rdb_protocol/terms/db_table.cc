@@ -441,8 +441,8 @@ private:
             REQL_RETHROW(error);
         }
 
+        optional<std::pair<namespace_id_t, table_config_t>> fdb_result;
         try {
-            optional<std::pair<namespace_id_t, table_config_t>> fdb_result;
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 optional<std::pair<namespace_id_t, table_config_t>> success
                     = config_cache_table_drop(txn, env->env->get_user_context(),

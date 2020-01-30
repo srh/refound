@@ -222,66 +222,6 @@ admin_err_t table_already_exists_error(
 // TODO: What does m_table_meta_client do?  Is it bloat?  (In context of table_create, calling ->create() on it.)
 
 
-bool real_reql_cluster_interface_t::table_drop(
-        auth::user_context_t const &user_context,
-        const name_string_t &name,
-        counted_t<const ql::db_t> db,
-        signal_t *interruptor_on_caller,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-
-    cluster_semilattice_metadata_t metadata;
-    try {
-        cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
-        on_thread_t thread_switcher(home_thread());
-        metadata = m_cluster_semilattice_view->get();
-
-        fdb_transaction txn{m_fdb};
-
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, name, &table_id);
-
-        user_context.require_config_permission(m_rdb_context, db->id, table_id);
-
-        /* Fetch the old config via the `table_config_backend` rather than via
-        `table_meta_client_t` because this will return an error document instead of
-        crashing if the table is not reachable. */
-        ql::datum_t old_config;
-        artificial_table_backend_t *config_backend =
-            artificial_reql_cluster_interface->get_table_backend(/* txn.txn, TODO */
-                name_string_t::guarantee_valid("table_config"),
-                admin_identifier_format_t::name);
-        guarantee(config_backend != nullptr);
-        if (!config_backend->read_row(/* txn.txn, TODO */
-                user_context,
-                convert_uuid_to_datum(table_id.value),
-                &interruptor_on_home,
-                &old_config,
-                error_out)) {
-            return false;
-        } else if (!old_config.has()) {
-            throw no_such_table_exc_t();
-        }
-
-        m_table_meta_client->drop(/* txn.txn, TODO */ table_id, &interruptor_on_home);
-
-        // TODO: Make this a commit/retry loop.
-        fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, &interruptor_on_home);
-        guarantee_fdb_TODO(commit_err, "db_create commit failed");
-
-        ql::datum_object_builder_t result_builder;
-        result_builder.overwrite("tables_dropped", ql::datum_t(1.0));
-        result_builder.overwrite("config_changes",
-            make_replacement_pair(old_config, ql::datum_t::null()));
-        *result_out = std::move(result_builder).to_datum();
-
-        return true;
-
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-}
-
 bool real_reql_cluster_interface_t::table_list(
         counted_t<const ql::db_t> db,
         UNUSED signal_t *interruptor_on_caller,
