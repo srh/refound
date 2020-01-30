@@ -568,37 +568,49 @@ private:
         // OOO: Fdb-ize this function.
         scoped_ptr_t<val_t> target = args->arg(env, 0);
         scoped_ptr_t<val_t> selection;
-        bool success;
-        admin_err_t error;
         try {
             /* Note that we always require an argument; we never take a default `db`
             argument. So `r.config()` is an error rather than the configuration for the
             current database. This is why we don't subclass from `table_or_db_meta_term_t`.
             */
             if (target->get_type().is_convertible(val_t::type_t::DB)) {
-                success = env->env->reql_cluster_interface()->db_config(
+                counted_t<const ql::db_t> db = target->as_db();
+                if (db->name == artificial_reql_cluster_interface_t::database_name) {
+                    admin_err_t error{
+                        strprintf("Database `%s` is special; you can't configure it.",
+                            artificial_reql_cluster_interface_t::database_name.c_str()),
+                        query_state_t::FAILED};
+                    REQL_RETHROW(error);
+                }
+
+                // OOO: Fdb-ize this here.  Look at make_single_selection in
+                // real_reql_cluster_interface.
+                admin_err_t error;
+                if (!env->env->reql_cluster_interface()->db_config(
                         env->env->get_user_context(),
-                        target->as_db(),
+                        db,
                         backtrace(),
                         env->env,
                         &selection,
-                        &error);
+                        &error)) {
+                    REQL_RETHROW(error);
+                }
             } else {
                 counted_t<table_t> table = target->as_table();
                 name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
-                success = env->env->reql_cluster_interface()->table_config(
+                admin_err_t error;
+                if (!env->env->reql_cluster_interface()->table_config(
                         env->env->get_user_context(),
                         table->db,
                         table_name, backtrace(),
                         env->env,
                         &selection,
-                        &error);
+                        &error)) {
+                    REQL_RETHROW(error);
+                }
             }
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-        if (!success) {
-            REQL_RETHROW(error);
         }
 
         return selection;
