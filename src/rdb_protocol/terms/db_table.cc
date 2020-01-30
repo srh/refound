@@ -356,8 +356,8 @@ public:
     db_drop_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(1)) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(
-            scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(args->arg(env, 0), "Database");
 
         if (db_name == artificial_reql_cluster_interface_t::database_name) {
@@ -411,7 +411,7 @@ private:
 
         return new_val(result);
     }
-    virtual const char *name() const { return "db_drop"; }
+    const char *name() const override { return "db_drop"; }
 };
 
 class table_drop_term_t : public meta_op_term_t {
@@ -419,8 +419,8 @@ public:
     table_drop_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(1, 2)) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(
-            scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
         counted_t<const db_t> db;
         name_string_t tbl_name;
         if (args->num_args() == 1) {
@@ -477,7 +477,7 @@ private:
         ql::datum_t result = std::move(result_builder).to_datum();
         return new_val(std::move(result));
     }
-    virtual const char *name() const { return "table_drop"; }
+    const char *name() const override { return "table_drop"; }
 };
 
 class db_list_term_t : public meta_op_term_t {
@@ -485,7 +485,7 @@ public:
     db_list_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(0)) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *, eval_flags_t) const override {
         std::vector<counted_t<const ql::db_t>> db_list;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
             // TODO: Use a snapshot read for this?  Config txn appropriately?
@@ -511,7 +511,7 @@ private:
 
         return new_val(datum_t(std::move(arr), env->env->limits()));
     }
-    virtual const char *name() const { return "db_list"; }
+    const char *name() const override { return "db_list"; }
 };
 
 class table_list_term_t : public meta_op_term_t {
@@ -519,7 +519,7 @@ public:
     table_list_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(0, 1)) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         counted_t<const ql::db_t> db;
         if (args->num_args() == 0) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
@@ -556,7 +556,7 @@ private:
         }
         return new_val(datum_t(std::move(arr), env->env->limits()));
     }
-    virtual const char *name() const { return "table_list"; }
+    const char *name() const override { return "table_list"; }
 };
 
 class config_term_t : public meta_op_term_t {
@@ -1042,7 +1042,7 @@ public:
         : op_term_t(env, term, argspec_t(1, 2),
                     optargspec_t({"read_mode", "use_outdated", "identifier_format"})) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
+    scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         read_mode_t read_mode = read_mode_t::SINGLE;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "use_outdated")) {
             rfail(base_exc_t::LOGIC, "%s",
@@ -1164,8 +1164,8 @@ private:
         return new_val(make_counted<table_t>(
             std::move(table), db, db_table_name.second.str(), read_mode, backtrace()));
     }
-    virtual deterministic_t is_deterministic() const { return deterministic_t::no(); }
-    virtual const char *name() const { return "table"; }
+    deterministic_t is_deterministic() const override { return deterministic_t::no(); }
+    const char *name() const override { return "table"; }
 };
 
 // OOO: Fdb-ize the terms below.
