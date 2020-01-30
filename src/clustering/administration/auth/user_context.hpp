@@ -60,6 +60,13 @@ public:
     const char *permission_name() const { return "config"; }
 };
 
+class db_config_permission {
+public:
+    database_id_t db;
+    bool check(const user_t &user) const { return user.has_config_permission(db); }
+    const char *permission_name() const { return "config"; }
+};
+
 class user_context_t
 {
 public:
@@ -88,6 +95,11 @@ public:
 
     void require_config_permission(
             rdb_context_t *rdb_context) const THROWS_ONLY(permission_error_t);
+
+    fdb_user_fut<db_config_permission> transaction_require_db_config_permission(
+            FDBTransaction *txn,
+            const database_id_t &db_id) const THROWS_ONLY(permission_error_t);
+
     void require_config_permission(
             rdb_context_t *rdb_context,
             database_id_t const &database) const THROWS_ONLY(permission_error_t);

@@ -47,6 +47,7 @@ MUST_USE bool config_cache_db_create(
 
 MUST_USE bool config_cache_table_create(
     FDBTransaction *txn,
+    const auth::user_context_t &user_context,
     const namespace_id_t &new_table_id,
     const table_config_t &config,
     const signal_t *interruptor);

@@ -312,17 +312,22 @@ private:
         config.user_data = default_user_data();
         namespace_id_t new_table_id{generate_uuid()};
 
-        // TODO: Build the table config up here, remove outer_config_cache_table_create.
         bool fdb_result;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            // TODO: Handle user auth permissions.
-            bool success = config_cache_table_create(txn, new_table_id, config, env->env->interruptor);
-            if (success) {
-                commit(txn, env->env->interruptor);
-            }
-            fdb_result = success;
-        });
-        guarantee_fdb_TODO(loop_err, "table_create txn failed");
+        try {
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Handle user auth permissions.
+                bool success = config_cache_table_create(
+                    txn, env->env->get_user_context(), new_table_id, config,
+                    env->env->interruptor);
+                if (success) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_result = success;
+            });
+            guarantee_fdb_TODO(loop_err, "table_create txn failed");
+        } catch (auth::permission_error_t const &permission_error) {
+            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
 
         if (!fdb_result) {
             admin_err_t error = table_already_exists_error(db->name, tbl_name);
@@ -342,14 +347,6 @@ private:
         ql::datum_t result = std::move(result_builder).to_datum();
 
         return new_val(std::move(result));
-
-        /* TODO: User auth stuff.
-        } catch (auth::permission_error_t const &permission_error) {
-            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-*/
-
-        return new_val(result);
     }
     const char *name() const override { return "table_create"; }
 };
