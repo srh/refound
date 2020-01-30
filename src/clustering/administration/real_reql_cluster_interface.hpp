@@ -53,10 +53,6 @@ public:
             signal_t *interruptor_on_home,
             ql::datum_t *result_out,
             admin_err_t *error_out);
-    bool db_list(
-            signal_t *interruptor,
-            std::set<name_string_t> *names_out,
-            admin_err_t *error_out);
     bool db_find(const name_string_t &name,
             signal_t *interruptor,
             counted_t<const ql::db_t> *db_out,

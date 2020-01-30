@@ -33,17 +33,6 @@ admin_err_t db_already_exists_error(const name_string_t &db_name) {
             query_state_t::FAILED};
 }
 
-bool artificial_reql_cluster_interface_t::db_list(
-        signal_t *interruptor,
-        std::set<name_string_t> *names_out, admin_err_t *error_out) {
-    if (m_next == nullptr || !m_next->db_list(interruptor, names_out, error_out)) {
-        return false;
-    }
-    guarantee(names_out->count(artificial_reql_cluster_interface_t::database_name) == 0);
-    names_out->insert(artificial_reql_cluster_interface_t::database_name);
-    return true;
-}
-
 bool artificial_reql_cluster_interface_t::db_find(
         const name_string_t &name,
         signal_t *interruptor,

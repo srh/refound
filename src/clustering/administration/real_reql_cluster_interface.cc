@@ -145,21 +145,6 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
     return true;
 }
 
-bool real_reql_cluster_interface_t::db_list(
-        UNUSED signal_t *interruptor_on_caller,
-        std::set<name_string_t> *names_out,
-        UNUSED admin_err_t *error_out) {
-    // TODO: fdb-ize this.
-    databases_semilattice_metadata_t db_metadata;
-    get_databases_metadata(&db_metadata);
-    for (const auto &pair : db_metadata.databases) {
-        if (!pair.second.is_deleted()) {
-            names_out->insert(pair.second.get_ref().name.get_ref());
-        }
-    }
-    return true;
-}
-
 bool real_reql_cluster_interface_t::db_find(
         const name_string_t &name,
         UNUSED signal_t *interruptor_on_caller,

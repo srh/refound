@@ -258,9 +258,6 @@ public:
     `base_table_t` is because their implementations fits better with the implementations
     of the other methods of `reql_cluster_interface_t` than `base_table_t`. */
 
-    virtual bool db_list(
-            signal_t *interruptor,
-            std::set<name_string_t> *names_out, admin_err_t *error_out) = 0;
     virtual bool db_find(const name_string_t &name,
             signal_t *interruptor,
             counted_t<const ql::db_t> *db_out, admin_err_t *error_out) = 0;
