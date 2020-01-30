@@ -1326,8 +1326,7 @@ void real_reql_cluster_interface_t::make_single_selection(
     }
 
     counted_t<ql::table_t> table = make_counted<ql::table_t>(
-        counted_t<base_table_t>(
-            new artificial_table_t(m_rdb_context, db->id, table_backend)),
+        make_counted<artificial_table_t>(m_rdb_context, db->id, table_backend),
         db,
         table_name.str(),
         read_mode_t::SINGLE,

@@ -170,6 +170,7 @@ namespace ql {
 class reader_t;
 }
 
+// TODO: This type's usage in counted_t could be constified.  Do so after fully FDBized.
 class base_table_t : public slow_atomic_countable_t<base_table_t> {
 public:
     virtual namespace_id_t get_id() const = 0;

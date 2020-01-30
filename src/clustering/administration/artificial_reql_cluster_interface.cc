@@ -1,6 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 
+#include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/grant.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/metadata.hpp"
@@ -102,10 +103,8 @@ bool artificial_reql_cluster_interface_t::table_find(
                 new artificial_table_t(m_rdb_context, artificial_reql_cluster_interface_t::database_id, backend));
             return true;
         } else {
-            *error_out = admin_err_t{
-                strprintf("Table `%s.%s` does not exist.",
-                          artificial_reql_cluster_interface_t::database_name.c_str(), name.c_str()),
-                query_state_t::FAILED};
+            *error_out = table_not_found_error(
+                          artificial_reql_cluster_interface_t::database_name, name);
             return false;
         }
     }
