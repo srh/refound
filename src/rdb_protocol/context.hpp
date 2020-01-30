@@ -272,17 +272,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) = 0;
 
-    /* `table_create()` won't return until the table is ready for writing */
-    virtual bool table_create(
-            auth::user_context_t const &user_context,
-            const name_string_t &name,
-            counted_t<const ql::db_t> db,
-            const table_generate_config_params_t &config_params,
-            const std::string &primary_key,
-            write_durability_t durability,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out) = 0;
     virtual bool table_drop(
             auth::user_context_t const &user_context,
             const name_string_t &name,

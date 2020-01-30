@@ -209,6 +209,7 @@ bool real_reql_cluster_interface_t::db_config(
     }
 }
 
+// TODO: Move elsewhere.
 admin_err_t table_already_exists_error(
     const name_string_t &db_name, const name_string_t &table_name) {
     return admin_err_t{
@@ -217,106 +218,9 @@ admin_err_t table_already_exists_error(
     };
 }
 
-bool real_reql_cluster_interface_t::table_create(
-        auth::user_context_t const &user_context,
-        const name_string_t &name,
-        counted_t<const ql::db_t> db,
-        const table_generate_config_params_t &config_params,
-        const std::string &primary_key,
-        write_durability_t durability,
-        signal_t *interruptor_on_caller,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
+// TODO: Remove sharding UI.
+// TODO: What does m_table_meta_client do?  Is it bloat?  (In context of table_create, calling ->create() on it.)
 
-    user_context.require_config_permission(m_rdb_context, db->id);
-
-    fdb_transaction txn{m_fdb};
-
-    namespace_id_t table_id;
-    cluster_semilattice_metadata_t metadata;
-    ql::datum_t new_config;
-    try {
-        cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
-        on_thread_t thread_switcher(home_thread());
-
-        /* Make sure there isn't an existing table with the same name */
-        if (m_table_meta_client->exists(/* txn.txn, TODO, beware thread */ db->id, name)) {
-            *error_out = table_already_exists_error(db->name, name);
-            return false;
-        }
-
-        table_config_and_shards_t config;
-
-        config.config.basic.name = name;
-        config.config.basic.database = db->id;
-        config.config.basic.primary_key = primary_key;
-
-        // TODO: Remove sharding UI.
-
-        /* Pick which servers to host the data */
-        table_generate_config(
-            m_server_config_client, namespace_id_t{nil_uuid()}, m_table_meta_client,
-            config_params, &interruptor_on_home,
-            &config.config.the_shard, &config.server_names);
-
-        config.config.write_ack_config = write_ack_config_t::MAJORITY;
-        config.config.durability = durability;
-        config.config.user_data = default_user_data();
-
-        table_id = namespace_id_t{generate_uuid()};
-        // TODO: What does m_table_meta_client do?  Is it bloat?
-        m_table_meta_client->create(/* txn.txn, TODO, beware thread */ table_id, config, &interruptor_on_home);
-
-        new_config = convert_table_config_to_datum(table_id,
-            convert_name_to_datum(db->name), config.config,
-            admin_identifier_format_t::name, config.server_names);
-
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
-        return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-      CATCH_OP_ERRORS(db->name, name, error_out,
-        "The table was not created.",
-        "The table may or may not have been created.")
-
-    // TODO: Make this a commit/retry loop.
-    fdb_error_t commit_err = commit_fdb_block_coro(txn.txn, interruptor_on_caller);
-    guarantee_fdb_TODO(commit_err, "db_create commit failed");
-
-    // TODO: vv remove waiting for table readiness.
-
-    /* Wait for the table to set itself up. Various things could interfere with this
-    process, causing it to wait indefinitely; for example, the table might be deleted, or
-    a server might go down. So we set a 10-second timeout. */
-    signal_timer_t timer;
-    timer.start(10000);
-    wait_any_t combined_interruptor(&timer, interruptor_on_caller);
-    try {
-        wait_for_table_readiness(
-            table_id,
-            table_readiness_t::finished,
-            &m_namespace_repo,
-            m_table_meta_client,
-            &combined_interruptor);
-    } catch (const no_such_table_exc_t &) {
-        /* The table was deleted after being created. Just return normally. */
-    } catch (const interrupted_exc_t &) {
-        if (interruptor_on_caller->is_pulsed()) {
-            throw interrupted_exc_t();
-        }
-        /* Ten seconds elapsed. Just return normally. */
-    }
-
-    ql::datum_object_builder_t result_builder;
-    result_builder.overwrite("tables_created", ql::datum_t(1.0));
-    result_builder.overwrite("config_changes",
-        make_replacement_pair(ql::datum_t::null(), new_config));
-    *result_out = std::move(result_builder).to_datum();
-
-    return true;
-}
 
 bool real_reql_cluster_interface_t::table_drop(
         auth::user_context_t const &user_context,
