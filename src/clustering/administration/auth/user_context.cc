@@ -70,7 +70,8 @@ fdb_user_fut<config_permission> user_context_t::transaction_require_config_permi
         config_permission{});
 }
 
-fdb_user_fut<db_config_permission> user_context_t::transaction_require_db_config_permission(
+fdb_user_fut<db_config_permission>
+user_context_t::transaction_require_db_config_permission(
         FDBTransaction *txn,
         const database_id_t &db_id) const {
     return require_permission_internal(txn, m_context, m_read_only,
@@ -78,6 +79,18 @@ fdb_user_fut<db_config_permission> user_context_t::transaction_require_db_config
             return permissions.get_config() == tribool::True;
         },
         db_config_permission{db_id});
+}
+
+fdb_user_fut<db_table_config_permission>
+user_context_t::transaction_require_db_and_table_config_permission(
+        FDBTransaction *txn,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id) const {
+    return require_permission_internal(txn, m_context, m_read_only,
+        [](permissions_t const &permissions) -> bool {
+            return permissions.get_config() == tribool::True;
+        },
+        db_table_config_permission{db_id, table_id});
 }
 
 

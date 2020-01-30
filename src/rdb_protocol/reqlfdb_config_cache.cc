@@ -404,7 +404,8 @@ bool help_remove_table_if_exists(
 
 
 optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
-        FDBTransaction *txn, database_id_t db_id, const name_string_t &table_name,
+        FDBTransaction *txn, const auth::user_context_t &user_context,
+        const database_id_t &db_id, const name_string_t &table_name,
         const signal_t *interruptor) {
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
@@ -428,12 +429,16 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         return r_nullopt;
     }
 
+    // We use the table_id to read the table config to produce pretty output for the user.
+    // We use the table_id to check permissions, too.
+    auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
+        = user_context.transaction_require_db_and_table_config_permission(txn, db_id, table_id);
+
     ukey_string table_pkey = table_by_id_key(table_id);
-    // Now for an extra round-trip (to produce pretty output for the user), we read the
-    // table config!
     fdb_future table_by_id_fut = transaction_lookup_pkey_index(
         txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
 
+    auth_fut.block_and_check(interruptor);
     fdb_value table_by_id_value = future_block_on_value(table_by_id_fut.fut, interruptor);
     table_config_t config;
     if (!deserialize_off_fdb_value(table_by_id_value, &config)) {

@@ -441,17 +441,22 @@ private:
             REQL_RETHROW(error);
         }
 
-        optional<std::pair<namespace_id_t, table_config_t>> fdb_result;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            optional<std::pair<namespace_id_t, table_config_t>> success
-                = config_cache_table_drop(txn, db->id, tbl_name,
-                    env->env->interruptor);
-            if (success.has_value()) {
-                commit(txn, env->env->interruptor);
-            }
-            fdb_result = std::move(success);
-        });
-        guarantee_fdb_TODO(loop_err, "table_drop txn failed");
+        try {
+            optional<std::pair<namespace_id_t, table_config_t>> fdb_result;
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                optional<std::pair<namespace_id_t, table_config_t>> success
+                    = config_cache_table_drop(txn, env->env->get_user_context(),
+                        db->id, tbl_name,
+                        env->env->interruptor);
+                if (success.has_value()) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_result = std::move(success);
+            });
+            guarantee_fdb_TODO(loop_err, "table_drop txn failed");
+        } catch (auth::permission_error_t const &permission_error) {
+            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
 
         if (!fdb_result.has_value()) {
             admin_err_t error = table_not_found_error(db->name, tbl_name);
@@ -471,12 +476,6 @@ private:
             make_replacement_pair(old_config, ql::datum_t::null()));
         ql::datum_t result = std::move(result_builder).to_datum();
         return new_val(std::move(result));
-
-        /* TODO permissions stuff.
-        } catch (auth::permission_error_t const &permission_error) {
-            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-        */
     }
     virtual const char *name() const { return "table_drop"; }
 };

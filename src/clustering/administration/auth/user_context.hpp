@@ -62,8 +62,18 @@ public:
 
 class db_config_permission {
 public:
-    database_id_t db;
-    bool check(const user_t &user) const { return user.has_config_permission(db); }
+    database_id_t db_id;
+    bool check(const user_t &user) const { return user.has_config_permission(db_id); }
+    const char *permission_name() const { return "config"; }
+};
+
+class db_table_config_permission {
+public:
+    database_id_t db_id;
+    namespace_id_t table_id;
+    bool check(const user_t &user) const {
+        return user.has_config_permission(db_id, table_id);
+    }
     const char *permission_name() const { return "config"; }
 };
 
@@ -103,10 +113,18 @@ public:
     void require_config_permission(
             rdb_context_t *rdb_context,
             database_id_t const &database) const THROWS_ONLY(permission_error_t);
+
+    fdb_user_fut<db_table_config_permission>
+    transaction_require_db_and_table_config_permission(
+            FDBTransaction *txn,
+            const database_id_t &db_id,
+            const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t);
+
     void require_config_permission(
             rdb_context_t *rdb_context,
             database_id_t const &database_id,
             namespace_id_t const &table_id) const THROWS_ONLY(permission_error_t);
+
     void require_config_permission(
             rdb_context_t *rdb_context,
             database_id_t const &database_id,
