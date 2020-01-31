@@ -229,16 +229,6 @@ private:
             make_replacement_pair(ql::datum_t::null(), new_config));
         ql::datum_t result = std::move(result_builder).to_datum();
         return new_val(std::move(result));
-
-        /*
-        TODO: Check permissions as real_reql_cluster_interface db_create did, and throw this sort of permission error.
-
-        } catch (auth::permission_error_t const &permission_error) {
-            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-        */
-
-        return new_val(result);
     }
     const char *name() const override { return "db_create"; }
 };
@@ -371,16 +361,25 @@ private:
 
 
         optional<database_id_t> fdb_result;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-            database_id_t db_id_local;
-            optional<database_id_t> success
-                = config_cache_db_drop(txn, db_name, env->env->interruptor);
-            if (success.has_value()) {
-                commit(txn, env->env->interruptor);
-            }
-            fdb_result = success;
-        });
-        guarantee_fdb_TODO(loop_err, "db_drop txn failed");
+
+        try {
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: What if we can't iterate the table list (for checking
+                // permissions) in a single fdb transaction?
+                database_id_t db_id_local;
+                optional<database_id_t> success
+                    = config_cache_db_drop(txn,
+                        env->env->get_user_context(),
+                        db_name, env->env->interruptor);
+                if (success.has_value()) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_result = success;
+            });
+            guarantee_fdb_TODO(loop_err, "db_drop txn failed");
+        } catch (auth::permission_error_t const &permission_error) {
+            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
 
         if (!fdb_result.has_value()) {
             admin_err_t error = db_not_found_error(db_name);
@@ -402,13 +401,6 @@ private:
             "config_changes",
             make_replacement_pair(std::move(old_config), ql::datum_t::null()));
         ql::datum_t result = std::move(result_builder).to_datum();
-
-
-        /* TODO: Permissions check in db_drop.
-        } catch (auth::permission_error_t const &permission_error) {
-            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-        */
 
         return new_val(result);
     }

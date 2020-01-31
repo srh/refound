@@ -121,6 +121,11 @@ ukey_string table_by_name_bound(
     return ukey_string{table_by_name_ukey_prefix(db_id) + table_name_bound};
 }
 
+std::string table_config_by_name_prefix(const database_id_t &db_id) {
+    return unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
+        ukey_string{table_by_name_ukey_prefix(db_id)});
+}
+
 
 ukey_string table_by_id_key(const namespace_id_t &table_id) {
     return ukey_string{uuid_to_str(table_id)};
@@ -288,12 +293,55 @@ bool config_cache_db_create(
     return true;
 }
 
+
+template <class Callable>
+void transaction_read_whole_range_coro(FDBTransaction *txn,
+        std::string begin, const std::string &end,
+        const signal_t *interruptor,
+        Callable &&cb) {
+    bool or_equal = true;
+    // We need to get elements greater than (or_equal, if true) begin, less than end.
+    for (;;) {
+        fdb_future fut{
+            fdb_transaction_get_range(txn,
+                    as_uint8(begin.data()), int(begin.size()), !or_equal, 1,
+                    FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(end.data()), int(end.size())),
+                    0,
+                    0,
+                    FDB_STREAMING_MODE_WANT_ALL,
+                    0,
+                    false,
+                    false)};
+        fut.block_coro(interruptor);
+
+        const FDBKeyValue *kvs;
+        int kv_count;
+        fdb_bool_t more;
+        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+        check_for_fdb_transaction(err);
+        or_equal = false;
+        for (int i = 0; i < kv_count; ++i) {
+            if (!cb(kvs[i])) {
+                return;
+            }
+        }
+        if (more) {
+            if (kv_count > 0) {
+                const FDBKeyValue &kv = kvs[kv_count - 1];
+                begin = std::string(void_as_char(kv.key), size_t(kv.key_length));
+            }
+        } else {
+            return;
+        }
+    }
+}
+
+
 optional<database_id_t> config_cache_db_drop(
-        FDBTransaction *txn, const name_string_t &db_name, const signal_t *interruptor) {
+        FDBTransaction *txn, const auth::user_context_t &user_context,
+        const name_string_t &db_name, const signal_t *interruptor) {
     // TODO: This function must read and verify user permissions when performing this
     // operation.
-
-    // TODO: Ensure caller doesn't pass "rethinkdb".
 
     ukey_string db_name_key = db_by_name_key(db_name);
 
@@ -306,6 +354,25 @@ optional<database_id_t> config_cache_db_drop(
     if (!deserialize_off_fdb_value(value, &db_id)) {
         return r_nullopt;
     }
+
+    // TODO: We could get the table id's concurrently (in a coro).
+    std::vector<namespace_id_t> table_ids;
+    {
+        std::string prefix = table_config_by_name_prefix(db_id);
+        transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
+        [&](const FDBKeyValue &kv) {
+            namespace_id_t table_id;
+            deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &table_id);
+            table_ids.push_back(table_id);
+            return true;
+        });
+    }
+
+    // TODO: We could totally get the user fut concurrently above, pass it in here.
+    auth::fdb_user_fut<auth::db_multi_table_config_permission> auth_fut
+        = user_context.transaction_require_db_multi_table_config_permission(txn,
+            db_id,
+            std::move(table_ids));
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
@@ -325,6 +392,9 @@ optional<database_id_t> config_cache_db_drop(
     // creation.  Right now, we don't.
     fdb_job_info ignored = add_fdb_job(txn, task_id, claiming_node_id, std::move(desc), interruptor);
     (void)ignored;
+
+    // Check the auth fut after a round-trip in add_fdb_job.
+    auth_fut.block_and_check(interruptor);
 
     ukey_string db_id_key = db_by_id_key(db_id);
 
@@ -519,49 +589,6 @@ bool config_cache_table_create(
     return true;
 }
 
-
-template <class Callable>
-void transaction_read_whole_range_coro(FDBTransaction *txn,
-        std::string begin, const std::string &end,
-        const signal_t *interruptor,
-        Callable &&cb) {
-    bool or_equal = true;
-    // We need to get elements greater than (or_equal, if true) begin, less than end.
-    for (;;) {
-        fdb_future fut{
-            fdb_transaction_get_range(txn,
-                    as_uint8(begin.data()), int(begin.size()), !or_equal, 1,
-                    FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(end.data()), int(end.size())),
-                    0,
-                    0,
-                    FDB_STREAMING_MODE_WANT_ALL,
-                    0,
-                    false,
-                    false)};
-        fut.block_coro(interruptor);
-
-        const FDBKeyValue *kvs;
-        int kv_count;
-        fdb_bool_t more;
-        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
-        check_for_fdb_transaction(err);
-        or_equal = false;
-        for (int i = 0; i < kv_count; ++i) {
-            if (!cb(kvs[i])) {
-                return;
-            }
-        }
-        if (more) {
-            if (kv_count > 0) {
-                const FDBKeyValue &kv = kvs[kv_count - 1];
-                begin = std::string(void_as_char(kv.key), size_t(kv.key_length));
-            }
-        } else {
-            return;
-        }
-    }
-}
-
 // TODO (out of context): ql::db_t should do nothing but hold info about whether it
 // was by name or by value, don't actually do the lookup right away.
 
@@ -599,11 +626,9 @@ std::vector<name_string_t> config_cache_table_list(
 
     std::vector<name_string_t> table_names;
 
-    std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
-        ukey_string{table_by_name_ukey_prefix(db_id)});
-    std::string end = prefix_end(prefix);
+    std::string prefix = table_config_by_name_prefix(db_id);
 
-    transaction_read_whole_range_coro(txn, prefix, end, interruptor,
+    transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
     [&prefix, &table_names](const FDBKeyValue &kv) {
         key_view whole_key{void_as_uint8(kv.key), kv.key_length};
         key_view table_name_part = whole_key.guarantee_without_prefix(prefix);

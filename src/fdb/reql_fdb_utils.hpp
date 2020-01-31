@@ -7,18 +7,24 @@
 #include "containers/archive/vector_stream.hpp"
 #include "fdb/reql_fdb.hpp"
 
+
+template <class T>
+void deserialize_off_fdb(const uint8_t *value, int value_length, T *out) {
+    buffer_read_stream_t stream(as_char(value), size_t(value_length));
+    // TODO: serialization versioning.
+    archive_result_t res = deserialize<cluster_version_t::LATEST_DISK>(&stream, out);
+    guarantee(!bad(res), "bad deserialization from db value");  // TODO: pass error
+    guarantee(size_t(stream.tell()) == stream.size());  // TODO: Pass error.
+    // TODO: Cleanup error messages in every new fdb guarantee.
+}
+
 template <class T>
 MUST_USE bool deserialize_off_fdb_value(const fdb_value &value, T *out) {
     if (!value.present) {
         return false;
     }
 
-    buffer_read_stream_t stream(as_char(value.data), value.length);
-    // TODO: serialization versioning.
-    archive_result_t res = deserialize<cluster_version_t::LATEST_DISK>(&stream, out);
-    guarantee(!bad(res), "bad deserialization from db value");  // TODO: pass error
-    guarantee(size_t(stream.tell()) == stream.size());  // TODO: Pass error.
-    // TODO: Cleanup error messages in every new fdb guarantee.
+    deserialize_off_fdb(value.data, value.length, out);
     return true;
 }
 

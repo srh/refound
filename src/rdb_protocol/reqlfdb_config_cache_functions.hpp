@@ -73,6 +73,7 @@ MUST_USE optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_
 
 MUST_USE optional<database_id_t> config_cache_db_drop(
     FDBTransaction *txn,
+    const auth::user_context_t &user_context,
     const name_string_t &db_name, const signal_t *interruptor);
 
 // TODO: This could just return name_string_t's.
