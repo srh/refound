@@ -1007,102 +1007,66 @@ private:
             args->arg(env, args->num_args() - 2)->as_str().to_std());
         ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum();
 
-        bool success = false;
-        ql::datum_t result;
-        admin_err_t error;
         try {
+            std::function<auth::permissions_t *(auth::user_t *)> permissions_selector;
+
             if (args->num_args() == 2) {
-                bool fdb_success;
-                ql::datum_t fdb_result;
-                admin_err_t fdb_err;
-                fdb_error_t err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
-                        [&](FDBTransaction *txn) {
-                    ql::datum_t result;
-                    admin_err_t err;
-                    bool ret = auth::grant(
-                        txn,
-                        env->env->get_user_context(),
-                        std::move(username),
-                        std::move(permissions),
-                        env->env->interruptor,
-                        [](auth::user_t *user) -> auth::permissions_t * {
-                            return &user->get_global_permissions();
-                        },
-                        &result,
-                        &err);
-                    if (ret) {
-                        commit(txn, env->env->interruptor);
-                    }
-                    fdb_success = ret;
-                    fdb_result = result;
-                    fdb_err = err;
-                });
-                guarantee_fdb_TODO(err, "retry loop in grant_term_t for grant_global");
-                if (!fdb_success) {
-                    REQL_RETHROW(fdb_err);
-                }
-                return new_val(std::move(fdb_result));
+                permissions_selector = [](auth::user_t *user) -> auth::permissions_t * {
+                    return &user->get_global_permissions();
+                };
             } else {
-                // OOO: Fdb-ize this.
                 scoped_ptr_t<val_t> scope = args->arg(env, 0);
                 if (scope->get_type().is_convertible(val_t::type_t::DB)) {
                     // TODO: Config version consistency logic with prior db_t name lookup.
-                    database_id_t db_id = scope->as_db()->id;
-                    bool fdb_success;
-                    ql::datum_t fdb_result;
-                    admin_err_t fdb_err;
-                    fdb_error_t err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
-                            [&](FDBTransaction *txn) {
-                        ql::datum_t result;
-                        admin_err_t err;
-                        bool ret = auth::grant(
-                            txn,
-                            env->env->get_user_context(),
-                            std::move(username),
-                            std::move(permissions),
-                            env->env->interruptor,
-                            [&db_id](auth::user_t *user) -> auth::permissions_t * {
-                                return &user->get_database_permissions(db_id);
-                            },
-                            &result,
-                            &err);
-                        if (ret) {
-                            commit(txn, env->env->interruptor);
-                        }
-                        fdb_success = ret;
-                        fdb_result = result;
-                        fdb_err = err;
-                    });
-                    guarantee_fdb_TODO(err, "retry loop in grant_term_t for grant_global");
-                    if (!fdb_success) {
-                        REQL_RETHROW(fdb_err);
-                    }
-                    return new_val(std::move(fdb_result));
+                    const database_id_t db_id = scope->as_db()->id;
+                    permissions_selector = [db_id](auth::user_t *user) -> auth::permissions_t * {
+                        return &user->get_database_permissions(db_id);
+                    };
                 } else {
-                    // OOO: Fdb-ize this.
                     // TODO: Config version consistency logic with the table name lookup
-                    // that made the table_t.
+                    // that made the namespace_id_t.
                     counted_t<table_t> table = scope->as_table();
-                    success = env->env->reql_cluster_interface()->grant_table(
-                        env->env->get_user_context(),
-                        table->db->id,
-                        table->get_id(),
-                        std::move(username),
-                        std::move(permissions),
-                        env->env->interruptor,
-                        &result,
-                        &error);
+                    const namespace_id_t table_id = table->get_id();
+
+                    permissions_selector = [table_id](auth::user_t *user) -> auth::permissions_t * {
+                        return &user->get_table_permissions(table_id);
+                    };
                 }
             }
+
+            bool fdb_success;
+            ql::datum_t fdb_result;
+            admin_err_t fdb_err;
+
+            fdb_error_t err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
+                    [&](FDBTransaction *txn) {
+                ql::datum_t result;
+                admin_err_t err;
+                bool ret = auth::grant(
+                    txn,
+                    env->env->get_user_context(),
+                    std::move(username),
+                    std::move(permissions),
+                    env->env->interruptor,
+                    permissions_selector,
+                    &result,
+                    &err);
+                if (ret) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_success = ret;
+                fdb_result = result;
+                fdb_err = err;
+            });
+            guarantee_fdb_TODO(err, "retry loop in grant_term_t for grant_global");
+
+            if (!fdb_success) {
+                REQL_RETHROW(fdb_err);
+            }
+            return new_val(std::move(fdb_result));
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
-
-        if (!success) {
-            REQL_RETHROW(error);
-        }
-
-        return new_val(std::move(result));
     }
 
     virtual const char *name() const {
