@@ -7,13 +7,17 @@
 #include "rpc/serialize_macros.hpp"
 #include "rpc/semilattice/joins/macros.hpp"
 
+struct skey_string;
+struct ukey_string;
+
 enum class fdb_job_type {
     dummy_job,  // TODO: Remove.
     db_drop_job,
+    index_create_job,
 };
 
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
-    fdb_job_type::dummy_job, fdb_job_type::dummy_job);
+    fdb_job_type::dummy_job, fdb_job_type::index_create_job);
 
 struct fdb_job_db_drop {
     database_id_t database_id;
@@ -25,10 +29,19 @@ struct fdb_job_db_drop {
     }
 };
 
+struct fdb_job_index_create {
+    namespace_id_t table_id;
+    // NNN: This is a ukey_string
+    std::string min_pkey;
+
+    // TODO: index uuid or something.
+};
+
 
 struct fdb_job_description {
     fdb_job_type type;
     fdb_job_db_drop db_drop;
+    fdb_job_index_create index_create;
 };
 
 RDB_DECLARE_SERIALIZABLE(fdb_job_description);
@@ -54,5 +67,8 @@ void remove_fdb_job(FDBTransaction *txn,
 
 void try_claim_and_start_job(
     FDBDatabase *fdb, uuid_u self_node_id, const auto_drainer_t::lock_t &lock);
+
+ukey_string job_id_pkey(uuid_u job_id);
+skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock);
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_

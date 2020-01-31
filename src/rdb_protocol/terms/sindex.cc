@@ -301,6 +301,8 @@ ql::datum_t sindex_status_to_datum(
     return std::move(stat).to_datum();
 }
 
+// OOO: Fdb-ize the functions below.
+
 class sindex_create_term_t : public op_term_t {
 public:
     sindex_create_term_t(compile_env_t *env, const raw_term_t &term)

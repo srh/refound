@@ -383,7 +383,8 @@ optional<database_id_t> config_cache_db_drop(
     uuid_u task_id = generate_uuid();
     fdb_job_description desc{
         fdb_job_type::db_drop_job,
-        fdb_job_db_drop::make(db_id)};
+        fdb_job_db_drop::make(db_id),
+        fdb_job_index_create{}};
 
     // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
     // and avoid double round-trip latency.
