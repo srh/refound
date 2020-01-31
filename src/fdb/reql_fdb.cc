@@ -49,6 +49,10 @@ Table config:
     rethinkdb/table_config/ => table of table_config_t
       indexed by {db_uuid,table_name} => namespace_id_t.
 
+Index building:
+
+    rethinkdb/index_jobstate//" => table of fdb_index_jobstate by shared_task_id
+
 User config:
 
     rethinkdb/users/ => table of user_t, primary key being username_t.

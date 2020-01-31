@@ -285,4 +285,11 @@ void post_construct_secondary_index_range(
         signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t);
 
+// Exposed now for fdb.
+void compute_keys(const store_key_t &primary_key,
+                  ql::datum_t doc,
+                  const sindex_disk_info_t &index_info,
+                  std::vector<std::pair<store_key_t, ql::datum_t> > *keys_out,
+                  std::vector<index_pair_t> *cfeed_keys_out);
+
 #endif /* RDB_PROTOCOL_BTREE_HPP_ */

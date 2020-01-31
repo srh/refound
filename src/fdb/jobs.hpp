@@ -3,6 +3,7 @@
 
 #include "concurrency/auto_drainer.hpp"
 #include "containers/uuid.hpp"
+#include "fdb/id_types.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "rpc/semilattice/joins/macros.hpp"
@@ -31,10 +32,10 @@ struct fdb_job_db_drop {
 
 struct fdb_job_index_create {
     namespace_id_t table_id;
-    // NNN: This is a ukey_string
-    std::string min_pkey;
-
-    // TODO: index uuid or something.
+    // Sindex creation/destruction holds a task id, so there is no need for
+    // sindex uuid here.  But we have one, mostly to run assertions with.
+    std::string sindex_name;
+    sindex_id_t sindex_id;
 };
 
 
@@ -45,18 +46,6 @@ struct fdb_job_description {
 };
 
 RDB_DECLARE_SERIALIZABLE(fdb_job_description);
-
-struct fdb_job_id {
-    uuid_u value;
-};
-RDB_DECLARE_SERIALIZABLE(fdb_job_id);
-RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_job_id, value);
-
-struct fdb_shared_task_id {
-    uuid_u value;
-};
-RDB_DECLARE_SERIALIZABLE(fdb_shared_task_id);
-RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_shared_task_id, value);
 
 struct fdb_job_info {
     fdb_job_id job_id;

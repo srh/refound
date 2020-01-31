@@ -42,6 +42,12 @@ inline fdb_value_fut<reqlfdb_clock> transaction_get_clock(FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_clock>(transaction_get_c_str(txn, REQLFDB_CLOCK_KEY));
 }
 
+inline fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
+        FDBTransaction *txn) {
+    return fdb_value_fut<reqlfdb_config_version>(transaction_get_c_str(
+        txn, REQLFDB_CONFIG_VERSION_KEY));
+}
+
 
 
 #endif  // RETHINKDB_FDB_TYPED_HPP_

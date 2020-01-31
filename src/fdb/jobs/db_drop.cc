@@ -9,10 +9,11 @@
 // Returns new job info if we have re-claimed this job and want to execute it again.
 MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_db_drop &db_drop_info, const signal_t *interruptor) {
-    // TODO: Maybe caller can pass clock.
+    // TODO: Maybe caller can pass clock (as in all jobs).
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
-    fdb_value_fut<fdb_job_info> real_info_fut{
-        transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_pkey(info.job_id))};
+    fdb_value_fut<fdb_job_info> real_info_fut
+        = transaction_get_real_job_info(txn, info);
+
     // We always make it a closed interval, because we deleted the last-used table name
     // anyway.
     fdb_future range_fut = transaction_get_table_range(
@@ -48,12 +49,7 @@ MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const f
     if (more) {
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
 
-        fdb_job_info new_info = info;
-        new_info.counter++;
-        new_info.lease_expiration = reqlfdb_clock{current_clock.value + REQLFDB_JOB_LEASE_DURATION};
-
-        replace_fdb_job(txn, info, new_info);
-
+        fdb_job_info new_info = update_job_counter(txn, current_clock, info);
         ret.set(std::move(new_info));
     } else {
         remove_fdb_job(txn, info);

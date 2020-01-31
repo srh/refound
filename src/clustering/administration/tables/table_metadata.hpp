@@ -13,6 +13,7 @@
 #include "clustering/generic/nonoverlapping_regions.hpp"
 #include "containers/name_string.hpp"
 #include "containers/uuid.hpp"
+#include "fdb/id_types.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rpc/connectivity/server_id.hpp"
 #include "rpc/semilattice/joins/macros.hpp"
@@ -53,6 +54,18 @@ user_data_t default_user_data();
 /* `table_config_t` describes the complete contents of the `rethinkdb.table_config`
 artificial table. */
 
+// This is currently not par of sindex_config_t, because that value gets serialized
+// externally in some ways, and we don't want to touch that.  TODO: Maybe just put this
+// with sindex_config_t.  Or move func_version out to this.
+class sindex_metaconfig_t {
+public:
+    // The id is used for fdb key prefix.
+    sindex_id_t sindex_id;
+    // The sindex isn't ready until this is nil.
+    fdb_shared_task_id creation_task_or_nil;
+};
+RDB_MAKE_SERIALIZABLE_2(sindex_metaconfig_t, sindex_id, creation_task_or_nil);
+
 class table_config_t {
 public:
     class shard_t {
@@ -61,7 +74,10 @@ public:
     };
     table_basic_config_t basic;
     shard_t the_shard;
+    // Two parallel maps.
+    // TODO: Combine these maps after non-FDB code is stripped out.
     std::map<std::string, sindex_config_t> sindexes;
+    std::map<std::string, sindex_metaconfig_t> fdb_sindexes;
     optional<write_hook_config_t> write_hook;
     write_ack_config_t write_ack_config;
     write_durability_t durability;

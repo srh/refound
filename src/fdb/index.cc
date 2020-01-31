@@ -1,5 +1,7 @@
 #include "fdb/index.hpp"
 
+#include "utils.hpp"
+
 /* How indexes are encoded
 
 Unique indexes are encoded a differently than non-unique.
@@ -17,11 +19,14 @@ E.g. "a" < "aa" must be maintained, even when the primary keys "b" and "c" get a
 */
 
 
-
-std::string unique_index_fdb_key(const char *prefix, const ukey_string &index_key) {
-    std::string ret = prefix;
+std::string unique_index_fdb_key(std::string prefix, const ukey_string &index_key) {
+    std::string ret = std::move(prefix);
     ret += index_key.ukey;
     return ret;
+}
+
+std::string unique_index_fdb_key(const char *prefix, const ukey_string &index_key) {
+    return unique_index_fdb_key(std::string(prefix), index_key);
 }
 
 std::string plain_index_fdb_key(const char *prefix, const skey_string &index_key,
@@ -31,7 +36,6 @@ std::string plain_index_fdb_key(const char *prefix, const skey_string &index_key
     ret += pkey.ukey;
     return ret;
 }
-
 
 // Returns an fdb_future of a point-lookup with the value (or not).
 fdb_future transaction_lookup_unique_index(FDBTransaction *txn, const char *prefix, const ukey_string &index_key) {
@@ -55,6 +59,28 @@ void transaction_erase_unique_index(FDBTransaction *txn, const char *prefix,
     fdb_transaction_clear(
         txn, as_uint8(key.data()), int(key.size()));
 }
+
+fdb_future transaction_uq_index_get_range(FDBTransaction *txn, const std::string &prefix,
+        const ukey_string &lower, const ukey_string *upper_or_null,
+        int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+        fdb_bool_t snapshot, fdb_bool_t reverse) {
+    std::string lower_key = unique_index_fdb_key(prefix, lower);
+    std::string upper_key = upper_or_null == nullptr ?
+        prefix_end(lower_key) :
+        unique_index_fdb_key(prefix, *upper_or_null);
+
+    return fdb_future{fdb_transaction_get_range(txn,
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower_key.data()), int(lower_key.size())),
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper_key.data()), int(upper_key.size())),
+        limit,
+        target_bytes,
+        mode,
+        iteration,
+        snapshot,
+        reverse)};
+}
+
+
 
 fdb_future transaction_lookup_pkey_index(FDBTransaction *txn, const char *prefix, const ukey_string &index_key) {
     // These work the same.

@@ -15,5 +15,8 @@ void replace_fdb_job(FDBTransaction *txn,
 fdb_value_fut<fdb_job_info> transaction_get_real_job_info(
         FDBTransaction *txn, const fdb_job_info &info);
 
+fdb_job_info update_job_counter(FDBTransaction *txn, reqlfdb_clock current_clock,
+    const fdb_job_info &old_info);
+
 
 #endif  // RETHINKDB_FDB_JOBS_JOB_UTILS_HPP_

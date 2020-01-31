@@ -55,3 +55,13 @@ fdb_value_fut<fdb_job_info> transaction_get_real_job_info(
         transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
 }
 
+fdb_job_info update_job_counter(FDBTransaction *txn, reqlfdb_clock current_clock,
+        const fdb_job_info &old_info) {
+    fdb_job_info new_info = old_info;
+    new_info.counter++;
+    new_info.lease_expiration = reqlfdb_clock{current_clock.value + REQLFDB_JOB_LEASE_DURATION};
+
+    replace_fdb_job(txn, old_info, new_info);
+
+    return new_info;
+}

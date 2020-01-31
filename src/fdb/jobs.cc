@@ -75,9 +75,6 @@ rethinkdb/jobs/ => table of fdb_job_info by job id
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_description, type);
 RDB_IMPL_EQUALITY_COMPARABLE_1(fdb_job_description, type);
 
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_id, value);
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_shared_task_id, value);
-
 RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
     job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
     job_description);

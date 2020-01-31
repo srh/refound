@@ -832,7 +832,6 @@ private:
 };
 
 struct rdb_write_visitor_t : public boost::static_visitor<void> {
-    // TODO: Do reads from rockstore when performing these writes.
     void operator()(const batched_replace_t &br) {
         try {
             ql::env_t ql_env(

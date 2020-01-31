@@ -11,17 +11,6 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_config_version, value);
-
-std::string table_key_prefix(const namespace_id_t &table_id) {
-    // TODO: Use binary uuid's.  This is on a fast path...
-    // Or don't even use uuid's.
-    std::string ret = "tables/";
-    ret += uuid_to_str(table_id);
-    ret += '/';
-    return ret;
-}
-
 reqlfdb_config_cache::reqlfdb_config_cache()
     : config_version{0} {}
 reqlfdb_config_cache::~reqlfdb_config_cache() {}
@@ -126,13 +115,6 @@ ukey_string table_by_name_bound(
 std::string table_config_by_name_prefix(const database_id_t &db_id) {
     return unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
         ukey_string{table_by_name_ukey_prefix(db_id)});
-}
-
-
-fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
-        FDBTransaction *txn) {
-    return fdb_value_fut<reqlfdb_config_version>(transaction_get_c_str(
-        txn, REQLFDB_CONFIG_VERSION_KEY));
 }
 
 optional<config_info<database_id_t>> try_lookup_cached_db(

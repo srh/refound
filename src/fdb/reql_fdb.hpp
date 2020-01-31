@@ -172,6 +172,7 @@ struct key_view {
         guarantee(prefix_length <= length);  // TODO: fail msg
         return key_view{data + prefix_length, length - prefix_length};
     }
+    // TODO: Remove most usages/demote to rassert after some testing.
     // Checks prefix matches.
     key_view guarantee_without_prefix(const std::string &prefix) {
         // TODO: fail msg
@@ -232,6 +233,8 @@ constexpr const char *REQLFDB_TABLE_CONFIG_TABLE = "rethinkdb/table_config/";
 constexpr const char *REQLFDB_TABLE_CONFIG_BY_ID = "rethinkdb/table_config//";
 // indexed uniquely by {db_id,name}
 constexpr const char *REQLFDB_TABLE_CONFIG_BY_NAME = "rethinkdb/table_config/by_name/";
+
+constexpr const char *REQLFDB_INDEX_JOBSTATE_BY_TASK = "rethinkdb/index_jobstate//";
 
 constexpr const char *REQLFDB_JOBS_TABLE = "rethinkdb/jobs/";
 constexpr const char *REQLFDB_JOBS_BY_ID = "rethinkdb/jobs//";
