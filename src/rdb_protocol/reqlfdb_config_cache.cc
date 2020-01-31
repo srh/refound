@@ -8,6 +8,7 @@
 #include "fdb/jobs.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
+#include "fdb/system_tables.hpp"
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_config_version, value);
 
@@ -127,11 +128,6 @@ std::string table_config_by_name_prefix(const database_id_t &db_id) {
 }
 
 
-ukey_string table_by_id_key(const namespace_id_t &table_id) {
-    return ukey_string{uuid_to_str(table_id)};
-}
-
-
 fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
         FDBTransaction *txn) {
     return fdb_value_fut<reqlfdb_config_version>(transaction_get_c_str(
@@ -231,18 +227,14 @@ config_cache_retrieve_table_by_name(
     }
 
     // Table exists, gotta do second lookup.
-    ukey_string table_id_key = table_by_id_key(table_id);
-
-    fdb_future table_by_id_fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_TABLE_CONFIG_BY_ID, table_id_key);
-
-    // Block here (2nd round-trip)
-    fdb_value config_value = future_block_on_value(table_by_id_fut.fut, interruptor);
+    fdb_value_fut<table_config_t> table_by_id_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
 
     ret.ci_value.emplace();
     ret.ci_value->first = table_id;
 
-    bool config_present = deserialize_off_fdb_value(config_value, &ret.ci_value->second);
+    // Block here (2nd round-trip)
+    bool config_present = table_by_id_fut.block_and_deserialize(interruptor, &ret.ci_value->second);
     guarantee(config_present);  // TODO: Nice error?  FDB in bad state.
 
     guarantee(db_table_name.first == ret.ci_value->second.basic.database);  // TODO: fdb in bad state
@@ -436,11 +428,10 @@ void help_remove_table(
         database_id_t db_id,
         const namespace_id_t &table_id,
         const std::string &table_name) {
-    ukey_string table_pkey = table_by_id_key(table_id);
     ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
 
     // Wipe table config (from pkey and indices), and wipe table contents.
-    transaction_erase_pkey_index(txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
+    transaction_erase_uq_index<table_config_by_id>(txn, table_id);
     transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
 
     std::string prefix = table_key_prefix(table_id);
@@ -505,9 +496,8 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
     auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
         = user_context.transaction_require_db_and_table_config_permission(txn, db_id, table_id);
 
-    ukey_string table_pkey = table_by_id_key(table_id);
-    fdb_future table_by_id_fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey);
+    fdb_value_fut<table_config_t> table_by_id_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
 
     auth_fut.block_and_check(interruptor);
     fdb_value table_by_id_value = future_block_on_value(table_by_id_fut.fut, interruptor);

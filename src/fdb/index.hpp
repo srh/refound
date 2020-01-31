@@ -2,6 +2,7 @@
 #define RETHINKDB_FDB_INDEX_HPP_
 
 #include "fdb/reql_fdb.hpp"
+#include "fdb/typed.hpp"
 #include "containers/optional.hpp"
 
 // ukey_string and skey_string are type safety wrappers to lower the chance of improper
@@ -64,5 +65,33 @@ inline skey_string uuid_sindex_key(const uuid_u& u) {
     // TODO: At some point make this binary.
     return skey_string{uuid_to_str(u)};
 }
+
+inline ukey_string uuid_primary_key(const uuid_u &u) {
+    return ukey_string{uuid_to_str(u)};
+}
+
+// TODO: Any of these typed functions performing serialization could do less string
+// concatenation/allocation by serializing onto instead of serialize-then-concat.
+
+template <class index_traits>
+fdb_value_fut<typename index_traits::value_type>
+transaction_lookup_uq_index(
+        FDBTransaction *txn,
+        const typename index_traits::ukey_type &index_key) {
+    fdb_value_fut<typename index_traits::value_type> ret{
+        transaction_lookup_unique_index(txn, index_traits::prefix,
+            index_traits::ukey_str(index_key))};
+    return ret;
+}
+
+template <class index_traits>
+void transaction_erase_uq_index(
+        FDBTransaction *txn,
+        const typename index_traits::ukey_type &index_key) {
+    transaction_erase_unique_index(txn, index_traits::prefix,
+        index_traits::ukey_str(index_key));
+}
+
+
 
 #endif  // RETHINKDB_FDB_INDEX_HPP_
