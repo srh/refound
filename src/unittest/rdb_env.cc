@@ -555,48 +555,6 @@ bool test_rdb_env_t::instance_t::db_rebalance(
     return false;
 }
 
-bool test_rdb_env_t::instance_t::grant_global(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED auth::username_t username,
-        UNUSED ql::datum_t permissions,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support grant_global()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::grant_database(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED database_id_t const &database_id,
-        UNUSED auth::username_t username,
-        UNUSED ql::datum_t permissions,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support grant_database()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::grant_table(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED database_id_t const &database_id,
-        UNUSED namespace_id_t const &table_id,
-        UNUSED auth::username_t username,
-        UNUSED ql::datum_t permissions,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support grant_table()",
-        query_state_t::FAILED};
-    return false;
-}
-
 bool test_rdb_env_t::instance_t::set_write_hook(
         UNUSED auth::user_context_t const &user_context,
         UNUSED counted_t<const ql::db_t> db,

@@ -149,31 +149,6 @@ public:
             ql::datum_t *result_out,
             admin_err_t *error_out);
 
-    bool grant_global(
-            auth::user_context_t const &user_context,
-            auth::username_t username,
-            ql::datum_t permissions,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool grant_database(
-            auth::user_context_t const &user_context,
-            database_id_t const &database_id,
-            auth::username_t username,
-            ql::datum_t permissions,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool grant_table(
-            auth::user_context_t const &user_context,
-            database_id_t const &database_id,
-            namespace_id_t const &table_id,
-            auth::username_t username,
-            ql::datum_t permissions,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
     bool set_write_hook(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
