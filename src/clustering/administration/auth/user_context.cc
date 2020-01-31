@@ -61,6 +61,33 @@ fdb_user_fut<T> require_permission_internal(
     }
 }
 
+fdb_user_fut<read_permission> user_context_t::transaction_require_read_permission(
+        FDBTransaction *txn,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t) {
+    return require_permission_internal(txn, m_context,
+        // Ignore the read-only flag for reads
+        false,
+        [&](permissions_t const &permissions) -> bool {
+            return permissions.get_read() == tribool::True;
+        },
+        read_permission{db_id, table_id});
+}
+
+fdb_user_fut<write_permission> user_context_t::transaction_require_write_permission(
+        FDBTransaction *txn,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t) {
+    return require_permission_internal(txn, m_context, m_read_only,
+        [&](permissions_t const &permissions) -> bool {
+            return permissions.get_read() == tribool::True &&
+                permissions.get_write() == tribool::True;
+        },
+        write_permission{db_id, table_id});
+}
+
+
+
 fdb_user_fut<config_permission> user_context_t::transaction_require_config_permission(
         FDBTransaction *txn) const {
     return require_permission_internal(txn, m_context, m_read_only,

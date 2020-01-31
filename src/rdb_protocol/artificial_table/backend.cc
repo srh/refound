@@ -10,11 +10,17 @@
 const uuid_u artificial_table_backend_t::base_table_id =
     str_to_uuid("0eabef01-6deb-4069-9a2d-448db057ab1e");
 
+namespace_id_t artificial_table_backend_t::compute_artificial_table_id(
+        const name_string_t &table_name) {
+    return namespace_id_t{uuid_u::from_hash(base_table_id, table_name.str())};
+}
+
+
 artificial_table_backend_t::artificial_table_backend_t(
         name_string_t const &table_name,
         rdb_context_t *rdb_context)
     : m_table_name(table_name),
-      m_table_id(namespace_id_t{uuid_u::from_hash(base_table_id, table_name.str())}),
+      m_table_id(compute_artificial_table_id(table_name)),
       m_rdb_context(rdb_context) {
 }
 

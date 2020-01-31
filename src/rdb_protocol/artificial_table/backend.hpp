@@ -29,6 +29,8 @@ the actual data or configuration. There is one subclass for each table like
 
 class artificial_table_backend_t : public home_thread_mixin_t {
 public:
+    static namespace_id_t compute_artificial_table_id(const name_string_t &name);
+
     /* Notes:
      1. `read_all_rows_as_*()`, `read_row()`, and `write_row()` all return `false` and
         set `*error_out` if an error occurs. Note that if a row is absent in

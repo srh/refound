@@ -90,4 +90,12 @@ fdb_value_fut<auth::user_t> transaction_get_user(
     FDBTransaction *txn,
     const auth::username_t &username);
 
+void transaction_set_user(
+        FDBTransaction *txn,
+        const auth::username_t &username,
+        const auth::user_t &user);
+
+fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
+        FDBTransaction *txn);
+
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

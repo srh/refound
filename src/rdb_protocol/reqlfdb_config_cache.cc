@@ -638,3 +638,12 @@ fdb_value_fut<auth::user_t> transaction_get_user(
     return fdb_value_fut<auth::user_t>{transaction_lookup_pkey_index(
         txn, REQLFDB_USERS_BY_USERNAME, pkey)};
 }
+
+void transaction_set_user(
+        FDBTransaction *txn,
+        const auth::username_t &username,
+        const auth::user_t &user) {
+    ukey_string pkey = username_pkey(username);
+    std::string value = serialize_for_cluster_to_string(user);
+    transaction_set_pkey_index(txn, REQLFDB_USERS_BY_USERNAME, pkey, value);
+}

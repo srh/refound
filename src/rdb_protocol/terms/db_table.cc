@@ -6,6 +6,7 @@
 
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/admin_op_exc.hpp"
+#include "clustering/administration/auth/grant.hpp"
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/namespace_interface_repository.hpp"
@@ -1002,7 +1003,6 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        // OOO: Fdb-ize.  (Add user-config to fdb.)
         auth::username_t username(
             args->arg(env, args->num_args() - 2)->as_str().to_std());
         ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum();
@@ -1025,12 +1025,12 @@ private:
                         std::move(username),
                         std::move(permissions),
                         env->env->interruptor,
-                        [](auth::user_t &user) -> auth::permissions_t & {
-                            return user.get_global_permissions();
+                        [](auth::user_t *user) -> auth::permissions_t * {
+                            return &user->get_global_permissions();
                         },
                         &result,
                         &err);
-                    if (ret) {  // TODO: Only commit if ret is true?
+                    if (ret) {
                         commit(txn, env->env->interruptor);
                     }
                     fdb_success = ret;

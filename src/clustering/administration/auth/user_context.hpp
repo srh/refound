@@ -54,6 +54,27 @@ public:
     T checker;
 };
 
+class read_permission {
+public:
+    database_id_t db_id;
+    namespace_id_t table_id;
+    bool check(const user_t &user) const {
+        return user.has_read_permission(db_id, table_id);
+    }
+    const char *permission_name() const { return "read"; }
+};
+
+class write_permission {
+public:
+    database_id_t db_id;
+    namespace_id_t table_id;
+    bool check(const user_t &user) const {
+        return user.has_read_permission(db_id, table_id) &&
+            user.has_write_permission(db_id, table_id);
+    }
+    const char *permission_name() const { return "write"; }
+};
+
 class config_permission {
 public:
     bool check(const user_t &user) const { return user.has_config_permission(); }
@@ -88,10 +109,20 @@ public:
 
     void require_admin_user() const THROWS_ONLY(permission_error_t);
 
+    fdb_user_fut<read_permission> transaction_require_read_permission(
+        FDBTransaction *txn,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t);
+
     void require_read_permission(
             rdb_context_t *rdb_context,
             database_id_t const &database_id,
             namespace_id_t const &table_id) const THROWS_ONLY(permission_error_t);
+
+    fdb_user_fut<write_permission> transaction_require_write_permission(
+        FDBTransaction *txn,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t);
 
     void require_write_permission(
             rdb_context_t *rdb_context,
