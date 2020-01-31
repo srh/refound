@@ -11,7 +11,6 @@
 
 namespace auth {
 
-// TODO: Can permission_selector_function be a raw function pointer?
 bool grant(
         FDBTransaction *txn,
         auth::user_context_t const &user_context,
