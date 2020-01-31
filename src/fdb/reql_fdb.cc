@@ -53,7 +53,6 @@ User config:
 
     rethinkdb/users/ => table of user_t, primary key being username_t.
     Admin user is present (since we have password stuff).
-    NNN: Add admin user at config creation time.
     TODO: User logins always need to check fdb.
 
 Config version:

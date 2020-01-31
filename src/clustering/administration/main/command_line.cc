@@ -1856,7 +1856,7 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
 }
 
 int main_rethinkdb_create_fdb_blocking_pthread(
-        FDBDatabase *fdb, bool wipe) {
+        FDBDatabase *fdb, bool wipe, const std::string &initial_password) {
     // TODO: Don't return int from this.
 
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
@@ -1866,11 +1866,10 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     bool failure = false;
 
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb,
-        [wipe, &failure](FDBTransaction *txn) {
-        // TODO: Remember to commit the txn.
-
-        // TODO: We might want an option to force-wipe the db.
+        [wipe, &failure, initial_password](FDBTransaction *txn) {
         // TODO: Prefix key option.
+
+        // OOO: Proper handling of txn errors, retry loop, exception throwing, in pthread.
 
         uint8_t empty_key[1];
         int empty_key_length = 0;
@@ -1935,6 +1934,18 @@ int main_rethinkdb_create_fdb_blocking_pthread(
             fdb_transaction_set(txn,
                 as_uint8(nodes_count_key), strlen(nodes_count_key),
                 value, sizeof(value));
+        }
+
+        {
+            auth::username_t username("admin");
+            // TODO: Is this duplicated code somewhere?
+            // Use a single iteration for better efficiency when starting out with an
+            // empty password.
+            uint32_t iterations = initial_password.empty() ? 1 : auth::password_t::default_iteration_count;
+            ;
+
+            auth::user_t user(auth::password_t(initial_password, iterations));
+            transaction_set_user(txn, username, user);
         }
 
         {
@@ -2028,7 +2039,8 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
                            num_workers);
 
         if (result) {
-            int result2 = main_rethinkdb_create_fdb_blocking_pthread(db, wipe);
+            int result2 = main_rethinkdb_create_fdb_blocking_pthread(
+                db, wipe, initial_password);
             if (result2 == 0) {
                 // Tell the directory lock that the directory is now good to go, as it
                 //  will otherwise delete an uninitialized directory
