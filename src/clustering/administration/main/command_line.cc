@@ -66,6 +66,7 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rockstore/store.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"

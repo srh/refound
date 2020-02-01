@@ -4,6 +4,7 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/user.hpp"
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/metadata.hpp"
 // TODO: Ugly circular module ref here.
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"

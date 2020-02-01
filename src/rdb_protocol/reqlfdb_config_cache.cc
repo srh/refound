@@ -1,6 +1,7 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/archive/string_stream.hpp"

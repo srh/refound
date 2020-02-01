@@ -10,8 +10,7 @@
 #include "utils.hpp"
 
 std::string node_key(const uuid_u &node_id) {
-    std::string key = REQLFDB_NODES_TABLE;
-    key += '/';
+    std::string key = REQLFDB_NODES_BY_ID;
     uuid_onto_str(node_id, &key);  // TODO: use binary uuid?
     return key;
 }

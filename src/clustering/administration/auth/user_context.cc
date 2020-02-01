@@ -1,6 +1,7 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/administration/auth/user_context.hpp"
 
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "containers/archive/boost_types.hpp"
 #include "rdb_protocol/context.hpp"
