@@ -5,6 +5,7 @@
 #include "concurrency/signal.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/fdb.hpp"
+#include "fdb/reql_fdb.hpp"
 
 class fdb_node_holder {
 public:
@@ -17,7 +18,7 @@ public:
 private:
     FDBDatabase *fdb_;
     // TODO: Remove server_id_t entirely, or pass it in.
-    const uuid_u node_id_;
+    const fdb_node_id node_id_;
     bool initiated_shutdown_ = false;
     auto_drainer_t drainer_;
     DISABLE_COPYING(fdb_node_holder);

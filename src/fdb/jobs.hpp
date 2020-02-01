@@ -46,10 +46,22 @@ struct fdb_job_description {
 
 RDB_DECLARE_SERIALIZABLE(fdb_job_description);
 
+struct fdb_job_id {
+    uuid_u value;
+};
+RDB_DECLARE_SERIALIZABLE(fdb_job_id);
+RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_job_id, value);
+
+struct fdb_shared_task_id {
+    uuid_u value;
+};
+RDB_DECLARE_SERIALIZABLE(fdb_shared_task_id);
+RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_shared_task_id, value);
+
 struct fdb_job_info {
-    uuid_u job_id;
-    uuid_u shared_task_id;
-    uuid_u claiming_node;  // Or the nil uuid, if unclaimed
+    fdb_job_id job_id;
+    fdb_shared_task_id shared_task_id;
+    fdb_node_id claiming_node_or_nil;  // Or the nil uuid, if unclaimed
     uint64_t counter;
     reqlfdb_clock lease_expiration;
     fdb_job_description job_description;
@@ -59,16 +71,16 @@ RDB_DECLARE_SERIALIZABLE(fdb_job_info);
 RDB_DECLARE_EQUALITY_COMPARABLE(fdb_job_info);
 
 MUST_USE fdb_job_info add_fdb_job(FDBTransaction *txn,
-    uuid_u task_id, uuid_u claiming_node, fdb_job_description &&desc,
-    const signal_t *interruptor);
+    fdb_shared_task_id task_id, fdb_node_id claiming_node_or_nil,
+    fdb_job_description &&desc, const signal_t *interruptor);
 
 void remove_fdb_job(FDBTransaction *txn,
     const fdb_job_info &info);
 
 void try_claim_and_start_job(
-    FDBDatabase *fdb, uuid_u self_node_id, const auto_drainer_t::lock_t &lock);
+    FDBDatabase *fdb, fdb_node_id self_node_id, const auto_drainer_t::lock_t &lock);
 
-ukey_string job_id_pkey(uuid_u job_id);
+ukey_string job_id_pkey(fdb_job_id job_id);
 skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock);
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_

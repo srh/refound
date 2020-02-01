@@ -266,6 +266,12 @@ constexpr int REQLFDB_commit_unknown_result = 1021;
 // This is retryable.  Maybe transaction_too_old is better?  Idk.
 constexpr int REQLFDB_not_committed = 1020;
 
+struct fdb_node_id {
+    uuid_u value;
+};
+RDB_DECLARE_SERIALIZABLE(fdb_node_id);
+RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_node_id, value);
+
 // TODO: Is this used?
 inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
     std::string ret;

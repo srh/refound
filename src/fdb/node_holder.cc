@@ -9,9 +9,9 @@
 #include "fdb/typed.hpp"
 #include "utils.hpp"
 
-std::string node_key(const uuid_u &node_id) {
+std::string node_key(const fdb_node_id &node_id) {
     std::string key = REQLFDB_NODES_BY_ID;
-    uuid_onto_str(node_id, &key);  // TODO: use binary uuid?
+    uuid_onto_str(node_id.value, &key);  // TODO: use binary uuid?
     return key;
 }
 fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint64_t *out) {
@@ -31,7 +31,7 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
 }
 
 
-void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor) {
+void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interruptor) {
     std::string key = node_key(node_id);
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -65,7 +65,7 @@ void write_body(FDBTransaction *txn, uuid_u node_id, const signal_t *interruptor
 }
 
 MUST_USE fdb_error_t write_node_entry(
-        FDBDatabase *fdb, uuid_u node_id, const signal_t *interruptor) {
+        FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&node_id, interruptor](FDBTransaction *txn) {
         write_body(txn, node_id, interruptor);
@@ -73,7 +73,8 @@ MUST_USE fdb_error_t write_node_entry(
     return loop_err;
 }
 
-MUST_USE fdb_error_t erase_node_entry(FDBDatabase *fdb, uuid_u node_id, const signal_t *interruptor) {
+MUST_USE fdb_error_t erase_node_entry(
+        FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
     return txn_retry_loop_coro(fdb, interruptor, [&node_id, interruptor](FDBTransaction *txn) {
         std::string key = node_key(node_id);
 
@@ -99,7 +100,7 @@ MUST_USE fdb_error_t erase_node_entry(FDBDatabase *fdb, uuid_u node_id, const si
     });
 }
 
-void run_node_coro(FDBDatabase *fdb, uuid_u node_id, auto_drainer_t::lock_t lock) {
+void run_node_coro(FDBDatabase *fdb, fdb_node_id node_id, auto_drainer_t::lock_t lock) {
     const signal_t *const interruptor = lock.get_drain_signal();
     for (;;) {
         // Read node count.
@@ -142,7 +143,7 @@ void run_node_coro(FDBDatabase *fdb, uuid_u node_id, auto_drainer_t::lock_t lock
 }
 
 fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor)
-        : fdb_(fdb), node_id_(generate_uuid()) {
+        : fdb_(fdb), node_id_{generate_uuid()} {
     fdb_error_t err = write_node_entry(fdb, node_id_, interruptor);
     guarantee_fdb_TODO(err, "write_node_entry failed");
 

@@ -75,11 +75,16 @@ rethinkdb/jobs/ => table of fdb_job_info by job id
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_description, type);
 RDB_IMPL_EQUALITY_COMPARABLE_1(fdb_job_description, type);
 
-RDB_IMPL_EQUALITY_COMPARABLE_6(fdb_job_info,
-    job_id, shared_task_id, claiming_node, counter, lease_expiration, job_description);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_id, value);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_shared_task_id, value);
 
 RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
-    job_id, shared_task_id, claiming_node, counter, lease_expiration, job_description);
+    job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
+    job_description);
+
+RDB_IMPL_EQUALITY_COMPARABLE_6(fdb_job_info,
+    job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
+    job_description);
 
 // TODO: Think about reusing datum sindex key format.
 skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
@@ -105,19 +110,20 @@ struct job_sindex_keys {
 
 job_sindex_keys get_sindex_keys(const fdb_job_info &info) {
     job_sindex_keys ret;
-    ret.task = uuid_sindex_key(info.shared_task_id);
+    ret.task = uuid_sindex_key(info.shared_task_id.value);
     ret.lease_expiration = reqlfdb_clock_sindex_key(info.lease_expiration);
     return ret;
 }
 
-ukey_string job_id_pkey(uuid_u job_id) {
-    return ukey_string{uuid_to_str(job_id)};
+ukey_string job_id_pkey(fdb_job_id job_id) {
+    return ukey_string{uuid_to_str(job_id.value)};
 }
 
 // TODO: Maybe caller can pass in clock.
 fdb_job_info add_fdb_job(FDBTransaction *txn,
-    uuid_u shared_task_id, uuid_u claiming_node /* or nil */, fdb_job_description &&desc, const signal_t *interruptor) {
-    const uuid_u job_id = generate_uuid();
+        fdb_shared_task_id shared_task_id, fdb_node_id claiming_node_or_nil,
+        fdb_job_description &&desc, const signal_t *interruptor) {
+    const fdb_job_id job_id{generate_uuid()};
     ukey_string job_id_key = job_id_pkey(job_id);
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -130,12 +136,13 @@ fdb_job_info add_fdb_job(FDBTransaction *txn,
         "(rng failure), job with id %s already exists", job_id_key.ukey.c_str());
 
     reqlfdb_clock lease_expiration{
-        claiming_node.is_nil() ? 0 : current_clock.value + REQLFDB_JOB_LEASE_DURATION};
+        claiming_node_or_nil.value.is_nil() ? 0
+            : current_clock.value + REQLFDB_JOB_LEASE_DURATION};
 
     fdb_job_info info = {
         job_id,
         shared_task_id,
-        claiming_node,
+        claiming_node_or_nil,
         0,  // counter
         lease_expiration,
         std::move(desc),
@@ -220,7 +227,7 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
 }
 
 void try_claim_and_start_job(
-        FDBDatabase *fdb, uuid_u self_node_id, const auto_drainer_t::lock_t &lock) {
+        FDBDatabase *fdb, fdb_node_id self_node_id, const auto_drainer_t::lock_t &lock) {
     // TODO: Do we actually want a retry-loop?  Maybe a no-retry loop.
     const signal_t *interruptor = lock.get_drain_signal();
     optional<fdb_job_info> claimed_job;
@@ -270,7 +277,7 @@ void try_claim_and_start_job(
         fdb_job_info old_job_info = job_info_fut.block_and_deserialize(interruptor);
         fdb_job_info job_info = old_job_info;
 
-        job_info.claiming_node = self_node_id;
+        job_info.claiming_node_or_nil = self_node_id;
         job_info.counter++;
         job_info.lease_expiration = reqlfdb_clock{current_clock.value + REQLFDB_JOB_LEASE_DURATION};
 

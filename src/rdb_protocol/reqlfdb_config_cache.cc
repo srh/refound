@@ -372,8 +372,8 @@ optional<database_id_t> config_cache_db_drop(
     // Add the db_drop job, and remove the db.
 
     // TODO: This node should claim the job (and add logic to immediately execute it).
-    uuid_u claiming_node_id = nil_uuid();
-    uuid_u task_id = generate_uuid();
+    fdb_node_id claiming_node_id{nil_uuid()};
+    fdb_shared_task_id task_id{generate_uuid()};
     fdb_job_description desc{
         fdb_job_type::db_drop_job,
         fdb_job_db_drop::make(db_id),
