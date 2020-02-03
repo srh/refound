@@ -200,9 +200,8 @@ optional<fdb_job_info> execute_index_create_job(
         transaction_set_uq_index<table_config_by_id>(txn, index_create_info.table_id,
             table_config);
         reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-
         cv.value++;
-        serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+        transaction_set_config_version(txn, cv);
         ret = r_nullopt;
     }
     commit(txn, interruptor);

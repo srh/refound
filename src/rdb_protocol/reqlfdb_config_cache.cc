@@ -264,7 +264,7 @@ bool config_cache_db_create(
         db_by_name_key(db_name), db_id_value);
 
     cv.value++;
-    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+    transaction_set_config_version(txn, cv);
     return true;
 }
 
@@ -378,7 +378,7 @@ optional<database_id_t> config_cache_db_drop(
     transaction_erase_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME, db_name_key);
 
     cv.value++;
-    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+    transaction_set_config_version(txn, cv);
 
     return make_optional(db_id);
 }
@@ -497,7 +497,7 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     cv.value++;
-    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+    transaction_set_config_version(txn, cv);
     return make_optional(std::make_pair(table_id, std::move(config)));
 }
 
@@ -558,7 +558,7 @@ bool config_cache_table_create(
         table_pkey_value);
 
     cv.value++;
-    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+    transaction_set_config_version(txn, cv);
 
     return true;
 }

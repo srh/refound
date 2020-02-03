@@ -1952,7 +1952,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         {
             reqlfdb_config_version cv;
             cv.value = { 0 };
-            serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+            transaction_set_config_version(txn, cv);
         }
 
         fdb_future commit_fut{fdb_transaction_commit(txn)};

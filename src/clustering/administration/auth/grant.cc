@@ -69,7 +69,7 @@ bool grant(
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
     cv.value++;
-    serialize_and_set(txn, REQLFDB_CONFIG_VERSION_KEY, cv);
+    transaction_set_config_version(txn, cv);
 
     ql::datum_object_builder_t result_builder;
     result_builder.overwrite("granted", ql::datum_t(1.0));
