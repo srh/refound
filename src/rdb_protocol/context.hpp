@@ -241,6 +241,10 @@ public:
 
     /* This must be public */
     virtual ~base_table_t() { }
+
+    // NNN: Force everybody accessing the uuid to use this value.
+    // And force everybody to set this value.
+    optional<reqlfdb_config_version> cv;
 };
 
 class reql_cluster_interface_t {

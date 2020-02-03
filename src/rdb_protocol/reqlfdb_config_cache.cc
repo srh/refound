@@ -7,6 +7,7 @@
 #include "containers/archive/string_stream.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs.hpp"
+#include "fdb/jobs/index_create.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
@@ -320,9 +321,6 @@ void transaction_read_whole_range_coro(FDBTransaction *txn,
 optional<database_id_t> config_cache_db_drop(
         FDBTransaction *txn, const auth::user_context_t &user_context,
         const name_string_t &db_name, const signal_t *interruptor) {
-    // TODO: This function must read and verify user permissions when performing this
-    // operation.
-
     ukey_string db_name_key = db_by_name_key(db_name);
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
@@ -461,7 +459,7 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
     const ukey_string table_index_key = table_by_name_key(db_id, table_name);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
-    fdb_value_fut<name_string_t> db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(
+    fdb_future db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(
         txn, db_id);
 
     {
@@ -526,7 +524,7 @@ bool config_cache_table_create(
         = user_context.transaction_require_db_config_permission(txn, db_id);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
-    fdb_value_fut<name_string_t> db_by_id_fut
+    fdb_future db_by_id_fut
         = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
     auth_fut.block_and_check(interruptor);
@@ -599,7 +597,7 @@ std::vector<name_string_t> config_cache_table_list(
         const database_id_t &db_id,
         const signal_t *interruptor) {
 
-    fdb_value_fut<name_string_t> db_by_id_fut
+    fdb_future db_by_id_fut
         = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
     std::vector<name_string_t> table_names;
@@ -629,6 +627,81 @@ std::vector<name_string_t> config_cache_table_list(
 
     return table_names;
 }
+
+MUST_USE bool config_cache_sindex_create(
+        FDBTransaction *txn,
+        const auth::user_context_t &user_context,
+        reqlfdb_config_version expected_cv,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id,
+        const std::string &index_name,
+        const sindex_id_t &new_sindex_id,
+        const fdb_shared_task_id &new_index_create_task_id,
+        const sindex_config_t &sindex_config,
+        const signal_t *interruptor) {
+    // TODO: We need to verify db name -> id, and table name -> id mapping that was used (or config version that was used) still applies.
+
+    // OOO: Be sure to check that the db and table still exist.
+    auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
+        = user_context.transaction_require_db_and_table_config_permission(
+            txn, db_id, table_id);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    fdb_future db_by_id_fut
+        = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
+
+    fdb_value_fut<table_config_t> table_config_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+
+    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
+    guarantee(db_by_id_value.present, "db id came from wrong config version?");
+
+    table_config_t table_config;
+    if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
+        crash("table config not present, when id matched config version");
+    }
+
+    auth_fut.block_and_check(interruptor);
+
+    bool inserted = table_config.sindexes.emplace(index_name, sindex_config).second;
+    if (!inserted) {
+        return false;
+    }
+    inserted = table_config.fdb_sindexes.emplace(index_name,
+        sindex_metaconfig_t{new_sindex_id, new_index_create_task_id}).second;
+    guarantee(inserted, "table_config::fdb_sindexes is inconsistent with sindexes");
+
+    // TODO: This node should claim the job.
+    fdb_node_id claiming_node_id{nil_uuid()};
+
+    fdb_job_description desc{
+        fdb_job_type::index_create_job,
+        fdb_job_db_drop{},
+        fdb_job_index_create{table_id, index_name, new_sindex_id},
+    };
+
+    // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
+    // and avoid double round-trip latency.
+
+    fdb_job_info ignored = add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
+        std::move(desc), interruptor);
+    (void)ignored;
+
+    transaction_set_uq_index<table_config_by_id>(txn, table_id, table_config);
+
+    // OOO: Set jobstate to initial "" pkey lower bound.
+    fdb_index_jobstate jobstate{ukey_string{""}};
+    transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
+
+    cv.value++;
+    transaction_set_config_version(txn, cv);
+
+    return true;
+}
+
 
 ukey_string username_pkey(const auth::username_t &username) {
     return ukey_string{username.to_string()};

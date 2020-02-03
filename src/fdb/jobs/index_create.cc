@@ -181,7 +181,11 @@ optional<fdb_job_info> execute_index_create_job(
                 void_as_uint8(kvs[kv_count - 1].key),
                 kvs[kv_count - 1].key_length};
             key_view pkey_view = full_key.guarantee_without_prefix(pkey_prefix);
-            fdb_index_jobstate new_jobstate{ukey_string{std::string(as_char(pkey_view.data), size_t(pkey_view.length))}};
+            std::string pkey_str{as_char(pkey_view.data), size_t(pkey_view.length)};
+            // Increment the pkey lower bound since it's inclusive and we need to do
+            // that.
+            pkey_str.push_back('\0');
+            fdb_index_jobstate new_jobstate{ukey_string{std::move(pkey_str)}};
 
             transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
                 new_jobstate);

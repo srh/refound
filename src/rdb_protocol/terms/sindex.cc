@@ -4,14 +4,18 @@
 #include <string>
 
 #include "clustering/administration/admin_op_exc.hpp"
+#include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "containers/archive/buffer_stream.hpp"
 #include "containers/archive/string_stream.hpp"
+#include "fdb/reql_fdb.hpp"
+#include "fdb/retry_loop.hpp"
 #include "rdb_protocol/real_table.hpp"
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/op.hpp"
 #include "rdb_protocol/minidriver.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rdb_protocol/term_walker.hpp"
 
 namespace ql {
@@ -368,20 +372,48 @@ public:
                 : sindex_geo_bool_t::REGULAR;
         }
 
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{
+                strprintf("Database `%s` is special; you can't create secondary "
+                          "indexes on the tables in it.", artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
+        sindex_id_t new_sindex_id{generate_uuid()};
+        fdb_shared_task_id new_task_id{generate_uuid()};
+
+        bool fdb_result = valgrind_undefined(false);
         try {
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->sindex_create(
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb,
+                    env->env->interruptor, [&](FDBTransaction *txn) {
+                bool success = config_cache_sindex_create(
+                    txn,
                     env->env->get_user_context(),
-                    table->db,
-                    name_string_t::guarantee_valid(table->name.c_str()),
+                    table->tbl->cv.get(),
+                    table->db->id,
+                    table->get_id(),
                     index_name,
+                    new_sindex_id,
+                    new_task_id,
                     config,
-                    env->env->interruptor,
-                    &error)) {
-                REQL_RETHROW(error);
-            }
+                    env->env->interruptor);
+                if (success) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_result = success;
+            });
+            guarantee_fdb_TODO(loop_err, "sindex_create retry loop failed");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
+
+        if (!fdb_result) {
+            admin_err_t error{
+                strprintf("Index `%s` already exists on table `%s.%s`.",
+                          index_name.c_str(), table->db->name.c_str(), table->name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
         }
 
         ql::datum_object_builder_t res;
@@ -391,6 +423,8 @@ public:
 
     virtual const char *name() const { return "sindex_create"; }
 };
+
+// OOO: Fdb-ize the functions below.
 
 class sindex_drop_term_t : public op_term_t {
 public:

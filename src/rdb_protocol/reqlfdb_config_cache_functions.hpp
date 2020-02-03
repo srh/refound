@@ -80,6 +80,18 @@ std::vector<name_string_t> config_cache_table_list(
     const database_id_t &db_id,
     const signal_t *interruptor);
 
+MUST_USE bool config_cache_sindex_create(
+        FDBTransaction *txn,
+        const auth::user_context_t &user_context,
+        reqlfdb_config_version expected_cv,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id,
+        const std::string &index_name,
+        const sindex_id_t &new_sindex_id,
+        const fdb_shared_task_id &new_index_create_task_id,
+        const sindex_config_t &sindex_config,
+        const signal_t *interruptor);
+
 fdb_value_fut<auth::user_t> transaction_get_user(
     FDBTransaction *txn,
     const auth::username_t &username);
@@ -88,8 +100,5 @@ void transaction_set_user(
         FDBTransaction *txn,
         const auth::username_t &username,
         const auth::user_t &user);
-
-fdb_value_fut<reqlfdb_config_version> transaction_get_config_version(
-        FDBTransaction *txn);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_
