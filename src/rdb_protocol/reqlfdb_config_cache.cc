@@ -11,6 +11,17 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 
+struct db_config_by_id {
+    using ukey_type = database_id_t;
+    using value_type = name_string_t;
+    static constexpr const char *prefix = REQLFDB_DB_CONFIG_BY_ID;
+
+    static ukey_string ukey_str(const ukey_type &k) {
+        // We make an aesthetic key.
+        return ukey_string{uuid_to_str(k)};
+    }
+};
+
 reqlfdb_config_cache::reqlfdb_config_cache()
     : config_version{0} {}
 reqlfdb_config_cache::~reqlfdb_config_cache() {}
@@ -37,11 +48,6 @@ void reqlfdb_config_cache::add_table(
 // TODO: Remove.
 void config_cache_wipe(reqlfdb_config_cache *cache) {
     cache->wipe();
-}
-
-ukey_string db_by_id_key(const database_id_t &db_id) {
-    // We make an aesthetic key.
-    return ukey_string{uuid_to_str(db_id)};
 }
 
 ukey_string db_by_name_key(const name_string_t &db_name) {
@@ -256,10 +262,9 @@ bool config_cache_db_create(
     ASSERT_NO_CORO_WAITING;
 
     // TODO: Use uniform reql datum primary key serialization, how about that idea?
-    ukey_string db_id_key = db_by_id_key(new_db_id);
     std::string db_id_value = serialize_for_cluster_to_string(new_db_id);
 
-    transaction_set_pkey_index(txn, REQLFDB_DB_CONFIG_BY_ID, db_id_key, db_name.str());
+    transaction_set_uq_index<db_config_by_id>(txn, new_db_id, db_name);
     transaction_set_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME,
         db_by_name_key(db_name), db_id_value);
 
@@ -372,9 +377,7 @@ optional<database_id_t> config_cache_db_drop(
     // Check the auth fut after a round-trip in add_fdb_job.
     auth_fut.block_and_check(interruptor);
 
-    ukey_string db_id_key = db_by_id_key(db_id);
-
-    transaction_erase_pkey_index(txn, REQLFDB_DB_CONFIG_BY_ID, db_id_key);
+    transaction_erase_uq_index<db_config_by_id>(txn, db_id);
     transaction_erase_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME, db_name_key);
 
     cv.value++;
@@ -458,13 +461,14 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
     const ukey_string table_index_key = table_by_name_key(db_id, table_name);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
-    const ukey_string db_pkey_key = db_by_id_key(db_id);
-    fdb_future db_by_id_fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
+    fdb_value_fut<name_string_t> db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(
+        txn, db_id);
 
-    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
-    if (!db_by_id_value.present) {
-        throw config_version_exc_t();
+    {
+        fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
+        if (!db_by_id_value.present) {
+            throw config_version_exc_t();
+        }
     }
 
     fdb_value table_by_name_value
@@ -516,32 +520,33 @@ bool config_cache_table_create(
     // TODO: Ensure caller doesn't try to create table for "rethinkdb" database.
 
     const ukey_string table_index_key = table_by_name_key(db_id, table_name);
-    const ukey_string db_pkey_key = db_by_id_key(db_id);
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     auth::fdb_user_fut<auth::db_config_permission> auth_fut
         = user_context.transaction_require_db_config_permission(txn, db_id);
     fdb_future table_by_name_fut = transaction_lookup_unique_index(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
-    fdb_future db_by_id_fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
+    fdb_value_fut<name_string_t> db_by_id_fut
+        = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
     auth_fut.block_and_check(interruptor);
     fdb_value table_by_name_value
         = future_block_on_value(table_by_name_fut.fut, interruptor);
-    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
 
     if (table_by_name_value.present) {
         // Table already exists.
         return false;
     }
 
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-
-    if (!db_by_id_value.present) {
-        // TODO: We can throw this from within a retry loop, right?
-        throw config_version_exc_t();
+    {
+        fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
+        if (!db_by_id_value.present) {
+            // TODO: We can throw this from within a retry loop, right?
+            throw config_version_exc_t();
+        }
     }
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     ASSERT_NO_CORO_WAITING;
 
@@ -594,9 +599,8 @@ std::vector<name_string_t> config_cache_table_list(
         const database_id_t &db_id,
         const signal_t *interruptor) {
 
-    const ukey_string db_pkey_key = db_by_id_key(db_id);
-    fdb_future db_by_id_fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_DB_CONFIG_BY_ID, db_pkey_key);
+    fdb_value_fut<name_string_t> db_by_id_fut
+        = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
     std::vector<name_string_t> table_names;
 
