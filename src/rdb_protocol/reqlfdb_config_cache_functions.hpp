@@ -20,13 +20,6 @@ class db_t;
 
 // Implementations are in reqlfdb_config_cache.cc.
 
-class config_version_check_later {
-public:
-    // UINT64_MAX means no future, no check
-    reqlfdb_config_version expected_config_version = {UINT64_MAX};
-    fdb_value_fut<reqlfdb_config_version> config_version_future;
-};
-
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(
     const reqlfdb_config_cache *cc, FDBTransaction *txn,
