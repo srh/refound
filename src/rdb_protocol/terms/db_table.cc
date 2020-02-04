@@ -536,8 +536,9 @@ private:
             }
             table_list.insert(table_list.end(), tables.begin(), tables.end());
         } else {
-            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
+                // TODO: Check cv.
                 table_list = config_cache_table_list(txn, db->id, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "db_list txn failed");
@@ -703,10 +704,6 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
 	    const counted_t<const ql::db_t> &db,
             counted_t<table_t> &&table_or_null) const final {
-        // OOO: FDB-ize this function.  I think it's just table index building that
-        // we'd need to wait for -- and for db's, it's all the db's tables' index
-        // building operations.
-
         // Don't allow a wait call without explicit database
         if (args->num_args() == 0) {
             rfail(base_exc_t::LOGIC, "`wait` can only be called on a table or database.");
@@ -741,17 +738,50 @@ private:
             combined_interruptor.add(&timeout_timer);
         }
 
+        // Handle system db cases.
+        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{
+                strprintf("Database `%s` is special; the system tables in it are "
+                          "always available and don't need to be waited on.",
+                artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
+        // OOO: There might be some kind of fdb status operation which lets us check all
+        // shards in a range are accessible.  But assuming healthy fdb conditioning,
+        // tables are _always_ ready.  So we might make this a no-op function which
+        // merely checks table existence.
+
+        // (Note that table readiness does not assume sindex construction is complete.)
+
         // Perform db or table wait
-        ql::datum_t result;
-        bool success;
-        admin_err_t error;
+        double result;
         try {
             if (table_or_null.has()) {
-                success = env->env->reql_cluster_interface()->table_wait(db,
-                    name_string_t::guarantee_valid(table_or_null->name.c_str()), readiness, &combined_interruptor, &result, &error);
+                table_config_t config;
+                fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
+                    // TODO: Use a snapshot read for this?  Config txn appropriately?
+
+                    config = config_cache_get_table_config(txn, db->cv.get(), table_or_null->get_id(), env->env->interruptor);
+                });
+                guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
+
+                // (We never get table not found here, as we did pre-fdb, because we
+                // check cv above, creating a table not found error when we re-evaluate
+                // the query.)
+                // TODO: At some point we will in fact need to reevaluate queries when config version gets out of whack.
+                result = 1.0;
             } else {
-                success = env->env->reql_cluster_interface()->db_wait(
-                    db, readiness, &combined_interruptor, &result, &error);
+                std::vector<name_string_t> table_list;
+                fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
+                    // TODO: Use a snapshot read for this?  Config txn appropriately?
+                    // OOO: Check cv.
+                    table_list = config_cache_table_list(txn, db->id, env->env->interruptor);
+                });
+                guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
+
+                result = static_cast<double>(table_list.size());
             }
         } catch (const interrupted_exc_t &ex) {
             if (!timeout_timer.is_pulsed()) {
@@ -760,10 +790,9 @@ private:
             rfail(base_exc_t::OP_FAILED, "Timed out while waiting for tables.");
         }
 
-        if (!success) {
-            REQL_RETHROW(error);
-        }
-        return new_val(result);
+        ql::datum_object_builder_t builder;
+        builder.overwrite("ready", ql::datum_t(result));
+        return new_val(std::move(builder).to_datum());
     }
     const char *name() const final { return "wait"; }
 };
