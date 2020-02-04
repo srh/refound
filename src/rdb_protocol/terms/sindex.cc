@@ -408,8 +408,8 @@ public:
 
         if (!fdb_result) {
             admin_err_t error{
-                strprintf("Index `%s` already exists on table `%s.%s`.",
-                          index_name.c_str(), table->db->name.c_str(), table->name.c_str()),
+                strprintf("Index `%s` already exists on table `%s`.",
+                          index_name.c_str(), table->display_name().c_str()),
                 query_state_t::FAILED};
             REQL_RETHROW(error);
         }
@@ -435,8 +435,8 @@ public:
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
             // TODO: Dedup index dne errors.
             admin_err_t error{
-                strprintf("Index `%s` does not exist on table `%s.%s`.",
-                          index_name.c_str(), table->db->name.c_str(), table->name.c_str()),
+                strprintf("Index `%s` does not exist on table `%s`.",
+                          index_name.c_str(), table->display_name().c_str()),
                 query_state_t::FAILED};
             REQL_RETHROW(error);
         }
@@ -465,8 +465,8 @@ public:
 
         if (!fdb_result) {
             admin_err_t error{
-                strprintf("Index `%s` does not exist on table `%s.%s`.",
-                          index_name.c_str(), table->db->name.c_str(), table->name.c_str()),
+                strprintf("Index `%s` does not exist on table `%s`.",
+                          index_name.c_str(), table->display_name().c_str()),
                 query_state_t::FAILED};
             REQL_RETHROW(error);
         }
@@ -525,8 +525,6 @@ sindex_status_t build_status(const sindex_metaconfig_t &x) {
     ret.ready = sindex_is_ready(x);
     return ret;
 }
-
-// TODO: look at prior fdb-ized code for table->display_name() opportunities.
 
 class sindex_status_term_t : public op_term_t {
 public:
@@ -736,7 +734,6 @@ public:
         switch (fdb_result) {
         case rename_result::success: break;
         case rename_result::old_not_found: {
-            // TODO: This is new code, use display_name().
             admin_err_t error{
                 strprintf("Index `%s` does not exist on table `%s`.",
                           old_name.c_str(), table->display_name().c_str()),
