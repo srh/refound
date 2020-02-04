@@ -82,21 +82,23 @@ struct components_t {
 // ReQL pseudo-types.
 class datum_t {
 private:
-    // Placed here so it's kept in sync with type_t. All enum values from
-    // type_t must appear in here.
+    // Placed here so it's kept in sync with type_t. All enum values from type_t must
+    // appear in here.  The numeric assignments are solely to implement get_type().
+    // get_type() currently assumes INTERNAL_TYPE_BUF_MASK is the highest bit set.
+    static constexpr int INTERNAL_TYPE_BUF_BIT = 16;
     enum class internal_type_t {
-        UNINITIALIZED,
-        MINVAL,
-        R_ARRAY,
-        R_BINARY,
-        R_BOOL,
-        R_NULL,
-        R_NUM,
-        R_OBJECT,
-        R_STR,
-        BUF_R_ARRAY,
-        BUF_R_OBJECT,
-        MAXVAL
+        UNINITIALIZED = 0,
+        MINVAL = 1,
+        R_ARRAY = 2,
+        R_BINARY = 3,
+        R_BOOL = 4,
+        R_NULL = 5,
+        R_NUM = 6,
+        R_OBJECT = 7,
+        R_STR = 8,
+        MAXVAL = 9,
+        BUF_R_ARRAY = R_ARRAY | INTERNAL_TYPE_BUF_BIT,
+        BUF_R_OBJECT = R_OBJECT | INTERNAL_TYPE_BUF_BIT,
     };
 public:
     // This ordering is important, because we use it to sort objects of
@@ -193,10 +195,10 @@ public:
 
     // has() checks whether a datum is uninitialized. reset() makes any datum
     // uninitialized.
-    bool has() const;
-    void reset();
+    bool has() const { return data.get_internal_type() != internal_type_t::UNINITIALIZED; }
+    void reset() { data = data_wrapper_t(); }
 
-    type_t get_type() const;
+    type_t get_type() const { return data.get_type(); }
     bool is_ptype() const;
     bool is_ptype(const std::string &reql_type) const;
     std::string get_reql_type() const;
@@ -380,7 +382,7 @@ private:
         data_wrapper_t(data_wrapper_t &&movee) noexcept;
 
         // Mirror the same constructors of datum_t
-        data_wrapper_t();
+        data_wrapper_t() : internal_type(internal_type_t::UNINITIALIZED) {}
         explicit data_wrapper_t(construct_minval_t);
         explicit data_wrapper_t(construct_maxval_t);
         explicit data_wrapper_t(construct_null_t);
@@ -396,8 +398,10 @@ private:
 
         ~data_wrapper_t();
 
-        type_t get_type() const;
-        internal_type_t get_internal_type() const;
+        type_t get_type() const {
+            return static_cast<type_t>(static_cast<int>(internal_type) & (INTERNAL_TYPE_BUF_BIT - 1));
+        }
+        internal_type_t get_internal_type() const { return internal_type; }
 
         union {
             bool r_bool;

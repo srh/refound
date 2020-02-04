@@ -81,9 +81,6 @@ datum_t::data_wrapper_t &datum_t::data_wrapper_t::operator=(
     return *this;
 }
 
-datum_t::data_wrapper_t::data_wrapper_t() :
-    internal_type(internal_type_t::UNINITIALIZED) { }
-
 datum_t::data_wrapper_t::data_wrapper_t(datum_t::construct_minval_t) :
     internal_type(internal_type_t::MINVAL) { }
 
@@ -166,40 +163,6 @@ datum_t::data_wrapper_t::~data_wrapper_t() {
     } else {
         destruct();
     }
-}
-
-datum_t::type_t datum_t::data_wrapper_t::get_type() const {
-    switch (internal_type) {
-    case internal_type_t::UNINITIALIZED:
-        return type_t::UNINITIALIZED;
-    case internal_type_t::MINVAL:
-        return type_t::MINVAL;
-    case internal_type_t::R_ARRAY:
-        return type_t::R_ARRAY;
-    case internal_type_t::R_BINARY:
-        return type_t::R_BINARY;
-    case internal_type_t::R_BOOL:
-        return type_t::R_BOOL;
-    case internal_type_t::R_NULL:
-        return type_t::R_NULL;
-    case internal_type_t::R_NUM:
-        return type_t::R_NUM;
-    case internal_type_t::R_OBJECT:
-        return type_t::R_OBJECT;
-    case internal_type_t::R_STR:
-        return type_t::R_STR;
-    case internal_type_t::BUF_R_ARRAY:
-        return type_t::R_ARRAY;
-    case internal_type_t::BUF_R_OBJECT:
-        return type_t::R_OBJECT;
-    case internal_type_t::MAXVAL:
-        return type_t::MAXVAL;
-    default:
-        unreachable();
-    }
-}
-datum_t::internal_type_t datum_t::data_wrapper_t::get_internal_type() const {
-    return internal_type;
 }
 
 void datum_t::data_wrapper_t::destruct() {
@@ -384,14 +347,6 @@ datum_t to_datum_for_client_serialization(grouped_data_t &&gd,
     return datum_t(std::move(map), datum_t::no_sanitize_ptype_t());
 }
 
-bool datum_t::has() const {
-    return data.get_type() != UNINITIALIZED;
-}
-
-void datum_t::reset() {
-    data = data_wrapper_t();
-}
-
 datum_t datum_t::empty_array() {
     return datum_t(std::vector<datum_t>(),
                    no_array_size_limit_check_t());
@@ -517,11 +472,9 @@ const shared_buf_ref_t<char> *datum_t::get_buf_ref() const {
         || data.get_internal_type() == internal_type_t::BUF_R_OBJECT) {
         return &data.buf_ref;
     } else {
-        return NULL;
+        return nullptr;
     }
 }
-
-datum_t::type_t datum_t::get_type() const { return data.get_type(); }
 
 bool datum_t::is_ptype() const {
     return get_type() == R_BINARY ||

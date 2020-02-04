@@ -489,8 +489,7 @@ public:
         counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
-            ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-            return new_val(std::move(res).to_datum());
+            return new_val(datum_t::empty_array());
         }
 
         // TODO: Is there really no user access control for this?
@@ -613,9 +612,7 @@ public:
                 strprintf("Index `%s` was not found on table `%s`.",
                           sindexes.begin()->c_str(),
                           table->display_name().c_str()));
-            // TODO: Find a cooler way to make an empty array datum.
-            ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
-            return new_val(std::move(statuses).to_datum());
+            return new_val(datum_t::empty_array());
         }
 
         const namespace_id_t table_id = table->get_id();
