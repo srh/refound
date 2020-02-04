@@ -74,14 +74,10 @@ template <class> class semilattice_read_view_t;
 class sindex_config_t {
 public:
     sindex_config_t() { }
-    // NNN: Somewhere, we are constructing an sindex_config_t but not initializing it
-    // properly.
     sindex_config_t(const ql::map_wire_func_t &_func, reql_version_t _func_version,
             sindex_multi_bool_t _multi, sindex_geo_bool_t _geo) :
         func(_func), func_version(_func_version), multi(_multi), geo(_geo) { }
 
-    // NNN: How are we comparing these for equality?  Might creation_task_or_nil, or id,
-    // affect that?
     bool operator==(const sindex_config_t &o) const;
     bool operator!=(const sindex_config_t &o) const {
         return !(*this == o);

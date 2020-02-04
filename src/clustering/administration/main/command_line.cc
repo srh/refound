@@ -1868,7 +1868,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 
     std::string print_out;
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb,
-        [wipe, &failure, initial_password, &print](FDBTransaction *txn) {
+        [wipe, &failure, initial_password, &print_out](FDBTransaction *txn) {
         printf_buffer_t print;
         // TODO: Prefix key option.
 
@@ -1901,7 +1901,6 @@ int main_rethinkdb_create_fdb_blocking_pthread(
                 print_out.append(print.data(), size_t(print.size()));
                 return;
             } else {
-                // TODO: No messages in txn retry loop.
                 print.appendf("Wiping fdb db\n");
                 // TODO: Test that key/value is valid reqlfdb version key/value.
                 fdb_transaction_clear_range(txn,
