@@ -261,7 +261,7 @@ bool filter_match(datum_t predicate, datum_t value,
 }
 
 bool reql_func_t::filter_helper(env_t *env, datum_t arg) const {
-    datum_t d = call(env, make_vector(arg), NO_FLAGS)->as_datum();
+    datum_t d = call(env, make_vector(arg), NO_FLAGS)->as_datum(env);
     if (d.get_type() == datum_t::R_OBJECT &&
         (body->get_src().type() == Term::MAKE_OBJ ||
          body->get_src().type() == Term::DATUM)) {
@@ -313,7 +313,7 @@ std::string js_func_t::print_js_function() const {
 }
 
 bool js_func_t::filter_helper(env_t *env, datum_t arg) const {
-    datum_t d = call(env, make_vector(arg), NO_FLAGS)->as_datum();
+    datum_t d = call(env, make_vector(arg), NO_FLAGS)->as_datum(env);
     return d.as_bool();
 }
 
@@ -342,7 +342,7 @@ bool func_t::filter_call(env_t *env, datum_t arg, counted_t<const func_t> defaul
         // NULL.
         try {
             if (default_filter_val) {
-                return default_filter_val->call(env)->as_bool();
+                return default_filter_val->call(env)->as_bool(env);
             } else {
                 return false;
             }

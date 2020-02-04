@@ -66,9 +66,9 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_t lhs = args->arg(env, 0)->as_datum();
+        datum_t lhs = args->arg(env, 0)->as_datum(env);
         for (size_t i = 1; i < args->num_args(); ++i) {
-            datum_t rhs = args->arg(env, i)->as_datum();
+            datum_t rhs = args->arg(env, i)->as_datum(env);
             if (!(pred)(lhs, rhs)) {
                 return new_val_bool(static_cast<bool>(false ^ invert));
             }
@@ -88,7 +88,7 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        return new_val_bool(!args->arg(env, 0)->as_bool());
+        return new_val_bool(!args->arg(env, 0)->as_bool(env));
     }
     virtual const char *name() const { return "not"; }
 };

@@ -140,13 +140,13 @@ std::string format_array_size_error(size_t limit);
 #define rcheck_src(src, pred, type, msg) do {                         \
         (pred)                                                        \
         ? (void)0                                                     \
-        : ql::runtime_fail(type, stringify(pred),                     \
+        : ql::runtime_fail((type), stringify(pred),                     \
                            __FILE__, __LINE__, (msg), (src));         \
     } while (0)
 #define rcheck_datum(pred, type, msg) do {                            \
         (pred)                                                        \
         ? (void)0                                                     \
-        : ql::runtime_fail(type, stringify(pred),                     \
+        : ql::runtime_fail((type), stringify(pred),                     \
                            __FILE__, __LINE__, (msg));                \
     } while (0)
 #define rcheck_array_size_datum(arr, limit) do {                        \
@@ -205,6 +205,7 @@ std::string format_array_size_error(size_t limit);
 
 
 class datum_t;
+class env_t;
 class val_t;
 base_exc_t::type_t exc_type(const datum_t *d);
 base_exc_t::type_t exc_type(const datum_t &d);

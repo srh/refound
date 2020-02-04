@@ -61,8 +61,8 @@ public:
         : op_term_t(env, term, argspec_t(2)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        std::string str = args->arg(env, 0)->as_str().to_std();
-        std::string re = args->arg(env, 1)->as_str().to_std();
+        std::string str = args->arg(env, 0)->as_str(env).to_std();
+        std::string re = args->arg(env, 1)->as_str(env).to_std();
         std::shared_ptr<re2::RE2> regexp;
         regex_cache_t &cache = env->env->regex_cache();
         std::shared_ptr<re2::RE2> *found;
@@ -224,11 +224,11 @@ private:
     }
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        std::string s = args->arg(env, 0)->as_str().to_std();
+        std::string s = args->arg(env, 0)->as_str(env).to_std();
 
         optional<std::string> delim;
         if (args->num_args() > 1) {
-            datum_t d = args->arg(env, 1)->as_datum();
+            datum_t d = args->arg(env, 1)->as_datum(env);
             if (d.get_type() != datum_t::R_NULL) {
                 delim.set(d.as_str().to_std());
             }
@@ -236,7 +236,7 @@ private:
 
         int64_t n = -1; // -1 means unlimited
         if (args->num_args() > 2) {
-            n = args->arg(env, 2)->as_int();
+            n = args->arg(env, 2)->as_int(env);
             rcheck(n >= -1 && n <= int64_t(env->env->limits().array_size_limit()) - 1,
                    base_exc_t::LOGIC,
                    strprintf("Error: `split` size argument must be in range [-1, %zu].",

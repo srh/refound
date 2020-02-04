@@ -6,6 +6,8 @@
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/serialize_datum.hpp"
+#include "rdb_protocol/term.hpp"
+#include "rdb_protocol/val.hpp"
 
 #include "debug.hpp"
 
@@ -71,9 +73,10 @@ batchspec_t batchspec_t::all() {
 }
 
 static bool set_if_present(const char *argname, env_t *env, datum_t * dest) {
-    scoped_ptr_t<val_t> v = env->get_optarg(env, argname);
+    // OOO: This was once env->get_optarg(env, argname), right?
+    scoped_ptr_t<val_t> v = ql::get_global_optarg(env, argname);
     if (v.has()) {
-        *dest = v->as_datum();
+        *dest = v->as_datum(env);
         return true;
     } else {
         return false;

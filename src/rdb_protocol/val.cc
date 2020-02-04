@@ -19,23 +19,22 @@ selection_t::~selection_t() {}
 
 class get_selection_t : public single_selection_t {
 public:
-    get_selection_t(env_t *_env,
-                    backtrace_id_t _bt,
+    get_selection_t(backtrace_id_t _bt,
                     counted_t<table_t> _tbl,
                     datum_t _key,
                     datum_t _row = datum_t())
-        : env(_env),
-          bt(std::move(_bt)),
+        : bt(std::move(_bt)),
           tbl(std::move(_tbl)),
           key(std::move(_key)),
           row(std::move(_row)) { }
-    virtual datum_t get() {
+    virtual datum_t get(env_t *env) {
         if (!row.has()) {
             row = tbl->get_row(env, key);
         }
         return row;
     }
     virtual datum_t replace(
+        env_t *env,
         counted_t<const func_t> f,
         bool nondet_ok,
         durability_requirement_t dur_req,
@@ -44,7 +43,7 @@ public:
         std::vector<datum_t> keys = {key};
         // We don't need to fetch the value for deterministic replacements.
         std::vector<datum_t> vals = {
-            f->is_deterministic().test(single_server_t::no, constant_now_t::yes) ? datum_t() : get()};
+            f->is_deterministic().test(single_server_t::no, constant_now_t::yes) ? datum_t() : get(env)};
         return tbl->batched_replace(
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
@@ -54,7 +53,6 @@ public:
     }
     const counted_t<table_t> &get_tbl() final { return tbl; }
 private:
-    env_t *env;
     backtrace_id_t bt;
     counted_t<table_t> tbl;
     datum_t key, row;
@@ -62,15 +60,13 @@ private:
 
 class extreme_selection_t : public single_selection_t {
 public:
-    extreme_selection_t(env_t *_env,
-                        backtrace_id_t _bt,
+    extreme_selection_t(backtrace_id_t _bt,
                         counted_t<table_slice_t> _slice,
                         std::string _err)
-        : env(_env),
-          bt(std::move(_bt)),
+        : bt(std::move(_bt)),
           slice(std::move(_slice)),
           err(std::move(_err)) { }
-    virtual datum_t get() {
+    virtual datum_t get(env_t *env) {
         if (!row.has()) {
             batchspec_t batchspec = batchspec_t::all().with_at_most(1);
             row = slice->as_seq(env, bt)->next(env, batchspec);
@@ -81,12 +77,13 @@ public:
         return row;
     }
     virtual datum_t replace(
+        env_t *env,
         counted_t<const func_t> f,
         bool nondet_ok,
         durability_requirement_t dur_req,
         return_changes_t return_changes,
         ignore_write_hook_t ignore_write_hook) {
-        std::vector<datum_t > vals{get()};
+        std::vector<datum_t > vals{get(env)};
         std::vector<datum_t > keys{
             vals[0].get_field(
                 datum_string_t(get_tbl()->get_pkey()),
@@ -101,7 +98,6 @@ public:
     }
     const counted_t<table_t> &get_tbl() final { return slice->get_tbl(); }
 private:
-    env_t *env;
     backtrace_id_t bt;
     counted_t<table_slice_t> slice;
     datum_t row;
@@ -109,24 +105,24 @@ private:
 };
 
 counted_t<single_selection_t> single_selection_t::from_key(
-    env_t *env, backtrace_id_t bt,
+    backtrace_id_t bt,
     counted_t<table_t> table, datum_t key) {
     return make_counted<get_selection_t>(
-        env, std::move(bt), std::move(table), std::move(key));
+        std::move(bt), std::move(table), std::move(key));
 }
 counted_t<single_selection_t> single_selection_t::from_row(
-    env_t *env, backtrace_id_t bt,
+    backtrace_id_t bt,
     counted_t<table_t> table, datum_t row) {
     datum_t d = row.get_field(datum_string_t(table->get_pkey()), NOTHROW);
     r_sanity_check(d.has());
     return make_counted<get_selection_t>(
-        env, std::move(bt), std::move(table), std::move(d), std::move(row));
+        std::move(bt), std::move(table), std::move(d), std::move(row));
 }
 counted_t<single_selection_t> single_selection_t::from_slice(
-    env_t *env, backtrace_id_t bt,
+    backtrace_id_t bt,
     counted_t<table_slice_t> table, std::string err) {
     return make_counted<extreme_selection_t>(
-        env, std::move(bt), std::move(table), std::move(err));
+        std::move(bt), std::move(table), std::move(err));
 }
 
 table_slice_t::table_slice_t(counted_t<table_t> _tbl,
@@ -272,7 +268,7 @@ datum_t table_t::batched_replace(
             r_sanity_check(vals[i].has());
             datum_t new_val;
             try {
-                new_val = replacement_generator->call(env, vals[i])->as_datum();
+                new_val = replacement_generator->call(env, vals[i])->as_datum(env);
                 new_val.rcheck_valid_replace(vals[i], keys[i],
                                              datum_string_t(get_pkey()));
                 r_sanity_check(new_val.has());
@@ -677,11 +673,11 @@ val_t::~val_t() { }
 val_t::type_t val_t::get_type() const { return type; }
 const char * val_t::get_type_name() const { return get_type().name(); }
 
-datum_t val_t::as_datum() const {
+datum_t val_t::as_datum(env_t *env) const {
     if (type.raw_type == type_t::DATUM) {
         return datum();
     } else if (type.raw_type == type_t::SINGLE_SELECTION) {
-        return single_selection()->get();
+        return single_selection()->get(env);
     }
     rcheck_literal_type(type_t::DATUM);
     unreachable();
@@ -770,7 +766,7 @@ counted_t<single_selection_t> val_t::as_single_selection() {
     return single_selection();
 }
 
-counted_t<const func_t> val_t::as_func(function_shortcut_t shortcut) {
+counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) {
     if (get_type().is_convertible(type_t::FUNC)) {
         r_sanity_check(func().has());
         return func();
@@ -789,13 +785,13 @@ counted_t<const func_t> val_t::as_func(function_shortcut_t shortcut) {
     try {
         switch (shortcut) {
         case CONSTANT_SHORTCUT:
-            return new_constant_func(as_datum(), backtrace());
+            return new_constant_func(as_datum(env), backtrace());
         case GET_FIELD_SHORTCUT:
-            return new_get_field_func(as_datum(), backtrace());
+            return new_get_field_func(as_datum(env), backtrace());
         case PLUCK_SHORTCUT:
-            return new_pluck_func(as_datum(), backtrace());
+            return new_pluck_func(as_datum(env), backtrace());
         case PAGE_SHORTCUT:
-            return new_page_func(as_datum(), backtrace());
+            return new_page_func(as_datum(env), backtrace());
         case NO_SHORTCUT:
             // fallthru
         default: unreachable();
@@ -810,9 +806,9 @@ counted_t<const db_t> val_t::as_db() const {
     return db();
 }
 
-datum_t val_t::as_ptype(const std::string s) const {
+datum_t val_t::as_ptype(env_t *env, const std::string s) const {
     try {
-        datum_t d = as_datum();
+        datum_t d = as_datum(env);
         r_sanity_check(d.has());
         d.rcheck_is_ptype(s);
         return d;
@@ -821,36 +817,36 @@ datum_t val_t::as_ptype(const std::string s) const {
     }
 }
 
-bool val_t::as_bool() const {
+bool val_t::as_bool(env_t *env) const {
     try {
-        datum_t d = as_datum();
+        datum_t d = as_datum(env);
         r_sanity_check(d.has());
         return d.as_bool();
     } catch (const datum_exc_t &e) {
         rfail(e.get_type(), "%s", e.what());
     }
 }
-double val_t::as_num() const {
+double val_t::as_num(env_t *env) const {
     try {
-        datum_t d = as_datum();
+        datum_t d = as_datum(env);
         r_sanity_check(d.has());
         return d.as_num();
     } catch (const datum_exc_t &e) {
         rfail(e.get_type(), "%s", e.what());
     }
 }
-int64_t val_t::as_int() const {
+int64_t val_t::as_int(env_t *env) const {
     try {
-        datum_t d = as_datum();
+        datum_t d = as_datum(env);
         r_sanity_check(d.has());
         return d.as_int();
     } catch (const datum_exc_t &e) {
         rfail(e.get_type(), "%s", e.what());
     }
 }
-datum_string_t val_t::as_str() const {
+datum_string_t val_t::as_str(env_t *env) const {
     try {
-        datum_t d = as_datum();
+        datum_t d = as_datum(env);
         r_sanity_check(d.has());
         return d.as_str();
     } catch (const datum_exc_t &e) {
@@ -859,15 +855,16 @@ datum_string_t val_t::as_str() const {
 }
 
 void val_t::rcheck_literal_type(type_t::raw_type_t expected_raw_type) const {
+    // TODO: Use a custom print function here, instead of the one that takes env.
     rcheck_typed_target(
         this, type.raw_type == expected_raw_type,
-        strprintf("Expected type %s but found %s:\n%s",
-                  type_t(expected_raw_type).name(), type.name(), print().c_str()));
+        strprintf("Expected type %s but found %s:\n%%s",  // <- TODO
+                  type_t(expected_raw_type).name(), type.name() /*, print().c_str() */));
 }
 
-std::string val_t::print() const {
+std::string val_t::print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
-        return as_datum().print();
+        return as_datum(env).print();
     } else if (get_type().is_convertible(type_t::DB)) {
         return strprintf("db(\"%s\")", as_db()->name.c_str());
     } else if (get_type().is_convertible(type_t::TABLE)) {
@@ -881,11 +878,11 @@ std::string val_t::print() const {
     }
 }
 
-std::string val_t::trunc_print() const {
+std::string val_t::trunc_print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
-        return as_datum().trunc_print();
+        return as_datum(env).trunc_print();
     } else {
-        std::string s = print();
+        std::string s = print(env);
         if (s.size() > datum_t::trunc_len) {
             s.erase(s.begin() + (datum_t::trunc_len - 3), s.end());
             s += "...";

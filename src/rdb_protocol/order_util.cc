@@ -22,13 +22,14 @@ void check_r_args(const term_t *target, const raw_term_t &term) {
 }
 
 std::pair<order_direction_t, counted_t<const func_t> >
-build_comparison(const term_t *target,
+build_comparison(env_t *env,
+                 const term_t *target,
                  scoped_ptr_t<val_t> arg,
                  raw_term_t item) {
 
     check_r_args(target, item);
 
-    counted_t<const func_t> comparison_function = arg->as_func(GET_FIELD_SHORTCUT);
+    counted_t<const func_t> comparison_function = arg->as_func(env, GET_FIELD_SHORTCUT);
     rcheck_target(target,
                   comparison_function->is_deterministic().test(single_server_t::yes,
                                                                constant_now_t::yes),
@@ -53,7 +54,8 @@ build_comparisons_from_raw_term(const term_t *target,
     // For order by, first argument is the stream
     for (size_t i = 1; i < raw_term.num_args(); ++i) {
         raw_term_t item = raw_term.arg(i);
-        comparisons.push_back(build_comparison(target,
+        comparisons.push_back(build_comparison(env->env,
+                                               target,
                                                args->arg(env, i),
                                                item));
     }
@@ -62,12 +64,13 @@ build_comparisons_from_raw_term(const term_t *target,
 
 std::vector<std::pair<order_direction_t, counted_t<const func_t> > >
 build_comparisons_from_single_term(const term_t *target,
-                                   scope_env_t *,
+                                   scope_env_t *env,
                                    scoped_ptr_t<val_t> &&arg,
                                    const raw_term_t &raw_term) {
     std::vector<std::pair<order_direction_t, counted_t<const func_t> > > comparisons;
 
-    comparisons.push_back(build_comparison(target,
+    comparisons.push_back(build_comparison(env->env,
+                                           target,
                                            std::move(arg),
                                            raw_term));
 
@@ -75,7 +78,7 @@ build_comparisons_from_single_term(const term_t *target,
 }
 std::vector<std::pair<order_direction_t, counted_t<const func_t> > >
 build_comparisons_from_optional_terms(const term_t *target,
-                                     scope_env_t *,
+                                     scope_env_t *env,
                                      std::vector<scoped_ptr_t<val_t> > &&args,
                                      const raw_term_t &raw_term)
 {
@@ -84,7 +87,8 @@ build_comparisons_from_optional_terms(const term_t *target,
     // For ordered union, first element is an optional arg
     for (size_t i = 0; i < raw_term.num_args(); ++i) {
         raw_term_t item = raw_term.arg(i);
-        comparisons.push_back(build_comparison(target,
+        comparisons.push_back(build_comparison(env->env,
+                                               target,
                                                std::move(args[i]),
                                                item));
     }
@@ -107,7 +111,7 @@ bool lt_cmp_t::operator()(env_t *env,
         datum_t lval;
         datum_t rval;
         try {
-            lval = it->second->call(env, l)->as_datum();
+            lval = it->second->call(env, l)->as_datum(env);
         } catch (const base_exc_t &e) {
             if (e.get_type() != base_exc_t::NON_EXISTENCE) {
                 throw;
@@ -115,7 +119,7 @@ bool lt_cmp_t::operator()(env_t *env,
         }
 
         try {
-            rval = it->second->call(env, r)->as_datum();
+            rval = it->second->call(env, r)->as_datum(env);
         } catch (const base_exc_t &e) {
             if (e.get_type() != base_exc_t::NON_EXISTENCE) {
                 throw;

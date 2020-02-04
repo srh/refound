@@ -19,7 +19,7 @@ public:
         : op_term_t(env, term, argspec_t(2)) { }
 
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        int64_t num_int = args->arg(env, 1)->as_int();
+        int64_t num_int = args->arg(env, 1)->as_int(env);
         rcheck(num_int >= 0,
                base_exc_t::LOGIC,
                strprintf("Number of items to sample must be non-negative, got `%"
@@ -108,7 +108,7 @@ private:
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> use_float_arg = args->optarg(env, "float");
-        bool use_float = use_float_arg ? use_float_arg->as_bool() : args->num_args() == 0;
+        bool use_float = use_float_arg ? use_float_arg->as_bool(env) : args->num_args() == 0;
 
         if (use_float) {
             double lower = 0.0;
@@ -117,11 +117,11 @@ private:
             if (args->num_args() == 0) {
                 // Use default bounds
             } else if (args->num_args() == 1) {
-                upper = args->arg(env, 0)->as_num();
+                upper = args->arg(env, 0)->as_num(env);
             } else {
                 r_sanity_check(args->num_args() == 2);
-                lower = args->arg(env, 0)->as_num();
-                upper = args->arg(env, 1)->as_num();
+                lower = args->arg(env, 0)->as_num(env);
+                upper = args->arg(env, 1)->as_num(env);
             }
 
             bool range_scaled = false;
@@ -160,11 +160,11 @@ private:
             // lose precision when putting the result in a datum_t (double)
             if (args->num_args() == 1) {
                 lower = 0;
-                upper = convert_bound(args->arg(env, 0)->as_num(), bound_type_t::UPPER);
+                upper = convert_bound(args->arg(env, 0)->as_num(env), bound_type_t::UPPER);
             } else {
                 r_sanity_check(args->num_args() == 2);
-                lower = convert_bound(args->arg(env, 0)->as_num(), bound_type_t::LOWER);
-                upper = convert_bound(args->arg(env, 1)->as_num(), bound_type_t::UPPER);
+                lower = convert_bound(args->arg(env, 0)->as_num(env), bound_type_t::LOWER);
+                upper = convert_bound(args->arg(env, 1)->as_num(env), bound_type_t::UPPER);
             }
 
             rcheck(lower < upper, base_exc_t::LOGIC,

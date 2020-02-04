@@ -16,7 +16,7 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        const datum_string_t data = args->arg(env, 0)->as_str();
+        const datum_string_t data = args->arg(env, 0)->as_str(env);
 
         // Copy the string into a null-terminated c-string that we can write
         // to, so we can use RapidJSON in-situ parsing (and at least avoid
@@ -54,7 +54,7 @@ public:
 
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
-        datum_t d = v->as_datum();
+        datum_t d = v->as_datum(env);
         r_sanity_check(d.has());
         if (true) {
             rapidjson::StringBuffer buffer;

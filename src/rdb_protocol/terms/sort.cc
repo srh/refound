@@ -91,7 +91,7 @@ private:
                     sorting_t::DESCENDING : sorting_t::ASCENDING;
             }
             r_sanity_check(sorting != sorting_t::UNORDERED);
-            std::string index_str = index->as_str().to_std();
+            std::string index_str = index->as_str(env).to_std();
             tbl_slice = tbl_slice->with_sorting(index_str, sorting);
             if (!comparisons.empty()) {
                 seq = make_counted<indexed_sort_datum_stream_t>(
@@ -144,7 +144,7 @@ private:
         if (v->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
             counted_t<table_slice_t> tbl_slice = v->as_table_slice();
             std::string tbl_pkey = tbl_slice->get_tbl()->get_pkey();
-            std::string idx_str = idx.has() ? idx->as_str().to_std() : tbl_pkey;
+            std::string idx_str = idx.has() ? idx->as_str(env).to_std() : tbl_pkey;
             if (idx.has() && idx_str == tbl_pkey) {
                 auto row = minidriver_t::dummy_var_t::DISTINCT_ROW;
                 minidriver_t r(backtrace());

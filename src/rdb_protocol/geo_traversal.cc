@@ -148,7 +148,7 @@ continue_bool_t geo_intersecting_cb_t::on_candidate(
                              ql::return_empty_normal_batches_t::NO,
                              sindex.func_reql_version);
         ql::datum_t sindex_val =
-            sindex.func->call(&sindex_env, val)->as_datum();
+            sindex.func->call(&sindex_env, val)->as_datum(&sindex_env);
         if (sindex.multi == sindex_multi_bool_t::MULTI
             && sindex_val.get_type() == ql::datum_t::R_ARRAY) {
             sindex_val = sindex_val.get(tag.get(), ql::NOTHROW);

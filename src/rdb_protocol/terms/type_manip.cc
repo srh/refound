@@ -166,11 +166,11 @@ private:
         int start_subtype = 0;
         if (opaque_start_type.is_convertible(val_t::type_t::DATUM)) {
             start_supertype = val_t::type_t::DATUM;
-            start_subtype = val->as_datum().get_type();
+            start_subtype = val->as_datum(env).get_type();
         }
         int start_type = merge_types(start_supertype, start_subtype);
 
-        std::string end_type_name = args->arg(env, 1)->as_str().to_std();
+        std::string end_type_name = args->arg(env, 1)->as_str(env).to_std();
         int end_type = get_type(end_type_name, this);
 
         // Identity
@@ -190,7 +190,7 @@ private:
 
         // DATUM -> *
         if (opaque_start_type.is_convertible(val_t::type_t::DATUM)) {
-            datum_t d = val->as_datum();
+            datum_t d = val->as_datum(env);
             // DATUM -> DATUM
             if (supertype(end_type) == val_t::type_t::DATUM) {
                 if (start_type == R_BINARY_TYPE && end_type == R_STR_TYPE) {
@@ -319,10 +319,10 @@ private:
     virtual bool can_be_grouped() const { return false; }
 };
 
-int val_type(const scoped_ptr_t<val_t> &v) {
+int val_type(env_t *env, const scoped_ptr_t<val_t> &v) {
     int t = v->get_type().raw_type * MAX_TYPE;
     if (t == DATUM_TYPE) {
-        t += v->as_datum().get_type();
+        t += v->as_datum(env).get_type();
     } else if (t == SELECTION_TYPE) {
         if (v->selection()->seq->is_array()) {
             t += datum_t::R_ARRAY;
@@ -331,15 +331,15 @@ int val_type(const scoped_ptr_t<val_t> &v) {
     return t;
 }
 
-datum_t typename_of(const scoped_ptr_t<val_t> &v, scope_env_t *env) {
+datum_t typename_of(env_t *env, const scoped_ptr_t<val_t> &v) {
     if (v->get_type().get_raw_type() == val_t::type_t::DATUM) {
-        datum_t d = v->as_datum();
+        datum_t d = v->as_datum(env);
         return datum_t(datum_string_t(d.get_type_name()));
     } else if (v->get_type().get_raw_type() == val_t::type_t::SEQUENCE
-               && v->as_seq(env->env)->is_grouped()) {
+               && v->as_seq(env)->is_grouped()) {
         return datum_t(datum_string_t("GROUPED_STREAM"));
     } else {
-        return datum_t(datum_string_t(get_name(val_type(v))));
+        return datum_t(datum_string_t(get_name(val_type(env, v))));
     }
 }
 
@@ -349,7 +349,7 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        return new_val(typename_of(args->arg(env, 0), env));
+        return new_val(typename_of(env->env, args->arg(env, 0)));
     }
     virtual const char *name() const { return "typeof"; }
     virtual bool can_be_grouped() const { return false; }
@@ -367,8 +367,8 @@ private:
 
     datum_t val_info(scope_env_t *env, scoped_ptr_t<val_t> v) const {
         datum_object_builder_t info;
-        int type = val_type(v);
-        bool b = info.add("type", typename_of(v, env));
+        int type = val_type(env->env, v);
+        bool b = info.add("type", typename_of(env->env, v));
 
         switch (type) {
         case DB_TYPE: {
@@ -485,14 +485,14 @@ private:
 
         case FUNC_TYPE: {
             b |= info.add("source_code",
-                datum_t(datum_string_t(v->as_func()->print_source())));
+                datum_t(datum_string_t(v->as_func(env->env)->print_source())));
         } break;
 
         case GROUPED_DATA_TYPE: break; // No more info
 
         case R_BINARY_TYPE:
             b |= info.add("count",
-                          datum_t(safe_to_double(v->as_datum().as_binary().size())));
+                          datum_t(safe_to_double(v->as_datum(env).as_binary().size())));
             // fallthru
 
         case R_BOOL_TYPE:   // fallthru
@@ -503,7 +503,7 @@ private:
         case DATUM_TYPE: {
             b |= info.add("value",
                           datum_t(datum_string_t(
-                              v->as_datum().print())));
+                              v->as_datum(env).print())));
         } // fallthru
         case R_NULL_TYPE:   // fallthru
         case MINVAL_TYPE:   // fallthru

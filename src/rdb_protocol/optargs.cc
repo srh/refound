@@ -28,7 +28,7 @@ bool global_optargs_t::has_optarg(const std::string &key) const {
     return optargs.count(key) > 0;
 }
 
-scoped_ptr_t<val_t> global_optargs_t::get_optarg(env_t *env, const std::string &key) {
+scoped_ptr_t<val_t> global_optargs_t::get_optarg(env_t *env, const std::string &key) const {
     auto it = optargs.find(key);
     if (it == optargs.end()) {
         return scoped_ptr_t<val_t>();

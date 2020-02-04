@@ -43,18 +43,19 @@ name_string_t get_name(bt_rcheckable_t *target, const datum_string_t &raw_name,
     return name;
 }
 
-name_string_t get_name(const scoped_ptr_t<val_t> &name, const char *type_str) {
+name_string_t get_name(env_t *env, const scoped_ptr_t<val_t> &name, const char *type_str) {
     r_sanity_check(name.has());
-    return get_name(name.get(), name->as_str(), type_str);
+    return get_name(name.get(), name->as_str(env), type_str);
 }
 
-void get_replicas_and_primary(const scoped_ptr_t<val_t> &replicas,
+void get_replicas_and_primary(env_t *env,
+                              const scoped_ptr_t<val_t> &replicas,
                               const scoped_ptr_t<val_t> &nonvoting_replica_tags,
                               const scoped_ptr_t<val_t> &primary_replica_tag,
                               table_generate_config_params_t *params) {
     if (replicas.has()) {
         params->num_replicas.clear();
-        datum_t datum = replicas->as_datum();
+        datum_t datum = replicas->as_datum(env);
         if (datum.get_type() == datum_t::R_OBJECT) {
             rcheck_target(replicas.get(), primary_replica_tag.has(), base_exc_t::LOGIC,
                 "`primary_replica_tag` must be specified when `replicas` is an OBJECT.");
@@ -79,7 +80,7 @@ void get_replicas_and_primary(const scoped_ptr_t<val_t> &replicas,
                 replicas.get(), !nonvoting_replica_tags.has(), base_exc_t::LOGIC,
                 "`replicas` must be an OBJECT if `nonvoting_replica_tags` is "
                 "specified.");
-            size_t count = replicas->as_int<size_t>();
+            size_t count = replicas->as_int<size_t>(env);
             params->num_replicas.insert(
                 std::make_pair(params->primary_replica_tag, count));
         } else {
@@ -91,7 +92,7 @@ void get_replicas_and_primary(const scoped_ptr_t<val_t> &replicas,
 
     if (nonvoting_replica_tags.has()) {
         params->nonvoting_replica_tags.clear();
-        datum_t datum = nonvoting_replica_tags->as_datum();
+        datum_t datum = nonvoting_replica_tags->as_datum(env);
         rcheck_target(nonvoting_replica_tags.get(), datum.get_type() == datum_t::R_ARRAY,
             base_exc_t::LOGIC, strprintf("Expected type ARRAY but found %s:\n%s",
             datum.get_type_name().c_str(), datum.print().c_str()));
@@ -108,7 +109,7 @@ void get_replicas_and_primary(const scoped_ptr_t<val_t> &replicas,
 
     if (primary_replica_tag.has()) {
         params->primary_replica_tag = get_name(
-            primary_replica_tag.get(), primary_replica_tag->as_str(), "Server tag");
+            primary_replica_tag.get(), primary_replica_tag->as_str(env), "Server tag");
     }
 }
 
@@ -123,6 +124,7 @@ private:
     deterministic_t is_deterministic() const final { return deterministic_t::no(); }
 };
 
+// TODO: QQQ comments -- must be done later (much later, see how stuff plays out)
 // TODO: OOO comments -- must be done later (soon)
 // TODO: NNN comments -- must be done later (now-ish, immediate cleanup)
 // TODO: FTX comments -- relevant to fdb transactions exposed to user.
@@ -133,7 +135,7 @@ public:
         : meta_op_term_t(env, term, argspec_t(1)) { }
 private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
-        name_string_t db_name = get_name(args->arg(env, 0), "Database");
+        name_string_t db_name = get_name(env->env, args->arg(env, 0), "Database");
 
         if (db_name == artificial_reql_cluster_interface_t::database_name) {
             counted_t<const db_t> db = make_counted<db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name);
@@ -187,7 +189,7 @@ public:
 private:
     scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const override {
-        name_string_t db_name = get_name(args->arg(env, 0), "Database");
+        name_string_t db_name = get_name(env->env, args->arg(env, 0), "Database");
 
         if (db_name == artificial_reql_cluster_interface_t::database_name) {
             admin_err_t error = db_already_exists_error(db_name);
@@ -249,24 +251,25 @@ private:
 
         // Parse the 'shards' optarg
         if (scoped_ptr_t<val_t> shards_optarg = args->optarg(env, "shards")) {
-            rcheck_target(shards_optarg, shards_optarg->as_int() == 1, base_exc_t::LOGIC,
+            rcheck_target(shards_optarg, shards_optarg->as_int(env) == 1, base_exc_t::LOGIC,
                           "Every table must have exactly one shard.  (The configuration is obsolete.)");
         }
 
         // Parse the 'replicas', 'nonvoting_replica_tags', and
         // 'primary_replica_tag' optargs
-        get_replicas_and_primary(args->optarg(env, "replicas"),
+        get_replicas_and_primary(env->env,
+                                 args->optarg(env, "replicas"),
                                  args->optarg(env, "nonvoting_replica_tags"),
                                  args->optarg(env, "primary_replica_tag"),
                                  &config_params);
 
         std::string primary_key = "id";
         if (scoped_ptr_t<val_t> v = args->optarg(env, "primary_key")) {
-            primary_key = v->as_str().to_std();
+            primary_key = v->as_str(env).to_std();
         }
 
         write_durability_t durability =
-            parse_durability_optarg(args->optarg(env, "durability")) ==
+            parse_durability_optarg(env->env, args->optarg(env, "durability")) ==
                 DURABILITY_REQUIREMENT_SOFT ?
                     write_durability_t::SOFT : write_durability_t::HARD;
 
@@ -276,10 +279,10 @@ private:
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
             db = dbv->as_db();
-            tbl_name = get_name(args->arg(env, 0), "Table");
+            tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
             db = args->arg(env, 0)->as_db();
-            tbl_name = get_name(args->arg(env, 1), "Table");
+            tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
         if (db->name == artificial_reql_cluster_interface_t::database_name) {
@@ -349,7 +352,7 @@ public:
 private:
     scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const override {
-        name_string_t db_name = get_name(args->arg(env, 0), "Database");
+        name_string_t db_name = get_name(env->env, args->arg(env, 0), "Database");
 
         if (db_name == artificial_reql_cluster_interface_t::database_name) {
             admin_err_t error{
@@ -420,10 +423,10 @@ private:
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
             db = dbv->as_db();
-            tbl_name = get_name(args->arg(env, 0), "Table");
+            tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
             db = args->arg(env, 0)->as_db();
-            tbl_name = get_name(args->arg(env, 1), "Table");
+            tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
         if (db->name == artificial_reql_cluster_interface_t::database_name) {
@@ -713,19 +716,19 @@ private:
         // Handle 'wait_for' optarg
         table_readiness_t readiness = table_readiness_t::finished;
         if (scoped_ptr_t<val_t> wait_for = args->optarg(env, "wait_for")) {
-            if (wait_for->as_str() == wait_outdated_str) {
+            if (wait_for->as_str(env) == wait_outdated_str) {
                 readiness = table_readiness_t::outdated_reads;
-            } else if (wait_for->as_str() == wait_reads_str) {
+            } else if (wait_for->as_str(env) == wait_reads_str) {
                 readiness = table_readiness_t::reads;
-            } else if (wait_for->as_str() == wait_writes_str) {
+            } else if (wait_for->as_str(env) == wait_writes_str) {
                 readiness = table_readiness_t::writes;
-            } else if (wait_for->as_str() == wait_all_str) {
+            } else if (wait_for->as_str(env) == wait_all_str) {
                 readiness = table_readiness_t::finished;
             } else {
                 rfail_target(wait_for, base_exc_t::LOGIC,
                              "Unknown table readiness state: '%s', must be one of "
                              "'%s', '%s', '%s', or '%s'",
-                             wait_for->as_str().to_std().c_str(),
+                             wait_for->as_str(env).to_std().c_str(),
                              wait_outdated_str, wait_reads_str,
                              wait_writes_str, wait_all_str);
             }
@@ -735,7 +738,7 @@ private:
         signal_timer_t timeout_timer;
         wait_any_t combined_interruptor(env->env->interruptor);
         if (scoped_ptr_t<val_t> timeout = args->optarg(env, "timeout")) {
-            timeout_timer.start(timeout->as_int<uint64_t>() * 1000);
+            timeout_timer.start(timeout->as_int<uint64_t>(env) * 1000);
             combined_interruptor.add(&timeout_timer);
         }
 
@@ -802,14 +805,14 @@ private:
         // Parse the 'dry_run' optarg
         bool dry_run = false;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "dry_run")) {
-            dry_run = v->as_bool();
+            dry_run = v->as_bool(env);
         }
 
         /* Figure out whether we're doing a regular reconfiguration or an emergency
         repair. */
         scoped_ptr_t<val_t> emergency_repair = args->optarg(env, "emergency_repair");
         if (!emergency_repair.has() ||
-                emergency_repair->as_datum() == ql::datum_t::null()) {
+                emergency_repair->as_datum(env) == ql::datum_t::null()) {
             /* We're doing a regular reconfiguration. */
 
             // Use the default primary_replica_tag, unless the optarg overwrites it
@@ -818,13 +821,14 @@ private:
 
             // Parse the 'shards' optarg
             scoped_ptr_t<val_t> shards_optarg = required_optarg(env, args, "shards");
-            rcheck_target(shards_optarg, shards_optarg->as_int() == 1,
+            rcheck_target(shards_optarg, shards_optarg->as_int(env) == 1,
                           base_exc_t::LOGIC,
                           "Every table must have exactly one shard.  (The configuration is obsolete.)");
 
             // Parse the 'replicas', 'nonvoting_replica_tags', and
             // 'primary_replica_tag' optargs
-            get_replicas_and_primary(required_optarg(env, args, "replicas"),
+            get_replicas_and_primary(env->env,
+                                     required_optarg(env, args, "replicas"),
                                      args->optarg(env, "nonvoting_replica_tags"),
                                      args->optarg(env, "primary_replica_tag"),
                                      &config_params);
@@ -866,7 +870,7 @@ private:
             /* We're doing an emergency repair */
 
             /* Parse `emergency_repair` to figure out which kind we're doing. */
-            datum_string_t emergency_repair_str = emergency_repair->as_str();
+            datum_string_t emergency_repair_str = emergency_repair->as_str(env);
             emergency_repair_mode_t mode;
             if (emergency_repair_str == "_debug_recommit") {
                 mode = emergency_repair_mode_t::DEBUG_RECOMMIT;
@@ -996,8 +1000,8 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
         auth::username_t username(
-            args->arg(env, args->num_args() - 2)->as_str().to_std());
-        ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum();
+            args->arg(env, args->num_args() - 2)->as_str(env).to_std());
+        ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum(env);
 
         try {
             std::function<auth::permissions_t *(auth::user_t *)> permissions_selector;
@@ -1080,7 +1084,7 @@ private:
                   "Use the `read_mode` optarg instead.");
         }
         if (scoped_ptr_t<val_t> v = args->optarg(env, "read_mode")) {
-            const datum_string_t &str = v->as_str();
+            const datum_string_t &str = v->as_str(env);
             if (str == "majority") {
                 read_mode = read_mode_t::MAJORITY;
             } else if (str == "single") {
@@ -1098,7 +1102,7 @@ private:
 
         optional<admin_identifier_format_t> identifier_format;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "identifier_format")) {
-            const datum_string_t &str = v->as_str();
+            const datum_string_t &str = v->as_str(env);
             if (str == "name") {
                 identifier_format.set(admin_identifier_format_t::name);
             } else if (str == "uuid") {
@@ -1116,12 +1120,12 @@ private:
             r_sanity_check(dbv.has());
             db = dbv->as_db();
             db_table_name.first = db->id;
-            db_table_name.second = get_name(args->arg(env, 0), "Table");
+            db_table_name.second = get_name(env->env, args->arg(env, 0), "Table");
         } else {
             r_sanity_check(args->num_args() == 2);
             db = args->arg(env, 0)->as_db();
             db_table_name.first = db->id;
-            db_table_name.second = get_name(args->arg(env, 1), "Table");
+            db_table_name.second = get_name(env->env, args->arg(env, 1), "Table");
         }
 
         reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
@@ -1208,10 +1212,9 @@ private:
     virtual scoped_ptr_t<val_t>
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         return new_val(single_selection_t::from_key(
-                           env->env,
                            backtrace(),
                            args->arg(env, 0)->as_table(),
-                           args->arg(env, 1)->as_datum()));
+                           args->arg(env, 1)->as_datum(env)));
     }
     virtual const char *name() const { return "get"; }
 };
@@ -1221,8 +1224,8 @@ public:
     get_all_term_t(compile_env_t *env, const raw_term_t &term)
         : op_term_t(env, term, argspec_t(1, -1), optargspec_t({ "index" })) { }
 private:
-    datum_t get_key_arg(const scoped_ptr_t<val_t> &arg) const {
-        datum_t datum_arg = arg->as_datum();
+    datum_t get_key_arg(env_t *env, const scoped_ptr_t<val_t> &arg) const {
+        datum_t datum_arg = arg->as_datum(env);
 
         rcheck_target(arg,
                       !datum_arg.is_ptype(pseudo::geometry_string),
@@ -1239,11 +1242,11 @@ private:
         scope_env_t *env, args_t *args, eval_flags_t) const {
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
-        std::string index_str = index ? index->as_str().to_std() : table->get_pkey();
+        std::string index_str = index ? index->as_str(env).to_std() : table->get_pkey();
 
         std::map<datum_t, uint64_t> keys;
         for (size_t i = 1; i < args->num_args(); ++i) {
-            auto key = get_key_arg(args->arg(env, i));
+            auto key = get_key_arg(env->env, args->arg(env, i));
             keys.insert(std::make_pair(std::move(key), 0)).first->second += 1;
         }
 

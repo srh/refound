@@ -53,7 +53,7 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
     datum_t d;
 
     if (v0->get_type().is_convertible(val_t::type_t::DATUM)) {
-        d = v0->as_datum();
+        d = v0->as_datum(env);
     }
 
     if (d.has() && d.get_type() == datum_t::R_OBJECT) {
@@ -71,7 +71,7 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         // error messages on e.g. strings.
         if (scoped_ptr_t<val_t> no_recurse = args->optarg(env, "_NO_RECURSE_")) {
             rcheck_target(target,
-                          no_recurse->as_bool() == false,
+                          no_recurse->as_bool(env) == false,
                           base_exc_t::LOGIC,
                           strprintf("Cannot perform %s on a sequence of sequences.",
                                     target->name()));
@@ -117,7 +117,7 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
 
     rfail_typed_target(
         v0, "Cannot perform %s on a non-object non-sequence `%s`.",
-        target->name(), v0->trunc_print().c_str());
+        target->name(), v0->trunc_print(env->env).c_str());
 }
 
 obj_or_seq_op_term_t::obj_or_seq_op_term_t(
@@ -148,14 +148,14 @@ public:
 private:
     virtual scoped_ptr_t<val_t> obj_eval(
         scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
-        datum_t obj = v0->as_datum();
+        datum_t obj = v0->as_datum(env);
         r_sanity_check(obj.get_type() == datum_t::R_OBJECT);
 
         const size_t n = args->num_args();
         std::vector<datum_t> paths;
         paths.reserve(n - 1);
         for (size_t i = 1; i < n; ++i) {
-            paths.push_back(args->arg(env, i)->as_datum());
+            paths.push_back(args->arg(env, i)->as_datum(env));
         }
         pathspec_t pathspec(datum_t(std::move(paths), env->env->limits()), this);
         return new_val(project(obj, pathspec, DONT_RECURSE, env->env->limits()));
@@ -170,14 +170,14 @@ public:
 private:
     virtual scoped_ptr_t<val_t> obj_eval(
         scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
-        datum_t obj = v0->as_datum();
+        datum_t obj = v0->as_datum(env);
         r_sanity_check(obj.get_type() == datum_t::R_OBJECT);
 
         std::vector<datum_t> paths;
         const size_t n = args->num_args();
         paths.reserve(n - 1);
         for (size_t i = 1; i < n; ++i) {
-            paths.push_back(args->arg(env, i)->as_datum());
+            paths.push_back(args->arg(env, i)->as_datum(env));
         }
         pathspec_t pathspec(datum_t(std::move(paths), env->env->limits()), this);
         return new_val(unproject(obj, pathspec, DONT_RECURSE, env->env->limits()));
@@ -200,7 +200,7 @@ private:
         bool clobber = res.add(datum_t::reql_type_string,
                                datum_t(pseudo::literal_string));
         if (args->num_args() == 1) {
-            clobber |= res.add(pseudo::value_key, args->arg(env, 0)->as_datum());
+            clobber |= res.add(pseudo::value_key, args->arg(env, 0)->as_datum(env));
         }
 
         r_sanity_check(!clobber);
@@ -218,14 +218,14 @@ public:
 private:
     virtual scoped_ptr_t<val_t> obj_eval(
         scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
-        datum_t d = v0->as_datum();
+        datum_t d = v0->as_datum(env);
         for (size_t i = 1; i < args->num_args(); ++i) {
             scoped_ptr_t<val_t> v = args->arg(env, i, LITERAL_OK);
 
             // We branch here because compiling functions is expensive, and
             // `obj_eval` may be called many many times.
             if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
-                datum_t d0 = v->as_datum();
+                datum_t d0 = v->as_datum(env);
                 if (d0.get_type() == datum_t::R_OBJECT) {
                     rcheck_target(v,
                                   !d0.is_ptype() || d0.is_ptype("LITERAL"),
@@ -235,8 +235,8 @@ private:
                 }
                 d = d.merge(d0);
             } else {
-                auto f = v->as_func(CONSTANT_SHORTCUT);
-                datum_t d0 = f->call(env->env, d, LITERAL_OK)->as_datum();
+                auto f = v->as_func(env->env, CONSTANT_SHORTCUT);
+                datum_t d0 = f->call(env->env, d, LITERAL_OK)->as_datum(env);
                 if (d0.get_type() == datum_t::R_OBJECT) {
                     rcheck_target(v,
                                   !d0.is_ptype() || d0.is_ptype("LITERAL"),
@@ -259,13 +259,13 @@ public:
 private:
     virtual scoped_ptr_t<val_t> obj_eval(
         scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
-        datum_t obj = v0->as_datum();
+        datum_t obj = v0->as_datum(env);
         r_sanity_check(obj.get_type() == datum_t::R_OBJECT);
         std::vector<datum_t> paths;
         const size_t n = args->num_args();
         paths.reserve(n - 1);
         for (size_t i = 1; i < n; ++i) {
-            paths.push_back(args->arg(env, i)->as_datum());
+            paths.push_back(args->arg(env, i)->as_datum(env));
         }
         pathspec_t pathspec(datum_t(std::move(paths), env->env->limits()), this);
         return new_val_bool(contains(obj, pathspec));
@@ -285,8 +285,8 @@ public:
 private:
     virtual scoped_ptr_t<val_t> obj_eval(
         scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
-        datum_t d = v0->as_datum();
-        return new_val(d.get_field(args->arg(env, 1)->as_str()));
+        datum_t d = v0->as_datum(env);
+        return new_val(d.get_field(args->arg(env, 1)->as_str(env)));
     }
     virtual const char *name() const { return "get_field"; }
 };
@@ -304,15 +304,15 @@ public:
 
 private:
     scoped_ptr_t<val_t> obj_eval_dereferenced(
-        const scoped_ptr_t<val_t> &v0, const scoped_ptr_t<val_t> &v1) const {
-        datum_t d = v0->as_datum();
-        return new_val(d.get_field(v1->as_str()));
+        env_t *env, const scoped_ptr_t<val_t> &v0, const scoped_ptr_t<val_t> &v1) const {
+        datum_t d = v0->as_datum(env);
+        return new_val(d.get_field(v1->as_str(env)));
     }
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v0 = args->arg(env, 0);
         scoped_ptr_t<val_t> v1 = args->arg(env, 1);
-        datum_t d = v1->as_datum();
+        datum_t d = v1->as_datum(env);
         r_sanity_check(d.has());
 
         switch (d.get_type()) {
@@ -322,7 +322,7 @@ private:
         case datum_t::R_STR:
             return impl.eval_impl_dereferenced(
                 this, env, args, v0,
-                [&]{ return this->obj_eval_dereferenced(v0, v1); });
+                [&]{ return this->obj_eval_dereferenced(env->env, v0, v1); });
         case datum_t::MINVAL:
         case datum_t::R_ARRAY:
         case datum_t::R_BINARY:

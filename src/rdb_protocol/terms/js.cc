@@ -25,14 +25,14 @@ private:
         uint64_t timeout_ms = 5000;
         scoped_ptr_t<val_t> timeout_opt = args->optarg(env, "timeout");
         if (timeout_opt) {
-            if (timeout_opt->as_num() > static_cast<double>(UINT64_MAX) / 1000) {
+            if (timeout_opt->as_num(env) > static_cast<double>(UINT64_MAX) / 1000) {
                 timeout_ms = UINT64_MAX;
             } else {
-                timeout_ms = timeout_opt->as_num() * 1000;
+                timeout_ms = timeout_opt->as_num(env) * 1000;
             }
         }
 
-        std::string source = args->arg(env, 0)->as_datum().as_str().to_std();
+        std::string source = args->arg(env, 0)->as_datum(env).as_str().to_std();
 
         // JS runner configuration is limited to setting an execution timeout.
         js_runner_t::req_config_t config;

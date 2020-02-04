@@ -80,7 +80,7 @@ public:
 private:
     scoped_ptr_t<val_t> eval_geo(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
-        datum_t geo_json = v->as_datum();
+        datum_t geo_json = v->as_datum(env);
         validate_geojson(geo_json);
 
         // Store the geo_json object inline, just add a $reql_type$ field
@@ -108,7 +108,7 @@ private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
 
-        datum_object_builder_t result(v->as_ptype(pseudo::geometry_string));
+        datum_object_builder_t result(v->as_ptype(env, pseudo::geometry_string));
         bool success = result.delete_field(datum_t::reql_type_string);
         r_sanity_check(success);
         return new_val(std::move(result).to_datum());
@@ -133,8 +133,8 @@ private:
         return op_term_t::is_deterministic(); // NB: skip over geo_term_t
     }
     scoped_ptr_t<val_t> eval_geo(scope_env_t *env, args_t *args, eval_flags_t) const {
-        double lon = args->arg(env, 0)->as_num();
-        double lat = args->arg(env, 1)->as_num();
+        double lon = args->arg(env, 0)->as_num(env);
+        double lat = args->arg(env, 1)->as_num(env);
         lon_lat_point_t point(lon, lat);
 
         const datum_t result = construct_geo_point(point, env->env->limits());
@@ -171,7 +171,7 @@ lon_lat_line_t parse_line_from_args(scope_env_t *env, args_t *args) {
     line.reserve(args->num_args());
     for (size_t i = 0; i < args->num_args(); ++i) {
         scoped_ptr_t<const val_t> point_arg = args->arg(env, i);
-        const datum_t &point_datum = point_arg->as_datum();
+        const datum_t &point_datum = point_arg->as_datum(env);
         line.push_back(parse_point_argument(point_datum));
     }
 
@@ -219,8 +219,8 @@ private:
             scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
         scoped_ptr_t<val_t> other = args->arg(env, 1);
 
-        bool result = geo_does_intersect(v0->as_ptype(pseudo::geometry_string),
-                                         other->as_ptype(pseudo::geometry_string));
+        bool result = geo_does_intersect(v0->as_ptype(env, pseudo::geometry_string),
+                                         other->as_ptype(env, pseudo::geometry_string));
 
         return new_val_bool(result);
     }
@@ -237,8 +237,8 @@ private:
         scoped_ptr_t<val_t> g = args->arg(env, 1);
 
         scoped_ptr_t<S2Polygon> s2polygon =
-            to_s2polygon(v0->as_ptype(pseudo::geometry_string));
-        bool result = geo_does_include(*s2polygon, g->as_ptype(pseudo::geometry_string));
+            to_s2polygon(v0->as_ptype(env, pseudo::geometry_string));
+        bool result = geo_does_include(*s2polygon, g->as_ptype(env, pseudo::geometry_string));
 
         return new_val_bool(result);
     }
@@ -248,11 +248,11 @@ private:
 ellipsoid_spec_t pick_reference_ellipsoid(scope_env_t *env, args_t *args) {
     scoped_ptr_t<val_t> geo_system_arg = args->optarg(env, "geo_system");
     if (geo_system_arg.has()) {
-        if (geo_system_arg->as_datum().get_type() == datum_t::R_OBJECT) {
+        if (geo_system_arg->as_datum(env).get_type() == datum_t::R_OBJECT) {
             // We expect a reference ellipsoid with parameters 'a' and 'f'.
             // (equator radius and the flattening)
-            double a = geo_system_arg->as_datum().get_field("a").as_num();
-            double f = geo_system_arg->as_datum().get_field("f").as_num();
+            double a = geo_system_arg->as_datum(env).get_field("a").as_num();
+            double f = geo_system_arg->as_datum(env).get_field("f").as_num();
             rcheck_target(geo_system_arg.get(),
                           a > 0.0,
                           base_exc_t::LOGIC,
@@ -263,7 +263,7 @@ ellipsoid_spec_t pick_reference_ellipsoid(scope_env_t *env, args_t *args) {
                           "The flattening `f` must be in the range [0, 1).");
             return ellipsoid_spec_t(a, f);
         } else {
-            const std::string v = geo_system_arg->as_str().to_std();
+            const std::string v = geo_system_arg->as_str(env).to_std();
             if (v == "WGS84") {
                 return WGS84_ELLIPSOID;
             } else if (v == "unit_sphere") {
@@ -282,7 +282,7 @@ ellipsoid_spec_t pick_reference_ellipsoid(scope_env_t *env, args_t *args) {
 dist_unit_t pick_dist_unit(scope_env_t *env, args_t *args) {
     scoped_ptr_t<val_t> geo_system_arg = args->optarg(env, "unit");
     if (geo_system_arg.has()) {
-        return parse_dist_unit(geo_system_arg->as_str().to_std());
+        return parse_dist_unit(geo_system_arg->as_str(env).to_std());
     } else {
         return dist_unit_t::M;
     }
@@ -305,13 +305,13 @@ private:
         scoped_ptr_t<S2Point> p;
         datum_t g;
         const std::string g1_type =
-            g1_arg->as_ptype(pseudo::geometry_string).get_field("type").as_str().to_std();
+            g1_arg->as_ptype(env, pseudo::geometry_string).get_field("type").as_str().to_std();
         if (g1_type == "Point") {
-            p = to_s2point(g1_arg->as_ptype(pseudo::geometry_string));
-            g = g2_arg->as_ptype(pseudo::geometry_string);
+            p = to_s2point(g1_arg->as_ptype(env, pseudo::geometry_string));
+            g = g2_arg->as_ptype(env, pseudo::geometry_string);
         } else {
-            p = to_s2point(g2_arg->as_ptype(pseudo::geometry_string));
-            g = g1_arg->as_ptype(pseudo::geometry_string);
+            p = to_s2point(g2_arg->as_ptype(env, pseudo::geometry_string));
+            g = g1_arg->as_ptype(env, pseudo::geometry_string);
         }
 
         double result = geodesic_distance(*p, g, reference_ellipsoid);
@@ -335,12 +335,13 @@ private:
         scoped_ptr_t<val_t> fill_arg = args->optarg(env, "fill");
         bool fill = true;
         if (fill_arg.has()) {
-            fill = fill_arg->as_bool();
+            fill = fill_arg->as_bool(env);
         }
         scoped_ptr_t<val_t> num_vertices_arg = args->optarg(env, "num_vertices");
         unsigned int num_vertices = 32;
         if (num_vertices_arg.has()) {
-            num_vertices = num_vertices_arg->as_int<unsigned int>();
+            // TODO: unsigned int?  Seriously?
+            num_vertices = num_vertices_arg->as_int<unsigned int>(env);
             rcheck_target(num_vertices_arg.get(),
                           num_vertices > 0,
                           base_exc_t::LOGIC,
@@ -350,8 +351,8 @@ private:
         ellipsoid_spec_t reference_ellipsoid = pick_reference_ellipsoid(env, args);
         dist_unit_t radius_unit = pick_dist_unit(env, args);
 
-        lon_lat_point_t center = parse_point_argument(center_arg->as_datum());
-        double radius = radius_arg->as_num();
+        lon_lat_point_t center = parse_point_argument(center_arg->as_datum(env));
+        double radius = radius_arg->as_num(env);
         radius = convert_dist_unit(radius, radius_unit, dist_unit_t::M);
 
         const lon_lat_line_t circle =
@@ -379,11 +380,11 @@ private:
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
         rcheck(index.has(), base_exc_t::LOGIC,
                "get_intersecting requires an index argument.");
-        std::string index_str = index->as_str().to_std();
+        std::string index_str = index->as_str(env).to_std();
         rcheck(index_str != table->get_pkey(), base_exc_t::LOGIC,
                "get_intersecting cannot use the primary index.");
         counted_t<datum_stream_t> stream = table->get_intersecting(
-            env->env, query_arg->as_ptype(pseudo::geometry_string), index_str,
+            env->env, query_arg->as_ptype(env, pseudo::geometry_string), index_str,
             this);
         return new_val(make_counted<selection_t>(table, stream));
     }
@@ -398,7 +399,7 @@ private:
     scoped_ptr_t<val_t> eval_geo(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> l_arg = args->arg(env, 0);
         const lon_lat_line_t shell =
-            extract_lon_lat_line(l_arg->as_ptype(pseudo::geometry_string));
+            extract_lon_lat_line(l_arg->as_ptype(env, pseudo::geometry_string));
 
         const datum_t result = construct_geo_polygon(shell, env->env->limits());
         validate_geojson(result);
@@ -420,17 +421,17 @@ private:
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
         rcheck(index.has(), base_exc_t::LOGIC,
                "get_nearest requires an index argument.");
-        std::string index_str = index->as_str().to_std();
+        std::string index_str = index->as_str(env).to_std();
         rcheck(index_str != table->get_pkey(), base_exc_t::LOGIC,
                "get_nearest cannot use the primary index.");
-        lon_lat_point_t center = parse_point_argument(center_arg->as_datum());
+        lon_lat_point_t center = parse_point_argument(center_arg->as_datum(env));
         ellipsoid_spec_t reference_ellipsoid = pick_reference_ellipsoid(env, args);
         dist_unit_t dist_unit = pick_dist_unit(env, args);
         scoped_ptr_t<val_t> max_dist_arg = args->optarg(env, "max_dist");
         double max_dist = 100000; // Default: 100 km
         if (max_dist_arg.has()) {
             max_dist =
-                convert_dist_unit(max_dist_arg->as_num(), dist_unit, dist_unit_t::M);
+                convert_dist_unit(max_dist_arg->as_num(env), dist_unit, dist_unit_t::M);
             rcheck_target(max_dist_arg,
                           max_dist > 0.0,
                           base_exc_t::LOGIC,
@@ -439,7 +440,7 @@ private:
         scoped_ptr_t<val_t> max_results_arg = args->optarg(env, "max_results");
         int64_t max_results = 100; // Default: 100 results
         if (max_results_arg.has()) {
-            max_results = max_results_arg->as_int();
+            max_results = max_results_arg->as_int(env);
             rcheck_target(max_results_arg,
                           max_results > 0,
                           base_exc_t::LOGIC,
@@ -459,8 +460,8 @@ public:
     polygon_sub_term_t(compile_env_t *env, const raw_term_t &term)
         : geo_term_t(env, term, argspec_t(2)) { }
 private:
-    const datum_t check_arg(scoped_ptr_t<val_t> arg) const {
-        const datum_t res = arg->as_ptype(pseudo::geometry_string);
+    const datum_t check_arg(env_t *env, scoped_ptr_t<val_t> arg) const {
+        const datum_t res = arg->as_ptype(env, pseudo::geometry_string);
 
         rcheck_target(arg.get(),
                       res.get_field("type").as_str() == "Polygon",
@@ -476,8 +477,8 @@ private:
     }
 
     scoped_ptr_t<val_t> eval_geo(scope_env_t *env, args_t *args, eval_flags_t) const {
-        const datum_t lhs = check_arg(args->arg(env, 0));
-        const datum_t rhs = check_arg(args->arg(env, 1));
+        const datum_t lhs = check_arg(env->env, args->arg(env, 0));
+        const datum_t rhs = check_arg(env->env, args->arg(env, 1));
 
         {
             scoped_ptr_t<S2Polygon> lhs_poly = to_s2polygon(lhs);

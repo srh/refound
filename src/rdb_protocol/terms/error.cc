@@ -16,7 +16,7 @@ private:
         if (args->num_args() == 0) {
             rfail(base_exc_t::EMPTY_USER, "Empty ERROR term outside a default block.");
         } else {
-            rfail(base_exc_t::USER, "%s", args->arg(env, 0)->as_str().to_std().c_str());
+            rfail(base_exc_t::USER, "%s", args->arg(env, 0)->as_str(env).to_std().c_str());
         }
     }
     virtual const char *name() const { return "error"; }
@@ -34,7 +34,7 @@ private:
         try {
             v = args->arg(env, 0);
             if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
-                func_arg = v->as_datum();
+                func_arg = v->as_datum(env);
                 if (func_arg.get_type() != datum_t::R_NULL) {
                     return v;
                 }
@@ -62,7 +62,7 @@ private:
         try {
             scoped_ptr_t<val_t> def = args->arg(env, 1);
             if (def->get_type().is_convertible(val_t::type_t::FUNC)) {
-                return def->as_func()->call(env->env, func_arg);
+                return def->as_func(env->env)->call(env->env, func_arg);
             } else {
                 return def;
             }

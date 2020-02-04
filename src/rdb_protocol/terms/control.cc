@@ -23,7 +23,7 @@ private:
         scoped_ptr_t<val_t> v = new_val_bool(true);
         for (size_t i = 0; i < args->num_args(); ++i) {
             v = args->arg(env, i);
-            if (!v->as_bool()) break;
+            if (!v->as_bool(env)) break;
         }
         return v;
     }
@@ -40,7 +40,7 @@ private:
         scoped_ptr_t<val_t> v = new_val_bool(false);
         for (size_t i = 0; i < args->num_args(); ++i) {
             v = args->arg(env, i);
-            if (v->as_bool()) break;
+            if (v->as_bool(env)) break;
         }
         return v;
     }
@@ -59,7 +59,7 @@ private:
 
         for (size_t i = 0; i < args->num_args()-1; i += 2) {
             scoped_ptr_t<val_t> v = args->arg(env, i);
-            if (v->as_bool()) {
+            if (v->as_bool(env)) {
                 return args->arg(env, i+1);
             }
         }
@@ -80,11 +80,11 @@ private:
         function_shortcut_t shortcut = CONSTANT_SHORTCUT;
         eval_flags_t flags = NO_FLAGS;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "_SHORTCUT_")) {
-            shortcut = static_cast<function_shortcut_t>(v->as_int());
+            shortcut = static_cast<function_shortcut_t>(v->as_int(env));
         }
 
         if (scoped_ptr_t<val_t> v = args->optarg(env, "_EVAL_FLAGS_")) {
-            flags = static_cast<eval_flags_t>(v->as_int());
+            flags = static_cast<eval_flags_t>(v->as_int(env));
         }
 
         /* This switch exists just to make sure that we don't get a bogus value
@@ -101,7 +101,7 @@ private:
                       "Unrecognized value `%d` for _SHORTCUT_ argument.", shortcut);
         }
         counted_t<const func_t> f =
-            args->arg(env, 0, flags)->as_func(shortcut);
+            args->arg(env, 0, flags)->as_func(env->env, shortcut);
 
         // We need specialized logic for `grouped_data` here because `funcall`
         // needs to be polymorphic on its second argument rather than its first.
@@ -114,7 +114,7 @@ private:
             std::vector<datum_t> arg_datums(1);
             arg_datums.reserve(args->num_args() - 1);
             for (size_t i = 2; i < args->num_args(); ++i) {
-                arg_datums.push_back(args->arg(env, i, flags)->as_datum());
+                arg_datums.push_back(args->arg(env, i, flags)->as_datum(env));
             }
             r_sanity_check(!arg_datums[0].has());
             counted_t<grouped_data_t> gd
@@ -125,11 +125,11 @@ private:
                 // assuming nothing about its order.
                 for (auto kv = gd->begin(); kv != gd->end(); ++kv) {
                     arg_datums[0] = kv->second;
-                    (*out)[kv->first] = f->call(env->env, arg_datums, flags)->as_datum();
+                    (*out)[kv->first] = f->call(env->env, arg_datums, flags)->as_datum(env);
                 }
                 return make_scoped<val_t>(out, backtrace());
             } else {
-                arg_datums[0] = arg1->as_datum();
+                arg_datums[0] = arg1->as_datum(env);
                 return f->call(env->env, arg_datums, flags);
             }
         }

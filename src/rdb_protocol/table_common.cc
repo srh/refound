@@ -61,7 +61,8 @@ void rcheck_row_replacement(
                          primary_key_name.to_std().c_str(),
                          old_row.print().c_str(), new_row.print().c_str())));
     } else {
-        rcheck_typed_target(&new_row,
+        rcheck_typed_target(
+            &new_row,
             new_row.get_type() == ql::datum_t::R_NULL,
             strprintf("Inserted value must be an OBJECT (got %s):\n%s",
                 new_row.get_type_name().c_str(), new_row.print().c_str()));
@@ -216,7 +217,7 @@ ql::datum_t resolve_insert_conflict(
         args.push_back(ql::datum_t(datum_string_t(primary_key)));
         args.push_back(old_row);
         args.push_back(insert_row);
-        return conflict_func.get()->call(env, args)->as_datum();
+        return conflict_func.get()->call(env, args)->as_datum(env);
     } else {
         rfail_target(&old_row, ql::base_exc_t::OP_FAILED,
                      "Duplicate primary key `%s`:\n%s\n%s",

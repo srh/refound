@@ -1215,6 +1215,6 @@ void real_reql_cluster_interface_t::make_single_selection(
         bt);
 
     *selection_out = make_scoped<ql::val_t>(
-        ql::single_selection_t::from_row(env, bt, table, row),
+        ql::single_selection_t::from_row(bt, table, row),
         bt);
 }

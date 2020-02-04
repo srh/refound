@@ -234,7 +234,7 @@ scoped_ptr_t<val_t> http_term_t::eval_impl(scope_env_t *env, args_t *args,
     http_opts_t opts;
     opts.limits = env->env->limits();
     opts.version = env->env->reql_version();
-    opts.url.assign(args->arg(env, 0)->as_str().to_std());
+    opts.url.assign(args->arg(env, 0)->as_str(env).to_std());
     opts.proxy.assign(env->env->get_reql_http_proxy());
     get_optargs(env, args, &opts);
 
@@ -336,7 +336,7 @@ bool http_datum_stream_t::apply_depaginate(env_t *env, const http_result_t &res)
         = { datum_t(std::move(arg_obj)) };
 
     try {
-        datum_t depage = depaginate_fn->call(env, args)->as_datum();
+        datum_t depage = depaginate_fn->call(env, args)->as_datum(env);
         return handle_depage_result(depage);
     } catch (const ql::exc_t &ex) {
         // Tack on some debugging info, as this shit can be tough
@@ -423,8 +423,8 @@ void http_term_t::get_page_and_limit(scope_env_t *env,
                      "(a positive number performs that many requests, -1 is unlimited).");
     }
 
-    *depaginate_fn_out = page->as_func(PAGE_SHORTCUT);
-    *depaginate_limit_out = page_limit->as_int<int64_t>();
+    *depaginate_fn_out = page->as_func(env->env, PAGE_SHORTCUT);
+    *depaginate_limit_out = page_limit->as_int<int64_t>(env->env);
 
     if (*depaginate_limit_out < -1) {
         rfail_target(page_limit, base_exc_t::LOGIC,
@@ -459,7 +459,7 @@ void http_term_t::get_timeout_ms(scope_env_t *env,
                                  uint64_t *timeout_ms_out) {
     scoped_ptr_t<val_t> timeout = args->optarg(env, "timeout");
     if (timeout.has()) {
-        double tmp = timeout->as_num();
+        double tmp = timeout->as_num(env->env);
         tmp *= 1000;
 
         if (tmp < 0) {
@@ -493,7 +493,7 @@ void http_term_t::get_header(scope_env_t *env,
                              std::vector<std::string> *header_out) {
     scoped_ptr_t<val_t> header = args->optarg(env, "header");
     if (header.has()) {
-        datum_t datum_header = header->as_datum();
+        datum_t datum_header = header->as_datum(env);
         if (datum_header.get_type() == datum_t::R_OBJECT) {
             for (size_t i = 0; i < datum_header.obj_size(); ++i) {
                 auto pair = datum_header.get_pair(i);
@@ -536,7 +536,7 @@ void http_term_t::get_method(scope_env_t *env,
                              http_method_t *method_out) {
     scoped_ptr_t<val_t> method = args->optarg(env, "method");
     if (method.has()) {
-        std::string method_str = method->as_str().to_std();
+        std::string method_str = method->as_str(env).to_std();
         if (method_str == "GET") {
             *method_out = http_method_t::GET;
         } else if (method_str == "HEAD") {
@@ -582,7 +582,7 @@ void http_term_t::get_auth(scope_env_t *env,
                            http_opts_t::http_auth_t *auth_out) {
     scoped_ptr_t<val_t> auth = args->optarg(env, "auth");
     if (auth.has()) {
-        datum_t datum_auth = auth->as_datum();
+        datum_t datum_auth = auth->as_datum(env);
         if (datum_auth.get_type() != datum_t::R_OBJECT) {
             rfail_target(auth.get(), base_exc_t::LOGIC,
                          "Expected `auth` to be an OBJECT, but found %s.",
@@ -658,7 +658,7 @@ void http_term_t::get_data(
         http_method_t method) const {
     scoped_ptr_t<val_t> data = args->optarg(env, "data");
     if (data.has()) {
-        datum_t datum_data = data->as_datum();
+        datum_t datum_data = data->as_datum(env);
         if (method == http_method_t::PUT ||
             method == http_method_t::PATCH ||
             method == http_method_t::DELETE) {
@@ -707,7 +707,7 @@ void http_term_t::get_params(scope_env_t *env,
                              datum_t *params_out) {
     scoped_ptr_t<val_t> params = args->optarg(env, "params");
     if (params.has()) {
-        *params_out = params->as_datum();
+        *params_out = params->as_datum(env);
         check_url_params(*params_out, params.get());
     }
 }
@@ -726,7 +726,7 @@ void http_term_t::get_result_format(scope_env_t *env,
                                     http_result_format_t *result_format_out) {
     scoped_ptr_t<val_t> result_format = args->optarg(env, "result_format");
     if (result_format.has()) {
-        std::string result_format_str = result_format->as_str().to_std();
+        std::string result_format_str = result_format->as_str(env).to_std();
         if (result_format_str == "auto") {
             *result_format_out = http_result_format_t::AUTO;
         } else if (result_format_str == "json") {
@@ -754,7 +754,7 @@ void http_term_t::get_attempts(scope_env_t *env,
                                uint64_t *attempts_out) {
     scoped_ptr_t<val_t> attempts = args->optarg(env, "attempts");
     if (attempts.has()) {
-        *attempts_out = attempts->as_int<uint64_t>();
+        *attempts_out = attempts->as_int<uint64_t>(env);
     }
 }
 
@@ -765,7 +765,7 @@ void http_term_t::get_redirects(scope_env_t *env,
                                 uint32_t *redirects_out) {
     scoped_ptr_t<val_t> redirects = args->optarg(env, "redirects");
     if (redirects.has()) {
-        *redirects_out = redirects->as_int<uint32_t>();
+        *redirects_out = redirects->as_int<uint32_t>(env);
     }
 }
 
@@ -777,7 +777,7 @@ void http_term_t::get_bool_optarg(const std::string &optarg_name,
                                   bool *bool_out) {
     scoped_ptr_t<val_t> option = args->optarg(env, optarg_name);
     if (option.has()) {
-        *bool_out = option->as_bool();
+        *bool_out = option->as_bool(env);
     }
 }
 

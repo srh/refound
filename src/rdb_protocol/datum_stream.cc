@@ -2222,7 +2222,7 @@ map_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &batchspec) {
             args.push_back(std::move(cache[args.size()].front()));
             cache[args.size() - 1].pop_front();
         }
-        datum_t datum = func->call(env, args)->as_datum();
+        datum_t datum = func->call(env, args)->as_datum(env);
         r_sanity_check(datum.has());
         args.clear();
         batcher.note_el(datum);
@@ -2292,7 +2292,7 @@ std::vector<datum_t> eq_join_datum_stream_t::next_raw_batch(
                 try {
                     key_val = predicate->call(
                         env,
-                        std::vector<datum_t>{stream_batch[i]})->as_datum();
+                        std::vector<datum_t>{stream_batch[i]})->as_datum(env);
                 } catch (const exc_t &e) {
                     if (e.get_type() == base_exc_t::NON_EXISTENCE) {
                         continue;
@@ -2418,13 +2418,13 @@ fold_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &batchspec) {
         for (const datum_t &row : input_batch) {
             datum_t new_acc = acc_func->call(
                 env,
-                std::vector<datum_t>{acc, row})->as_datum();
+                std::vector<datum_t>{acc, row})->as_datum(env);
 
             r_sanity_check(new_acc.has());
 
             datum_t emit_elem = emit_func->call(
                 env,
-                std::vector<datum_t>{acc, row, new_acc})->as_datum();
+                std::vector<datum_t>{acc, row, new_acc})->as_datum(env);
 
             r_sanity_check(emit_elem.has());
 
@@ -2448,7 +2448,7 @@ fold_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &batchspec) {
         final_emit_args.push_back(acc);
         datum_t final_emit_elem = final_emit_func->call(
             env,
-            final_emit_args)->as_datum();
+            final_emit_args)->as_datum(env);
 
         for (size_t i = 0; i< final_emit_elem.arr_size(); ++i) {
             datum_t final_emit_item = final_emit_elem.get(i);

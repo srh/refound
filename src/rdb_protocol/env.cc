@@ -27,6 +27,20 @@ void env_t::do_eval_callback() {
     }
 }
 
+// TODO: Should this really take a val_t?
+// TODO: Check that the val_t belongs to this env_t.
+configured_limits_t env_t::limits_with_changefeed_queue_size(
+    scoped_ptr_t<val_t> changefeed_queue_size) {
+    if (changefeed_queue_size.has()) {
+        return configured_limits_t(
+            check_limit("changefeed queue size",
+                        changefeed_queue_size->as_int(this)),
+            limits_.array_size_limit());
+    } else {
+        return limits_;
+    }
+}
+
 profile_bool_t env_t::profile() const {
     return trace != nullptr ? profile_bool_t::PROFILE : profile_bool_t::DONT_PROFILE;
 }

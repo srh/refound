@@ -276,7 +276,7 @@ void query_cache_t::ref_t::run(env_t *env, response_t *res) {
 
     if (val->get_type().is_convertible(val_t::type_t::DATUM)) {
         res->set_type(Response::SUCCESS_ATOM);
-        res->set_data(val->as_datum());
+        res->set_data(val->as_datum(env));
         entry->state = entry_t::state_t::DONE;
     } else if (counted_t<grouped_data_t> gd =
             val->maybe_as_promiscuous_grouped_data(scope_env.env)) {

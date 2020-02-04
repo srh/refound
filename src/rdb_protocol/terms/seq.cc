@@ -33,7 +33,7 @@ private:
         scoped_ptr_t<val_t> idx = args->optarg(env, "index");
         counted_t<const func_t> func;
         if (args->num_args() == 2) {
-            func = args->arg(env, 1)->as_func(GET_FIELD_SHORTCUT);
+            func = args->arg(env, 1)->as_func(env->env, GET_FIELD_SHORTCUT);
         }
         if (!func.has() && !idx.has()) {
             // TODO: make this use a table slice.
@@ -96,12 +96,11 @@ private:
         env_t *env, counted_t<table_t> tbl, scoped_ptr_t<val_t> idx) const {
         optional<std::string> idx_str;
         if (idx.has()) {
-            idx_str.set(idx->as_str().to_std());
+            idx_str.set(idx->as_str(env).to_std());
         }
         counted_t<table_slice_t> slice(
             new table_slice_t(tbl, idx_str, sorting()));
         return term_t::new_val(single_selection_t::from_slice(
-            env,
             term_t::backtrace(),
             slice,
             strprintf("`%s` found no entries in the specified index.",
@@ -137,7 +136,7 @@ private:
         scoped_ptr_t<val_t> v0 = args->arg(env, 0);
         if (args->num_args() == 1) {
             if (v0->get_type().is_convertible(val_t::type_t::DATUM)) {
-                datum_t d = v0->as_datum();
+                datum_t d = v0->as_datum(env);
                 switch (static_cast<int>(d.get_type())) { // TODO: See issue 5177
                 case datum_t::R_BINARY:
                     return new_val(datum_t(
@@ -159,12 +158,12 @@ private:
             if (v1->get_type().is_convertible(val_t::type_t::FUNC)) {
                 counted_t<datum_stream_t> stream = v0->as_seq(env->env);
                 stream->add_transformation(
-                        filter_wire_func_t(v1->as_func(), r_nullopt),
+                        filter_wire_func_t(v1->as_func(env->env), r_nullopt),
                         backtrace());
                 return stream->run_terminal(env->env, count_wire_func_t());
             } else {
                 counted_t<const func_t> f =
-                    new_eq_comparison_func(v1->as_datum(), backtrace());
+                    new_eq_comparison_func(v1->as_datum(env), backtrace());
                 counted_t<datum_stream_t> stream = v0->as_seq(env->env);
                 stream->add_transformation(
                         filter_wire_func_t(f, r_nullopt), backtrace());
@@ -191,7 +190,7 @@ private:
         }
 
         counted_t<const func_t> func =
-            args->arg(env, args->num_args() - 1)->as_func();
+            args->arg(env, args->num_args() - 1)->as_func(env->env);
         optional<std::size_t> func_arity = func->arity();
         if (!!func_arity) {
             rcheck(func_arity.get() == 0 || func_arity.get() == args->num_args() - 1,
@@ -236,17 +235,17 @@ private:
         // Either a field name or a predicate function:
         counted_t<const func_t> predicate_function;
 
-        predicate_function = args->arg(env, 1)->as_func(GET_FIELD_SHORTCUT);
+        predicate_function = args->arg(env, 1)->as_func(env->env, GET_FIELD_SHORTCUT);
 
         bool ordered = false;
         scoped_ptr_t<val_t> maybe_ordered = args->optarg(env, "ordered");
         if (maybe_ordered.has()) {
-            ordered = maybe_ordered->as_bool();
+            ordered = maybe_ordered->as_bool(env);
         }
         datum_t key;
         scoped_ptr_t<val_t> maybe_key = args->optarg(env, "index");
         if (maybe_key.has()) {
-            key = maybe_key->as_datum();
+            key = maybe_key->as_datum(env);
         } else {
             key = datum_t(datum_string_t(table->get_pkey()));
         }
@@ -275,10 +274,10 @@ private:
                                           eval_flags_t) const {
         counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
 
-        datum_t base = args->arg(env, 1)->as_datum();
+        datum_t base = args->arg(env, 1)->as_datum(env);
 
         counted_t<const func_t> acc_func =
-            args->arg(env, 2)->as_func();
+            args->arg(env, 2)->as_func(env->env);
         optional<std::size_t> acc_func_arity = acc_func->arity();
 
         if (static_cast<bool>(acc_func_arity)) {
@@ -302,7 +301,7 @@ private:
                     acc_args.push_back(std::move(result));
                     acc_args.push_back(std::move(row));
 
-                    result = acc_func->call(env->env, acc_args)->as_datum();
+                    result = acc_func->call(env->env, acc_args)->as_datum(env);
 
                     r_sanity_check(result.has());
                     acc_args.clear();
@@ -313,18 +312,18 @@ private:
                 datum_t final_result;
                 std::vector<datum_t> final_args{std::move(result)};
 
-                counted_t<const func_t> final_emit_func = final_emit_arg->as_func();
-                final_result = final_emit_func->call(env->env, final_args)->as_datum();
+                counted_t<const func_t> final_emit_func = final_emit_arg->as_func(env->env);
+                final_result = final_emit_func->call(env->env, final_args)->as_datum(env);
                 r_sanity_check(final_result.has());
                 return new_val(final_result);
             } else {
                 return new_val(result);
             }
         } else {
-            counted_t<const func_t> emit_func = emit_arg->as_func();
+            counted_t<const func_t> emit_func = emit_arg->as_func(env->env);
             counted_t<datum_stream_t> fold_stream;
             if (final_emit_arg.has()) {
-                counted_t<const func_t> final_emit_func = final_emit_arg->as_func();
+                counted_t<const func_t> final_emit_func = final_emit_arg->as_func(env->env);
                 fold_stream
                     = make_counted<fold_datum_stream_t>(std::move(stream),
                                                         base,
@@ -356,7 +355,7 @@ private:
         counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
         stream->add_transformation(
             concatmap_wire_func_t(result_hint_t::NO_HINT,
-                                  args->arg(env, 1)->as_func()),
+                                  args->arg(env, 1)->as_func(env->env)),
                 backtrace());
         return new_val(env->env, stream);
     }
@@ -373,17 +372,17 @@ private:
         std::vector<counted_t<const func_t> > funcs;
         funcs.reserve(args->num_args() - 1);
         for (size_t i = 1; i < args->num_args(); ++i) {
-            funcs.push_back(args->arg(env, i)->as_func(GET_FIELD_SHORTCUT));
+            funcs.push_back(args->arg(env, i)->as_func(env->env, GET_FIELD_SHORTCUT));
         }
 
         counted_t<datum_stream_t> seq;
         bool append_index = false;
         if (scoped_ptr_t<val_t> index = args->optarg(env, "index")) {
-            std::string index_str = index->as_str().to_std();
+            std::string index_str = index->as_str(env).to_std();
             counted_t<table_t> tbl = args->arg(env, 0)->as_table();
             counted_t<table_slice_t> slice;
             if (index_str == tbl->get_pkey()) {
-                auto field = index->as_datum();
+                auto field = index->as_datum(env);
                 funcs.push_back(new_get_field_func(field, backtrace()));
                 slice = make_counted<table_slice_t>(tbl, make_optional(index_str));
             } else {
@@ -402,7 +401,7 @@ private:
 
         bool multi = false;
         if (scoped_ptr_t<val_t> multi_val = args->optarg(env, "multi")) {
-            multi = multi_val->as_bool();
+            multi = multi_val->as_bool(env->env);
         }
 
         seq->add_grouping(group_wire_func_t(std::move(funcs),
@@ -426,7 +425,7 @@ private:
         scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v0 = args->arg(env, 0);
         scoped_ptr_t<val_t> v1 = args->arg(env, 1, LITERAL_OK);
-        counted_t<const func_t> f = v1->as_func(CONSTANT_SHORTCUT);
+        counted_t<const func_t> f = v1->as_func(env->env, CONSTANT_SHORTCUT);
         optional<wire_func_t> defval;
         if (default_filter_term.has()) {
             defval.set(wire_func_t(default_filter_term->eval_to_func(env->scope)));
@@ -458,7 +457,7 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
         return args->arg(env, 0)->as_seq(env->env)->run_terminal(
-            env->env, reduce_wire_func_t(args->arg(env, 1)->as_func()));
+            env->env, reduce_wire_func_t(args->arg(env, 1)->as_func(env->env)));
     }
     virtual const char *name() const { return "reduce"; }
 };
@@ -545,7 +544,7 @@ private:
         scope_env_t *env, args_t *args, eval_flags_t) const {
 
         scoped_ptr_t<val_t> sval = args->optarg(env, "squash");
-        datum_t squash = sval.has() ? sval->as_datum() : datum_t::boolean(false);
+        datum_t squash = sval.has() ? sval->as_datum(env) : datum_t::boolean(false);
         if (squash.get_type() == datum_t::type_t::R_NUM) {
             rcheck_target(sval, squash.as_num() >= 0.0, base_exc_t::LOGIC,
                           "Expected BOOL or a positive NUMBER but found "
@@ -558,22 +557,22 @@ private:
 
         bool include_states = false;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "include_states")) {
-            include_states = v->as_bool();
+            include_states = v->as_bool(env);
         }
 
         bool include_types = false;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "include_types")) {
-            include_types = v->as_bool();
+            include_types = v->as_bool(env);
         }
 
         bool include_initial = false;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "include_initial")) {
-            include_initial = v->as_bool();
+            include_initial = v->as_bool(env);
         }
 
         bool include_offsets = false;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "include_offsets")) {
-            include_offsets = v->as_bool();
+            include_offsets = v->as_bool(env);
         }
 
         scoped_ptr_t<val_t> v = args->arg(env, 0);
@@ -682,9 +681,9 @@ public:
         : bounded_op_term_t(env, term, argspec_t(3), optargspec_t({"index"})),
           null_behavior(_null_behavior) { }
 private:
-    datum_t check_bound(scoped_ptr_t<val_t> bound_val,
+    datum_t check_bound(env_t *env, scoped_ptr_t<val_t> bound_val,
                         datum_t::type_t unbounded_type) const {
-        datum_t bound = bound_val->as_datum();
+        datum_t bound = bound_val->as_datum(env);
         if (bound.get_type() == datum_t::R_NULL) {
             rcheck_target(bound_val, null_behavior != between_null_t::ERROR,
                           base_exc_t::LOGIC,
@@ -701,13 +700,13 @@ private:
         counted_t<table_slice_t> tbl_slice = args->arg(env, 0)->as_table_slice();
         bool left_open = is_left_open(env, args);
         bool right_open = is_right_open(env, args);
-        datum_t lb = check_bound(args->arg(env, 1), datum_t::type_t::MINVAL);
-        datum_t rb = check_bound(args->arg(env, 2), datum_t::type_t::MAXVAL);
+        datum_t lb = check_bound(env->env, args->arg(env, 1), datum_t::type_t::MINVAL);
+        datum_t rb = check_bound(env->env, args->arg(env, 2), datum_t::type_t::MAXVAL);
 
         scoped_ptr_t<val_t> sindex = args->optarg(env, "index");
         std::string idx;
         if (sindex.has()) {
-            idx = sindex->as_str().to_std();
+            idx = sindex->as_str(env).to_std();
         } else {
             optional<std::string> old_idx = tbl_slice->get_idx();
             idx = old_idx ? *old_idx : tbl_slice->get_tbl()->get_pkey();
@@ -784,7 +783,7 @@ private:
                 datum_t interleave_datum;
                 bool use_as_term = true;
                 if (interleave_arg->get_type().is_convertible(val_t::type_t::DATUM)) {
-                    interleave_datum = interleave_arg->as_datum();
+                    interleave_datum = interleave_arg->as_datum(env);
                     if (interleave_datum.get_type() == datum_t::type_t::R_BOOL) {
                         order_by_field = false;
                         allow_unordered_interleave = interleave_datum.as_bool();
@@ -848,11 +847,11 @@ private:
         if (args->num_args() == 0) {
             is_infinite = true;
         } else if (args->num_args() == 1) {
-            stop = args->arg(env, 0)->as_int();
+            stop = args->arg(env, 0)->as_int(env);
         } else {
             r_sanity_check(args->num_args() == 2);
-            start = args->arg(env, 0)->as_int();
-            stop = args->arg(env, 1)->as_int();
+            start = args->arg(env, 0)->as_int(env);
+            stop = args->arg(env, 1)->as_int(env);
         }
 
         return new_val(env->env, make_counted<range_datum_stream_t>(

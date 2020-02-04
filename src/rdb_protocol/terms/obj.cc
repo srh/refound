@@ -13,7 +13,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
-        datum_t d = v->as_datum();
+        datum_t d = v->as_datum(env);
         rcheck_target(v,
                       d.has() && d.get_type() == datum_t::R_OBJECT && !d.is_ptype(),
                       base_exc_t::LOGIC,
@@ -39,7 +39,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
-        datum_t d = v->as_datum();
+        datum_t d = v->as_datum(env);
         rcheck_target(v,
                       d.has() && d.get_type() == datum_t::R_OBJECT && !d.is_ptype(),
                       base_exc_t::LOGIC,
@@ -69,8 +69,8 @@ private:
                          args->num_args()));
         datum_object_builder_t obj;
         for (size_t i = 0; i < args->num_args(); i+=2) {
-            const datum_string_t &key = args->arg(env, i)->as_str();
-            datum_t keyval = args->arg(env, i + 1)->as_datum();
+            const datum_string_t &key = args->arg(env, i)->as_str(env);
+            datum_t keyval = args->arg(env, i + 1)->as_datum(env);
             bool b = obj.add(key, keyval);
             rcheck(!b, base_exc_t::LOGIC,
                    strprintf("Duplicate key %s in object.  "

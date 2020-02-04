@@ -10,6 +10,7 @@
 
 #include "containers/counted.hpp"
 #include "rdb_protocol/datum_string.hpp"
+#include "rdb_protocol/env.hpp"
 #include "rdb_protocol/geo/distances.hpp"
 #include "rdb_protocol/geo/lon_lat_types.hpp"
 #include "rdb_protocol/protocol.hpp"
@@ -150,18 +151,19 @@ enum function_shortcut_t {
 class single_selection_t : public single_threaded_countable_t<single_selection_t> {
 public:
     static counted_t<single_selection_t> from_key(
-        env_t *env, backtrace_id_t bt,
+        backtrace_id_t bt,
         counted_t<table_t> table, datum_t key);
     static counted_t<single_selection_t> from_row(
-        env_t *env, backtrace_id_t bt,
+        backtrace_id_t bt,
         counted_t<table_t> table, datum_t row);
     static counted_t<single_selection_t> from_slice(
-        env_t *env, backtrace_id_t bt,
+        backtrace_id_t bt,
         counted_t<table_slice_t> table, std::string err);
     virtual ~single_selection_t() { }
 
-    virtual datum_t get() = 0;
+    virtual datum_t get(env_t *env) = 0;
     virtual datum_t replace(
+        env_t *env,
         counted_t<const func_t> f, bool nondet_ok,
         durability_requirement_t dur_req, return_changes_t return_changes,
         ignore_write_hook_t ignore_write_hook) = 0;
@@ -210,7 +212,7 @@ public:
     private:
         friend class coerce_term_t;
         friend class typeof_term_t;
-        friend int val_type(const scoped_ptr_t<val_t> &v);
+        friend int val_type(env_t *env, const scoped_ptr_t<val_t> &v);
         raw_type_t raw_type;
     };
     type_t get_type() const;
@@ -236,7 +238,7 @@ public:
     counted_t<datum_stream_t> as_seq(env_t *env);
     counted_t<single_selection_t> as_single_selection();
     // See func.hpp for an explanation of shortcut functions.
-    counted_t<const func_t> as_func(function_shortcut_t shortcut = NO_SHORTCUT);
+    counted_t<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT);
 
     // This set of interfaces is atrocious.  Basically there are some places
     // where we want grouped_data, some places where we maybe want grouped_data,
@@ -249,27 +251,50 @@ public:
     counted_t<grouped_data_t> maybe_as_grouped_data();
     counted_t<grouped_data_t> maybe_as_promiscuous_grouped_data(env_t *env);
 
-    datum_t as_datum() const; // prefer the forms below
-    datum_t as_ptype(const std::string s = "") const;
-    bool as_bool() const;
-    double as_num() const;
+    datum_t as_datum(env_t *env) const; // prefer the forms below
+    datum_t as_datum(scope_env_t *env) const {  // Ditto, prefer the forms below
+        return as_datum(env->env);
+    }
+    datum_t as_ptype(env_t *env, const std::string s = "") const;
+    datum_t as_ptype(scope_env_t *env, const std::string s = "") const {
+        return as_ptype(env->env, s);
+    }
+    bool as_bool(env_t *env) const;
+    bool as_bool(scope_env_t *env) const {
+        return as_bool(env->env);
+    }
+
+    double as_num(env_t *env) const;
+    double as_num(scope_env_t *env) const {
+        return as_num(env->env);
+    }
     template<class T>
-    T as_int() const {
-        int64_t i = as_int();
+    T as_int(env_t *env) const {
+        int64_t i = as_int(env);
         T t = static_cast<T>(i);
         rcheck(static_cast<int64_t>(t) == i,
                base_exc_t::LOGIC,
                strprintf("Integer too large: %" PRIi64, i));
         return t;
     }
-    int64_t as_int() const;
-    datum_string_t as_str() const;
+    int64_t as_int(env_t *env) const;
+    template<class T>
+    T as_int(scope_env_t *env) const {
+        return as_int(env->env);
+    }
+    int64_t as_int(scope_env_t *env) const {
+        return as_int(env->env);
+    }
+    datum_string_t as_str(env_t *env) const;
+    datum_string_t as_str(scope_env_t *env) const {
+        return as_str(env->env);
+    }
 
-    std::string print() const;
-    std::string trunc_print() const;
+    std::string print(env_t *env) const;
+    std::string trunc_print(env_t *env) const;
 
 private:
-    friend int val_type(const scoped_ptr_t<val_t> &v); // type_manip version
+    friend int val_type(env_t *env, const scoped_ptr_t<val_t> &v); // type_manip version
     void rcheck_literal_type(type_t::raw_type_t expected_raw_type) const;
 
     type_t type;

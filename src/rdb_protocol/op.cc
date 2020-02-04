@@ -112,7 +112,7 @@ argvec_t arg_terms_t::start_eval(scope_env_t *env, eval_flags_t flags) const {
         if (arg->get_src().type() == Term::ARGS) {
             deterministic_t det = arg->is_deterministic();
             scoped_ptr_t<val_t> v = arg->eval(env, new_flags);
-            datum_t d = v->as_datum();
+            datum_t d = v->as_datum(env);
             for (size_t i = 0; i < d.arr_size(); ++i) {
                 // This is a little hacky because the determinism flag is for
                 // all the arguments together and we attach it to each of them,
@@ -224,7 +224,7 @@ scoped_ptr_t<val_t> op_term_t::term_eval(scope_env_t *env,
             for (auto kv = gd->begin(); kv != gd->end(); ++kv) {
                 arg_terms->start_eval(env, eval_flags);
                 args_t args(this, argv, make_scoped<val_t>(kv->second, backtrace()));
-                (*out)[kv->first] = eval_impl(env, &args, eval_flags)->as_datum();
+                (*out)[kv->first] = eval_impl(env, &args, eval_flags)->as_datum(env);
             }
             return make_scoped<val_t>(out, backtrace());
         } else {
@@ -247,7 +247,7 @@ scoped_ptr_t<val_t> op_term_t::optarg(scope_env_t *env, const std::string &key) 
         return it->second->eval(env);
     }
     // returns scoped_ptr_t<val_t>() if the key isn't found
-    return env->env->get_optarg(env->env, key);
+    return get_global_optarg(env->env, key);
 }
 
 counted_t<const func_term_t> op_term_t::lazy_literal_optarg(
@@ -340,7 +340,7 @@ bool bounded_op_term_t::open_bool(
     if (!v.has()) {
         return def;
     }
-    const datum_string_t &s = v->as_str();
+    const datum_string_t &s = v->as_str(env);
     if (s == "open") {
         return true;
     } else if (s == "closed") {
@@ -348,7 +348,7 @@ bool bounded_op_term_t::open_bool(
     } else {
         rfail(base_exc_t::LOGIC,
               "Expected `open` or `closed` for optarg `%s` (got `%s`).",
-              key.c_str(), v->trunc_print().c_str());
+              key.c_str(), v->trunc_print(env->env).c_str());
     }
 }
 

@@ -21,8 +21,8 @@ protected:
     enum which_pend_t { PRE, AP };
 
     scoped_ptr_t<val_t> pend(scope_env_t *env, args_t *args, which_pend_t which_pend) const {
-        datum_t arr = args->arg(env, 0)->as_datum();
-        datum_t new_el = args->arg(env, 1)->as_datum();
+        datum_t arr = args->arg(env, 0)->as_datum(env);
+        datum_t new_el = args->arg(env, 1)->as_datum(env);
         datum_array_builder_t out(env->env->limits());
         out.reserve(arr.arr_size() + 1);
         if (which_pend == PRE) {
@@ -89,9 +89,9 @@ scoped_ptr_t<val_t> nth_term_direct_impl(const term_t *term,
                                          scope_env_t *env,
                                          scoped_ptr_t<val_t> aggregate,
                                          const val_t *index) {
-    int32_t n = index->as_int<int32_t>();
+    int32_t n = index->as_int<int32_t>(env);
     if (aggregate->get_type().is_convertible(val_t::type_t::DATUM)) {
-        datum_t arr = aggregate->as_datum();
+        datum_t arr = aggregate->as_datum(env);
         size_t real_n = canonicalize(term, n, arr.arr_size());
         return term->new_val(arr.get(real_n));
     } else {
@@ -126,13 +126,13 @@ scoped_ptr_t<val_t> nth_term_direct_impl(const term_t *term,
                         strprintf("Index out of bounds: %d", n));
                     return tbl.has()
                         ? term->new_val(single_selection_t::from_row(
-                                            env->env, term->backtrace(), tbl, last_d))
+                                            term->backtrace(), tbl, last_d))
                         : term->new_val(last_d);
                 }
                 if (i == n) {
                     return tbl.has()
                         ? term->new_val(single_selection_t::from_row(
-                                            env->env, term->backtrace(), tbl, d))
+                                            term->backtrace(), tbl, d))
                         : term->new_val(d);
                 }
                 last_d = d;
@@ -157,7 +157,7 @@ scoped_ptr_t<val_t> nth_term_impl(const term_t *term, scope_env_t *env,
                 scoped_ptr_t<val_t> value
                     = make_scoped<val_t>(kv->second, aggregate->backtrace());
                 (*out)[kv->first] = nth_term_direct_impl(
-                        term, env, std::move(value), index.get())->as_datum();
+                        term, env, std::move(value), index.get())->as_datum(env);
             }
             return make_scoped<val_t>(out, term->backtrace());
         } else {
@@ -275,12 +275,12 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
         bool left_open = is_left_open(env, args);
-        int64_t fake_l = args->arg(env, 1)->as_int<int64_t>();
+        int64_t fake_l = args->arg(env, 1)->as_int<int64_t>(env);
         bool right_open = args->num_args() == 3 ? is_right_open(env, args) : false;
-        int64_t fake_r = args->num_args() == 3 ? args->arg(env, 2)->as_int<int64_t>() : -1;
+        int64_t fake_r = args->num_args() == 3 ? args->arg(env, 2)->as_int<int64_t>(env) : -1;
 
         if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
-            datum_t d = v->as_datum();
+            datum_t d = v->as_datum(env);
             if (d.get_type() == datum_t::R_ARRAY) {
                 return slice_array(d, env->env->limits(), left_open, fake_l,
                                    right_open, fake_r);
@@ -350,7 +350,7 @@ private:
         } else {
             ds = v->as_seq(env->env);
         }
-        int32_t r = args->arg(env, 1)->as_int<int32_t>();
+        int32_t r = args->arg(env, 1)->as_int<int32_t>(env);
         rcheck(r >= 0, base_exc_t::LOGIC,
                strprintf("LIMIT takes a non-negative argument (got %d)", r));
         counted_t<datum_stream_t> new_ds = ds->slice(0, r);
@@ -368,8 +368,8 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_t arr = args->arg(env, 0)->as_datum();
-        datum_t new_el = args->arg(env, 1)->as_datum();
+        datum_t arr = args->arg(env, 0)->as_datum(env);
+        datum_t new_el = args->arg(env, 1)->as_datum(env);
         // We only use el_set for equality purposes, so the reql_version doesn't
         // really matter (with respect to datum ordering behavior).  But we play it
         // safe.
@@ -397,8 +397,8 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_t arr1 = args->arg(env, 0)->as_datum();
-        datum_t arr2 = args->arg(env, 1)->as_datum();
+        datum_t arr1 = args->arg(env, 0)->as_datum(env);
+        datum_t arr2 = args->arg(env, 1)->as_datum(env);
         // The reql_version doesn't actually matter here -- we only use the datum
         // comparisons for equality purposes.
         std::set<datum_t, optional_datum_less_t> el_set;
@@ -427,8 +427,8 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_t arr1 = args->arg(env, 0)->as_datum();
-        datum_t arr2 = args->arg(env, 1)->as_datum();
+        datum_t arr1 = args->arg(env, 0)->as_datum(env);
+        datum_t arr2 = args->arg(env, 1)->as_datum(env);
         // The reql_version here doesn't really matter.  We only use el_set
         // comparison for equality purposes.
         std::set<datum_t, optional_datum_less_t> el_set;
@@ -456,8 +456,8 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_t arr1 = args->arg(env, 0)->as_datum();
-        datum_t arr2 = args->arg(env, 1)->as_datum();
+        datum_t arr1 = args->arg(env, 0)->as_datum(env);
+        datum_t arr2 = args->arg(env, 1)->as_datum(env);
         // The reql_version here doesn't really matter.  We only use el_set
         // comparison for equality purposes.
         std::set<datum_t, optional_datum_less_t> el_set;
@@ -495,12 +495,12 @@ public:
                         datum_array_builder_t *array) const = 0;
 
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_array_builder_t arr(args->arg(env, 0)->as_datum(), env->env->limits());
+        datum_array_builder_t arr(args->arg(env, 0)->as_datum(env), env->env->limits());
         size_t index;
         if (index_method_ == ELEMENTS) {
-            index = canonicalize(this, args->arg(env, 1)->as_datum().as_int(), arr.size());
+            index = canonicalize(this, args->arg(env, 1)->as_datum(env).as_int(), arr.size());
         } else if (index_method_ == SPACES) {
-            index = canonicalize(this, args->arg(env, 1)->as_datum().as_int(), arr.size() + 1);
+            index = canonicalize(this, args->arg(env, 1)->as_datum(env).as_int(), arr.size() + 1);
         } else {
             unreachable();
         }
@@ -519,7 +519,7 @@ public:
 private:
     void modify(scope_env_t *env, args_t *args, size_t index,
                 datum_array_builder_t *array) const {
-        datum_t new_el = args->arg(env, 2)->as_datum();
+        datum_t new_el = args->arg(env, 2)->as_datum(env);
         array->insert(index, new_el);
     }
     const char *name() const { return "insert_at"; }
@@ -533,7 +533,7 @@ public:
 private:
     void modify(scope_env_t *env, args_t *args, size_t index,
                 datum_array_builder_t *array) const {
-        datum_t new_els = args->arg(env, 2)->as_datum();
+        datum_t new_els = args->arg(env, 2)->as_datum(env);
         array->splice(index, new_els);
     }
     const char *name() const { return "splice_at"; }
@@ -550,7 +550,7 @@ private:
             array->erase(index);
         } else {
             int end_index = canonicalize(
-                this, args->arg(env, 2)->as_datum().as_int(), array->size());
+                this, args->arg(env, 2)->as_datum(env).as_int(), array->size());
             array->erase_range(index, end_index);
         }
     }
@@ -564,7 +564,7 @@ public:
 private:
     void modify(scope_env_t *env, args_t *args, size_t index,
                 datum_array_builder_t *array) const {
-        datum_t new_el = args->arg(env, 2)->as_datum();
+        datum_t new_el = args->arg(env, 2)->as_datum(env);
         array->change(index, new_el);
     }
     const char *name() const { return "change_at"; }
@@ -579,9 +579,9 @@ private:
         scoped_ptr_t<val_t> v = args->arg(env, 1);
         counted_t<const func_t> fun;
         if (v->get_type().is_convertible(val_t::type_t::FUNC)) {
-            fun = v->as_func();
+            fun = v->as_func(env->env);
         } else {
-            fun = new_eq_comparison_func(v->as_datum(), backtrace());
+            fun = new_eq_comparison_func(v->as_datum(env), backtrace());
         }
         return new_val(env->env, args->arg(env, 0)->as_seq(env->env)->offsets_of(fun));
     }
@@ -600,9 +600,9 @@ private:
         for (size_t i = 1; i < args->num_args(); ++i) {
             scoped_ptr_t<val_t> v = args->arg(env, i);
             if (v->get_type().is_convertible(val_t::type_t::FUNC)) {
-                required_funcs.push_back(v->as_func());
+                required_funcs.push_back(v->as_func(env->env));
             } else {
-                required_els.push_back(v->as_datum());
+                required_els.push_back(v->as_datum(env));
             }
         }
         // This needs to be a terminal batch to avoid pathological behavior in
@@ -623,7 +623,7 @@ private:
                 for (auto it = required_funcs.begin();
                      it != required_funcs.end();
                      ++it) {
-                    if ((*it)->call(env->env, el)->as_bool()) {
+                    if ((*it)->call(env->env, el)->as_bool(env)) {
                         std::swap(*it, required_funcs.back());
                         required_funcs.pop_back();
                         break; // Bag semantics for contains.
@@ -651,7 +651,7 @@ public:
                                           eval_flags_t eval_flags) const {
         scoped_ptr_t<val_t> v0 = args->arg(env, 0, eval_flags);
         // If v0 is not an array, force a type error.
-        v0->as_datum().check_type(datum_t::R_ARRAY);
+        v0->as_datum(env).check_type(datum_t::R_ARRAY);
         return v0;
     }
 private:

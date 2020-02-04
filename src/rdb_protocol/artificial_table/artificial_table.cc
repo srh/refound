@@ -138,7 +138,7 @@ scoped_ptr_t<ql::reader_t> artificial_table_t::read_all_with_sindexes(
     ql::datum_t items = to_array->finish_eager(
         bt,
         false,
-        ql::configured_limits_t::unlimited)->as_datum();
+        ql::configured_limits_t::unlimited)->as_datum(env);
 
     std::vector<ql::datum_t> items_vector;
 
@@ -246,7 +246,7 @@ ql::datum_t artificial_table_t::write_batched_replace(
         try {
             do_single_update(env, keys[i], false,
                 [&] (ql::datum_t old_row) {
-                    return func->call(env, old_row, ql::LITERAL_OK)->as_datum();
+                    return func->call(env, old_row, ql::LITERAL_OK)->as_datum(env);
                 },
                 return_changes, env->interruptor, &stats, &conditions);
         } catch (auth::permission_error_t const &permission_error) {

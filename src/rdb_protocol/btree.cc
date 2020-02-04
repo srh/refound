@@ -255,7 +255,7 @@ ql::datum_t btree_batched_replacer_t::apply_write_hook(
                                         std::vector<ql::datum_t>{
                                             std::move(builder).to_datum(),
                                                 d,
-                                                res})->as_datum();
+                                                res})->as_datum(&write_hook_env);
         } catch (ql::exc_t &e) {
             throw ql::exc_t(e.get_type(),
                             strprintf("Error in write hook: %s", e.what()),
@@ -881,7 +881,7 @@ continue_bool_t rocks_rget_secondary_cb::handle_pair(
         auto lazy_sindex_val = [&]() -> ql::datum_t {
             if (!sindex_val_cache.has()) {
                 sindex_val_cache =
-                    sindex_data.func->call(sindex_env.get(), val)->as_datum();
+                    sindex_data.func->call(sindex_env.get(), val)->as_datum(sindex_env.get());
                 if (sindex_data.multi == sindex_multi_bool_t::MULTI
                     && sindex_val_cache.get_type() == ql::datum_t::R_ARRAY) {
                     uint64_t tag = ql::datum_t::extract_tag(key).get();
@@ -1723,7 +1723,7 @@ void compute_keys(const store_key_t &primary_key,
                          reql_version);
 
     ql::datum_t index =
-        index_info.mapping.compile_wire_func()->call(&sindex_env, doc)->as_datum();
+        index_info.mapping.compile_wire_func()->call(&sindex_env, doc)->as_datum(&sindex_env);
 
     if (index_info.multi == sindex_multi_bool_t::MULTI
         && index.get_type() == ql::datum_t::R_ARRAY) {

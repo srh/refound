@@ -313,7 +313,7 @@ public:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
         counted_t<table_t> table = args->arg(env, 0)->as_table();
-        datum_t name_datum = args->arg(env, 1)->as_datum();
+        datum_t name_datum = args->arg(env, 1)->as_datum(env);
         std::string index_name = name_datum.as_str().to_std();
         rcheck(index_name != table->get_pkey(),
                base_exc_t::LOGIC,
@@ -328,7 +328,7 @@ public:
             scoped_ptr_t<val_t> v = args->arg(env, 2);
             bool got_func = false;
             if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
-                datum_t d = v->as_datum();
+                datum_t d = v->as_datum(env);
                 if (d.get_type() == datum_t::R_BINARY) {
                     config = sindex_config_from_string(d.as_binary(), v.get());
                     got_func = true;
@@ -337,7 +337,7 @@ public:
             // We do it this way so that if someone passes a string, we produce
             // a type error asking for a function rather than BINARY.
             if (!got_func) {
-                config.func = ql::map_wire_func_t(v->as_func());
+                config.func = ql::map_wire_func_t(v->as_func(env->env));
                 config.func_version = reql_version_t::LATEST;
             }
         } else {
@@ -359,13 +359,13 @@ public:
 
         /* Check if we're doing a multi index or a normal index. */
         if (scoped_ptr_t<val_t> multi_val = args->optarg(env, "multi")) {
-            config.multi = multi_val->as_bool()
+            config.multi = multi_val->as_bool(env)
                 ? sindex_multi_bool_t::MULTI
                 : sindex_multi_bool_t::SINGLE;
         }
         /* Do we want to create a geo index? */
         if (scoped_ptr_t<val_t> geo_val = args->optarg(env, "geo")) {
-            config.geo = geo_val->as_bool()
+            config.geo = geo_val->as_bool(env)
                 ? sindex_geo_bool_t::GEO
                 : sindex_geo_bool_t::REGULAR;
         }
@@ -430,7 +430,7 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         counted_t<table_t> table = args->arg(env, 0)->as_table();
-        std::string index_name = args->arg(env, 1)->as_datum().as_str().to_std();
+        std::string index_name = args->arg(env, 1)->as_datum(env).as_str().to_std();
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
             // TODO: Dedup index dne errors.
@@ -539,7 +539,7 @@ public:
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         std::set<std::string> sindexes;
         for (size_t i = 1; i < args->num_args(); ++i) {
-            sindexes.insert(args->arg(env, i)->as_str().to_std());
+            sindexes.insert(args->arg(env, i)->as_str(env).to_std());
         }
 
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
@@ -603,7 +603,7 @@ public:
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         std::set<std::string> sindexes;
         for (size_t i = 1; i < args->num_args(); ++i) {
-            sindexes.insert(args->arg(env, i)->as_str().to_std());
+            sindexes.insert(args->arg(env, i)->as_str(env).to_std());
         }
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
             // TODO: Do these rcheck statements or rfail instead of the admin_op_exc_t/rethrow rigamarole.
@@ -687,8 +687,8 @@ public:
         counted_t<table_t> table = args->arg(env, 0)->as_table();
         scoped_ptr_t<val_t> old_name_val = args->arg(env, 1);
         scoped_ptr_t<val_t> new_name_val = args->arg(env, 2);
-        std::string old_name = old_name_val->as_str().to_std();
-        std::string new_name = new_name_val->as_str().to_std();
+        std::string old_name = old_name_val->as_str(env).to_std();
+        std::string new_name = new_name_val->as_str(env).to_std();
         rcheck(old_name != table->get_pkey(),
                base_exc_t::LOGIC,
                strprintf("Index name conflict: `%s` is the name of the primary key.",
@@ -699,7 +699,7 @@ public:
                          new_name.c_str()));
 
         scoped_ptr_t<val_t> overwrite_val = args->optarg(env, "overwrite");
-        const bool overwrite = overwrite_val ? overwrite_val->as_bool() : false;
+        const bool overwrite = overwrite_val ? overwrite_val->as_bool(env) : false;
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
             // TODO: Dedup index not found message.

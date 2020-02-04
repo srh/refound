@@ -34,11 +34,11 @@ configured_limits_t from_optargs(
                     deterministic_time},
                 nullptr);
             if (has_changefeed_queue_size) {
-                int64_t sz = args->get_optarg(&env, "changefeed_queue_size")->as_int();
+                int64_t sz = args->get_optarg(&env, "changefeed_queue_size")->as_int(&env);
                 changefeed_queue_size = check_limit("changefeed queue size", sz);
             }
             if (has_array_limit) {
-                int64_t limit = args->get_optarg(&env, "array_limit")->as_int();
+                int64_t limit = args->get_optarg(&env, "array_limit")->as_int(&env);
                 array_size_limit = check_limit("array size limit", limit);
             }
         }

@@ -771,7 +771,7 @@ public:
           return_changes(_return_changes) { }
     ql::datum_t replace(
         const ql::datum_t &d, size_t) const {
-        ql::datum_t res = f->call(env, d, ql::LITERAL_OK)->as_datum();
+        ql::datum_t res = f->call(env, d, ql::LITERAL_OK)->as_datum(env);
 
         const ql::datum_t &write_timestamp = env->get_deterministic_time();
         r_sanity_check(write_timestamp.has());

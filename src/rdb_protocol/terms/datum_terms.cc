@@ -60,7 +60,7 @@ private:
         {
             profile::sampler_t sampler("Evaluating elements in make_array.", env->env->trace);
             for (size_t i = 0; i < args->num_args(); ++i) {
-                acc.add(args->arg(env, i)->as_datum());
+                acc.add(args->arg(env, i)->as_datum(env));
                 sampler.new_sample();
             }
         }
@@ -98,7 +98,7 @@ public:
             profile::sampler_t sampler("Evaluating elements in make_obj.", env->env->trace);
             for (const auto &pair : optargs) {
                 bool dup = acc.add(datum_string_t(pair.first),
-                                   pair.second->eval(env, new_flags)->as_datum());
+                                   pair.second->eval(env, new_flags)->as_datum(env));
                 rcheck(!dup, base_exc_t::LOGIC,
                        strprintf("Duplicate object key: %s.",
                                  pair.first.c_str()));
@@ -134,7 +134,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> arg = args->arg(env, 0);
-        datum_t datum_arg = arg->as_datum();
+        datum_t datum_arg = arg->as_datum(env);
 
         if (datum_arg.get_type() == datum_t::type_t::R_BINARY) {
             return arg;

@@ -629,7 +629,7 @@ class acc_func_t {
 public:
     explicit acc_func_t(const counted_t<const func_t> &_f) : f(_f) { }
     datum_t operator()(env_t *env, const datum_t &el) const {
-        return f.has() ? f->call(env, el)->as_datum() : el;
+        return f.has() ? f->call(env, el)->as_datum(env) : el;
     }
 private:
     counted_t<const func_t> f;
@@ -794,7 +794,7 @@ private:
                             const datum_t &el,
                             datum_t *out) {
         try {
-            *out = out->has() ? f->call(env, *out, el)->as_datum() : el;
+            *out = out->has() ? f->call(env, *out, el)->as_datum(env) : el;
             return true;
         } catch (const datum_exc_t &e) {
             throw exc_t(e, f->backtrace(), 1);
@@ -896,7 +896,7 @@ private:
             for (auto f = funcs.begin(); f != funcs.end(); ++f) {
                 try {
                     try {
-                        arr.push_back((*f)->call(env, *el)->as_datum());
+                        arr.push_back((*f)->call(env, *el)->as_datum(env));
                     } catch (const base_exc_t &e) {
                         if (e.get_type() == base_exc_t::NON_EXISTENCE) {
                             arr.push_back(datum_t::null());
@@ -996,7 +996,7 @@ private:
         env_t *env, datums_t *lst, const std::function<datum_t()> &) {
         try {
             for (auto it = lst->begin(); it != lst->end(); ++it) {
-                *it = f->call(env, *it)->as_datum();
+                *it = f->call(env, *it)->as_datum(env);
             }
         } catch (const datum_exc_t &e) {
             throw exc_t(e, f->backtrace(), 1);

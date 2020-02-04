@@ -18,7 +18,6 @@
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/optargs.hpp"
 #include "rdb_protocol/protocol.hpp"
-#include "rdb_protocol/val.hpp"
 #include "rdb_protocol/var_types.hpp"
 #include "rdb_protocol/wire_func.hpp"
 
@@ -29,6 +28,7 @@ class RE2;
 }
 
 namespace ql {
+class val_t;
 class datum_t;
 class term_t;
 
@@ -95,10 +95,6 @@ public:
         return serializable_.global_optargs;
     }
 
-    scoped_ptr_t<val_t> get_optarg(env_t *env, const std::string &key) {
-        return serializable_.global_optargs.get_optarg(env, key);
-    }
-
     const auth::user_context_t &get_user_context() const {
         return serializable_.user_context;
     }
@@ -116,16 +112,7 @@ public:
     }
 
     configured_limits_t limits_with_changefeed_queue_size(
-        scoped_ptr_t<val_t> changefeed_queue_size) {
-        if (changefeed_queue_size.has()) {
-            return configured_limits_t(
-                check_limit("changefeed queue size",
-                            changefeed_queue_size->as_int()),
-                limits_.array_size_limit());
-        } else {
-            return limits_;
-        }
-    }
+        scoped_ptr_t<val_t> changefeed_queue_size);
 
     regex_cache_t &regex_cache() { return regex_cache_; }
 
@@ -196,6 +183,7 @@ public:
 
     DISABLE_COPYING(scope_env_t);
 };
+
 
 }  // namespace ql
 

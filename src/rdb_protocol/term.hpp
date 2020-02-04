@@ -99,6 +99,11 @@ private:
     DISABLE_COPYING(term_t);
 };
 
+inline scoped_ptr_t<val_t> get_global_optarg(env_t *env, const std::string &key) {
+    return env->get_all_optargs().get_optarg(env, key);
+}
+
+
 counted_t<const term_t> compile_term(compile_env_t *env, const raw_term_t &t);
 
 } // namespace ql

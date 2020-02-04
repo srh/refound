@@ -62,7 +62,7 @@ public:
         // just be `reql_version_t::LATEST`; but in the future we may have
         // to do some conversions for compatibility.
         if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
-            datum_t d = v->as_datum();
+            datum_t d = v->as_datum(env);
             if (d.get_type() == datum_t::R_BINARY) {
                 ql::wire_func_t func;
 
@@ -90,7 +90,7 @@ public:
         }
 
         // This way it will complain about it not being a function.
-        config.set(write_hook_config_t(ql::wire_func_t(v->as_func()),
+        config.set(write_hook_config_t(ql::wire_func_t(v->as_func(env->env)),
                                        reql_version_t::LATEST));
 
     config_specified_with_value:

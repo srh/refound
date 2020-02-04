@@ -25,9 +25,9 @@ public:
     }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        datum_t acc = args->arg(env, 0)->as_datum();
+        datum_t acc = args->arg(env, 0)->as_datum(env);
         for (size_t i = 1; i < args->num_args(); ++i) {
-            acc = (this->*op)(acc, args->arg(env, i)->as_datum(), env->env->limits());
+            acc = (this->*op)(acc, args->arg(env, i)->as_datum(env), env->env->limits());
         }
         return new_val(acc);
     }
@@ -125,8 +125,8 @@ public:
         : op_term_t(env, term, argspec_t(2)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        int64_t i0 = args->arg(env, 0)->as_int();
-        int64_t i1 = args->arg(env, 1)->as_int();
+        int64_t i0 = args->arg(env, 0)->as_int(env);
+        int64_t i1 = args->arg(env, 1)->as_int(env);
         rcheck(i1, base_exc_t::LOGIC, "Cannot take a number modulo 0.");
         rcheck(!(i0 == std::numeric_limits<int64_t>::min() && i1 == -1),
                base_exc_t::LOGIC,
@@ -137,13 +137,13 @@ private:
 };
 
 
-int64_t bit_arith_ranged_int(const bt_rcheckable_t *target, scoped_ptr_t<val_t> &&val) {
+int64_t bit_arith_ranged_int(env_t *env, const bt_rcheckable_t *target, scoped_ptr_t<val_t> &&val) {
     // All bitwise ops return values in the interval -(1<<53) <= ... < (1<<53) if the
     // parameters are in that interval.  (This is because the operations bit_and,
     // bit_or, bit_xor, and bit_not are closed under it.  Prohibiting 1<<53 is a UI/API
     // design question, so don't be _too_ afraid to enable it (and check return values)
     // if a real-world problem is encountered.)
-    int64_t ret = val->as_int();
+    int64_t ret = val->as_int(env);
     static_assert(DBL_MANT_DIG == 53, "double has unsupported representation");
     rcheck_target(target, ret >= -(1LL << 53) && ret < (1LL << 53),
         base_exc_t::LOGIC,
@@ -174,9 +174,9 @@ public:
     }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        int64_t acc = bit_arith_ranged_int(this, args->arg(env, 0));
+        int64_t acc = bit_arith_ranged_int(env->env, this, args->arg(env, 0));
         for (size_t i = 1, n = args->num_args(); i < n; ++i) {
-            int64_t rhs = bit_arith_ranged_int(this, args->arg(env, i));
+            int64_t rhs = bit_arith_ranged_int(env->env, this, args->arg(env, i));
             acc = (*op)(acc, rhs);
         }
         return new_val(datum_t(static_cast<double>(acc)));
@@ -195,7 +195,7 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        int64_t arg = bit_arith_ranged_int(this, args->arg(env, 0));
+        int64_t arg = bit_arith_ranged_int(env->env, this, args->arg(env, 0));
         return new_val(datum_t(static_cast<double>(~arg)));
     }
     virtual const char *name() const { return "BIT_NOT"; }
@@ -215,8 +215,8 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         // First argument is a bounded "bit-flippable" integer, the second is any old integer.
-        int64_t lhs = bit_arith_ranged_int(this, args->arg(env, 0));
-        int64_t rhs = args->arg(env, 1)->as_int();
+        int64_t lhs = bit_arith_ranged_int(env->env, this, args->arg(env, 0));
+        int64_t rhs = args->arg(env, 1)->as_int(env);
         rcheck(rhs >= 0, base_exc_t::LOGIC, "Cannot bit-shift by a negative value");
 
         double ret = (*op)(lhs, rhs);
@@ -261,7 +261,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        return new_val(datum_t(std::floor(args->arg(env, 0)->as_num())));
+        return new_val(datum_t(std::floor(args->arg(env, 0)->as_num(env))));
     }
 
     virtual const char *name() const { return "floor"; }
@@ -275,7 +275,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        return new_val(datum_t(std::ceil(args->arg(env, 0)->as_num())));
+        return new_val(datum_t(std::ceil(args->arg(env, 0)->as_num(env))));
     }
 
     virtual const char *name() const { return "ceil"; }
@@ -289,7 +289,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        return new_val(datum_t(std::round(args->arg(env, 0)->as_num())));
+        return new_val(datum_t(std::round(args->arg(env, 0)->as_num(env))));
     }
 
     virtual const char *name() const { return "round"; }
