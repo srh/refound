@@ -517,6 +517,18 @@ public:
     virtual const char *name() const { return "sindex_list"; }
 };
 
+bool sindex_is_ready(const sindex_metaconfig_t &x) {
+    return x.creation_task_or_nil.value.is_nil();
+}
+
+sindex_status_t build_status(const sindex_metaconfig_t &x) {
+    // OOO: Initialize all of the status fields, or change the status output
+    // format.
+    sindex_status_t ret;
+    ret.ready = sindex_is_ready(x);
+    return ret;
+}
+
 // TODO: look at prior fdb-ized code for table->display_name() opportunities.
 
 class sindex_status_term_t : public op_term_t {
@@ -558,10 +570,7 @@ public:
                 auto it = table_config.fdb_sindexes.find(pair.first);
                 guarantee(it != table_config.fdb_sindexes.end());  // TODO: msg, fdb, etc.
 
-                // OOO: Initialize all of the status fields, or change the status output
-                // format.
-                sindex_status_t status;
-                status.ready = !it->second.creation_task_or_nil.value.is_nil();
+                sindex_status_t status = build_status(it->second);
 
                 res.add(sindex_status_to_datum(
                     pair.first, pair.second, status));
@@ -580,11 +589,11 @@ public:
     virtual const char *name() const { return "sindex_status"; }
 };
 
-// OOO: Fdb-ize the functions below.
-
 /* We wait for no more than 10 seconds between polls to the indexes. */
-int64_t initial_poll_ms = 50;
-int64_t max_poll_ms = 10000;
+namespace {
+constexpr int64_t initial_poll_ms = 50;
+constexpr int64_t max_poll_ms = 10000;
+}
 
 class sindex_wait_term_t : public op_term_t {
 public:
@@ -597,22 +606,31 @@ public:
         for (size_t i = 1; i < args->num_args(); ++i) {
             sindexes.insert(args->arg(env, i)->as_str().to_std());
         }
+        const namespace_id_t table_id = table->get_id();
         // Start with initial_poll_ms, then double the waiting period after each
         // attempt up to a maximum of max_poll_ms.
         int64_t current_poll_ms = initial_poll_ms;
         for (;;) {
-            std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-                configs_and_statuses;
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->sindex_list(
-                    table->db, name_string_t::guarantee_valid(table->name.c_str()),
-                    env->env->interruptor, &error, &configs_and_statuses)) {
+            // TODO: Is there really no user access control for this?
+            optional<table_config_t> table_config;
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Read-only txn.
+                table_config = config_cache_get_table_config_without_cv_check(txn,
+                    table_id,
+                    env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
+
+            if (!table_config.has_value()) {
+                name_string_t table_name;
+                guarantee(table_name.assign_value(table->name));
+                admin_err_t error = table_not_found_error(table->db->name, table_name);
                 REQL_RETHROW(error);
             }
 
             // Verify all requested sindexes exist.
             for (const auto &sindex : sindexes) {
-                rcheck(configs_and_statuses.count(sindex) == 1, base_exc_t::OP_FAILED,
+                rcheck(table_config->sindexes.count(sindex) == 1, base_exc_t::OP_FAILED,
                     strprintf("Index `%s` was not found on table `%s`.",
                               sindex.c_str(),
                               table->display_name().c_str()));
@@ -620,13 +638,16 @@ public:
 
             ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
             bool all_ready = true;
-            for (const auto &pair : configs_and_statuses) {
+            for (const auto &pair : table_config->sindexes) {
                 if (!sindexes.empty() && sindexes.count(pair.first) == 0) {
                     continue;
                 }
-                if (pair.second.second.ready) {
+                auto it = table_config->fdb_sindexes.find(pair.first);
+                guarantee(it != table_config->fdb_sindexes.end());  // TODO: msg, fdb, etc.
+                if (sindex_is_ready(it->second)) {
+                    sindex_status_t status = build_status(it->second);
                     statuses.add(sindex_status_to_datum(
-                        pair.first, pair.second.first, pair.second.second));
+                        pair.first, pair.second, status));
                 } else {
                     all_ready = false;
                 }
@@ -642,6 +663,8 @@ public:
 
     virtual const char *name() const { return "sindex_wait"; }
 };
+
+// OOO: Fdb-ize the functions below.
 
 class sindex_rename_term_t : public op_term_t {
 public:

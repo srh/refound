@@ -102,18 +102,23 @@ MUST_USE bool config_cache_sindex_drop(
     const signal_t *interruptor);
 
 table_config_t config_cache_get_table_config(
-        FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
-        const namespace_id_t &table_id,
-        const signal_t *interruptor);
+    FDBTransaction *txn,
+    reqlfdb_config_version expected_cv,
+    const namespace_id_t &table_id,
+    const signal_t *interruptor);
+
+optional<table_config_t> config_cache_get_table_config_without_cv_check(
+    FDBTransaction *txn,
+    const namespace_id_t &table_id,
+    const signal_t *interruptor);
 
 fdb_value_fut<auth::user_t> transaction_get_user(
     FDBTransaction *txn,
     const auth::username_t &username);
 
 void transaction_set_user(
-        FDBTransaction *txn,
-        const auth::username_t &username,
-        const auth::user_t &user);
+    FDBTransaction *txn,
+    const auth::username_t &username,
+    const auth::user_t &user);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

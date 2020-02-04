@@ -740,9 +740,24 @@ table_config_t config_cache_get_table_config(
 
     table_config_t table_config;
     if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
-        crash("table config not present, when id matched config version");
+        crash("table config not present, when id matched config version");  // TODO: fdb, msg, etc.
     }
     return table_config;
+}
+
+optional<table_config_t> config_cache_get_table_config_without_cv_check(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const signal_t *interruptor) {
+    fdb_value_fut<table_config_t> table_config_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+    optional<table_config_t> ret;
+    ret.emplace();
+    if (!table_config_fut.block_and_deserialize(interruptor, &ret.get())) {
+        ret.reset();
+    }
+    return ret;
 }
 
 ukey_string username_pkey(const auth::username_t &username) {
