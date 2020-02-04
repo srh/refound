@@ -1866,11 +1866,11 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 
     bool failure = false;
 
+    std::string print_out;
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb,
-        [wipe, &failure, initial_password](FDBTransaction *txn) {
+        [wipe, &failure, initial_password, &print](FDBTransaction *txn) {
+        printf_buffer_t print;
         // TODO: Prefix key option.
-
-        // OOO: Proper handling of txn errors, retry loop, exception throwing, in pthread.
 
         uint8_t empty_key[1];
         int empty_key_length = 0;
@@ -1891,17 +1891,18 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
         // for an empty database.
         if (sized_strcmp(key.data, key.length, end_key, end_key_length) < 0) {
-            printf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
+            print.appendf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
             // TODO: Report error properly.
-            printf("First key is: '%.*s'\n", key.length, reinterpret_cast<const char *>(key.data));
+            print.appendf("First key is: '%.*s'\n", key.length, reinterpret_cast<const char *>(key.data));
             if (!wipe) {
                 // TODO: Report error properly.
-                printf("Failing to create fdb db\n");
+                print.appendf("Failing to create fdb db\n");
                 failure = true;
+                print_out.append(print.data(), size_t(print.size()));
                 return;
             } else {
                 // TODO: No messages in txn retry loop.
-                printf("Wiping fdb db\n");
+                print.appendf("Wiping fdb db\n");
                 // TODO: Test that key/value is valid reqlfdb version key/value.
                 fdb_transaction_clear_range(txn,
                     empty_key, empty_key_length,
@@ -1960,8 +1961,13 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 
         err = fdb_future_get_error(commit_fut.fut);
         check_for_fdb_transaction(err);
+
+        failure = false;
+        print_out.append(print.data(), size_t(print.size()));
+        return;
     });
     guarantee_fdb_TODO(loop_err, "error in create txn");
+    printf("%s", print_out.c_str());
 
     if (failure) {
         return EXIT_FAILURE;
