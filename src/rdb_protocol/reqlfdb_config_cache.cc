@@ -725,6 +725,26 @@ bool config_cache_sindex_drop(
     return true;
 }
 
+table_config_t config_cache_get_table_config(
+        FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
+        const namespace_id_t &table_id,
+        const signal_t *interruptor) {
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    fdb_value_fut<table_config_t> table_config_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+
+    table_config_t table_config;
+    if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
+        crash("table config not present, when id matched config version");
+    }
+    return table_config;
+}
+
 ukey_string username_pkey(const auth::username_t &username) {
     return ukey_string{username.to_string()};
 }

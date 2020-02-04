@@ -101,6 +101,12 @@ MUST_USE bool config_cache_sindex_drop(
     const std::string &index_name,
     const signal_t *interruptor);
 
+table_config_t config_cache_get_table_config(
+        FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
+        const namespace_id_t &table_id,
+        const signal_t *interruptor);
+
 fdb_value_fut<auth::user_t> transaction_get_user(
     FDBTransaction *txn,
     const auth::username_t &username);

@@ -482,8 +482,6 @@ public:
     virtual const char *name() const { return "sindex_drop"; }
 };
 
-// OOO: Fdb-ize the functions below.
-
 class sindex_list_term_t : public op_term_t {
 public:
     sindex_list_term_t(compile_env_t *env, const raw_term_t &term)
@@ -492,19 +490,25 @@ public:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         counted_t<table_t> table = args->arg(env, 0)->as_table();
 
-        /* Fetch a list of all sindexes and their configs and statuses */
-        std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            configs_and_statuses;
-        admin_err_t error;
-        if (!env->env->reql_cluster_interface()->sindex_list(
-                table->db, name_string_t::guarantee_valid(table->name.c_str()),
-                env->env->interruptor, &error, &configs_and_statuses)) {
-            REQL_RETHROW(error);
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
+            return new_val(std::move(res).to_datum());
         }
+
+        // TODO: Is there really no user access control for this?
+        table_config_t table_config;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+            // TODO: Read-only txn.
+            table_config = config_cache_get_table_config(txn,
+                table->tbl->cv.get(),
+                table->get_id(),
+                env->env->interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "sindex_list txn failed");
 
         /* Convert into an array and return it */
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-        for (const auto &pair : configs_and_statuses) {
+        for (const auto &pair : table_config.sindexes) {
             res.add(ql::datum_t(datum_string_t(pair.first)));
         }
         return new_val(std::move(res).to_datum());
@@ -512,6 +516,8 @@ public:
 
     virtual const char *name() const { return "sindex_list"; }
 };
+
+// OOO: Fdb-ize the functions below.
 
 class sindex_status_term_t : public op_term_t {
 public:
