@@ -250,6 +250,9 @@ public:
     `base_table_t` is because their implementations fits better with the implementations
     of the other methods of `reql_cluster_interface_t` than `base_table_t`. */
 
+    // The remaining methods (besides write hook methods, getters, and those called only
+    // for artificial_reql_cluster_interface_t behavior) all return single selectinos.
+
     virtual bool db_config(
             auth::user_context_t const &user_context,
             const counted_t<const ql::db_t> &db,
@@ -258,9 +261,11 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) = 0;
 
+    // Only used for system db.
     virtual bool table_list(counted_t<const ql::db_t> db,
             signal_t *interruptor, std::set<name_string_t> *names_out,
             admin_err_t *error_out) = 0;
+    // Only used for system db.
     virtual bool table_find(const name_string_t &name, counted_t<const ql::db_t> db,
             optional<admin_identifier_format_t> identifier_format,
             signal_t *interruptor, counted_t<base_table_t> *table_out,
