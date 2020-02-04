@@ -581,48 +581,6 @@ bool test_rdb_env_t::instance_t::get_write_hook(
     return false;
 }
 
-bool test_rdb_env_t::instance_t::sindex_create(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &table,
-        UNUSED const std::string &name,
-        UNUSED const sindex_config_t &config,
-        UNUSED signal_t *local_interruptor,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support sindex_create()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::sindex_drop(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &table,
-        UNUSED const std::string &name,
-        UNUSED signal_t *local_interruptor,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support sindex_drop()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::sindex_rename(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &table,
-        UNUSED const std::string &name,
-        UNUSED const std::string &new_name,
-        UNUSED bool overwrite,
-        UNUSED signal_t *local_interruptor,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support sindex_rename()",
-        query_state_t::FAILED};
-    return false;
-}
-
 bool test_rdb_env_t::instance_t::sindex_list(
         UNUSED counted_t<const ql::db_t> db,
         UNUSED const name_string_t &table,

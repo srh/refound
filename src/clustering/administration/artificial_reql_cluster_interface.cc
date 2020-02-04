@@ -342,62 +342,6 @@ bool artificial_reql_cluster_interface_t::get_write_hook(
     return m_next->get_write_hook(
         user_context, db, table, interruptor, write_hook_datum_out, error_out);
 }
-bool artificial_reql_cluster_interface_t::sindex_create(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &table,
-        const std::string &name,
-        const sindex_config_t &config,
-        signal_t *interruptor,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; you can't create secondary "
-                      "indexes on the tables in it.", artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->sindex_create(
-        user_context, db, table, name, config, interruptor, error_out);
-}
-
-bool artificial_reql_cluster_interface_t::sindex_drop(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &table,
-        const std::string &name,
-        signal_t *interruptor,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Index `%s` does not exist on table `%s.%s`.",
-                      name.c_str(), db->name.c_str(), table.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->sindex_drop(
-        user_context, db, table, name, interruptor, error_out);
-}
-
-bool artificial_reql_cluster_interface_t::sindex_rename(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &table,
-        const std::string &name,
-        const std::string &new_name,
-        bool overwrite,
-        signal_t *interruptor,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Index `%s` does not exist on table `%s.%s`.",
-                      name.c_str(), db->name.c_str(), table.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->sindex_rename(
-        user_context, db, table, name, new_name, overwrite, interruptor, error_out);
-}
 
 bool artificial_reql_cluster_interface_t::sindex_list(
         counted_t<const ql::db_t> db,

@@ -371,30 +371,6 @@ public:
             ql::datum_t *write_hook_datum_out,
             admin_err_t *error_out) = 0;
 
-    virtual bool sindex_create(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            const std::string &name,
-            const sindex_config_t &config,
-            signal_t *interruptor,
-            admin_err_t *error_out) = 0;
-    virtual bool sindex_drop(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            const std::string &name,
-            signal_t *interruptor,
-            admin_err_t *error_out) = 0;
-    virtual bool sindex_rename(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            const std::string &name,
-            const std::string &new_name,
-            bool overwrite,
-            signal_t *interruptor,
-            admin_err_t *error_out) = 0;
     virtual bool sindex_list(
             counted_t<const ql::db_t> db,
             const name_string_t &table,
