@@ -446,31 +446,6 @@ bool test_rdb_env_t::instance_t::table_status(
     return false;
 }
 
-bool test_rdb_env_t::instance_t::table_wait(
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &name,
-        UNUSED table_readiness_t readiness,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support table_wait()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::db_wait(
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED table_readiness_t readiness,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support db_wait()",
-        query_state_t::FAILED};
-    return false;
-}
-
 bool test_rdb_env_t::instance_t::table_reconfigure(
         UNUSED auth::user_context_t const &user_context,
         UNUSED counted_t<const ql::db_t> db,

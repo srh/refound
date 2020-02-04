@@ -194,20 +194,6 @@ public:
                 scoped_ptr_t<ql::val_t> *selection_out,
                 admin_err_t *error_out);
 
-        bool table_wait(
-                counted_t<const ql::db_t> db,
-                const name_string_t &name,
-                table_readiness_t readiness,
-                signal_t *interruptor,
-                ql::datum_t *result_out,
-                admin_err_t *error_out);
-        bool db_wait(
-                counted_t<const ql::db_t> db,
-                table_readiness_t readiness,
-                signal_t *interruptor,
-                ql::datum_t *result_out,
-                admin_err_t *error_out);
-
         bool table_reconfigure(
                 auth::user_context_t const &user_context,
                 counted_t<const ql::db_t> db,

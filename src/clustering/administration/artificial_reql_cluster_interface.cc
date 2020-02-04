@@ -171,38 +171,6 @@ bool artificial_reql_cluster_interface_t::table_status(
         db, name, bt, env, selection_out, error_out);
 }
 
-bool artificial_reql_cluster_interface_t::table_wait(
-        counted_t<const ql::db_t> db, const name_string_t &name,
-        table_readiness_t readiness, signal_t *interruptor,
-        ql::datum_t *result_out, admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; the system tables in it are "
-                      "always available and don't need to be waited on.",
-                      artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->table_wait(
-        db, name, readiness, interruptor, result_out, error_out);
-}
-
-bool artificial_reql_cluster_interface_t::db_wait(
-        counted_t<const ql::db_t> db, table_readiness_t readiness,
-        signal_t *interruptor,
-        ql::datum_t *result_out, admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; the system tables in it are "
-                      "always available and don't need to be waited on.",
-                      artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->db_wait(
-        db, readiness, interruptor, result_out, error_out);
-}
-
 bool artificial_reql_cluster_interface_t::table_reconfigure(
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,

@@ -704,6 +704,9 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t,
 	    const counted_t<const ql::db_t> &db,
             counted_t<table_t> &&table_or_null) const final {
+        // TODO: Maybe this could do some fdb shard readiness query to check table
+        // availability.
+
         // Don't allow a wait call without explicit database
         if (args->num_args() == 0) {
             rfail(base_exc_t::LOGIC, "`wait` can only be called on a table or database.");
@@ -731,6 +734,7 @@ private:
         }
 
         // Handle 'timeout' optarg
+        // Since we don't actually wait right now, it's a bit silly, but we do ping fdb.
         signal_timer_t timeout_timer;
         wait_any_t combined_interruptor(env->env->interruptor);
         if (scoped_ptr_t<val_t> timeout = args->optarg(env, "timeout")) {

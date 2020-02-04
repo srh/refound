@@ -331,63 +331,6 @@ bool real_reql_cluster_interface_t::table_status(
     } CATCH_NAME_ERRORS(db->name, name, error_out)
 }
 
-bool real_reql_cluster_interface_t::table_wait(
-        counted_t<const ql::db_t> db,
-        const name_string_t &name,
-        table_readiness_t readiness,
-        signal_t *interruptor_on_caller,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    // TODO: Remove this function (unless there's index building? then fdb-ize)
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-    try {
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, name, &table_id);
-        wait_for_table_readiness(table_id, readiness, &m_namespace_repo,
-            m_table_meta_client, interruptor_on_caller);
-        ql::datum_object_builder_t builder;
-        builder.overwrite("ready", ql::datum_t(1.0));
-        *result_out = std::move(builder).to_datum();
-        return true;
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
-        return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-}
-
-bool real_reql_cluster_interface_t::db_wait(
-        counted_t<const ql::db_t> db,
-        table_readiness_t readiness,
-        signal_t *interruptor_on_caller,
-        ql::datum_t *result_out,
-        admin_err_t *error_out) {
-    // TODO: Remove this or fdb-ize, depending on table_wait treatment.
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-
-    std::set<namespace_id_t> table_ids;
-    std::map<namespace_id_t, table_basic_config_t> tables;
-    m_table_meta_client->list_names(&tables);
-    for (const auto &table : tables) {
-        if (table.second.database == db->id) {
-            table_ids.insert(table.first);
-        }
-    }
-
-    try {
-        size_t count = wait_for_many_tables_readiness(table_ids, readiness,
-            &m_namespace_repo, m_table_meta_client, interruptor_on_caller);
-        ql::datum_object_builder_t builder;
-        builder.overwrite("ready", ql::datum_t(static_cast<double>(count)));
-        *result_out = std::move(builder).to_datum();
-        return true;
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
-        return false;
-    }
-}
-
 void real_reql_cluster_interface_t::reconfigure_internal(
         auth::user_context_t const &user_context,
         const counted_t<const ql::db_t> &db,
