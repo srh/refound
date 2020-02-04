@@ -15,6 +15,7 @@
 #include "containers/disk_backed_queue.hpp"
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/changefeed.hpp"
+#include "rdb_protocol/context.hpp"
 #include "rdb_protocol/distribution_progress.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"

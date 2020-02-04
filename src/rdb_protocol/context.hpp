@@ -39,6 +39,7 @@ class permissions_t;
 
 class namespace_repo_t;
 class table_meta_client_t;
+enum class return_changes_t;
 
 namespace ql {
 class configured_limits_t;
@@ -53,15 +54,6 @@ class client_t;
 }
 
 struct admin_err_t;
-
-enum class return_changes_t {
-    NO = 0,
-    YES = 1,
-    ALWAYS = 2
-};
-ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
-        return_changes_t, int8_t,
-        return_changes_t::NO, return_changes_t::ALWAYS);
 
 class auth_semilattice_metadata_t;
 class ellipsoid_spec_t;

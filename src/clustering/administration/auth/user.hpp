@@ -9,7 +9,6 @@
 #include "clustering/administration/auth/permissions.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "containers/uuid.hpp"
-#include "rdb_protocol/context.hpp"
 #include "rpc/serialize_macros.hpp"
 
 class cluster_semilattice_metadata_t;
