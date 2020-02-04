@@ -517,7 +517,7 @@ public:
     virtual const char *name() const { return "sindex_list"; }
 };
 
-// OOO: Fdb-ize the functions below.
+// TODO: look at prior fdb-ized code for table->display_name() opportunities.
 
 class sindex_status_term_t : public op_term_t {
 public:
@@ -532,29 +532,40 @@ public:
             sindexes.insert(args->arg(env, i)->as_str().to_std());
         }
 
-        /* Fetch a list of all sindexes and their configs and statuses */
-        std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            configs_and_statuses;
-        admin_err_t error;
-        if (!env->env->reql_cluster_interface()->sindex_list(
-                table->db, name_string_t::guarantee_valid(table->name.c_str()),
-                env->env->interruptor, &error, &configs_and_statuses)) {
-            REQL_RETHROW(error);
-        }
-
-        /* Convert it into an array and return it */
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
         std::set<std::string> remaining_sindexes = sindexes;
-        for (const auto &pair : configs_and_statuses) {
-            if (!sindexes.empty()) {
-                if (sindexes.count(pair.first) == 0) {
-                    continue;
-                } else {
-                    remaining_sindexes.erase(pair.first);
+        if (table->db->name != artificial_reql_cluster_interface_t::database_name) {
+            // TODO: Is there really no user access control for this?
+            table_config_t table_config;
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Read-only txn.
+                table_config = config_cache_get_table_config(txn,
+                    table->tbl->cv.get(),
+                    table->get_id(),
+                    env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
+
+            for (const auto &pair : table_config.sindexes) {
+                if (!sindexes.empty()) {
+                    if (sindexes.count(pair.first) == 0) {
+                        continue;
+                    } else {
+                        remaining_sindexes.erase(pair.first);
+                    }
                 }
+
+                auto it = table_config.fdb_sindexes.find(pair.first);
+                guarantee(it != table_config.fdb_sindexes.end());  // TODO: msg, fdb, etc.
+
+                // OOO: Initialize all of the status fields, or change the status output
+                // format.
+                sindex_status_t status;
+                status.ready = !it->second.creation_task_or_nil.value.is_nil();
+
+                res.add(sindex_status_to_datum(
+                    pair.first, pair.second, status));
             }
-            res.add(sindex_status_to_datum(
-                pair.first, pair.second.first, pair.second.second));
         }
 
         /* Make sure we found all the requested sindexes. */
@@ -568,6 +579,8 @@ public:
 
     virtual const char *name() const { return "sindex_status"; }
 };
+
+// OOO: Fdb-ize the functions below.
 
 /* We wait for no more than 10 seconds between polls to the indexes. */
 int64_t initial_poll_ms = 50;
