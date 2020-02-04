@@ -6,7 +6,9 @@
 #include <string>
 
 #include "clustering/administration/admin_op_exc.hpp"
+#include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
+#include "fdb/retry_loop.hpp"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "rdb_protocol/datum_stream.hpp"
@@ -14,6 +16,7 @@
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/op.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
 namespace ql {
 
@@ -365,72 +368,61 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        return new_val(val_info(env, args->arg(env, 0)));
+        return new_val(val_info(env->env, args->arg(env, 0)));
     }
 
-    datum_t val_info(scope_env_t *env, scoped_ptr_t<val_t> v) const {
+    datum_t val_info(env_t *env, scoped_ptr_t<val_t> v, bool cv_check_done = false) const {
+        // OOO: Fdb-ize this.
         datum_object_builder_t info;
-        int type = val_type(env->env, v);
-        bool b = info.add("type", typename_of(env->env, v));
+        int type = val_type(env, v);
+        bool b = info.add("type", typename_of(env, v));
 
         switch (type) {
         case DB_TYPE: {
-            counted_t<const db_t> database = v->as_db(env->env);
+            counted_t<const db_t> database = v->as_db(env);
             r_sanity_check(!database->id.value.is_nil());
-
+            if (!cv_check_done) {
+                fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
+                        env->interruptor, [&](FDBTransaction *txn) {
+                    config_cache_cv_check(txn, database->cv.get(), env->interruptor);
+                });
+                guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
+            }
             b |= info.add("name", datum_t(database->name.str()));
             b |= info.add("id", datum_t(uuid_to_str(database->id)));
         } break;
         case TABLE_TYPE: {
-            counted_t<table_t> table = v->as_table(env->env);
+            counted_t<table_t> table = v->as_table(env);
             r_sanity_check(!table->get_id().value.is_nil());
+
+            table_config_t config;
+            fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
+                    env->interruptor, [&](FDBTransaction *txn) {
+                config = config_cache_get_table_config(
+                    txn, table->tbl->cv.get(), table->get_id(), env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
 
             b |= info.add("name", datum_t(table->name));
             b |= info.add("primary_key", datum_t(table->get_pkey()));
-            b |= info.add("db", val_info(env, new_val(table->db)));
+            b |= info.add("db", val_info(env, new_val(table->db), true));
             b |= info.add("id", datum_t(uuid_to_str(table->get_id())));
             name_string_t table_name =
                 name_string_t::guarantee_valid(table->name.c_str());
+            /* TODO: Add doc_count_estimates, which is an array of doubles, of size
+               num_shards. */
+            // b |= info.add("doc_count_estimates", std::move(arr).to_datum());
+
             {
-                std::vector<int64_t> doc_counts;
-                try {
-                    admin_err_t error;
-                    if (!env->env->reql_cluster_interface()->table_estimate_doc_counts(
-                            env->env->get_user_context(),
-                            table->db,
-                            table_name,
-                            env->env,
-                            &doc_counts,
-                            &error)) {
-                        REQL_RETHROW(error);
-                    }
-                } catch (auth::permission_error_t const &permission_error) {
-                    rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-                }
-                datum_array_builder_t arr(configured_limits_t::unlimited);
-                for (int64_t i : doc_counts) {
-                    arr.add(datum_t(static_cast<double>(i)));
-                }
-                b |= info.add("doc_count_estimates", std::move(arr).to_datum());
-            }
-            {
-                admin_err_t error;
-                std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-                    configs_and_statuses;
-                if (!env->env->reql_cluster_interface()->sindex_list(
-                        table->db, table_name, env->env->interruptor,
-                        &error, &configs_and_statuses)) {
-                    REQL_RETHROW(error);
-                }
                 ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-                for (const auto &pair : configs_and_statuses) {
+                for (const auto &pair : config.sindexes) {
                     res.add(ql::datum_t(datum_string_t(pair.first)));
                 }
                 b |= info.add("indexes", std::move(res).to_datum());
             }
         } break;
         case TABLE_SLICE_TYPE: {
-            counted_t<table_slice_t> ts = v->as_table_slice(env->env);
+            counted_t<table_slice_t> ts = v->as_table_slice(env);
             b |= info.add("table", val_info(env, new_val(ts->get_tbl())));
             b |= info.add("index",
                           ts->idx ? datum_t(ts->idx->c_str()) : datum_t::null());
@@ -469,26 +461,26 @@ private:
         } break;
         case SELECTION_TYPE: {
             b |= info.add("table",
-                          val_info(env, new_val(v->as_selection(env->env)->table)));
+                          val_info(env, new_val(v->as_selection(env)->table)));
         } break;
         case ARRAY_SELECTION_TYPE: {
             b |= info.add("table",
-                          val_info(env, new_val(v->as_selection(env->env)->table)));
+                          val_info(env, new_val(v->as_selection(env)->table)));
         } break;
         case SEQUENCE_TYPE: {
-            if (v->as_seq(env->env)->is_grouped()) {
+            if (v->as_seq(env)->is_grouped()) {
                 bool res = info.add("type", datum_t("GROUPED_STREAM"));
                 r_sanity_check(res);
             }
         } break;
         case SINGLE_SELECTION_TYPE: {
             b |= info.add("table",
-                          val_info(env, new_val(v->as_single_selection(env->env)->get_tbl())));
+                          val_info(env, new_val(v->as_single_selection(env)->get_tbl())));
         } break;
 
         case FUNC_TYPE: {
             b |= info.add("source_code",
-                datum_t(datum_string_t(v->as_func(env->env)->print_source())));
+                datum_t(datum_string_t(v->as_func(env)->print_source())));
         } break;
 
         case GROUPED_DATA_TYPE: break; // No more info

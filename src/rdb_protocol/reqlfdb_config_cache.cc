@@ -843,6 +843,16 @@ rename_result config_cache_sindex_rename(
     return rename_result::success;
 }
 
+void config_cache_cv_check(
+        FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
+        const signal_t *interruptor) {
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+}
+
 ukey_string username_pkey(const auth::username_t &username) {
     return ukey_string{username.to_string()};
 }
