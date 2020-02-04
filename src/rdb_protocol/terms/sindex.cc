@@ -630,9 +630,7 @@ public:
             guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
 
             if (!table_config.has_value()) {
-                name_string_t table_name;
-                guarantee(table_name.assign_value(table->name));
-                admin_err_t error = table_not_found_error(table->db->name, table_name);
+                admin_err_t error = table_not_found_error(table->db->name, table->name);
                 REQL_RETHROW(error);
             }
 

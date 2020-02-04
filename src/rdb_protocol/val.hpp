@@ -32,7 +32,7 @@ onto it. */
 class table_t : public single_threaded_countable_t<table_t>, public bt_rcheckable_t {
 public:
     table_t(counted_t<base_table_t> &&,
-            counted_t<const db_t> db, const std::string &name,
+            counted_t<const db_t> db, const name_string_t &name,
             read_mode_t _read_mode, backtrace_id_t src);
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
@@ -90,9 +90,9 @@ public:
     /* `db` and `name` are mostly for display purposes, but some things like the
     `reconfigure()` logic use them. */
     counted_t<const db_t> db;
-    const std::string name;   /* TODO: Make this a `name_string_t` */
+    name_string_t name;
     std::string display_name() {
-        return db->name.str() + "." + name;
+        return db->name.str() + "." + name.str();
     }
 
     counted_t<datum_stream_t> as_seq(

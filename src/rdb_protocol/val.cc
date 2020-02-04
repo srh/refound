@@ -191,7 +191,7 @@ counted_t<datum_stream_t> table_t::as_seq(
 }
 
 table_t::table_t(counted_t<base_table_t> &&_tbl,
-                 counted_t<const db_t> _db, const std::string &_name,
+                 counted_t<const db_t> _db, const name_string_t &_name,
                  read_mode_t _read_mode, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       db(_db),

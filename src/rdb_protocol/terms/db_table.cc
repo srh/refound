@@ -1099,7 +1099,7 @@ private:
                 REQL_RETHROW(error);
             }
             return new_val(make_counted<table_t>(
-                std::move(table), db, db_table_name.second.str(), read_mode,
+                std::move(table), db, db_table_name.second, read_mode,
                 backtrace()));
         }
 
@@ -1157,7 +1157,7 @@ private:
         }
 
         return new_val(make_counted<table_t>(
-            std::move(table), db, db_table_name.second.str(), read_mode, backtrace()));
+            std::move(table), db, db_table_name.second, read_mode, backtrace()));
     }
     deterministic_t is_deterministic() const override { return deterministic_t::no(); }
     const char *name() const override { return "table"; }

@@ -403,7 +403,7 @@ private:
             });
             guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
 
-            b |= info.add("name", datum_t(table->name));
+            b |= info.add("name", datum_t(table->name.str()));
             b |= info.add("primary_key", datum_t(table->get_pkey()));
             b |= info.add("db", val_info(env, new_val(table->db), true));
             b |= info.add("id", datum_t(uuid_to_str(table->get_id())));
