@@ -520,7 +520,7 @@ bool sindex_is_ready(const sindex_metaconfig_t &x) {
 }
 
 sindex_status_t build_status(const sindex_metaconfig_t &x) {
-    // OOO: Initialize all of the status fields, or change the status output
+    // QQQ: Initialize all of the status fields, or change the status output
     // format.
     sindex_status_t ret;
     ret.ready = sindex_is_ready(x);

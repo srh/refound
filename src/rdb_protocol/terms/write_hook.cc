@@ -23,6 +23,7 @@ std::string format_write_hook_query(const write_hook_config_t &config) {
 
 namespace ql {
 
+// QQQ: Fdb-ize both these functions, and make use of write hooks.
 class set_write_hook_term_t : public op_term_t {
 public:
     set_write_hook_term_t(compile_env_t *env, const raw_term_t &term)

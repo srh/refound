@@ -275,7 +275,7 @@ public:
                 std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
                     *configs_and_statuses_out);
 
-        // OOO: This isn't going to work.
+        // QQQ: This isn't going to work.
         table_meta_client_t *get_table_meta_client() {
             crash("unimplemented");
         }
