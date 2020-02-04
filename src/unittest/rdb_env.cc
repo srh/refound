@@ -406,19 +406,6 @@ bool test_rdb_env_t::instance_t::table_find(const name_string_t &name,
     }
 }
 
-bool test_rdb_env_t::instance_t::table_estimate_doc_counts(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &name,
-        UNUSED ql::env_t *local_env,
-        UNUSED std::vector<int64_t> *doc_counts_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support info()",
-        query_state_t::FAILED};
-    return false;
-}
-
 bool test_rdb_env_t::instance_t::table_config(
         UNUSED auth::user_context_t const &user_context,
         UNUSED counted_t<const ql::db_t> db,
@@ -468,19 +455,6 @@ bool test_rdb_env_t::instance_t::get_write_hook(
         admin_err_t *error_out) {
     *error_out = admin_err_t{
         "test_rdb_env_t::instance_t doesn't support get_write_hook()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::sindex_list(
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &table,
-        UNUSED signal_t *local_interruptor,
-        admin_err_t *error_out,
-        UNUSED std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            *configs_and_statuses_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support sindex_list()",
         query_state_t::FAILED};
     return false;
 }

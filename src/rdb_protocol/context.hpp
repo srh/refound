@@ -273,13 +273,6 @@ public:
             optional<admin_identifier_format_t> identifier_format,
             signal_t *interruptor, counted_t<base_table_t> *table_out,
             admin_err_t *error_out) = 0;
-    virtual bool table_estimate_doc_counts(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            ql::env_t *env,
-            std::vector<int64_t> *doc_counts_out,
-            admin_err_t *error_out) = 0;
     virtual bool table_config(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
@@ -311,14 +304,6 @@ public:
             signal_t *interruptor,
             ql::datum_t *write_hook_datum_out,
             admin_err_t *error_out) = 0;
-
-    virtual bool sindex_list(
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            signal_t *interruptor,
-            admin_err_t *error_out,
-            std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-                *configs_and_statuses_out) = 0;
 
     virtual namespace_repo_t *get_namespace_repo() = 0;
     virtual ql::changefeed::client_t *get_changefeed_client() = 0;

@@ -239,44 +239,6 @@ bool real_reql_cluster_interface_t::table_find(
     } CATCH_NAME_ERRORS(db->name, name, error_out)
 }
 
-bool real_reql_cluster_interface_t::table_estimate_doc_counts(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &name,
-        ql::env_t *env,
-        std::vector<int64_t> *doc_counts_out,
-        admin_err_t *error_out) {
-    // TODO: fdb-ize this function (or remove? do we use?)
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-
-    cross_thread_signal_t interruptor_on_home(env->interruptor, home_thread());
-    try {
-        on_thread_t thread_switcher(home_thread());
-
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, name, &table_id);
-
-        user_context.require_read_permission(m_rdb_context, db->id, table_id);
-
-        table_config_and_shards_t config;
-        m_table_meta_client->get_config(table_id, &interruptor_on_home, &config);
-
-        /* Perform a distribution query against the database */
-        std::map<store_key_t, int64_t> counts;
-        fetch_distribution(table_id, this, &interruptor_on_home, &counts);
-
-        /* Match the results of the distribution query against the table's shard
-        boundaries */
-        *doc_counts_out = std::vector<int64_t>(1 /* num shards */, 0);
-        for (auto it = counts.begin(); it != counts.end(); ++it) {
-            doc_counts_out->at(0) += it->second;
-        }
-        return true;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-      CATCH_OP_ERRORS(db->name, name, error_out, "", "")
-}
-
 bool real_reql_cluster_interface_t::table_config(
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
@@ -405,31 +367,6 @@ bool real_reql_cluster_interface_t::get_write_hook(
         *write_hook_datum_out = convert_write_hook_to_datum(existing_config.config.write_hook);
     }
     return true;
-}
-
-bool real_reql_cluster_interface_t::sindex_list(
-        counted_t<const ql::db_t> db,
-        const name_string_t &table_name,
-        signal_t *interruptor_on_caller,
-        admin_err_t *error_out,
-        std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            *configs_and_statuses_out) {
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-    cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
-    try {
-        on_thread_t thread_switcher(home_thread());
-        fdb_transaction txn{m_fdb};
-
-        namespace_id_t table_id;
-        m_table_meta_client->find(/* txn.txn, TODO */ db->id, table_name, &table_id);
-        m_table_meta_client->get_sindex_status(/* txn.txn, TODO */ 
-            table_id, &interruptor_on_home, configs_and_statuses_out);
-        return true;
-    } CATCH_NAME_ERRORS(db->name, table_name, error_out)
-      CATCH_OP_ERRORS(db->name, table_name, error_out,
-        "Failed to retrieve all secondary indexes.",
-        "Failed to retrieve all secondary indexes.")
 }
 
 /* Checks that divisor is indeed a divisor of multiple. */

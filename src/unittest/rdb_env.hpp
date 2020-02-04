@@ -162,22 +162,15 @@ public:
                 ql::backtrace_id_t bt,
                 ql::env_t *env,
                 scoped_ptr_t<ql::val_t> *selection_out,
-                admin_err_t *error_out);
+                admin_err_t *error_out) override;
 
         bool table_list(counted_t<const ql::db_t> db,
                 signal_t *interruptor,
-                std::set<name_string_t> *names_out, admin_err_t *error_out);
+                std::set<name_string_t> *names_out, admin_err_t *error_out) override;
         bool table_find(const name_string_t &name, counted_t<const ql::db_t> db,
                 optional<admin_identifier_format_t> identifier_format,
                 signal_t *interruptor, counted_t<base_table_t> *table_out,
-                admin_err_t *error_out);
-        bool table_estimate_doc_counts(
-                auth::user_context_t const &user_context,
-                counted_t<const ql::db_t> db,
-                const name_string_t &name,
-                ql::env_t *env,
-                std::vector<int64_t> *doc_counts_out,
-                admin_err_t *error_out);
+                admin_err_t *error_out) override;
         bool table_config(
                 auth::user_context_t const &user_context,
                 counted_t<const ql::db_t> db,
@@ -185,14 +178,14 @@ public:
                 ql::backtrace_id_t bt,
                 ql::env_t *env,
                 scoped_ptr_t<ql::val_t> *selection_out,
-                admin_err_t *error_out);
+                admin_err_t *error_out) override;
         bool table_status(
                 counted_t<const ql::db_t> db,
                 const name_string_t &name,
                 ql::backtrace_id_t bt,
                 ql::env_t *env,
                 scoped_ptr_t<ql::val_t> *selection_out,
-                admin_err_t *error_out);
+                admin_err_t *error_out) override;
 
         bool set_write_hook(
                 auth::user_context_t const &user_context,
@@ -200,30 +193,23 @@ public:
                 const name_string_t &table,
                 const optional<write_hook_config_t> &config,
                 signal_t *local_interruptor,
-                admin_err_t *error_out);
+                admin_err_t *error_out) override;
         bool get_write_hook(
                 auth::user_context_t const &user_context,
                 counted_t<const ql::db_t> db,
                 const name_string_t &table,
                 signal_t *local_interruptor,
                 ql::datum_t *write_hook_datum_out,
-                admin_err_t *error_out);
-        bool sindex_list(
-                counted_t<const ql::db_t> db,
-                const name_string_t &table,
-                signal_t *interruptor,
-                admin_err_t *error_out,
-                std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-                    *configs_and_statuses_out);
+                admin_err_t *error_out) override;
 
         // QQQ: This isn't going to work.
-        table_meta_client_t *get_table_meta_client() {
+        table_meta_client_t *get_table_meta_client() override {
             crash("unimplemented");
         }
-        ql::changefeed::client_t *get_changefeed_client() {
+        ql::changefeed::client_t *get_changefeed_client() override {
             crash("unimplemented");
         }
-        namespace_repo_t *get_namespace_repo() {
+        namespace_repo_t *get_namespace_repo() override {
             crash("unimplemented");
         }
 

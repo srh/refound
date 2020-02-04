@@ -100,44 +100,6 @@ bool artificial_reql_cluster_interface_t::table_find(
         name, db, identifier_format, interruptor, table_out, error_out);
 }
 
-bool artificial_reql_cluster_interface_t::table_estimate_doc_counts(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &name,
-        ql::env_t *env,
-        std::vector<int64_t> *doc_counts_out,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        auto it = m_table_backends.find(name);
-        if (it != m_table_backends.end()) {
-            /* We arbitrarily choose to read from the UUID version of the system table
-            rather than the name version. */
-            std::vector<ql::datum_t> datums;
-            if (!it->second.second->read_all_rows_filtered(
-                    user_context,
-                    ql::datumspec_t(ql::datum_range_t::universe()),
-                    sorting_t::UNORDERED,
-                    env->interruptor,
-                    &datums,
-                    error_out)) {
-                error_out->msg = "When estimating doc count: " + error_out->msg;
-                return false;
-            }
-            *doc_counts_out = std::vector<int64_t>({ static_cast<int64_t>(datums.size()) });
-            return true;
-        } else {
-            *error_out = admin_err_t{
-                strprintf("Table `%s.%s` does not exist.",
-                          artificial_reql_cluster_interface_t::database_name.c_str(), name.c_str()),
-                query_state_t::FAILED};
-            return false;
-        }
-    } else {
-        return next_or_error(error_out) && m_next->table_estimate_doc_counts(
-            user_context, db, name, env, doc_counts_out, error_out);
-    }
-}
-
 bool artificial_reql_cluster_interface_t::table_config(
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
@@ -203,21 +165,6 @@ bool artificial_reql_cluster_interface_t::get_write_hook(
     }
     return m_next->get_write_hook(
         user_context, db, table, interruptor, write_hook_datum_out, error_out);
-}
-
-bool artificial_reql_cluster_interface_t::sindex_list(
-        counted_t<const ql::db_t> db,
-        const name_string_t &table,
-        signal_t *interruptor,
-        admin_err_t *error_out,
-        std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            *configs_and_statuses_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        configs_and_statuses_out->clear();
-        return true;
-    }
-    return next_or_error(error_out) && m_next->sindex_list(
-        db, table, interruptor, error_out, configs_and_statuses_out);
 }
 
 void artificial_reql_cluster_interface_t::set_next_reql_cluster_interface(
