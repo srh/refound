@@ -372,21 +372,29 @@ void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &pref
 
 void help_remove_table(
         FDBTransaction *txn,
-        database_id_t db_id,
         const namespace_id_t &table_id,
-        const std::string &table_name) {
-    ukey_string table_index_key = table_by_unverified_name_key(db_id, table_name);
+        const table_config_t &config,
+        const signal_t *interruptor) {
+    ukey_string table_index_key
+        = table_by_name_key(config.basic.database, config.basic.name);
 
     // Wipe table config (from pkey and indices), and wipe table contents.
     transaction_erase_uq_index<table_config_by_id>(txn, table_id);
     transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
 
+    // TODO: Parallelize this.
+    // For any sindexes with jobs, remove their jobs.
+    for (auto &&pair : config.fdb_sindexes) {
+        fdb_shared_task_id task = pair.second.creation_task_or_nil;
+        if (!task.value.is_nil()) {
+            remove_fdb_task_and_jobs(txn, task, interruptor);
+        }
+    }
+
     std::string prefix = table_key_prefix(table_id);
     transaction_clear_prefix_range(txn, prefix);
 }
 
-// FYI, all callers right now do in fact pass a valid table name.  Doesn't touch the
-// reqlfdb_config_version, because this is also used by the db_drop cleanup job.
 bool help_remove_table_if_exists(
         FDBTransaction *txn,
         database_id_t db_id,
@@ -405,7 +413,11 @@ bool help_remove_table_if_exists(
         return false;
     }
 
-    help_remove_table(txn, db_id, table_id, table_name);
+    fdb_value_fut<table_config_t> table_by_id_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+    table_config_t config = table_by_id_fut.block_and_deserialize(interruptor);
+
+    help_remove_table(txn, table_id, config, interruptor);
     return true;
 }
 
@@ -455,7 +467,7 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
 
     // Okay, the db's present, and the table's present.  Drop the table.
 
-    help_remove_table(txn, db_id, table_id, table_name.str());
+    help_remove_table(txn, table_id, config, interruptor);
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 

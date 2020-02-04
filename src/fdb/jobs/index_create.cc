@@ -57,6 +57,10 @@ The information about the in-progress construction of the index changes frequent
 it needs to be stored elsewhere.  It gets stored in index_jobstate_by_task.
 */
 
+// TODO: To handle time series case, where index creation chases/lags behind time series
+// insertion point, we should compute [start,end] key interval of index creation task
+// and put that in the jobstate.  Two keys instead of one.
+
 ql::datum_t parse_table_value(const char *value, size_t data_length) {
     buffer_read_stream_t stream(value, data_length);
 

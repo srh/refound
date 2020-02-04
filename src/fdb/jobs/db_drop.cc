@@ -38,6 +38,8 @@ MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const f
         std::string table_name
             = unserialize_table_by_name_table_name(key, db_drop_info.database_id);
 
+        // TODO: This is performing a series of round-trips.  We should parallelize
+        // this, especially with the round trips from removing the task.
         bool exists = help_remove_table_if_exists(
             txn, db_drop_info.database_id, table_name, interruptor);
         guarantee(exists, "Table was just seen to exist, now it doesn't.");
