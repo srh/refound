@@ -149,7 +149,7 @@ scoped_ptr_t<val_t> nth_term_impl(const term_t *term, scope_env_t *env,
         counted_t<datum_stream_t> seq = aggregate->as_seq(env->env);
         if (seq->is_grouped()) {
             counted_t<grouped_data_t> result
-                = seq->to_array(env->env)->as_grouped_data();
+                = seq->to_array(env->env)->as_grouped_data(env->env);
             // (aggregate is empty, because maybe_grouped_data sets at most one of
             // gd and aggregate, so we don't have to worry about re-evaluating it.
             counted_t<grouped_data_t> out(new grouped_data_t());
@@ -326,7 +326,11 @@ private:
                 ? new_val(make_counted<selection_t>(t, new_ds))
                 : new_val(env->env, new_ds);
         } else {
-            rcheck_typed_target(v, false, "Cannot slice non-sequences.");
+            // This was an rfail_typed_target.  But since we don't want to call exc_type
+            // on val_t anymore, and we _know_ that v is not is_convertible(DATUM)
+            // because code above checks that condition, we can have base_exc_t::LOGIC
+            // be hard-coded here.
+            rfail_target(v, base_exc_t::LOGIC, "Cannot slice non-sequences.");
         }
         unreachable();
     }

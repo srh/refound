@@ -129,7 +129,7 @@ private:
 
     virtual scoped_ptr_t<val_t>
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> t = args->arg(env, 0)->as_table();
+        counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
         return_changes_t return_changes = parse_return_changes(env, args, backtrace());
 
         optional<counted_t<const ql::func_t> > conflict_func;
@@ -323,7 +323,7 @@ private:
         datum_t stats = new_stats_object();
         std::set<std::string> conditions;
         if (v0->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
-            counted_t<single_selection_t> sel = v0->as_single_selection();
+            counted_t<single_selection_t> sel = v0->as_single_selection(env->env);
 
             if (ignore_write_hook == ignore_write_hook_t::YES) {
                 env->env->get_user_context().require_config_permission(

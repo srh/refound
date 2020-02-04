@@ -38,14 +38,14 @@ private:
         if (!func.has() && !idx.has()) {
             // TODO: make this use a table slice.
             if (uses_idx() && v->get_type().is_convertible(val_t::type_t::TABLE)) {
-                return on_idx(env->env, v->as_table(), std::move(idx));
+                return on_idx(env->env, v->as_table(env->env), std::move(idx));
             } else {
                 return v->as_seq(env->env)->run_terminal(env->env, T(backtrace()));
             }
         } else if (func.has() && !idx.has()) {
             return v->as_seq(env->env)->run_terminal(env->env, T(backtrace(), func));
         } else if (!func.has() && idx.has()) {
-            return on_idx(env->env, v->as_table(), std::move(idx));
+            return on_idx(env->env, v->as_table(env->env), std::move(idx));
         } else {
             rfail(base_exc_t::LOGIC,
                   "Cannot provide both a function and an index to %s.",
@@ -230,7 +230,7 @@ private:
                                           args_t *args,
                                           eval_flags_t) const {
         counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
-        counted_t<table_t> table = args->arg(env, 2)->as_table();
+        counted_t<table_t> table = args->arg(env, 2)->as_table(env->env);
 
         // Either a field name or a predicate function:
         counted_t<const func_t> predicate_function;
@@ -379,7 +379,7 @@ private:
         bool append_index = false;
         if (scoped_ptr_t<val_t> index = args->optarg(env, "index")) {
             std::string index_str = index->as_str(env).to_std();
-            counted_t<table_t> tbl = args->arg(env, 0)->as_table();
+            counted_t<table_t> tbl = args->arg(env, 0)->as_table(env->env);
             counted_t<table_slice_t> slice;
             if (index_str == tbl->get_pkey()) {
                 auto field = index->as_datum(env);
@@ -617,7 +617,7 @@ private:
                         streams.size()));
             }
         } else if (v->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
-            auto sel = v->as_single_selection();
+            auto sel = v->as_single_selection(env->env);
             return new_val(
                 env->env,
                 sel->get_tbl()->tbl->read_changes(
@@ -697,7 +697,7 @@ private:
 
     virtual scoped_ptr_t<val_t>
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_slice_t> tbl_slice = args->arg(env, 0)->as_table_slice();
+        counted_t<table_slice_t> tbl_slice = args->arg(env, 0)->as_table_slice(env->env);
         bool left_open = is_left_open(env, args);
         bool right_open = is_right_open(env, args);
         datum_t lb = check_bound(env->env, args->arg(env, 1), datum_t::type_t::MINVAL);

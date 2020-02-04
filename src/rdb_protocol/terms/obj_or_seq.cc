@@ -115,9 +115,13 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         }
     }
 
-    rfail_typed_target(
-        v0, "Cannot perform %s on a non-object non-sequence `%s`.",
-        target->name(), v0->trunc_print(env->env).c_str());
+    /* This was an rfail_typed_target.  But since we don't want to call exc_type on
+       val_t anymore (since we'd have to pass an env_t), and we _know_ that v0 is not
+       is_convertable(DATUM) because code above checks that condition, so
+       base_exc_t::LOGIC can be hard-coded here. */
+    rfail_target(v0, base_exc_t::LOGIC,
+        "Cannot perform %s on a non-object non-sequence `%s`.",
+            target->name(), v0->trunc_print(env->env).c_str());
 }
 
 obj_or_seq_op_term_t::obj_or_seq_op_term_t(

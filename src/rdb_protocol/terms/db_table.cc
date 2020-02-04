@@ -278,10 +278,10 @@ private:
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_db();
+            db = dbv->as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
-            db = args->arg(env, 0)->as_db();
+            db = args->arg(env, 0)->as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
@@ -422,10 +422,10 @@ private:
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_db();
+            db = dbv->as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
-            db = args->arg(env, 0)->as_db();
+            db = args->arg(env, 0)->as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
@@ -520,9 +520,9 @@ private:
         if (args->num_args() == 0) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_db();
+            db = dbv->as_db(env->env);
         } else {
-            db = args->arg(env, 0)->as_db();
+            db = args->arg(env, 0)->as_db(env->env);
         }
 
         std::vector<name_string_t> table_list;
@@ -570,7 +570,7 @@ private:
             current database. This is why we don't subclass from `table_or_db_meta_term_t`.
             */
             if (target->get_type().is_convertible(val_t::type_t::DB)) {
-                counted_t<const ql::db_t> db = target->as_db();
+                counted_t<const ql::db_t> db = target->as_db(env->env);
                 if (db->name == artificial_reql_cluster_interface_t::database_name) {
                     admin_err_t error{
                         strprintf("Database `%s` is special; you can't configure it.",
@@ -592,7 +592,7 @@ private:
                     REQL_RETHROW(error);
                 }
             } else {
-                counted_t<table_t> table = target->as_table();
+                counted_t<table_t> table = target->as_table(env->env);
                 name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
                 admin_err_t error;
                 /// OOO: Fdb-ize this here.  Look at make_single_selection in
@@ -622,7 +622,7 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table();
+        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
         name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
@@ -678,10 +678,10 @@ private:
             target = args->arg(env, 0);
         }
         if (target->get_type().is_convertible(val_t::type_t::DB)) {
-            return eval_impl_on_table_or_db(env, args, flags, target->as_db(),
+            return eval_impl_on_table_or_db(env, args, flags, target->as_db(env->env),
                 r_nullopt);
         } else {
-            counted_t<table_t> table = target->as_table();
+            counted_t<table_t> table = target->as_table(env->env);
             name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
             return eval_impl_on_table_or_db(env, args, flags, table->db,
                                             make_optional(table_name));
@@ -981,7 +981,7 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
         // OOO: Fdb-ize?  Fdb already syncs.  Maybe there's a mode which controls this.
-        counted_t<table_t> t = args->arg(env, 0)->as_table();
+        counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
         bool success = t->sync(env->env);
         r_sanity_check(success);
         ql::datum_object_builder_t result;
@@ -1014,14 +1014,14 @@ private:
                 scoped_ptr_t<val_t> scope = args->arg(env, 0);
                 if (scope->get_type().is_convertible(val_t::type_t::DB)) {
                     // TODO: Config version consistency logic with prior db_t name lookup.
-                    const database_id_t db_id = scope->as_db()->id;
+                    const database_id_t db_id = scope->as_db(env->env)->id;
                     permissions_selector = [db_id](auth::user_t *user) -> auth::permissions_t * {
                         return &user->get_database_permissions(db_id);
                     };
                 } else {
                     // TODO: Config version consistency logic with the table name lookup
                     // that made the namespace_id_t.
-                    counted_t<table_t> table = scope->as_table();
+                    counted_t<table_t> table = scope->as_table(env->env);
                     const namespace_id_t table_id = table->get_id();
 
                     permissions_selector = [table_id](auth::user_t *user) -> auth::permissions_t * {
@@ -1118,12 +1118,12 @@ private:
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv.has());
-            db = dbv->as_db();
+            db = dbv->as_db(env->env);
             db_table_name.first = db->id;
             db_table_name.second = get_name(env->env, args->arg(env, 0), "Table");
         } else {
             r_sanity_check(args->num_args() == 2);
-            db = args->arg(env, 0)->as_db();
+            db = args->arg(env, 0)->as_db(env->env);
             db_table_name.first = db->id;
             db_table_name.second = get_name(env->env, args->arg(env, 1), "Table");
         }
@@ -1213,7 +1213,7 @@ private:
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         return new_val(single_selection_t::from_key(
                            backtrace(),
-                           args->arg(env, 0)->as_table(),
+                           args->arg(env, 0)->as_table(env->env),
                            args->arg(env, 1)->as_datum(env)));
     }
     virtual const char *name() const { return "get"; }
@@ -1240,7 +1240,7 @@ private:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table();
+        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
         std::string index_str = index ? index->as_str(env).to_std() : table->get_pkey();
 

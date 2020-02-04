@@ -288,8 +288,11 @@ private:
             }
         }
 
-        rfail_typed_target(val, "Cannot coerce %s to %s.",
-                           get_name(start_type).c_str(), get_name(end_type).c_str());
+        // This used to be rfail_typed_target, but because that macro can't generally
+        // take an env, we manually call exc_type, pass it to rfail_target.
+        rfail_target(val, exc_type(env->env, val.get()),
+            "Cannot coerce %s to %s.",
+             get_name(start_type).c_str(), get_name(end_type).c_str());
     }
     virtual const char *name() const { return "coerce_to"; }
 };
@@ -372,14 +375,14 @@ private:
 
         switch (type) {
         case DB_TYPE: {
-            counted_t<const db_t> database = v->as_db();
+            counted_t<const db_t> database = v->as_db(env->env);
             r_sanity_check(!database->id.value.is_nil());
 
             b |= info.add("name", datum_t(database->name.str()));
             b |= info.add("id", datum_t(uuid_to_str(database->id)));
         } break;
         case TABLE_TYPE: {
-            counted_t<table_t> table = v->as_table();
+            counted_t<table_t> table = v->as_table(env->env);
             r_sanity_check(!table->get_id().value.is_nil());
 
             b |= info.add("name", datum_t(table->name));
@@ -427,7 +430,7 @@ private:
             }
         } break;
         case TABLE_SLICE_TYPE: {
-            counted_t<table_slice_t> ts = v->as_table_slice();
+            counted_t<table_slice_t> ts = v->as_table_slice(env->env);
             b |= info.add("table", val_info(env, new_val(ts->get_tbl())));
             b |= info.add("index",
                           ts->idx ? datum_t(ts->idx->c_str()) : datum_t::null());
@@ -480,7 +483,7 @@ private:
         } break;
         case SINGLE_SELECTION_TYPE: {
             b |= info.add("table",
-                          val_info(env, new_val(v->as_single_selection()->get_tbl())));
+                          val_info(env, new_val(v->as_single_selection(env->env)->get_tbl())));
         } break;
 
         case FUNC_TYPE: {

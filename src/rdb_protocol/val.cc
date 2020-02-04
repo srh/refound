@@ -679,19 +679,19 @@ datum_t val_t::as_datum(env_t *env) const {
     } else if (type.raw_type == type_t::SINGLE_SELECTION) {
         return single_selection()->get(env);
     }
-    rcheck_literal_type(type_t::DATUM);
+    rcheck_literal_type(env, type_t::DATUM);
     unreachable();
 }
 
-counted_t<table_t> val_t::as_table() {
-    rcheck_literal_type(type_t::TABLE);
+counted_t<table_t> val_t::as_table(env_t *env) {
+    rcheck_literal_type(env, type_t::TABLE);
     return table();
 }
-counted_t<table_slice_t> val_t::as_table_slice() {
+counted_t<table_slice_t> val_t::as_table_slice(env_t *env) {
     if (type.raw_type == type_t::TABLE) {
         return make_counted<table_slice_t>(table());
     } else {
-        rcheck_literal_type(type_t::TABLE_SLICE);
+        rcheck_literal_type(env, type_t::TABLE_SLICE);
         return table_slice();
     }
 }
@@ -702,34 +702,34 @@ counted_t<datum_stream_t> val_t::as_seq(env_t *env) {
     } else if (type.raw_type == type_t::SELECTION) {
         return selection()->seq;
     } else if (type.raw_type == type_t::TABLE_SLICE || type.raw_type == type_t::TABLE) {
-        return as_table_slice()->as_seq(env, backtrace());
+        return as_table_slice(env)->as_seq(env, backtrace());
     } else if (type.raw_type == type_t::DATUM) {
         return datum().as_datum_stream(backtrace());
     }
-    rcheck_literal_type(type_t::SEQUENCE);
+    rcheck_literal_type(env, type_t::SEQUENCE);
     unreachable();
 }
 
-counted_t<grouped_data_t> val_t::as_grouped_data() {
-    rcheck_literal_type(type_t::GROUPED_DATA);
+counted_t<grouped_data_t> val_t::as_grouped_data(env_t *env) {
+    rcheck_literal_type(env, type_t::GROUPED_DATA);
     return boost::get<counted_t<grouped_data_t> >(u);
 }
 
 counted_t<grouped_data_t> val_t::as_promiscuous_grouped_data(env_t *env) {
     return ((type.raw_type == type_t::SEQUENCE) && sequence()->is_grouped())
-        ? sequence()->to_array(env)->as_grouped_data()
-        : as_grouped_data();
+        ? sequence()->to_array(env)->as_grouped_data(env)
+        : as_grouped_data(env);
 }
 
 counted_t<grouped_data_t> val_t::maybe_as_grouped_data() {
-    return (type.raw_type == type_t::GROUPED_DATA)
-        ? as_grouped_data()
+    return type.raw_type == type_t::GROUPED_DATA
+        ? boost::get<counted_t<grouped_data_t>>(u)
         : counted_t<grouped_data_t>();
 }
 
 counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
     return ((type.raw_type == type_t::SEQUENCE) && sequence()->is_grouped())
-        ? sequence()->to_array(env)->as_grouped_data()
+        ? sequence()->to_array(env)->as_grouped_data(env)
         : maybe_as_grouped_data();
 }
 
@@ -752,17 +752,19 @@ counted_t<selection_t> val_t::as_selection(env_t *env) {
     if (type.raw_type == type_t::SELECTION) {
         return selection();
     } else if (type.is_convertible(type_t::TABLE_SLICE)) {
-        counted_t<table_slice_t> slice = as_table_slice();
+        counted_t<table_slice_t> slice = as_table_slice(env);
         return make_counted<selection_t>(
             slice->get_tbl(),
             slice->as_seq(env, backtrace()));
     }
-    rcheck_literal_type(type_t::SELECTION);
+    rcheck_literal_type(env, type_t::SELECTION);
     unreachable();
 }
 
-counted_t<single_selection_t> val_t::as_single_selection() {
-    rcheck_literal_type(type_t::SINGLE_SELECTION);
+counted_t<single_selection_t> val_t::as_single_selection(env_t *env) {
+    // The env doesn't actually get used, since it would only get used if this was a
+    // single selection and the rcheck _failed_.
+    rcheck_literal_type(env, type_t::SINGLE_SELECTION);
     return single_selection();
 }
 
@@ -773,12 +775,12 @@ counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut)
     }
 
     if (shortcut == NO_SHORTCUT) {
-        rcheck_literal_type(type_t::FUNC);
+        rcheck_literal_type(env, type_t::FUNC);
         unreachable();
     }
 
     if (!type.is_convertible(type_t::DATUM)) {
-        rcheck_literal_type(type_t::FUNC);
+        rcheck_literal_type(env, type_t::FUNC);
         unreachable();
     }
 
@@ -801,8 +803,8 @@ counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut)
     }
 }
 
-counted_t<const db_t> val_t::as_db() const {
-    rcheck_literal_type(type_t::DB);
+counted_t<const db_t> val_t::as_db(env_t *env) const {
+    rcheck_literal_type(env, type_t::DB);
     return db();
 }
 
@@ -854,19 +856,23 @@ datum_string_t val_t::as_str(env_t *env) const {
     }
 }
 
-void val_t::rcheck_literal_type(type_t::raw_type_t expected_raw_type) const {
-    // TODO: Use a custom print function here, instead of the one that takes env.
-    rcheck_typed_target(
-        this, type.raw_type == expected_raw_type,
-        strprintf("Expected type %s but found %s:\n%%s",  // <- TODO
-                  type_t(expected_raw_type).name(), type.name() /*, print().c_str() */));
+
+
+void val_t::rcheck_literal_type(env_t *env, type_t::raw_type_t expected_raw_type) const {
+    // God, it is insane that this uses env_t.
+    // TODO: Change the query language so that this doesn't take env_t.
+    rcheck(
+        type.raw_type == expected_raw_type,
+        exc_type(env, this),
+        strprintf("Expected type %s but found %s:\n%s",
+                  type_t(expected_raw_type).name(), type.name(), print(env).c_str()));
 }
 
 std::string val_t::print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
         return as_datum(env).print();
     } else if (get_type().is_convertible(type_t::DB)) {
-        return strprintf("db(\"%s\")", as_db()->name.c_str());
+        return strprintf("db(\"%s\")", as_db(env)->name.c_str());
     } else if (get_type().is_convertible(type_t::TABLE)) {
         return strprintf("table(\"%s\")", get_underlying_table()->name.c_str());
     } else if (get_type().is_convertible(type_t::SELECTION)) {

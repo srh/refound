@@ -59,20 +59,19 @@ base_exc_t::type_t exc_type(const datum_t &d) {
     r_sanity_check(d.has());
     return exc_type(&d);
 }
-base_exc_t::type_t exc_type(const val_t *v) {
+
+base_exc_t::type_t exc_type(env_t *env, const val_t *v) {
     r_sanity_check(v);
     if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
         // QQQ: Oh hell no, we can't pass nullptr here.  Figure out what we want.
         // Maybe we need to pre-convert the val to a datum in the caller.
         // Or split apart the rfail_typed_target macros.
-        return exc_type(v->as_datum(static_cast<env_t *>(nullptr)));
+        return exc_type(v->as_datum(env));
     } else {
         return base_exc_t::LOGIC;
     }
 }
-base_exc_t::type_t exc_type(const scoped_ptr_t<val_t> &v) {
-    return exc_type(v.get_or_null());
-}
+
 std::string format_array_size_error(size_t limit) {
   return "Array over size limit `" + std::to_string(limit) + "`.  To raise the number "
          "of allowed elements, modify the `array_limit` option to `.run` "

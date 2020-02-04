@@ -35,7 +35,7 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table();
+        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
 
         bool existed = false;
         admin_err_t error;
@@ -148,7 +148,7 @@ public:
     }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table();
+        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
 
         datum_t write_hook;
         try {

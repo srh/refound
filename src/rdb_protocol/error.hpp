@@ -209,8 +209,7 @@ class env_t;
 class val_t;
 base_exc_t::type_t exc_type(const datum_t *d);
 base_exc_t::type_t exc_type(const datum_t &d);
-base_exc_t::type_t exc_type(const val_t *d);
-base_exc_t::type_t exc_type(const scoped_ptr_t<val_t> &v);
+base_exc_t::type_t exc_type(env_t *env, const val_t *d);
 
 // r_sanity_check should be used in place of guarantee if you think the
 // guarantee will almost always fail due to an error in the query logic rather

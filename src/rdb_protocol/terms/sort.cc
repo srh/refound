@@ -63,7 +63,7 @@ private:
         counted_t<datum_stream_t> seq;
         scoped_ptr_t<val_t> v0 = args->arg(env, 0);
         if (v0->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
-            tbl_slice = v0->as_table_slice();
+            tbl_slice = v0->as_table_slice(env->env);
         } else if (v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
             auto selection = v0->as_selection(env->env);
             tbl_slice = make_counted<table_slice_t>(selection->table);
@@ -142,7 +142,7 @@ private:
         scoped_ptr_t<val_t> v = args->arg(env, 0);
         scoped_ptr_t<val_t> idx = args->optarg(env, "index");
         if (v->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
-            counted_t<table_slice_t> tbl_slice = v->as_table_slice();
+            counted_t<table_slice_t> tbl_slice = v->as_table_slice(env->env);
             std::string tbl_pkey = tbl_slice->get_tbl()->get_pkey();
             std::string idx_str = idx.has() ? idx->as_str(env).to_std() : tbl_pkey;
             if (idx.has() && idx_str == tbl_pkey) {

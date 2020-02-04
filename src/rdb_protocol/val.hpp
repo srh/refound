@@ -230,13 +230,14 @@ public:
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
     ~val_t();
 
-    counted_t<const db_t> as_db() const;
-    counted_t<table_t> as_table();
+    counted_t<const db_t> as_db(env_t *env) const;
+    counted_t<table_t> as_table(env_t *env);
     counted_t<table_t> get_underlying_table() const;
-    counted_t<table_slice_t> as_table_slice();
+    counted_t<table_slice_t> as_table_slice(env_t *env);
     counted_t<selection_t> as_selection(env_t *env);
     counted_t<datum_stream_t> as_seq(env_t *env);
-    counted_t<single_selection_t> as_single_selection();
+    // The env doesn't get used, it's purely type safety.
+    counted_t<single_selection_t> as_single_selection(env_t *env);
     // See func.hpp for an explanation of shortcut functions.
     counted_t<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT);
 
@@ -246,7 +247,7 @@ public:
     // coerce to grouped data from a grouped stream.  (We can't use the usual
     // `is_convertible` interface because the type information is actually a
     // property of the stream, because I'm a terrible programmer.)
-    counted_t<grouped_data_t> as_grouped_data();
+    counted_t<grouped_data_t> as_grouped_data(env_t *env);
     counted_t<grouped_data_t> as_promiscuous_grouped_data(env_t *env);
     counted_t<grouped_data_t> maybe_as_grouped_data();
     counted_t<grouped_data_t> maybe_as_promiscuous_grouped_data(env_t *env);
@@ -295,7 +296,7 @@ public:
 
 private:
     friend int val_type(env_t *env, const scoped_ptr_t<val_t> &v); // type_manip version
-    void rcheck_literal_type(type_t::raw_type_t expected_raw_type) const;
+    void rcheck_literal_type(env_t *env, type_t::raw_type_t expected_raw_type) const;
 
     type_t type;
     // We pretend that this variant is a union -- as if it doesn't have type
