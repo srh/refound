@@ -344,21 +344,6 @@ void test_rdb_env_t::instance_t::interrupt() {
     interruptor.pulse();
 }
 
-bool test_rdb_env_t::instance_t::db_find(const name_string_t &name,
-        UNUSED signal_t *local_interruptor, counted_t<const ql::db_t> *db_out,
-        admin_err_t *error_out) {
-    auto it = databases.find(name);
-    if (it == databases.end()) {
-        *error_out = admin_err_t{
-            "No database with that name",
-            query_state_t::FAILED};
-        return false;
-    } else {
-        *db_out = make_counted<const ql::db_t>(it->second, name);
-        return true;
-    }
-}
-
 bool test_rdb_env_t::instance_t::db_config(
         UNUSED auth::user_context_t const &user_context,
         UNUSED const counted_t<const ql::db_t> &db,

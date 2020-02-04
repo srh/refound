@@ -53,10 +53,6 @@ public:
             signal_t *interruptor_on_home,
             ql::datum_t *result_out,
             admin_err_t *error_out);
-    bool db_find(const name_string_t &name,
-            signal_t *interruptor,
-            counted_t<const ql::db_t> *db_out,
-            admin_err_t *error_out);
     bool db_config(
             auth::user_context_t const &user_context,
             const counted_t<const ql::db_t> &db,

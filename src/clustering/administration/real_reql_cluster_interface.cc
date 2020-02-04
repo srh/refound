@@ -145,25 +145,6 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
     return true;
 }
 
-bool real_reql_cluster_interface_t::db_find(
-        const name_string_t &name,
-        UNUSED signal_t *interruptor_on_caller,
-        counted_t<const ql::db_t> *db_out,
-        admin_err_t *error_out) {
-    // TODO: fdb-ize this.
-    guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-    /* Find the specified database */
-    databases_semilattice_metadata_t db_metadata;
-    get_databases_metadata(&db_metadata);
-    database_id_t db_id;
-    if (!search_db_metadata_by_name(db_metadata, name, &db_id, error_out)) {
-        return false;
-    }
-    *db_out = make_counted<const ql::db_t>(db_id, name);
-    return true;
-}
-
 bool real_reql_cluster_interface_t::db_config(
         auth::user_context_t const &user_context,
         const counted_t<const ql::db_t> &db,
@@ -1051,14 +1032,8 @@ void real_reql_cluster_interface_t::make_single_selection(
         throw no_such_table_exc_t();
     }
 
-    counted_t<ql::db_t const> db;
-    if (!artificial_reql_cluster_interface->db_find(
-            name_string_t::guarantee_valid("rethinkdb"),
-            env->interruptor,
-            &db,
-            &error)) {
-        throw admin_op_exc_t(error);
-    }
+    // TODO: This doesn't initialize config_version.  (It shouldn't have to!)
+    counted_t<ql::db_t const> db = make_counted<const ql::db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name);
 
     counted_t<ql::table_t> table = make_counted<ql::table_t>(
         make_counted<artificial_table_t>(m_rdb_context, db->id, table_backend),

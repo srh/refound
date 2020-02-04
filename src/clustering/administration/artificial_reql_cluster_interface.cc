@@ -34,18 +34,6 @@ admin_err_t db_already_exists_error(const name_string_t &db_name) {
             query_state_t::FAILED};
 }
 
-bool artificial_reql_cluster_interface_t::db_find(
-        const name_string_t &name,
-        signal_t *interruptor,
-        counted_t<const ql::db_t> *db_out,
-        admin_err_t *error_out) {
-    if (name == artificial_reql_cluster_interface_t::database_name) {
-        *db_out = make_counted<const ql::db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name);
-        return true;
-    }
-    return next_or_error(error_out) && m_next->db_find(name, interruptor, db_out, error_out);
-}
-
 bool artificial_reql_cluster_interface_t::db_config(
         auth::user_context_t const &user_context,
         const counted_t<const ql::db_t> &db,
