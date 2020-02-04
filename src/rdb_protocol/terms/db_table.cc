@@ -666,7 +666,7 @@ protected:
     virtual scoped_ptr_t<val_t> eval_impl_on_table_or_db(
             scope_env_t *env, args_t *args, eval_flags_t flags,
             const counted_t<const ql::db_t> &db,
-            const optional<name_string_t> &name_if_table) const = 0;
+            counted_t<table_t> &&table_or_null) const = 0;
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t flags) const {
@@ -679,12 +679,11 @@ private:
         }
         if (target->get_type().is_convertible(val_t::type_t::DB)) {
             return eval_impl_on_table_or_db(env, args, flags, target->as_db(env->env),
-                r_nullopt);
+                counted_t<table_t>());
         } else {
             counted_t<table_t> table = target->as_table(env->env);
-            name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
             return eval_impl_on_table_or_db(env, args, flags, table->db,
-                                            make_optional(table_name));
+                                            std::move(table));
         }
     }
 };
@@ -700,10 +699,10 @@ private:
     static char const * const wait_writes_str;
     static char const * const wait_all_str;
 
-    virtual scoped_ptr_t<val_t> eval_impl_on_table_or_db(
+    scoped_ptr_t<val_t> eval_impl_on_table_or_db(
             scope_env_t *env, args_t *args, eval_flags_t,
 	    const counted_t<const ql::db_t> &db,
-            const optional<name_string_t> &name_if_table) const {
+            counted_t<table_t> &&table_or_null) const final {
         // OOO: FDB-ize this function.  I think it's just table index building that
         // we'd need to wait for -- and for db's, it's all the db's tables' index
         // building operations.
@@ -747,9 +746,9 @@ private:
         bool success;
         admin_err_t error;
         try {
-            if (static_cast<bool>(name_if_table)) {
+            if (table_or_null.has()) {
                 success = env->env->reql_cluster_interface()->table_wait(db,
-                    *name_if_table, readiness, &combined_interruptor, &result, &error);
+                    name_string_t::guarantee_valid(table_or_null->name.c_str()), readiness, &combined_interruptor, &result, &error);
             } else {
                 success = env->env->reql_cluster_interface()->db_wait(
                     db, readiness, &combined_interruptor, &result, &error);
@@ -766,7 +765,7 @@ private:
         }
         return new_val(result);
     }
-    virtual const char *name() const { return "wait"; }
+    const char *name() const final { return "wait"; }
 };
 
 char const * const wait_term_t::wait_outdated_str = "ready_for_outdated_reads";
@@ -790,10 +789,10 @@ private:
         return result;
     }
 
-    virtual scoped_ptr_t<val_t> eval_impl_on_table_or_db(
+    scoped_ptr_t<val_t> eval_impl_on_table_or_db(
             scope_env_t *env, args_t *args, eval_flags_t,
             const counted_t<const ql::db_t> &db,
-            const optional<name_string_t> &name_if_table) const {
+            counted_t<table_t> &&table_or_null) const final {
         // OOO: Fdb-ize?  Remove this?  Make it a no-op?  Gradually let the shards
         // table config params and such wither away?
 
@@ -838,11 +837,11 @@ private:
             admin_err_t error;
             try {
                 /* Perform the operation */
-                if (static_cast<bool>(name_if_table)) {
+                if (table_or_null.has()) {
                     success = env->env->reql_cluster_interface()->table_reconfigure(
                         env->env->get_user_context(),
                         db,
-                        *name_if_table,
+                        name_string_t::guarantee_valid(table_or_null->name.c_str()),
                         config_params,
                         dry_run,
                         env->env->interruptor,
@@ -894,7 +893,7 @@ private:
                     "specify shards, replicas, etc.");
             }
 
-            if (!static_cast<bool>(name_if_table)) {
+            if (!table_or_null.has()) {
                 rfail(base_exc_t::LOGIC, "Can't emergency repair an entire database "
                     "at once; instead you should run `reconfigure()` on each table "
                     "individually.");
@@ -907,7 +906,7 @@ private:
                 success = env->env->reql_cluster_interface()->table_emergency_repair(
                     env->env->get_user_context(),
                     db,
-                    *name_if_table,
+                    name_string_t::guarantee_valid(table_or_null->name.c_str()),
                     mode,
                     dry_run,
                     env->env->interruptor,
@@ -922,7 +921,7 @@ private:
             return new_val(result);
         }
     }
-    virtual const char *name() const { return "reconfigure"; }
+    const char *name() const final { return "reconfigure"; }
 };
 
 class rebalance_term_t : public table_or_db_meta_term_t {
@@ -930,10 +929,10 @@ public:
     rebalance_term_t(compile_env_t *env, const raw_term_t &term)
         : table_or_db_meta_term_t(env, term, optargspec_t({})) { }
 private:
-    virtual scoped_ptr_t<val_t> eval_impl_on_table_or_db(
+    scoped_ptr_t<val_t> eval_impl_on_table_or_db(
             scope_env_t *env, args_t *args, eval_flags_t,
             const counted_t<const ql::db_t> &db,
-            const optional<name_string_t> &name_if_table) const {
+            counted_t<table_t> &&table_or_null) const final {
         // OOO: Fdb-ize?  Remove this?  Or make it a no-op.
 
         // Don't allow a rebalance call without explicit database
@@ -945,11 +944,11 @@ private:
         bool success;
         admin_err_t error;
         try {
-            if (static_cast<bool>(name_if_table)) {
+            if (table_or_null.has()) {
                 success = env->env->reql_cluster_interface()->table_rebalance(
                     env->env->get_user_context(),
                     db,
-                    *name_if_table,
+                    name_string_t::guarantee_valid(table_or_null->name.c_str()),
                     env->env->interruptor,
                     &result,
                     &error);
@@ -969,7 +968,7 @@ private:
         }
         return new_val(result);
     }
-    virtual const char *name() const { return "rebalance"; }
+    const char *name() const final { return "rebalance"; }
 };
 
 class sync_term_t : public meta_op_term_t {
