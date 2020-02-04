@@ -12,6 +12,8 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 
+// OOO: check cv in every function necessary -- don't just check db id existence or something like that, because db/table lookups might have been renamed -- the id valid, but the name lookup out of date.
+
 struct db_config_by_id {
     using ukey_type = database_id_t;
     using value_type = name_string_t;
@@ -567,11 +569,11 @@ std::vector<counted_t<const ql::db_t>> config_cache_db_list(
 // This is listed in ascending order.
 std::vector<name_string_t> config_cache_table_list(
         FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
         const database_id_t &db_id,
         const signal_t *interruptor) {
 
-    fdb_future db_by_id_fut
-        = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     std::vector<name_string_t> table_names;
 
@@ -592,11 +594,8 @@ std::vector<name_string_t> config_cache_table_list(
         return true;
     });
 
-
-    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
-    if (!db_by_id_value.present) {
-        throw config_version_exc_t();
-    }
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
 
     return table_names;
 }

@@ -538,8 +538,7 @@ private:
         } else {
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
-                // TODO: Check cv.
-                table_list = config_cache_table_list(txn, db->id, env->env->interruptor);
+                table_list = config_cache_table_list(txn, db->cv.get(), db->id, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "db_list txn failed");
         }
@@ -780,8 +779,7 @@ private:
                 std::vector<name_string_t> table_list;
                 fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                     // TODO: Use a snapshot read for this?  Config txn appropriately?
-                    // OOO: Check cv.
-                    table_list = config_cache_table_list(txn, db->id, env->env->interruptor);
+                    table_list = config_cache_table_list(txn, db->cv.get(), db->id, env->env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
 
