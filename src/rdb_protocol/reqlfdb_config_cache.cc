@@ -667,9 +667,22 @@ MUST_USE bool config_cache_sindex_create(
     return true;
 }
 
+
+void help_erase_sindex_content(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const sindex_metaconfig_t &cfg,
+        const signal_t *interruptor) {
+    if (!cfg.creation_task_or_nil.value.is_nil()) {
+        remove_fdb_task_and_jobs(txn, cfg.creation_task_or_nil, interruptor);
+        transaction_erase_uq_index<index_jobstate_by_task>(txn, cfg.creation_task_or_nil);
+    }
+
+    transaction_clear_prefix_range(txn, table_index_prefix(table_id, cfg.sindex_id));
+}
+
 // TODO: Users' db/table config permissions ought to get cleaned up when we drop a db or table.
 
-// OOO: Sindex job destruction must also get invoked when the table gets dropped.
 bool config_cache_sindex_drop(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
@@ -705,14 +718,7 @@ bool config_cache_sindex_drop(
     auto fdb_sindexes_it = table_config.fdb_sindexes.find(index_name);
     guarantee(fdb_sindexes_it != table_config.fdb_sindexes.end());  // TODO: fdb, msg, etc.
 
-    sindex_id_t sindex_id = fdb_sindexes_it->second.sindex_id;
-    fdb_shared_task_id task_id = fdb_sindexes_it->second.creation_task_or_nil;
-    if (!task_id.value.is_nil()) {
-        remove_fdb_task_and_jobs(txn, task_id, interruptor);
-        transaction_erase_uq_index<index_jobstate_by_task>(txn, task_id);
-    }
-
-    transaction_clear_prefix_range(txn, table_index_prefix(table_id, sindex_id));
+    help_erase_sindex_content(txn, table_id, fdb_sindexes_it->second, interruptor);
 
     table_config.sindexes.erase(sindexes_it);
     table_config.fdb_sindexes.erase(fdb_sindexes_it);
@@ -758,6 +764,84 @@ optional<table_config_t> config_cache_get_table_config_without_cv_check(
         ret.reset();
     }
     return ret;
+}
+
+rename_result config_cache_sindex_rename(
+        FDBTransaction *txn,
+        const auth::user_context_t &user_context,
+        reqlfdb_config_version expected_cv,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id,
+        const std::string &old_name,
+        const std::string &new_name,
+        bool overwrite,
+        const signal_t *interruptor) {
+    // TODO: Copy/pasted config_cache_sindex_drop.
+    auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
+        = user_context.transaction_require_db_and_table_config_permission(
+            txn, db_id, table_id);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    fdb_value_fut<table_config_t> table_config_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+
+    auth_fut.block_and_check(interruptor);
+
+    table_config_t table_config;
+    if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
+        crash("table config not present, when id matched config version");
+    }
+
+    auto sindexes_it = table_config.sindexes.find(old_name);
+    if (sindexes_it == table_config.sindexes.end()) {
+        // Index simply doesn't exist.
+        return rename_result::old_not_found;
+    }
+
+    auto fdb_sindexes_it = table_config.fdb_sindexes.find(old_name);
+    guarantee(fdb_sindexes_it != table_config.fdb_sindexes.end());  // TODO: fdb, msg, etc.
+
+    if (old_name == new_name) {
+        // Avoids sindex drop/overwrite logic below, but we did confirm the index
+        // actually exists.
+        return rename_result::success;
+    }
+
+    sindex_config_t sindex_config = std::move(sindexes_it->second);
+    sindex_metaconfig_t fdb_sindex_config = std::move(fdb_sindexes_it->second);
+
+    table_config.sindexes.erase(sindexes_it);
+    table_config.fdb_sindexes.erase(fdb_sindexes_it);
+
+    if (overwrite) {
+        if (table_config.sindexes.erase(new_name) == 1) {
+            // We have to delete the overwritten sindex job if it exists, and its content.
+            auto it = table_config.fdb_sindexes.find(new_name);
+            guarantee(it != table_config.fdb_sindexes.end()); // TODO: fdb, msg, etc.
+            sindex_metaconfig_t removed_metaconfig = it->second;
+
+            help_erase_sindex_content(txn, table_id, removed_metaconfig, interruptor);
+
+            table_config.fdb_sindexes.erase(it);
+        }
+    }
+
+    bool inserted = table_config.sindexes.emplace(new_name, std::move(sindex_config)).second;
+    if (!inserted) {
+        return rename_result::new_already_exists;
+    }
+    inserted = table_config.fdb_sindexes.emplace(new_name, std::move(fdb_sindex_config)).second;
+    guarantee(inserted);  // TODO: fdb, msg, etc.
+
+    // Table by name index unchanged.
+    transaction_set_uq_index<table_config_by_id>(txn, table_id, table_config);
+
+    cv.value++;
+    transaction_set_config_version(txn, cv);
+    return rename_result::success;
 }
 
 ukey_string username_pkey(const auth::username_t &username) {

@@ -305,8 +305,6 @@ ql::datum_t sindex_status_to_datum(
     return std::move(stat).to_datum();
 }
 
-// OOO: Fdb-ize the functions below.
-
 class sindex_create_term_t : public op_term_t {
 public:
     sindex_create_term_t(compile_env_t *env, const raw_term_t &term)
@@ -664,8 +662,6 @@ public:
     virtual const char *name() const { return "sindex_wait"; }
 };
 
-// OOO: Fdb-ize the functions below.
-
 class sindex_rename_term_t : public op_term_t {
 public:
     sindex_rename_term_t(compile_env_t *env, const raw_term_t &term)
@@ -688,23 +684,52 @@ public:
                          new_name.c_str()));
 
         scoped_ptr_t<val_t> overwrite_val = args->optarg(env, "overwrite");
-        bool overwrite = overwrite_val ? overwrite_val->as_bool() : false;
+        const bool overwrite = overwrite_val ? overwrite_val->as_bool() : false;
 
+        rename_result fdb_result;
         try {
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->sindex_rename(
+            // Even if old_name == new_name, we're going to check that the table and
+            // index exists by that name.
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb,
+                    env->env->interruptor, [&](FDBTransaction *txn) {
+                rename_result result = config_cache_sindex_rename(
+                    txn,
                     env->env->get_user_context(),
-                    table->db,
-                    name_string_t::guarantee_valid(table->name.c_str()),
+                    table->tbl->cv.get(),
+                    table->db->id,
+                    table->get_id(),
                     old_name,
                     new_name,
                     overwrite,
-                    env->env->interruptor,
-                    &error)) {
-                REQL_RETHROW(error);
-            }
+                    env->env->interruptor);
+                if (result == rename_result::success) {
+                    commit(txn, env->env->interruptor);
+                }
+                fdb_result = result;
+            });
+            guarantee_fdb_TODO(loop_err, "sindex_drop retry loop failed");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
+
+        switch (fdb_result) {
+        case rename_result::success: break;
+        case rename_result::old_not_found: {
+            // TODO: This is new code, use display_name().
+            admin_err_t error{
+                strprintf("Index `%s` does not exist on table `%s`.",
+                          old_name.c_str(), table->display_name().c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        } break;
+        case rename_result::new_already_exists: {
+            admin_err_t error{
+                strprintf("Index `%s` already exists on table `%s`.",
+                          new_name.c_str(), table->display_name().c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        } break;
+        default: unreachable();
         }
 
         datum_object_builder_t retval;

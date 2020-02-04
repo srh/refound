@@ -107,6 +107,23 @@ table_config_t config_cache_get_table_config(
     const namespace_id_t &table_id,
     const signal_t *interruptor);
 
+enum class rename_result {
+    success,
+    old_not_found,
+    new_already_exists,
+};
+
+rename_result config_cache_sindex_rename(
+        FDBTransaction *txn,
+        const auth::user_context_t &user_context,
+        reqlfdb_config_version expected_cv,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id,
+        const std::string &old_name,
+        const std::string &new_name,
+        bool overwrite,
+        const signal_t *interruptor);
+
 optional<table_config_t> config_cache_get_table_config_without_cv_check(
     FDBTransaction *txn,
     const namespace_id_t &table_id,
