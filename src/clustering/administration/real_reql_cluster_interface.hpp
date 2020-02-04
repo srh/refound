@@ -95,48 +95,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out);
 
-    bool table_reconfigure(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            const table_generate_config_params_t &params,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool db_reconfigure(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const table_generate_config_params_t &params,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
-    bool table_emergency_repair(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            emergency_repair_mode_t,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
-    bool table_rebalance(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool db_rebalance(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
     bool set_write_hook(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
@@ -216,36 +174,6 @@ private:
             ql::datum_t *result_out,
             int *count_out)
             THROWS_ONLY(interrupted_exc_t, admin_op_exc_t);
-
-    void reconfigure_internal(
-            auth::user_context_t const &user_context,
-            const counted_t<const ql::db_t> &db,
-            const namespace_id_t &table_id,
-            const table_generate_config_params_t &params,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out)
-            THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t,
-                failed_table_op_exc_t, maybe_failed_table_op_exc_t, admin_op_exc_t);
-
-    void emergency_repair_internal(
-            auth::user_context_t const &user_context,
-            const counted_t<const ql::db_t> &db,
-            const namespace_id_t &table_id,
-            emergency_repair_mode_t mode,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out)
-            THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t,
-                failed_table_op_exc_t, maybe_failed_table_op_exc_t, admin_op_exc_t);
-
-    void rebalance_internal(
-            auth::user_context_t const &user_context,
-            const namespace_id_t &table_id,
-            signal_t *interruptor,
-            ql::datum_t *results_out)
-            THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t,
-                failed_table_op_exc_t, maybe_failed_table_op_exc_t, admin_op_exc_t);
 
     DISABLE_COPYING(real_reql_cluster_interface_t);
 };

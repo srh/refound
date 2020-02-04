@@ -90,48 +90,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out);
 
-    bool table_reconfigure(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            const table_generate_config_params_t &params,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool db_reconfigure(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const table_generate_config_params_t &params,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
-    bool table_emergency_repair(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            emergency_repair_mode_t,
-            bool dry_run,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
-    bool table_rebalance(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &name,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-    bool db_rebalance(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            signal_t *interruptor,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
-
     bool set_write_hook(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
