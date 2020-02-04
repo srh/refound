@@ -576,6 +576,7 @@ public:
         }
 
         /* Make sure we found all the requested sindexes. */
+        // TODO: Dedup index not found errors.
         rcheck(remaining_sindexes.empty(), base_exc_t::OP_FAILED,
             strprintf("Index `%s` was not found on table `%s`.",
                       remaining_sindexes.begin()->c_str(),
@@ -604,7 +605,21 @@ public:
         for (size_t i = 1; i < args->num_args(); ++i) {
             sindexes.insert(args->arg(env, i)->as_str().to_std());
         }
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            // TODO: Do these rcheck statements or rfail instead of the admin_op_exc_t/rethrow rigamarole.
+            // TODO: Dedup index not found message.
+            rcheck(sindexes.empty(),
+                base_exc_t::OP_FAILED,
+                strprintf("Index `%s` was not found on table `%s`.",
+                          sindexes.begin()->c_str(),
+                          table->display_name().c_str()));
+            // TODO: Find a cooler way to make an empty array datum.
+            ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
+            return new_val(std::move(statuses).to_datum());
+        }
+
         const namespace_id_t table_id = table->get_id();
+
         // Start with initial_poll_ms, then double the waiting period after each
         // attempt up to a maximum of max_poll_ms.
         int64_t current_poll_ms = initial_poll_ms;
@@ -685,6 +700,15 @@ public:
 
         scoped_ptr_t<val_t> overwrite_val = args->optarg(env, "overwrite");
         const bool overwrite = overwrite_val ? overwrite_val->as_bool() : false;
+
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            // TODO: Dedup index not found message.
+            rfail(base_exc_t::OP_FAILED,
+                "Index `%s` was not found on table `%s`.",
+                          old_name.c_str(),
+                          table->display_name().c_str());
+        }
+
 
         rename_result fdb_result;
         try {

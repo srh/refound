@@ -169,6 +169,7 @@ std::string format_array_size_error(size_t limit);
                ql::format_array_size_error(_limit \
                         .array_size_limit()).c_str());     \
     } while (0)
+// TODO: It is messed up that some of these are variadic, but others take a hard string.
 #define rcheck(pred, type, msg) rcheck_target(this, pred, type, msg)
 #define rcheck_toplevel(pred, type, msg) \
     rcheck_src(ql::backtrace_id_t::empty(), pred, type, msg)
