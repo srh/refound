@@ -91,7 +91,7 @@ public:
     `reconfigure()` logic use them. */
     counted_t<const db_t> db;
     name_string_t name;
-    std::string display_name() {
+    std::string display_name() const {
         return db->name.str() + "." + name.str();
     }
 
