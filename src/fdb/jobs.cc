@@ -105,11 +105,19 @@ struct job_sindex_keys {
     skey_string lease_expiration;
 };
 
+skey_string job_by_task_skey(fdb_shared_task_id task) {
+    return uuid_sindex_key(task.value);
+}
+
 job_sindex_keys get_sindex_keys(const fdb_job_info &info) {
     job_sindex_keys ret;
-    ret.task = uuid_sindex_key(info.shared_task_id.value);
+    ret.task = job_by_task_skey(info.shared_task_id);
     ret.lease_expiration = reqlfdb_clock_sindex_key(info.lease_expiration);
     return ret;
+}
+
+bool parse_job_id_pkey(key_view pkey, fdb_job_id *out) {
+    return str_to_uuid(as_char(pkey.data), size_t(pkey.length), &out->value);
 }
 
 ukey_string job_id_pkey(fdb_job_id job_id) {
@@ -289,5 +297,33 @@ void try_claim_and_start_job(
         coro_t::spawn_later_ordered([fdb, job = std::move(claimed_job.get()), lock] {
             execute_job(fdb, job, lock);
         });
+    }
+}
+
+void remove_fdb_task_and_jobs(FDBTransaction *txn, fdb_shared_task_id task_id,
+        const signal_t *interruptor) {
+    // TODO: There are two round-trips in this function -- maybe callers could clean it up.
+
+    std::string prefix = plain_index_skey_prefix(REQLFDB_JOBS_BY_TASK, job_by_task_skey(task_id));
+
+    // Now we have to actually look up each job and find its lease expiration so we can
+    // properly remove it from all indexes.
+    std::vector<fdb_value_fut<fdb_job_info>> job_futs;
+    transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
+            [&](const FDBKeyValue &kv) {
+        key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+        key_view key = whole_key.guarantee_without_prefix(prefix);
+
+        // We know the key is a UUID, fwiw; we don't even bother to parse it.
+        ukey_string job_id_key{std::string(as_char(key.data), size_t(key.length))};
+        job_futs.push_back(fdb_value_fut<fdb_job_info>{
+            transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)});
+
+        return true;
+    });
+
+    for (fdb_value_fut<fdb_job_info> &job_fut : job_futs) {
+        fdb_job_info job_info = job_fut.block_and_deserialize(interruptor);
+        remove_fdb_job(txn, job_info);
     }
 }

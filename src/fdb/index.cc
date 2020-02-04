@@ -29,10 +29,15 @@ std::string unique_index_fdb_key(const char *prefix, const ukey_string &index_ke
     return unique_index_fdb_key(std::string(prefix), index_key);
 }
 
-std::string plain_index_fdb_key(const char *prefix, const skey_string &index_key,
-    const ukey_string &pkey) {
+std::string plain_index_skey_prefix(const char *prefix, const skey_string &index_key) {
     std::string ret = prefix;
     ret += index_key.skey;
+    return ret;
+}
+
+std::string plain_index_fdb_key(const char *prefix, const skey_string &index_key,
+    const ukey_string &pkey) {
+    std::string ret = plain_index_skey_prefix(prefix, index_key);
     ret += pkey.ukey;
     return ret;
 }

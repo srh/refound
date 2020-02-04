@@ -66,6 +66,9 @@ MUST_USE fdb_job_info add_fdb_job(FDBTransaction *txn,
 void remove_fdb_job(FDBTransaction *txn,
     const fdb_job_info &info);
 
+void remove_fdb_task_and_jobs(FDBTransaction *txn, fdb_shared_task_id task_id,
+    const signal_t *interruptor);
+
 void try_claim_and_start_job(
     FDBDatabase *fdb, fdb_node_id self_node_id, const auto_drainer_t::lock_t &lock);
 

@@ -52,6 +52,49 @@ void serialize_and_set(FDBTransaction *txn, const char *key, const T &value) {
         data_size);
 }
 
+
+template <class Callable>
+void transaction_read_whole_range_coro(FDBTransaction *txn,
+        std::string begin, const std::string &end,
+        const signal_t *interruptor,
+        Callable &&cb) {
+    bool or_equal = true;
+    // We need to get elements greater than (or_equal, if true) begin, less than end.
+    for (;;) {
+        fdb_future fut{
+            fdb_transaction_get_range(txn,
+                    as_uint8(begin.data()), int(begin.size()), !or_equal, 1,
+                    FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(end.data()), int(end.size())),
+                    0,
+                    0,
+                    FDB_STREAMING_MODE_WANT_ALL,
+                    0,
+                    false,
+                    false)};
+        fut.block_coro(interruptor);
+
+        const FDBKeyValue *kvs;
+        int kv_count;
+        fdb_bool_t more;
+        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+        check_for_fdb_transaction(err);
+        or_equal = false;
+        for (int i = 0; i < kv_count; ++i) {
+            if (!cb(kvs[i])) {
+                return;
+            }
+        }
+        if (more) {
+            if (kv_count > 0) {
+                const FDBKeyValue &kv = kvs[kv_count - 1];
+                begin = std::string(void_as_char(kv.key), size_t(kv.key_length));
+            }
+        } else {
+            return;
+        }
+    }
+}
+
 inline std::string table_key_prefix(const namespace_id_t &table_id) {
     // TODO: Use binary uuid's.  This is on a fast path...
     // Or don't even use uuid's.

@@ -275,49 +275,6 @@ bool config_cache_db_create(
 }
 
 
-template <class Callable>
-void transaction_read_whole_range_coro(FDBTransaction *txn,
-        std::string begin, const std::string &end,
-        const signal_t *interruptor,
-        Callable &&cb) {
-    bool or_equal = true;
-    // We need to get elements greater than (or_equal, if true) begin, less than end.
-    for (;;) {
-        fdb_future fut{
-            fdb_transaction_get_range(txn,
-                    as_uint8(begin.data()), int(begin.size()), !or_equal, 1,
-                    FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(end.data()), int(end.size())),
-                    0,
-                    0,
-                    FDB_STREAMING_MODE_WANT_ALL,
-                    0,
-                    false,
-                    false)};
-        fut.block_coro(interruptor);
-
-        const FDBKeyValue *kvs;
-        int kv_count;
-        fdb_bool_t more;
-        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
-        check_for_fdb_transaction(err);
-        or_equal = false;
-        for (int i = 0; i < kv_count; ++i) {
-            if (!cb(kvs[i])) {
-                return;
-            }
-        }
-        if (more) {
-            if (kv_count > 0) {
-                const FDBKeyValue &kv = kvs[kv_count - 1];
-                begin = std::string(void_as_char(kv.key), size_t(kv.key_length));
-            }
-        } else {
-            return;
-        }
-    }
-}
-
-
 optional<database_id_t> config_cache_db_drop(
         FDBTransaction *txn, const auth::user_context_t &user_context,
         const name_string_t &db_name, const signal_t *interruptor) {
@@ -407,6 +364,12 @@ fdb_future transaction_get_table_range(
         false)};
 }
 
+void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix) {
+    std::string end = prefix_end(prefix);
+    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
+        as_uint8(end.data()), int(end.size()));
+}
+
 void help_remove_table(
         FDBTransaction *txn,
         database_id_t db_id,
@@ -419,9 +382,7 @@ void help_remove_table(
     transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
 
     std::string prefix = table_key_prefix(table_id);
-    std::string end = prefix_end(prefix);
-    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
-        as_uint8(end.data()), int(end.size()));
+    transaction_clear_prefix_range(txn, prefix);
 }
 
 // FYI, all callers right now do in fact pass a valid table name.  Doesn't touch the
@@ -641,14 +602,10 @@ MUST_USE bool config_cache_sindex_create(
         const signal_t *interruptor) {
     // TODO: We need to verify db name -> id, and table name -> id mapping that was used (or config version that was used) still applies.
 
-    // OOO: Be sure to check that the db and table still exist.
     auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
         = user_context.transaction_require_db_and_table_config_permission(
             txn, db_id, table_id);
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-
-    fdb_future db_by_id_fut
-        = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
     fdb_value_fut<table_config_t> table_config_fut
         = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
@@ -656,15 +613,12 @@ MUST_USE bool config_cache_sindex_create(
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
     check_cv(expected_cv, cv);
 
-    fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
-    guarantee(db_by_id_value.present, "db id came from wrong config version?");
+    auth_fut.block_and_check(interruptor);
 
     table_config_t table_config;
     if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
         crash("table config not present, when id matched config version");
     }
-
-    auth_fut.block_and_check(interruptor);
 
     bool inserted = table_config.sindexes.emplace(index_name, sindex_config).second;
     if (!inserted) {
@@ -690,18 +644,74 @@ MUST_USE bool config_cache_sindex_create(
         std::move(desc), interruptor);
     (void)ignored;
 
+    // Table by name index unchanged.
     transaction_set_uq_index<table_config_by_id>(txn, table_id, table_config);
 
-    // OOO: Set jobstate to initial "" pkey lower bound.
     fdb_index_jobstate jobstate{ukey_string{""}};
     transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
 
     cv.value++;
     transaction_set_config_version(txn, cv);
-
     return true;
 }
 
+// TODO: Users' db/table config permissions ought to get cleaned up when we drop a db or table.
+
+// OOO: Sindex job destruction must also get invoked when the table gets dropped.
+bool config_cache_sindex_drop(
+        FDBTransaction *txn,
+        const auth::user_context_t &user_context,
+        reqlfdb_config_version expected_cv,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id,
+        const std::string &index_name,
+        const signal_t *interruptor) {
+    auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
+        = user_context.transaction_require_db_and_table_config_permission(
+            txn, db_id, table_id);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    fdb_value_fut<table_config_t> table_config_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+
+    auth_fut.block_and_check(interruptor);
+
+    table_config_t table_config;
+    if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
+        crash("table config not present, when id matched config version");
+    }
+
+    auto sindexes_it = table_config.sindexes.find(index_name);
+    if (sindexes_it == table_config.sindexes.end()) {
+        // Index simply doesn't exist.
+        return false;
+    }
+
+    auto fdb_sindexes_it = table_config.fdb_sindexes.find(index_name);
+    guarantee(fdb_sindexes_it != table_config.fdb_sindexes.end());  // TODO: fdb, msg, etc.
+
+    sindex_id_t sindex_id = fdb_sindexes_it->second.sindex_id;
+    fdb_shared_task_id task_id = fdb_sindexes_it->second.creation_task_or_nil;
+    if (!task_id.value.is_nil()) {
+        remove_fdb_task_and_jobs(txn, task_id, interruptor);
+        transaction_erase_uq_index<index_jobstate_by_task>(txn, task_id);
+    }
+
+    transaction_clear_prefix_range(txn, table_index_prefix(table_id, sindex_id));
+
+    table_config.sindexes.erase(sindexes_it);
+    table_config.fdb_sindexes.erase(fdb_sindexes_it);
+
+    // Table by name index unchanged.
+    transaction_set_uq_index<table_config_by_id>(txn, table_id, table_config);
+
+    cv.value++;
+    transaction_set_config_version(txn, cv);
+    return true;
+}
 
 ukey_string username_pkey(const auth::username_t &username) {
     return ukey_string{username.to_string()};
