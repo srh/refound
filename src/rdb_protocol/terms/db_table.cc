@@ -822,11 +822,8 @@ private:
 
     scoped_ptr_t<val_t> eval_impl_on_table_or_db(
             scope_env_t *env, args_t *args, eval_flags_t,
-            const counted_t<const ql::db_t> &db,
+            UNUSED const counted_t<const ql::db_t> &db,
             counted_t<table_t> &&table_or_null) const final {
-        // OOO: Fdb-ize?  Remove this?  Make it a no-op?  Gradually let the shards
-        // table config params and such wither away?
-
         // Don't allow a reconfigure call without explicit database
         if (args->num_args() == 0) {
 	  rfail(base_exc_t::LOGIC, "`reconfigure` can only be called on a table or database.");
@@ -868,26 +865,7 @@ private:
             admin_err_t error;
             try {
                 /* Perform the operation */
-                if (table_or_null.has()) {
-                    success = env->env->reql_cluster_interface()->table_reconfigure(
-                        env->env->get_user_context(),
-                        db,
-                        name_string_t::guarantee_valid(table_or_null->name.c_str()),
-                        config_params,
-                        dry_run,
-                        env->env->interruptor,
-                        &result,
-                        &error);
-                } else {
-                    success = env->env->reql_cluster_interface()->db_reconfigure(
-                        env->env->get_user_context(),
-                        db,
-                        config_params,
-                        dry_run,
-                        env->env->interruptor,
-                        &result,
-                        &error);
-                }
+                rfail(base_exc_t::OP_FAILED, "Per-table reconfiguration is not supported on Reql-on-FDB");  // TODO: Product name
             } catch (auth::permission_error_t const &permission_error) {
                 rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
             }
@@ -930,26 +908,7 @@ private:
                     "individually.");
             }
 
-            bool success;
-            datum_t result;
-            admin_err_t error;
-            try {
-                success = env->env->reql_cluster_interface()->table_emergency_repair(
-                    env->env->get_user_context(),
-                    db,
-                    name_string_t::guarantee_valid(table_or_null->name.c_str()),
-                    mode,
-                    dry_run,
-                    env->env->interruptor,
-                    &result,
-                    &error);
-            } catch (auth::permission_error_t const &permission_error) {
-                rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-            }
-            if (!success) {
-                REQL_RETHROW(error);
-            }
-            return new_val(result);
+            rfail(base_exc_t::OP_FAILED, "Per-table reconfiguration is not supported on Reql-on-FDB");  // TODO: Product name
         }
     }
     const char *name() const final { return "reconfigure"; }
@@ -961,43 +920,15 @@ public:
         : table_or_db_meta_term_t(env, term, optargspec_t({})) { }
 private:
     scoped_ptr_t<val_t> eval_impl_on_table_or_db(
-            scope_env_t *env, args_t *args, eval_flags_t,
-            const counted_t<const ql::db_t> &db,
-            counted_t<table_t> &&table_or_null) const final {
-        // OOO: Fdb-ize?  Remove this?  Or make it a no-op.
-
+            UNUSED scope_env_t *env, args_t *args, eval_flags_t,
+            UNUSED const counted_t<const ql::db_t> &db,
+            UNUSED counted_t<table_t> &&table_or_null) const final {
         // Don't allow a rebalance call without explicit database
         if (args->num_args() == 0) {
 	  rfail(base_exc_t::LOGIC, "`rebalance` can only be called on a table or database.");
         }
 
-        ql::datum_t result;
-        bool success;
-        admin_err_t error;
-        try {
-            if (table_or_null.has()) {
-                success = env->env->reql_cluster_interface()->table_rebalance(
-                    env->env->get_user_context(),
-                    db,
-                    name_string_t::guarantee_valid(table_or_null->name.c_str()),
-                    env->env->interruptor,
-                    &result,
-                    &error);
-            } else {
-                success = env->env->reql_cluster_interface()->db_rebalance(
-                    env->env->get_user_context(),
-                    db,
-                    env->env->interruptor,
-                    &result,
-                    &error);
-            }
-        } catch (auth::permission_error_t const &permission_error) {
-            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-        if (!success) {
-            REQL_RETHROW(error);
-        }
-        return new_val(result);
+        rfail(base_exc_t::OP_FAILED, "Rebalancing is not supported (and unnecessary) on Reql-on-FDB");  // TODO: Product name
     }
     const char *name() const final { return "rebalance"; }
 };
