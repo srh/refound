@@ -49,37 +49,6 @@ public:
     std::set<server_id_t> servers;
 };
 
-class backfill_job_report_t : public job_report_base_t<backfill_job_report_t> {
-public:
-    backfill_job_report_t();
-    backfill_job_report_t(
-            uuid_u const &id,
-            double duration,
-            server_id_t const &server_id,
-            namespace_id_t const &table,
-            bool is_ready,
-            double progress,
-            server_id_t const &source_server,
-            server_id_t const &destination_server);
-
-    void merge_derived(backfill_job_report_t const &job_report);
-
-    bool info_derived(
-            admin_identifier_format_t identifier_format,
-            server_config_client_t *server_config_client,
-            table_meta_client_t *table_meta_client,
-            cluster_semilattice_metadata_t const &metadata,
-            ql::datum_object_builder_t *info_builder_out) const;
-
-    namespace_id_t table;
-    bool is_ready;
-    double progress_numerator;
-    double progress_denominator;
-    server_id_t source_server;
-    server_id_t destination_server;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(backfill_job_report_t);
-
 class disk_compaction_job_report_t
     : public job_report_base_t<disk_compaction_job_report_t> {
 public:
@@ -161,8 +130,7 @@ class jobs_manager_business_card_t {
 public:
     typedef mailbox_t<std::vector<query_job_report_t>,
                       std::vector<disk_compaction_job_report_t>,
-                      std::vector<index_construction_job_report_t>,
-                      std::vector<backfill_job_report_t>> return_mailbox_t;
+                      std::vector<index_construction_job_report_t>> return_mailbox_t;
     typedef mailbox_t<return_mailbox_t::address_t> get_job_reports_mailbox_t;
     typedef mailbox_t<uuid_u, auth::user_context_t> job_interrupt_mailbox_t;
 

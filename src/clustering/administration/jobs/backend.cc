@@ -77,7 +77,6 @@ void jobs_artificial_table_backend_t::get_all_job_reports(
     std::map<uuid_u, query_job_report_t> query_jobs_map;
     std::map<uuid_u, disk_compaction_job_report_t> disk_compaction_jobs_map;
     std::map<uuid_u, index_construction_job_report_t> index_construction_jobs_map;
-    std::map<uuid_u, backfill_job_report_t> backfill_jobs_map;
 
     typedef std::map<peer_id_t, cluster_directory_metadata_t> peers_t;
     peers_t peers = directory_view->get().get_inner();
@@ -90,14 +89,12 @@ void jobs_artificial_table_backend_t::get_all_job_reports(
             [&](UNUSED signal_t *,
                 std::vector<query_job_report_t> const & query_jobs,
                 std::vector<disk_compaction_job_report_t> const &disk_compaction_jobs,
-                std::vector<index_construction_job_report_t> const &index_construction_jobs,
-                std::vector<backfill_job_report_t> const &backfill_jobs) {
+                std::vector<index_construction_job_report_t> const &index_construction_jobs) {
 
                 insert_or_merge_jobs(query_jobs, &query_jobs_map);
                 insert_or_merge_jobs(disk_compaction_jobs, &disk_compaction_jobs_map);
                 insert_or_merge_jobs(
                     index_construction_jobs, &index_construction_jobs_map);
-                insert_or_merge_jobs(backfill_jobs, &backfill_jobs_map);
 
                 returned_job_reports.pulse();
             });
@@ -127,7 +124,6 @@ void jobs_artificial_table_backend_t::get_all_job_reports(
     if (!user_context.is_admin_user()) {
         disk_compaction_jobs_map.clear();
         index_construction_jobs_map.clear();
-        backfill_jobs_map.clear();
     }
 
     cluster_semilattice_metadata_t metadata = semilattice_view->get();
@@ -136,8 +132,6 @@ void jobs_artificial_table_backend_t::get_all_job_reports(
     jobs_to_datums(disk_compaction_jobs_map, identifier_format, server_config_client,
         table_meta_client, metadata, jobs_out);
     jobs_to_datums(index_construction_jobs_map, identifier_format, server_config_client,
-        table_meta_client, metadata, jobs_out);
-    jobs_to_datums(backfill_jobs_map, identifier_format, server_config_client,
         table_meta_client, metadata, jobs_out);
 }
 

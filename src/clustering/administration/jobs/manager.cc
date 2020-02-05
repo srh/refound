@@ -17,9 +17,6 @@ const uuid_u jobs_manager_t::base_sindex_id =
 const uuid_u jobs_manager_t::base_disk_compaction_id =
     str_to_uuid("b8766ece-d15c-4f96-bee5-c0edacf10c9c");
 
-const uuid_u jobs_manager_t::base_backfill_id =
-    str_to_uuid("a5e1b38d-c712-42d7-ab4c-f177a3fb0d20");
-
 jobs_manager_t::jobs_manager_t(mailbox_manager_t *_mailbox_manager,
                                server_id_t const &_server_id,
                                rdb_context_t *_rdb_context,
@@ -52,7 +49,6 @@ void jobs_manager_t::on_get_job_reports(
     std::vector<query_job_report_t> query_job_reports;
     std::vector<disk_compaction_job_report_t> disk_compaction_job_reports;
     std::vector<index_construction_job_report_t> index_construction_job_reports;
-    std::vector<backfill_job_report_t> backfill_job_reports;
 
     if (drainer.is_draining()) {
         // We're shutting down, send an empty reponse since we can't acquire a `drainer`
@@ -62,8 +58,7 @@ void jobs_manager_t::on_get_job_reports(
              reply_address,
              query_job_reports,
              disk_compaction_job_reports,
-             index_construction_job_reports,
-             backfill_job_reports);
+             index_construction_job_reports);
         return;
     }
 
@@ -152,8 +147,7 @@ void jobs_manager_t::on_get_job_reports(
              reply_address,
              query_job_reports,
              disk_compaction_job_reports,
-             index_construction_job_reports,
-             backfill_job_reports);
+             index_construction_job_reports);
     } catch (const interrupted_exc_t &) {
         // Do nothing
     }
