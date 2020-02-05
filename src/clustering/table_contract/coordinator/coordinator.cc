@@ -11,19 +11,14 @@
 
 contract_coordinator_t::contract_coordinator_t(
         raft_member_t<table_raft_state_t> *_raft,
-        watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t> *_acks,
-        watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
-            *_connections_map) :
+        watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t> *_acks) :
     raft(_raft),
     acks(_acks),
-    connections_map(_connections_map),
     config_pumper(std::bind(&contract_coordinator_t::pump_configs, this, ph::_1)),
     contract_pumper(std::bind(&contract_coordinator_t::pump_contracts, this, ph::_1)),
     ack_subs(acks,
              std::bind(&contract_coordinator_t::on_ack_change, this, ph::_1, ph::_2),
-             initial_call_t::YES),
-    connections_map_subs(connections_map,
-        std::bind(&pump_coro_t::notify, &contract_pumper), initial_call_t::NO)
+             initial_call_t::YES)
 {
     raft->assert_thread();
     /* Do an initial round of pumping, in case there are any changes the previous

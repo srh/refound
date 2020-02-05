@@ -36,9 +36,7 @@ class contract_coordinator_t : public home_thread_mixin_debug_only_t {
 public:
     contract_coordinator_t(
         raft_member_t<table_raft_state_t> *raft,
-        watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t> *acks,
-        watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
-            *connections_map);
+        watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t> *acks);
 
     /* `table_meta_client_t` calls `change_config()` (indirectly, over the network) to
     change the cluster config. */
@@ -70,8 +68,6 @@ private:
 
     raft_member_t<table_raft_state_t> *const raft;
     watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t> *const acks;
-    watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
-        *const connections_map;
 
     /* This is the same as `acks` but indexed by contract. */
     std::map<contract_id_t, std::map<server_id_t, contract_ack_t> > acks_by_contract;
@@ -86,8 +82,6 @@ private:
 
     watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t>::all_subs_t
         ack_subs;
-    watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>::all_subs_t
-        connections_map_subs;
 };
 
 #endif /* CLUSTERING_TABLE_CONTRACT_COORDINATOR_COORDINATOR_HPP_ */

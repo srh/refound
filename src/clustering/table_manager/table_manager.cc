@@ -11,8 +11,6 @@ table_manager_t::table_manager_t(
         server_config_client_t *_server_config_client,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
             *_table_manager_directory,
-        watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
-            *_connections_map,
         const base_path_t &_base_path,
         io_backender_t *_io_backender,
         const namespace_id_t &_table_id,
@@ -27,7 +25,6 @@ table_manager_t::table_manager_t(
     raft_member_id(_raft_member_id),
     mailbox_manager(_mailbox_manager),
     server_config_client(_server_config_client),
-    connections_map(_connections_map),
     perfmon_membership(perfmon_collection_namespace, &perfmon_collection, "regions"),
     raft(raft_member_id, _mailbox_manager, raft_directory.get_values(), raft_storage,
         "Table " + uuid_to_str(table_id), start_election_immediately),
@@ -164,8 +161,7 @@ void table_manager_t::get_status(
 table_manager_t::leader_t::leader_t(table_manager_t *_parent) :
     parent(_parent),
     contract_ack_read_manager(parent->mailbox_manager),
-    coordinator(parent->get_raft(), contract_ack_read_manager.get_values(),
-        parent->connections_map),
+    coordinator(parent->get_raft(), contract_ack_read_manager.get_values()),
     server_name_cache_updater(parent->get_raft(), parent->server_config_client),
     set_config_mailbox(parent->mailbox_manager,
         std::bind(&leader_t::on_set_config, this, ph::_1, ph::_2, ph::_3))

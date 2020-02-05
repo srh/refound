@@ -15,8 +15,6 @@ multi_table_manager_t::multi_table_manager_t(
             *_multi_table_manager_directory,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
             *_table_manager_directory,
-        watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
-            *_connections_map,
         table_persistence_interface_t *_persistence_interface,
         const base_path_t &_base_path,
         io_backender_t *_io_backender,
@@ -27,7 +25,6 @@ multi_table_manager_t::multi_table_manager_t(
     server_config_client(_server_config_client),
     multi_table_manager_directory(_multi_table_manager_directory),
     table_manager_directory(_table_manager_directory),
-    connections_map(_connections_map),
     persistence_interface(_persistence_interface),
     base_path(_base_path),
     io_backender(_io_backender),
@@ -84,7 +81,6 @@ multi_table_manager_t::multi_table_manager_t(
     server_config_client(nullptr),
     multi_table_manager_directory(_multi_table_manager_directory),
     table_manager_directory(_table_manager_directory),
-    connections_map(nullptr),
     persistence_interface(nullptr),
     base_path(r_nullopt),
     io_backender(nullptr),
@@ -131,7 +127,7 @@ multi_table_manager_t::active_table_t::active_table_t(
     table_id(_table_id),
     manager(parent->server_id, parent->mailbox_manager, parent->server_config_client,
         parent->table_manager_directory,
-        parent->connections_map, *parent->base_path, parent->io_backender, table_id,
+        *parent->base_path, parent->io_backender, table_id,
         epoch, member_id, raft_storage, start_election_immediately, multistore_ptr,
         perfmon_collection_namespace),
     table_manager_bcard_copier(
