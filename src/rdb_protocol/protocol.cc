@@ -47,20 +47,6 @@ void resume_construct_sindex(
     with_priority_t p(CORO_PRIORITY_SINDEX_CONSTRUCTION);
     // TODO: Implement rockstore reading below.
 
-    // Block out backfills to improve performance.
-    // A very useful side-effect of this is that if a server is added as a new replica
-    // to a table, its indexes get constructed before the backfill can complete.
-    // This makes sure that the indexes are actually ready by the time the new replica
-    // becomes active.
-    //
-    // Note that we don't actually wait for the lock to be acquired.
-    // All we want is to pause backfills by having our write lock acquisition
-    // in line.
-    // Waiting for the write lock would restrict us to having only one post
-    // construction active at any time (which would make constructing multiple indexes
-    // at the same time less efficient).
-    rwlock_in_line_t backfill_lock_acq(&store->backfill_postcon_lock, access_t::write);
-
     // Used by the `jobs` table and `indexStatus` to track the progress of the
     // construction.
     distribution_progress_estimator_t progress_estimator(

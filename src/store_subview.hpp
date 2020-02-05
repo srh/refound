@@ -120,50 +120,6 @@ public:
             durability, timestamp, order_token, token, interruptor);
     }
 
-    continue_bool_t send_backfill_pre(
-            const region_map_t<state_timestamp_t> &start_point,
-            backfill_pre_item_consumer_t *pre_item_consumer,
-            signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) {
-        home_thread_mixin_t::assert_thread();
-        return store_view->send_backfill_pre(
-            start_point, pre_item_consumer, interruptor);
-    }
-
-    continue_bool_t send_backfill(
-            const region_map_t<state_timestamp_t> &start_point,
-            backfill_pre_item_producer_t *pre_item_producer,
-            backfill_item_consumer_t *item_consumer,
-            backfill_item_memory_tracker_t *memory_tracker,
-            signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) {
-        home_thread_mixin_t::assert_thread();
-        return store_view->send_backfill(
-            start_point,
-            pre_item_producer,
-            item_consumer,
-            memory_tracker,
-            interruptor);
-    }
-
-    continue_bool_t receive_backfill(
-            const region_t &_region,
-            backfill_item_producer_t *item_producer,
-            signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) {
-        home_thread_mixin_t::assert_thread();
-        return store_view->receive_backfill(_region, item_producer, interruptor);
-    }
-
-    void wait_until_ok_to_receive_backfill(signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) {
-        store_view->wait_until_ok_to_receive_backfill(interruptor);
-    }
-
-    bool check_ok_to_receive_backfill() THROWS_NOTHING {
-        return store_view->check_ok_to_receive_backfill();
-    }
-
     void reset_data(
             write_durability_t durability,
             signal_t *interruptor)

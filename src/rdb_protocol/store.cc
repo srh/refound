@@ -1,7 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "rdb_protocol/store.hpp"
 
-#include "btree/backfill_debug.hpp"
 #include "btree/reql_specific.hpp"
 #include "btree/operations.hpp"
 #include "concurrency/cross_thread_signal.hpp"
@@ -915,8 +914,6 @@ struct rdb_write_visitor_t : public boost::static_visitor<void> {
         point_write_response_t *res =
             boost::get<point_write_response_t>(&response->response);
 
-        backfill_debug_key(w.key, strprintf("upsert %" PRIu64, timestamp.longtime));
-
         // TODO: Previously we didn't pass back the superblock.
         rdb_modification_report_t mod_report(w.key);
         promise_t<real_superblock_lock *> pass_back_superblock;
@@ -932,8 +929,6 @@ struct rdb_write_visitor_t : public boost::static_visitor<void> {
         response->response = point_delete_response_t();
         point_delete_response_t *res =
             boost::get<point_delete_response_t>(&response->response);
-
-        backfill_debug_key(d.key, strprintf("delete %" PRIu64, timestamp.longtime));
 
         // TODO: Previously we didn't pass back the superblock.
         rdb_modification_report_t mod_report(d.key);

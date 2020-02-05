@@ -150,14 +150,6 @@ void get_btree_superblock_and_txn_for_writing(
         scoped_ptr_t<real_superblock_lock> *got_superblock_out,
         scoped_ptr_t<txn_t> *txn_out);
 
-// TODO: The fact that we have this might mean our backfilling logic is wrong
-// with respect to snapshots.  Take a look.
-void get_btree_superblock_and_txn_for_backfilling(
-        cache_conn_t *cache_conn,
-        cache_account_t *backfill_account,
-        scoped_ptr_t<real_superblock_lock> *got_superblock_out,
-        scoped_ptr_t<txn_t> *txn_out);
-
 void get_btree_superblock_and_txn_for_reading(
         cache_conn_t *cache_conn,
         scoped_ptr_t<real_superblock_lock> *got_superblock_out,

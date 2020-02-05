@@ -116,28 +116,6 @@ public:
             signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
-    continue_bool_t send_backfill_pre(
-            const region_map_t<state_timestamp_t> &start_point,
-            backfill_pre_item_consumer_t *pre_item_consumer,
-            signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-    continue_bool_t send_backfill(
-            const region_map_t<state_timestamp_t> &start_point,
-            backfill_pre_item_producer_t *pre_item_producer,
-            backfill_item_consumer_t *item_consumer,
-            backfill_item_memory_tracker_t *memory_tracker,
-            signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-    continue_bool_t receive_backfill(
-            const region_t &region,
-            backfill_item_producer_t *item_producer,
-            signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-
-    void wait_until_ok_to_receive_backfill(signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-    bool check_ok_to_receive_backfill() THROWS_NOTHING;
-
     void reset_data(
             write_durability_t durability,
             signal_t *interruptor)
@@ -330,7 +308,6 @@ public:
     scoped_ptr_t<cache_t> cache;
     scoped_ptr_t<cache_conn_t> general_cache_conn;
     scoped_ptr_t<btree_slice_t> btree;
-    cache_account_t backfill_account_;
     io_backender_t *io_backender_;
     base_path_t base_path_;
     perfmon_membership_t perfmon_collection_membership;
@@ -392,14 +369,6 @@ private:
     new_semaphore_t write_superblock_acq_semaphore;
 
 public:
-    // This lock is used to pause backfills while secondary indexes are being
-    // post constructed. Secondary index post construction gets in line for a write
-    // lock on this and stays there for as long as it's running. It does not
-    // actually wait for the write lock, so multiple secondary indexes can be
-    // post constructed at the same time.
-    // A read lock is acquired before a backfill chunk is being processed.
-    rwlock_t backfill_postcon_lock;
-
     // Mind the constructor ordering. We must destruct drainer before destructing
     // many of the other structures.
     auto_drainer_t drainer;

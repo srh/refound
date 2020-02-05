@@ -180,18 +180,6 @@ void get_btree_superblock_and_txn_for_writing(
     get_btree_superblock(txn, write_access_t::write, std::move(sem_acq), got_superblock_out);
 }
 
-void get_btree_superblock_and_txn_for_backfilling(
-        cache_conn_t *cache_conn,
-        cache_account_t *backfill_account,
-        scoped_ptr_t<real_superblock_lock> *got_superblock_out,
-        scoped_ptr_t<txn_t> *txn_out) {
-    txn_t *txn = new txn_t(cache_conn, read_access_t::read);
-    txn_out->init(txn);
-    txn->set_account(backfill_account);
-
-    get_btree_superblock(txn, access_t::read, got_superblock_out);
-}
-
 // KSI: This function is possibly stupid: it's nonsensical to talk about the entire
 // cache being snapshotted -- we want some subtree to be snapshotted, at least.
 // However, if you quickly release the superblock, you'll release any snapshotting of
