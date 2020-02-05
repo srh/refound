@@ -70,7 +70,6 @@ public:
     multi_table_manager_t(
         const server_id_t &_server_id,
         mailbox_manager_t *_mailbox_manager,
-        server_config_client_t *server_config_client,
         watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
             *_multi_table_manager_directory,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
@@ -370,7 +369,6 @@ private:
     bool is_proxy_server;
     server_id_t server_id;
     mailbox_manager_t * const mailbox_manager;
-    server_config_client_t *server_config_client;
     watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
         * const multi_table_manager_directory;
     watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>

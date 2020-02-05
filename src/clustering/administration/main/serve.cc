@@ -260,7 +260,6 @@ bool do_serve(FDBDatabase *fdb,
                 multi_table_manager.init(new multi_table_manager_t(
                     server_id,
                     &mailbox_manager,
-                    &server_config_client,
                     &multi_table_manager_directory,
                     table_directory_read_manager.get_root_view(),
                     table_persistence_interface.get(),

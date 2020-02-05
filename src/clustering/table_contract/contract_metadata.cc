@@ -88,12 +88,6 @@ void table_raft_state_t::apply_change(const table_raft_state_t::change_t &change
                 new_contracts_change.register_current_branches) {
                 state->current_branches.update(region_branch.first, region_branch.second);
             }
-            for (const server_id_t &sid : new_contracts_change.remove_server_names) {
-                state->server_names.names.erase(sid);
-            }
-            state->server_names.names.insert(
-                new_contracts_change.add_server_names.names.begin(),
-                new_contracts_change.add_server_names.names.end());
         }
         void operator()(const change_t::new_member_ids_t &new_member_ids_change) {
             for (const server_id_t &sid : new_member_ids_change.remove_member_ids) {
@@ -102,18 +96,6 @@ void table_raft_state_t::apply_change(const table_raft_state_t::change_t &change
             state->member_ids.insert(
                 new_member_ids_change.add_member_ids.begin(),
                 new_member_ids_change.add_member_ids.end());
-        }
-        void operator()(const change_t::new_server_names_t &new_server_names) {
-            for (const auto &pair : new_server_names.config_and_shards.names) {
-                auto name_it = state->config.server_names.names.find(pair.first);
-                guarantee(name_it != state->config.server_names.names.end());
-                name_it->second = pair.second;
-            }
-            for (const auto &pair : new_server_names.raft_state.names) {
-                auto name_it = state->server_names.names.find(pair.first);
-                guarantee(name_it != state->server_names.names.end());
-                name_it->second = pair.second;
-            }
         }
         table_raft_state_t *state;
     } visitor;
@@ -124,53 +106,40 @@ void table_raft_state_t::apply_change(const table_raft_state_t::change_t &change
 
 #ifndef NDEBUG
 void table_raft_state_t::sanity_check() const {
-    std::set<server_id_t> all_replicas;
     for (const auto &pair : contracts) {
         pair.second.sanity_check();
-        {
-            server_id_t replica = pair.second.the_server;
-            all_replicas.insert(replica);
-            guarantee(server_names.names.count(replica) == 1);
-        }
-    }
-    for (const auto &pair : server_names.names) {
-        guarantee(all_replicas.count(pair.first) == 1);
     }
 }
 #endif /* NDEBUG */
 
 RDB_IMPL_EQUALITY_COMPARABLE_1(
     table_raft_state_t::change_t::set_table_config_t, new_config);
-RDB_IMPL_EQUALITY_COMPARABLE_7(
+RDB_IMPL_EQUALITY_COMPARABLE_5(
     table_raft_state_t::change_t::new_contracts_t,
     remove_contracts, add_contracts, register_current_branches, add_branches,
-    remove_branches, remove_server_names, add_server_names);
+    remove_branches);
 RDB_IMPL_EQUALITY_COMPARABLE_2(
     table_raft_state_t::change_t::new_member_ids_t, remove_member_ids, add_member_ids);
-RDB_IMPL_EQUALITY_COMPARABLE_2(
-    table_raft_state_t::change_t::new_server_names_t, config_and_shards, raft_state);
 RDB_IMPL_EQUALITY_COMPARABLE_1(
     table_raft_state_t::change_t, v);
-RDB_IMPL_EQUALITY_COMPARABLE_6(
+RDB_IMPL_EQUALITY_COMPARABLE_5(
     table_raft_state_t, config, contracts, branch_history, current_branches,
-    member_ids, server_names);
+    member_ids);
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(
     table_raft_state_t::change_t::set_table_config_t, new_config);
-RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_5_FOR_CLUSTER(
     table_raft_state_t::change_t::new_contracts_t,
     remove_contracts, add_contracts, remove_branches, add_branches,
-    register_current_branches, remove_server_names, add_server_names);
+    register_current_branches);
 RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(
     table_raft_state_t::change_t::new_member_ids_t,
     remove_member_ids, add_member_ids);
-RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(
-    table_raft_state_t::change_t::new_server_names_t, raft_state, config_and_shards);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(
     table_raft_state_t::change_t, v);
-RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_5_FOR_CLUSTER(
     table_raft_state_t, config, contracts, branch_history, current_branches,
-    member_ids, server_names);
+    member_ids);
 
 table_raft_state_t make_new_table_raft_state(
         const table_config_and_shards_t &config) {
@@ -190,7 +159,6 @@ table_raft_state_t make_new_table_raft_state(
             }
         }
     }
-    state.server_names = config.server_names;
     DEBUG_ONLY_CODE(state.sanity_check());
     return state;
 }
@@ -238,8 +206,6 @@ void debug_print(printf_buffer_t *buf, const table_raft_state_t &state) {
     debug_print(buf, state.current_branches);
     buf->appendf(" member_ids = ");
     debug_print(buf, state.member_ids);
-    buf->appendf(" server_names = ");
-    debug_print(buf, state.server_names.names);
     buf->appendf(" }");
 }
 

@@ -102,21 +102,6 @@ void calculate_emergency_repair(
                 new_state_out->config.config.the_shard = shard;
                 guarantee(right.unbounded);
             });
-
-        /* Copy over server names for all servers that are in the new config, into the
-        server names map for the config. (Note that there are two separate server name
-        maps, one for the config and one for the contracts.) */
-        {
-            table_config_t::shard_t shard = new_state_out->config.config.the_shard;
-            {
-                server_id_t server = shard.primary_replica;
-                /* Since the new config is derived from the new contracts which are
-                derived from the old contracts, every server present in the new config
-                must appear in `old_state.server_names`. */
-                new_state_out->config.server_names.names.insert(
-                    std::make_pair(server, old_state.server_names.names.at(server)));
-            }
-        }
     }
 
     /* Copy over the branch history without modification. In theory we could do some
@@ -140,12 +125,6 @@ void calculate_emergency_repair(
                 IDs from the old epoch, but it slightly reduces the risk of bugs. */
                 new_state_out->member_ids.insert(
                     std::make_pair(server, raft_member_id_t(generate_uuid())));
-
-                /* Since the new contracts are derived from the old contracts, every
-                server present in the new contracts must appear in
-                `old_state.server_names`. */
-                new_state_out->server_names.names.insert(
-                    std::make_pair(server, old_state.server_names.names.at(server)));
             }
         }
     }

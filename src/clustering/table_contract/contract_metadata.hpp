@@ -169,8 +169,6 @@ public:
             std::map<region_t, branch_id_t> register_current_branches;
             branch_history_t add_branches;
             std::set<branch_id_t> remove_branches;
-            std::set<server_id_t> remove_server_names;
-            server_name_map_t add_server_names;
         };
 
         class new_member_ids_t {
@@ -179,20 +177,13 @@ public:
             std::map<server_id_t, raft_member_id_t> add_member_ids;
         };
 
-        class new_server_names_t {
-        public:
-            server_name_map_t config_and_shards;
-            server_name_map_t raft_state;
-        };
-
         change_t() { }
         template<class T> change_t(T &&t) : v(std::move(t)) { }
 
         boost::variant<
             set_table_config_t,
             new_contracts_t,
-            new_member_ids_t,
-            new_server_names_t> v;
+            new_member_ids_t> v;
     };
 
     table_raft_state_t()
@@ -234,22 +225,16 @@ public:
     `multi_table_manager_t` reads it and uses that information to add and remove servers
     to the Raft cluster. */
     std::map<server_id_t, raft_member_id_t> member_ids;
-
-    /* `server_names` contains the server name of every server that's mentioned in a
-    contract. This is used to display `server_status`. */
-    server_name_map_t server_names;
 };
 
 RDB_DECLARE_EQUALITY_COMPARABLE(table_raft_state_t::change_t::set_table_config_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_raft_state_t::change_t::new_contracts_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_raft_state_t::change_t::new_member_ids_t);
-RDB_DECLARE_EQUALITY_COMPARABLE(table_raft_state_t::change_t::new_server_names_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_raft_state_t::change_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_raft_state_t);
 RDB_DECLARE_SERIALIZABLE(table_raft_state_t::change_t::set_table_config_t);
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(table_raft_state_t::change_t::new_contracts_t);
 RDB_DECLARE_SERIALIZABLE(table_raft_state_t::change_t::new_member_ids_t);
-RDB_DECLARE_SERIALIZABLE(table_raft_state_t::change_t::new_server_names_t);
 RDB_DECLARE_SERIALIZABLE(table_raft_state_t::change_t);
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(table_raft_state_t);
 

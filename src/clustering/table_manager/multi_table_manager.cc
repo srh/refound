@@ -10,7 +10,6 @@
 multi_table_manager_t::multi_table_manager_t(
         const server_id_t &_server_id,
         mailbox_manager_t *_mailbox_manager,
-        server_config_client_t *_server_config_client,
         watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
             *_multi_table_manager_directory,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
@@ -22,7 +21,6 @@ multi_table_manager_t::multi_table_manager_t(
     is_proxy_server(false),
     server_id(_server_id),
     mailbox_manager(_mailbox_manager),
-    server_config_client(_server_config_client),
     multi_table_manager_directory(_multi_table_manager_directory),
     table_manager_directory(_table_manager_directory),
     persistence_interface(_persistence_interface),
@@ -78,7 +76,6 @@ multi_table_manager_t::multi_table_manager_t(
     is_proxy_server(true),
     server_id(server_id_t::from_server_uuid(nil_uuid())),
     mailbox_manager(_mailbox_manager),
-    server_config_client(nullptr),
     multi_table_manager_directory(_multi_table_manager_directory),
     table_manager_directory(_table_manager_directory),
     persistence_interface(nullptr),
@@ -125,7 +122,7 @@ multi_table_manager_t::active_table_t::active_table_t(
     parent(_parent),
     table(_table),
     table_id(_table_id),
-    manager(parent->server_id, parent->mailbox_manager, parent->server_config_client,
+    manager(parent->server_id, parent->mailbox_manager,
         parent->table_manager_directory,
         *parent->base_path, parent->io_backender, table_id,
         epoch, member_id, raft_storage, start_election_immediately, multistore_ptr,
