@@ -66,9 +66,7 @@ ql::datum_t convert_shard_status_to_datum(
                 server_names.get(pair.first), pair.first.get_uuid(), identifier_format));
         }
         const char *status;
-        if (pair.second.backfilling) {
-            status = "backfilling";
-        } else if (pair.second.need_quorum) {
+        if (pair.second.need_quorum) {
             status = "waiting_for_quorum";
         } else if (pair.second.need_primary) {
             status = "waiting_for_primary";

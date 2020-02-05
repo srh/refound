@@ -111,12 +111,6 @@ ql::datum_t convert_debug_contract_ack_state_to_datum(
             return convert_string_to_datum("primary_in_progress");
         case contract_ack_t::state_t::primary_ready:
             return convert_string_to_datum("primary_ready");
-        case contract_ack_t::state_t::secondary_need_primary:
-            return convert_string_to_datum("secondary_need_primary");
-        case contract_ack_t::state_t::secondary_backfilling:
-            return convert_string_to_datum("secondary_backfilling");
-        case contract_ack_t::state_t::secondary_streaming:
-            return convert_string_to_datum("secondary_streaming");
         default:
             unreachable();
     }

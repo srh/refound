@@ -115,9 +115,6 @@ public:
         primary_need_branch,
         primary_in_progress,
         primary_ready,
-        secondary_need_primary,
-        secondary_backfilling,
-        secondary_streaming
     };
 
     contract_ack_t() { }
@@ -148,8 +145,8 @@ public:
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
     contract_ack_t::state_t, int8_t,
     contract_ack_t::state_t::primary_need_branch,
-    contract_ack_t::state_t::secondary_streaming);
-RDB_DECLARE_SERIALIZABLE(contract_ack_t);
+    contract_ack_t::state_t::primary_ready);
+RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(contract_ack_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(contract_ack_t);
 
 /* `table_raft_state_t` is the datum that each table's Raft cluster manages. The
@@ -268,20 +265,18 @@ meaningfully combined. */
 class table_shard_status_t {
 public:
     table_shard_status_t() : primary(false), secondary(false), need_primary(false),
-        need_quorum(false), backfilling(false), transitioning(false) { }
+        need_quorum(false), transitioning(false) { }
     void merge(const table_shard_status_t &other) {
         primary |= other.primary;
         secondary |= other.secondary;
         need_primary |= other.need_primary;
         need_quorum |= other.need_quorum;
-        backfilling |= other.backfilling;
         transitioning |= other.transitioning;
     }
     bool primary;   /* server is primary */
     bool secondary;   /* server is secondary */
     bool need_primary;   /* server is secondary and waiting for primary */
     bool need_quorum;   /* server is primary and waiting for branch */
-    bool backfilling;   /* server is receiving a backfill */
     bool transitioning;   /* server is in a contract, but has no ack */
 };
 RDB_DECLARE_EQUALITY_COMPARABLE(table_shard_status_t);

@@ -192,17 +192,6 @@ contract_executor_t::get_shard_status() {
                         case contract_ack_t::state_t::primary_ready:
                             status->primary = true;
                             break;
-                        case contract_ack_t::state_t::secondary_need_primary:
-                            status->secondary = true;
-                            status->need_primary = true;
-                            break;
-                        case contract_ack_t::state_t::secondary_backfilling:
-                            status->secondary = true;
-                            status->backfilling = true;
-                            break;
-                        case contract_ack_t::state_t::secondary_streaming:
-                            status->secondary = true;
-                            break;
                     }
                 });
             });

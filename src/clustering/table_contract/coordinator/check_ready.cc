@@ -22,8 +22,7 @@ bool check_all_replicas_ready(
             acks->read_key(std::make_pair(server, pair.first),
             [&](const contract_ack_t *ack) {
                 ok = (ack != nullptr) && (
-                    ack->state == contract_ack_t::state_t::primary_ready ||
-                        ack->state == contract_ack_t::state_t::secondary_streaming);
+                    ack->state == contract_ack_t::state_t::primary_ready);
             });
             if (!ok) {
                 return false;

@@ -33,7 +33,7 @@ void contract_ack_t::sanity_check(
 
     guarantee((state == state_t::primary_need_branch) == static_cast<bool>(branch),
         "branch_id should be present iff state is primary_need_branch");
-    guarantee((state == state_t::secondary_need_primary) == static_cast<bool>(version),
+    guarantee(false == static_cast<bool>(version),
         "version should be present iff state is secondary_need_primary");
     guarantee(!static_cast<bool>(version) || version->get_domain() == region,
         "version has wrong region");
@@ -51,17 +51,6 @@ void contract_ack_t::sanity_check(
                 [&](const region_t &subregion, const branch_id_t &cur_branch) {
                     version_find_branch_common(
                         &combiner, branch_initial_version, cur_branch, subregion);
-                });
-            } else if (state == state_t::secondary_need_primary) {
-                branch_history_combiner_t combiner(
-                    &raft_state.branch_history, &branch_history);
-                version->visit(region,
-                [&](const region_t &subregion, const version_t &subversion) {
-                    raft_state.current_branches.visit(subregion,
-                    [&](const region_t &subsubregion, const branch_id_t &cur_branch) {
-                        version_find_branch_common(
-                            &combiner, subversion, cur_branch, subsubregion);
-                    });
                 });
             }
         } catch (const missing_branch_exc_t &) {
@@ -206,10 +195,10 @@ table_raft_state_t make_new_table_raft_state(
     return state;
 }
 
-RDB_IMPL_EQUALITY_COMPARABLE_6(table_shard_status_t,
-    primary, secondary, need_primary, need_quorum, backfilling, transitioning);
-RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(table_shard_status_t,
-    primary, secondary, need_primary, need_quorum, backfilling, transitioning);
+RDB_IMPL_EQUALITY_COMPARABLE_5(table_shard_status_t,
+    primary, secondary, need_primary, need_quorum, transitioning);
+RDB_IMPL_SERIALIZABLE_5_FOR_CLUSTER(table_shard_status_t,
+    primary, secondary, need_primary, need_quorum, transitioning);
 
 void debug_print(printf_buffer_t *buf, const contract_t &contract) {
     buf->appendf("contract_t { the_server = ");
@@ -223,9 +212,6 @@ const char *contract_ack_state_to_string(contract_ack_t::state_t state) {
         case state_t::primary_need_branch: return "primary_need_branch";
         case state_t::primary_in_progress: return "primary_in_progress";
         case state_t::primary_ready: return "primary_ready";
-        case state_t::secondary_need_primary: return "secondary_need_primary";
-        case state_t::secondary_backfilling: return "secondary_backfilling";
-        case state_t::secondary_streaming: return "secondary_streaming";
         default: unreachable();
     }
 }

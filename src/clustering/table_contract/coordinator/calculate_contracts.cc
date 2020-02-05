@@ -121,9 +121,7 @@ bool is_streaming(
         server_id_t server) {
     // TODO: Nobody is ever in secondary_streaming state.
     auto it = acks.find(server);
-    if (it != acks.end() &&
-            (it->second.state == contract_ack_t::state_t::secondary_streaming ||
-            (old_c.the_server == server))) {
+    if (it != acks.end() && (old_c.the_server == server)) {
         return true;
     } else {
         return false;
@@ -301,9 +299,7 @@ void calculate_all_contracts(
                     auto it = this_contract_acks->find(server);
                     if (it == this_contract_acks->end() || (
                             it->second.state !=
-                                contract_ack_t::state_t::primary_ready &&
-                            it->second.state !=
-                                contract_ack_t::state_t::secondary_streaming)) {
+                                contract_ack_t::state_t::primary_ready)) {
                         /* At least one replica can't be confirmed to be on
                         `current_branch`, so we should keep the branch history around in
                         order to make it easy for that replica to rejoin later. */
