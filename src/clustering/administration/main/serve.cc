@@ -20,10 +20,8 @@
 #include "clustering/administration/persist/semilattice.hpp"
 #include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
-#include "clustering/administration/servers/auto_reconnect.hpp"
 #include "clustering/administration/servers/config_server.hpp"
 #include "clustering/administration/servers/config_client.hpp"
-#include "clustering/administration/servers/network_logger.hpp"
 #include "clustering/administration/tables/name_resolver.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "clustering/table_manager/multi_table_manager.hpp"
@@ -211,12 +209,6 @@ bool do_serve(FDBDatabase *fdb,
             &mailbox_manager,
             directory_read_manager.get_root_map_view(),
             server_connection_read_manager.get_root_view());
-
-        /* `network_logger` writes to the log file when another server connects or
-        disconnects. */
-        network_logger_t network_logger(
-            connectivity_cluster.get_me(),
-            directory_read_manager.get_root_map_view());
 
         /* `connectivity_cluster_run` is the other half of the `connectivity_cluster_t`.
         Before it's created, the `connectivity_cluster_t` won't process any connections
@@ -459,9 +451,6 @@ bool do_serve(FDBDatabase *fdb,
 
             directory_write_manager_t<cluster_directory_metadata_t> directory_write_manager(
                 &connectivity_cluster, 'D', our_root_directory_variable.get_watchable());
-
-            directory_map_write_manager_t<server_id_t, empty_value_t> server_connection_write_manager(
-                &connectivity_cluster, 'C', network_logger.get_local_connections_map());
 
             scoped_ptr_t<directory_map_write_manager_t<
                     namespace_id_t, table_manager_bcard_t> >
