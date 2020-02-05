@@ -8,7 +8,6 @@
 #include "concurrency/pump_coro.hpp"
 #include "store_subview.hpp"
 
-class backfill_progress_tracker_t;
 class contract_t;
 class store_ptr_t;
 class table_shard_status_t;
@@ -33,7 +32,6 @@ public:
         store_ptr_t *multistore,
         const base_path_t &base_path,
         io_backender_t *io_backender,
-        backfill_progress_tracker_t *backfill_progress_tracker,
         perfmon_collection_t *perfmons);
     ~contract_executor_t();
 

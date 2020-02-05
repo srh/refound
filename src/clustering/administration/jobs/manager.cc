@@ -146,31 +146,6 @@ void jobs_manager_t::on_get_job_reports(
                     status.second.second.progress_numerator,
                     status.second.second.progress_denominator);
             }
-
-            std::map<region_t, backfill_progress_tracker_t::progress_tracker_t> backfills =
-                table_manager->get_backfill_progress_tracker().get_progress_trackers();
-            std::string base_str = uuid_to_str(server_id.get_uuid()) + uuid_to_str(table_id);
-            for (const auto &backfill : backfills) {
-                uuid_u id = uuid_u::from_hash(
-                    base_backfill_id,
-                    base_str + uuid_to_str(backfill.second.source_server_id.get_uuid()));
-
-                /* As above we only calculate the duration if the backfill is still in
-                   progress. */
-                double duration = backfill.second.is_ready
-                    ? 0.0
-                    : time - std::min<double>(backfill.second.start_time, time);
-
-                backfill_job_reports.emplace_back(
-                    id,
-                    duration,
-                    server_id,
-                    table_id,
-                    backfill.second.is_ready,
-                    backfill.second.progress,
-                    backfill.second.source_server_id,
-                    server_id);
-            }
         });
 
         send(mailbox_manager,

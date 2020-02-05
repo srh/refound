@@ -4,7 +4,6 @@
 
 #include "clustering/table_contract/coordinator/coordinator.hpp"
 #include "clustering/table_contract/executor/executor.hpp"
-#include "clustering/table_manager/backfill_progress_tracker.hpp"
 #include "clustering/table_manager/server_name_cache_updater.hpp"
 #include "clustering/table_manager/sindex_manager.hpp"
 #include "clustering/table_manager/table_metadata.hpp"
@@ -49,10 +48,6 @@ public:
 
     watchable_map_t<uuid_u, table_query_bcard_t> *get_table_query_bcards() {
         return contract_executor.get_local_table_query_bcards();
-    }
-
-    backfill_progress_tracker_t &get_backfill_progress_tracker() {
-        return backfill_progress_tracker;
     }
 
     const sindex_manager_t &get_sindex_manager() const {
@@ -153,11 +148,6 @@ private:
     `contract_executor_t` on this server. */
     minidir_read_manager_t<std::pair<server_id_t, branch_id_t>,
         contract_execution_bcard_t> execution_bcard_read_manager;
-
-    /* The `backfill_progress_tracker` keeps track of backfills their destination
-    server, start time, and progress. This must be destructed after the
-    `contract_executor`. */
-    backfill_progress_tracker_t backfill_progress_tracker;
 
     /* The `contract_executor_t` creates and destroys `broadcaster_t`s,
     `listener_t`s, etc. to handle queries. */

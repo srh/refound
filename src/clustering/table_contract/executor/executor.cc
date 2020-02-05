@@ -113,7 +113,6 @@ contract_executor_t::contract_executor_t(
         store_ptr_t *_multistore,
         const base_path_t &_base_path,
         io_backender_t *_io_backender,
-        backfill_progress_tracker_t *_backfill_progress_tracker,
         perfmon_collection_t *_perfmons) :
     server_id(_server_id),
     raft_state(_raft_state),
@@ -134,7 +133,6 @@ contract_executor_t::contract_executor_t(
     execution_context.branch_history_manager = multistore->get_branch_history_manager();
     execution_context.base_path = _base_path;
     execution_context.io_backender = _io_backender;
-    execution_context.backfill_progress_tracker = _backfill_progress_tracker;
     execution_context.remote_contract_execution_bcards
         = _remote_contract_execution_bcards;
     execution_context.local_contract_execution_bcards

@@ -9,7 +9,6 @@
 #include "rpc/connectivity/server_id.hpp"
 #include "store_view.hpp"
 
-class backfill_progress_tracker_t;
 class branch_history_manager_t;
 class contract_ack_t;
 class io_backender_t;
@@ -43,7 +42,6 @@ public:
         branch_history_manager_t *branch_history_manager;
         base_path_t base_path;
         io_backender_t *io_backender;
-        backfill_progress_tracker_t *backfill_progress_tracker;
         watchable_map_t<std::pair<server_id_t, branch_id_t>,
             contract_execution_bcard_t> *remote_contract_execution_bcards;
         watchable_map_var_t<std::pair<server_id_t, branch_id_t>,
