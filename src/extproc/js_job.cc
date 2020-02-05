@@ -500,7 +500,7 @@ enum js_task_t {
 };
 
 // The job_t runs in the context of the main rethinkdb process
-js_job_t::js_job_t(extproc_pool_t *pool, signal_t *interruptor,
+js_job_t::js_job_t(extproc_pool_t *pool, const signal_t *interruptor,
                    const ql::configured_limits_t &_limits) :
     extproc_job(pool, &worker_fn, interruptor), limits(_limits) { }
 

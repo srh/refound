@@ -34,11 +34,11 @@ public:
     int64_t write(const void *buf, int64_t count);
     void wait_for_pipe_client(signal_t *interruptor);
 
-    void set_interruptor(signal_t *_interruptor) { interruptor = _interruptor; }
+    void set_interruptor(const signal_t *_interruptor) { interruptor = _interruptor; }
 
 private:
     fd_t fd;
-    signal_t *interruptor;
+    const signal_t *interruptor;
     windows_event_watcher_t *event_watcher;
 };
 
@@ -79,8 +79,8 @@ public:
     // on_shutdown_{read,write} has already been called).
     //
     // They raise interrupted_exc_t if `interruptor` is pulsed.
-    virtual MUST_USE bool wait_for_read(signal_t *interruptor) = 0;
-    virtual MUST_USE bool wait_for_write(signal_t *interruptor) = 0;
+    virtual MUST_USE bool wait_for_read(const signal_t *interruptor) = 0;
+    virtual MUST_USE bool wait_for_write(const signal_t *interruptor) = 0;
 
 private:
     DISABLE_COPYING(fd_watcher_t);
@@ -96,8 +96,8 @@ public:
     virtual bool is_write_open();
     virtual void on_shutdown_read();
     virtual void on_shutdown_write();
-    virtual MUST_USE bool wait_for_read(signal_t *interruptor);
-    virtual MUST_USE bool wait_for_write(signal_t *interruptor);
+    virtual MUST_USE bool wait_for_read(const signal_t *interruptor);
+    virtual MUST_USE bool wait_for_write(const signal_t *interruptor);
     virtual void init_callback(linux_event_callback_t *cb);
 
 private:
@@ -121,8 +121,8 @@ public:
     virtual bool is_write_open();
     virtual void on_shutdown_read();
     virtual void on_shutdown_write();
-    virtual MUST_USE bool wait_for_read(signal_t *interruptor);
-    virtual MUST_USE bool wait_for_write(signal_t *interruptor);
+    virtual MUST_USE bool wait_for_read(const signal_t *interruptor);
+    virtual MUST_USE bool wait_for_write(const signal_t *interruptor);
 
 private:
     // True iff there is a waiting read/write operation. Used to ensure that we
@@ -155,7 +155,7 @@ public:
     virtual MUST_USE int64_t read(void *p, int64_t n);
     virtual int64_t write(const void *p, int64_t n);
 
-    void set_interruptor(signal_t *_interruptor) { interruptor = _interruptor; }
+    void set_interruptor(const signal_t *_interruptor) { interruptor = _interruptor; }
 
     void assert_thread() { fd_watcher_->assert_thread(); }
 
@@ -184,7 +184,7 @@ private:
 
     fd_t fd_;
     scoped_ptr_t<fd_watcher_t> fd_watcher_;
-    signal_t *interruptor;
+    const signal_t *interruptor;
 
     void on_event(int events); // for linux_callback_t
 

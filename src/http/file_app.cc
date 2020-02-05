@@ -21,7 +21,7 @@ bool ends_with(const std::string& str, const std::string& end) {
     return str.rfind(end) == str.length() - end.length();
 }
 
-void file_http_app_t::handle(const http_req_t &req, http_res_t *result, signal_t *) {
+void file_http_app_t::handle(const http_req_t &req, http_res_t *result, const signal_t *) {
     if (req.method != http_method_t::GET) {
         *result = http_res_t(http_status_code_t::METHOD_NOT_ALLOWED);
         return;

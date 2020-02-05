@@ -88,13 +88,13 @@ TEST(Http, Encodings) {
     test_encoding("g_zip", false);
 }
 
-class dummy_http_app_t : public http_app_t {
+class dummy_http_app_t final : public http_app_t {
 public:
     signal_t *get_handle_signal() {
         return &request_received;
     }
 
-    void handle(const http_req_t &, http_res_t *, signal_t *interruptor) {
+    void handle(const http_req_t &, http_res_t *, const signal_t *interruptor) override {
         request_received.pulse();
         interruptor->wait();
         throw interrupted_exc_t();

@@ -181,7 +181,7 @@ size_t curl_data_t::read_internal(char *ptr, size_t size) {
 }
 
 // The job_t runs in the context of the main rethinkdb process
-http_job_t::http_job_t(extproc_pool_t *pool, signal_t *interruptor) :
+http_job_t::http_job_t(extproc_pool_t *pool, const signal_t *interruptor) :
     extproc_job(pool, &worker_fn, interruptor) { }
 
 void http_job_t::http(const http_opts_t &opts,

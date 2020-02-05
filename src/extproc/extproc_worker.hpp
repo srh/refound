@@ -20,8 +20,8 @@ public:
     ~extproc_worker_t();
 
     // Called whenever the worker changes hands (system -> user -> system)
-    void acquired(signal_t *_interruptor);
-    void released(bool user_error, signal_t *user_interruptor);
+    void acquired(const signal_t *_interruptor);
+    void released(bool user_error, const signal_t *user_interruptor);
 
     // We accept jobs as functions that take a read stream and write stream
     //  so that they can communicate back to the job in the main process
@@ -53,7 +53,7 @@ private:
     object_buffer_t<windows_event_watcher_t> socket_event_watcher;
 #endif
 
-    signal_t *interruptor;
+    const signal_t *interruptor;
 };
 
 #endif /* EXTPROC_EXTPROC_WORKER_HPP_ */

@@ -72,7 +72,7 @@ private:
 
     // Callback that handles worker deallocations in a coro pool, so we don't block the
     // timer callback or have multiple deallocations happening at once
-    void dealloc_blocking(UNUSED signal_t *interruptor);
+    void dealloc_blocking(UNUSED const signal_t *interruptor);
 
     // Cross-threaded semaphore allowing workers to be acquired from any thread
     cross_thread_semaphore_t<extproc_worker_t> worker_semaphore;

@@ -72,7 +72,7 @@ LPFN_ACCEPTEX get_AcceptEx(fd_t s) {
 #endif
 
 void async_connect(fd_t socket, sockaddr *sa, size_t sa_len,
-                   event_watcher_t *event_watcher, signal_t *interuptor) {
+                   event_watcher_t *event_watcher, const signal_t *interuptor) {
 #ifdef _WIN32
     overlapped_operation_t op(event_watcher);
     winsock_debugf("connecting socket %x\n", socket);
@@ -117,7 +117,7 @@ void async_connect(fd_t socket, sockaddr *sa, size_t sa_len,
 #endif
 }
 
-void connect_ipv4_internal(fd_t socket, int local_port, const in_addr &addr, int port, event_watcher_t *event_watcher, signal_t *interuptor) {
+void connect_ipv4_internal(fd_t socket, int local_port, const in_addr &addr, int port, event_watcher_t *event_watcher, const signal_t *interuptor) {
     struct sockaddr_in sa;
     socklen_t sa_len(sizeof(sa));
     memset(&sa, 0, sa_len);
@@ -147,7 +147,7 @@ void connect_ipv4_internal(fd_t socket, int local_port, const in_addr &addr, int
     async_connect(socket, reinterpret_cast<sockaddr *>(&sa), sa_len, event_watcher, interuptor);
 }
 
-void connect_ipv6_internal(fd_t socket, int local_port, const in6_addr &addr, int port, uint32_t scope_id, event_watcher_t *event_watcher, signal_t *interuptor) {
+void connect_ipv6_internal(fd_t socket, int local_port, const in6_addr &addr, int port, uint32_t scope_id, event_watcher_t *event_watcher, const signal_t *interuptor) {
     struct sockaddr_in6 sa;
     socklen_t sa_len(sizeof(sa));
     memset(&sa, 0, sa_len);
@@ -204,7 +204,7 @@ fd_t create_socket_wrapper(int address_family) {
 // Network connection object
 linux_tcp_conn_t::linux_tcp_conn_t(const ip_address_t &peer,
                                    int port,
-                                   signal_t *interruptor,
+                                   const signal_t *interruptor,
                                    int local_port) THROWS_ONLY(connect_failed_exc_t, interrupted_exc_t) :
         write_perfmon(nullptr),
         sock(create_socket_wrapper(peer.get_address_family())),
@@ -384,7 +384,7 @@ size_t linux_tcp_conn_t::read_internal(void *buffer, size_t size) THROWS_ONLY(tc
 #endif
 }
 
-size_t linux_tcp_conn_t::read_some(void *buf, size_t size, signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
+size_t linux_tcp_conn_t::read_some(void *buf, size_t size, const signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
     rassert(size > 0);
     read_op_wrapper_t sentry(this, closer);
 
@@ -400,7 +400,7 @@ size_t linux_tcp_conn_t::read_some(void *buf, size_t size, signal_t *closer) THR
     }
 }
 
-void linux_tcp_conn_t::read(void *buf, size_t size, signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
+void linux_tcp_conn_t::read(void *buf, size_t size, const signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
     read_op_wrapper_t sentry(this, closer);
 
     /* First, consume any data in the peek buffer */
@@ -419,7 +419,7 @@ void linux_tcp_conn_t::read(void *buf, size_t size, signal_t *closer) THROWS_ONL
     }
 }
 
-void linux_tcp_conn_t::read_buffered(void *buf, size_t size, signal_t *closer)
+void linux_tcp_conn_t::read_buffered(void *buf, size_t size, const signal_t *closer)
         THROWS_ONLY(tcp_conn_read_closed_exc_t) {
     while (size > 0) {
         const_charslice read_data = peek();
@@ -452,7 +452,7 @@ void linux_tcp_conn_t::read_buffered(void *buf, size_t size, signal_t *closer)
     }
 }
 
-void linux_tcp_conn_t::read_more_buffered(signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
+void linux_tcp_conn_t::read_more_buffered(const signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
     read_op_wrapper_t sentry(this, closer);
 
     size_t old_size = read_buffer.size();
@@ -472,14 +472,14 @@ const_charslice linux_tcp_conn_t::peek() const THROWS_ONLY(tcp_conn_read_closed_
     return const_charslice(read_buffer.data(), read_buffer.data() + read_buffer.size());
 }
 
-const_charslice linux_tcp_conn_t::peek(size_t size, signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
+const_charslice linux_tcp_conn_t::peek(size_t size, const signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
     while (read_buffer.size() < size) {
         read_more_buffered(closer);
     }
     return const_charslice(read_buffer.data(), read_buffer.data() + size);
 }
 
-void linux_tcp_conn_t::pop(size_t len, signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
+void linux_tcp_conn_t::pop(size_t len, const signal_t *closer) THROWS_ONLY(tcp_conn_read_closed_exc_t) {
     assert_thread();
     rassert(!read_in_progress);
     if (read_closed.is_pulsed()) {
@@ -521,7 +521,7 @@ linux_tcp_conn_t::write_handler_t::write_handler_t(linux_tcp_conn_t *_parent) :
     parent(_parent)
 { }
 
-void linux_tcp_conn_t::write_handler_t::coro_pool_callback(write_queue_op_t *operation, UNUSED signal_t *interruptor) {
+void linux_tcp_conn_t::write_handler_t::coro_pool_callback(write_queue_op_t *operation, UNUSED const signal_t *interruptor) {
     if (operation->buffer != nullptr) {
         parent->perform_write(operation->buffer, operation->size);
         if (operation->dealloc != nullptr) {
@@ -649,7 +649,7 @@ void linux_tcp_conn_t::perform_write(const void *buf, size_t size) {
 #endif
 }
 
-void linux_tcp_conn_t::write(const void *buf, size_t size, signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
+void linux_tcp_conn_t::write(const void *buf, size_t size, const signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
     write_op_wrapper_t sentry(this, closer);
 
     write_queue_op_t op;
@@ -680,7 +680,7 @@ void linux_tcp_conn_t::write(const void *buf, size_t size, signal_t *closer) THR
     }
 }
 
-void linux_tcp_conn_t::write_buffered(const void *vbuf, size_t size, signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
+void linux_tcp_conn_t::write_buffered(const void *vbuf, size_t size, const signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
     write_op_wrapper_t sentry(this, closer);
 
     /* Convert to `char` for ease of pointer arithmetic */
@@ -712,7 +712,7 @@ void linux_tcp_conn_t::write_buffered(const void *vbuf, size_t size, signal_t *c
     }
 }
 
-void linux_tcp_conn_t::writef(signal_t *closer, const char *format, ...) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
+void linux_tcp_conn_t::writef(const signal_t *closer, const char *format, ...) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
     va_list ap;
     va_start(ap, format);
 
@@ -722,7 +722,7 @@ void linux_tcp_conn_t::writef(signal_t *closer, const char *format, ...) THROWS_
     va_end(ap);
 }
 
-void linux_tcp_conn_t::flush_buffer(signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
+void linux_tcp_conn_t::flush_buffer(const signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
     write_op_wrapper_t sentry(this, closer);
 
     /* Flush the write buffer; it might be half-full. */
@@ -748,7 +748,7 @@ void linux_tcp_conn_t::flush_buffer(signal_t *closer) THROWS_ONLY(tcp_conn_write
     }
 }
 
-void linux_tcp_conn_t::flush_buffer_eventually(signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
+void linux_tcp_conn_t::flush_buffer_eventually(const signal_t *closer) THROWS_ONLY(tcp_conn_write_closed_exc_t) {
     write_op_wrapper_t sentry(this, closer);
 
     /* Flush the write buffer; it might be half-full. */
@@ -906,7 +906,7 @@ will establish a TCP connection to the peer at the given host:port and then we
 wrap the tcp connection in TLS using the configuration in the given tls_ctx. */
 linux_secure_tcp_conn_t::linux_secure_tcp_conn_t(
         SSL_CTX *tls_ctx, const ip_address_t &host, int port,
-        signal_t *interruptor, int local_port)
+        const signal_t *interruptor, int local_port)
         THROWS_ONLY(connect_failed_exc_t, crypto::openssl_error_t, interrupted_exc_t) :
     linux_tcp_conn_t(host, port, interruptor, local_port),
     conn(tls_ctx) {
@@ -918,7 +918,7 @@ linux_secure_tcp_conn_t::linux_secure_tcp_conn_t(
 
 /* This is the server version of the constructor */
 linux_secure_tcp_conn_t::linux_secure_tcp_conn_t(
-        SSL_CTX *tls_ctx, fd_t _sock, signal_t *interruptor)
+        SSL_CTX *tls_ctx, fd_t _sock, const signal_t *interruptor)
         THROWS_ONLY(crypto::openssl_error_t, interrupted_exc_t) :
     linux_tcp_conn_t(_sock),
     conn(tls_ctx) {
@@ -940,7 +940,7 @@ void linux_secure_tcp_conn_t::rethread(threadnum_t thread) {
     linux_tcp_conn_t::rethread(thread);
 }
 
-void linux_secure_tcp_conn_t::perform_handshake(signal_t *interruptor)
+void linux_secure_tcp_conn_t::perform_handshake(const signal_t *interruptor)
         THROWS_ONLY(crypto::openssl_error_t, interrupted_exc_t) {
     // Perform TLS handshake.
     while (true) {
@@ -1227,7 +1227,7 @@ linux_tcp_conn_descriptor_t::~linux_tcp_conn_descriptor_t() {
 }
 
 void linux_tcp_conn_descriptor_t::make_server_connection(
-    tls_ctx_t *tls_ctx, scoped_ptr_t<linux_tcp_conn_t> *tcp_conn, signal_t *closer
+    tls_ctx_t *tls_ctx, scoped_ptr_t<linux_tcp_conn_t> *tcp_conn, const signal_t *closer
 ) THROWS_ONLY(crypto::openssl_error_t, interrupted_exc_t) {
     // We pass ownership of `fd_` to the connection.
     fd_t sock = fd_;
@@ -1242,7 +1242,7 @@ void linux_tcp_conn_descriptor_t::make_server_connection(
 }
 
 void linux_tcp_conn_descriptor_t::make_server_connection(
-    tls_ctx_t *tls_ctx, linux_tcp_conn_t **tcp_conn_out, signal_t *closer
+    tls_ctx_t *tls_ctx, linux_tcp_conn_t **tcp_conn_out, const signal_t *closer
 ) THROWS_ONLY(crypto::openssl_error_t, interrupted_exc_t) {
     // We pass ownership of `fd_` to the connection.
     fd_t sock = fd_;

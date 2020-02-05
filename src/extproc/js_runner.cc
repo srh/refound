@@ -46,7 +46,7 @@ private:
 //  easily clear it all and replace it
 class js_runner_t::job_data_t {
 public:
-    job_data_t(extproc_pool_t *pool, signal_t *interruptor,
+    job_data_t(extproc_pool_t *pool, const signal_t *interruptor,
                const ql::configured_limits_t &limits) :
         combined_interruptor(interruptor, js_timeout.get_signal()),
         js_job(pool, &combined_interruptor, limits) { }
@@ -100,7 +100,7 @@ bool js_runner_t::connected() const {
 }
 
 // Starts the javascript function in the worker process
-void js_runner_t::begin(extproc_pool_t *pool, signal_t *interruptor,
+void js_runner_t::begin(extproc_pool_t *pool, const signal_t *interruptor,
                         const ql::configured_limits_t &limits) {
     assert_thread();
     if (interruptor == nullptr) {

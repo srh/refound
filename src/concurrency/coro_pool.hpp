@@ -16,20 +16,20 @@ template <class T>
 class coro_pool_callback_t {
 public:
     virtual ~coro_pool_callback_t() { }
-    virtual void coro_pool_callback(T, signal_t *) = 0;
+    virtual void coro_pool_callback(T, const signal_t *) = 0;
 };
 
 template <class T>
-class std_function_callback_t : public coro_pool_callback_t<T> {
+class std_function_callback_t final : public coro_pool_callback_t<T> {
 public:
-    explicit std_function_callback_t(std::function<void(T, signal_t *)> _f)
+    explicit std_function_callback_t(std::function<void(T, const signal_t *)> _f)
         : f(std::move(_f))
     { }
-    void coro_pool_callback(T t, signal_t *interruptor) {
+    void coro_pool_callback(T t, const signal_t *interruptor) override {
         f(t, interruptor);
     }
 private:
-    std::function<void(T, signal_t *)> f;
+    std::function<void(T, const signal_t *)> f;
 
     DISABLE_COPYING(std_function_callback_t);
 };
@@ -95,9 +95,9 @@ private:
     auto_drainer_t coro_drain_semaphore;
 };
 
-class calling_callback_t : public coro_pool_callback_t<std::function<void()> > {
+class calling_callback_t final : public coro_pool_callback_t<std::function<void()> > {
 public:
-    void coro_pool_callback(std::function<void()> f, UNUSED signal_t *interruptor) {
+    void coro_pool_callback(std::function<void()> f, UNUSED const signal_t *interruptor) override {
         f();
     }
 };

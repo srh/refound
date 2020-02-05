@@ -59,7 +59,7 @@ extproc_worker_t::~extproc_worker_t() {
     }
 }
 
-void extproc_worker_t::acquired(signal_t *_interruptor) {
+void extproc_worker_t::acquired(const signal_t *_interruptor) {
     // Only start the worker process once the worker is acquired for the first time
     // This will also repair a killed worker
 
@@ -97,7 +97,7 @@ void extproc_worker_t::acquired(signal_t *_interruptor) {
 
 }
 
-void extproc_worker_t::released(bool user_error, signal_t *user_interruptor) {
+void extproc_worker_t::released(bool user_error, const signal_t *user_interruptor) {
     guarantee(interruptor != nullptr);
     bool errored = user_error;
 

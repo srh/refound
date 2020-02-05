@@ -33,7 +33,7 @@ void extproc_pool_t::on_ring() {
     dealloc_pumper.notify();
 }
 
-void extproc_pool_t::dealloc_blocking(UNUSED signal_t *interruptor_) {
+void extproc_pool_t::dealloc_blocking(UNUSED const signal_t *interruptor_) {
     int cur_worker_cnt = worker_cnt;
     int dealloc_cnt = (prev_worker_cnt - cur_worker_cnt) / 2;
     prev_worker_cnt = cur_worker_cnt;

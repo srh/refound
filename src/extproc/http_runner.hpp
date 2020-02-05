@@ -130,7 +130,7 @@ public:
 
     void http(const http_opts_t &opts,
               http_result_t *res_out,
-              signal_t *interruptor);
+              const signal_t *interruptor);
 
 private:
     extproc_pool_t *pool;

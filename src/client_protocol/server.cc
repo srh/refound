@@ -633,7 +633,7 @@ void query_server_t::connection_loop(tcp_conn_t *conn,
 
 void query_server_t::handle(const http_req_t &req,
                             http_res_t *result,
-                            signal_t *interruptor) {
+                            const signal_t *interruptor) {
     auto_drainer_t::lock_t auto_drainer_lock(&drainer);
     if (req.method == http_method_t::POST &&
         req.resource.as_string().find("open-new-connection") != std::string::npos) {

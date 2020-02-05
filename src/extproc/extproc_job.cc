@@ -5,7 +5,7 @@
 
 extproc_job_t::extproc_job_t(extproc_pool_t *_pool,
                              bool (*worker_fn) (read_stream_t *, write_stream_t *),
-                             signal_t *_user_interruptor) :
+                             const signal_t *_user_interruptor) :
     pool(_pool),
     user_error(false),
     user_interruptor(_user_interruptor),

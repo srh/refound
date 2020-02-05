@@ -16,7 +16,7 @@
 
 class js_job_t {
 public:
-    js_job_t(extproc_pool_t *pool, signal_t *interruptor,
+    js_job_t(extproc_pool_t *pool, const signal_t *interruptor,
              const ql::configured_limits_t &limits);
 
     js_result_t eval(const std::string &source);

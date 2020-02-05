@@ -8,11 +8,12 @@
 #include "extproc/extproc_job.hpp"
 #include "extproc/http_runner.hpp"
 #include "containers/archive/archive.hpp"
-#include "concurrency/signal.hpp"
+
+class signal_t;
 
 class http_job_t {
 public:
-    http_job_t(extproc_pool_t *pool, signal_t *interruptor);
+    http_job_t(extproc_pool_t *pool, const signal_t *interruptor);
 
     void http(const http_opts_t &opts, http_result_t *res_out);
 

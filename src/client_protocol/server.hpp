@@ -128,7 +128,7 @@ private:
     // For HTTP server
     void handle(const http_req_t &request,
                 http_res_t *result,
-                signal_t *interruptor);
+                const signal_t *interruptor) override;
 
     tls_ctx_t *tls_ctx;
     rdb_context_t *const rdb_ctx;

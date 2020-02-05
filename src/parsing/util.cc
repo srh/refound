@@ -9,7 +9,7 @@ line_parser_t::line_parser_t(tcp_conn_t *_conn) : conn(_conn) {
 
 // Returns a charslice to the next CRLF line in the TCP conn's buffer
 // blocks until a full line is available
-std::string line_parser_t::readLine(signal_t *closer) {
+std::string line_parser_t::readLine(const signal_t *closer) {
     while (!readCRLF(closer)) {
         bytes_read++;
     }
@@ -20,7 +20,7 @@ std::string line_parser_t::readLine(signal_t *closer) {
     return line;
 }
 
-std::string line_parser_t::readWord(signal_t *closer) {
+std::string line_parser_t::readWord(const signal_t *closer) {
     while (current(closer) != ' ') {
         bytes_read++;
     }
@@ -41,13 +41,13 @@ void line_parser_t::peek() {
     end_position = slice.end;
 }
 
-void line_parser_t::pop(signal_t *closer) {
+void line_parser_t::pop(const signal_t *closer) {
     conn->pop(bytes_read, closer);
     peek();
     bytes_read = 0;
 }
 
-char line_parser_t::current(signal_t *closer) {
+char line_parser_t::current(const signal_t *closer) {
     while (static_cast<int64_t>(bytes_read) >= (end_position - start_position)) {
         conn->read_more_buffered(closer);
         peek();
@@ -57,7 +57,7 @@ char line_parser_t::current(signal_t *closer) {
 
 // Attempts to read a crlf at the current position
 // possibily advanes the current position in its attempt to do so
-bool line_parser_t::readCRLF(signal_t *closer) {
+bool line_parser_t::readCRLF(const signal_t *closer) {
     if (current(closer) == '\r') {
         bytes_read++;
 

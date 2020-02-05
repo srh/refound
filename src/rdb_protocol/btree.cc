@@ -350,8 +350,8 @@ batched_replace_response_t rdb_batched_replace(
             trace);
         profile::disabler_t trace_disabler(trace);
         unlimited_fifo_queue_t<std::function<void()> > coro_queue;
-        struct callback_t : public coro_pool_callback_t<std::function<void()> > {
-            virtual void coro_pool_callback(std::function<void()> f, signal_t *) {
+        struct callback_t final : public coro_pool_callback_t<std::function<void()> > {
+            void coro_pool_callback(std::function<void()> f, const signal_t *) override {
                 f();
             }
         } callback;

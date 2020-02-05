@@ -64,7 +64,8 @@ TEST(DiskBackedQueue, BigVals) {
     unittest::run_in_thread_pool(&run_big_values_test, 2);
 }
 
-static void randomly_delay(int, signal_t *) {
+static void randomly_delay(int, const signal_t *) {
+    // NNN: Pass interruptor to nap, please!
     nap(randint(100));
 }
 

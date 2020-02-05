@@ -74,7 +74,7 @@ http_runner_t::http_runner_t(extproc_pool_t *_pool) :
 
 void http_runner_t::http(const http_opts_t &opts,
                          http_result_t *res_out,
-                         signal_t *interruptor) {
+                         const signal_t *interruptor) {
     signal_timer_t timeout;
     wait_any_t combined_interruptor(interruptor, &timeout);
     http_job_t job(pool, &combined_interruptor);

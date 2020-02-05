@@ -6,11 +6,11 @@
 
 #include "http/http.hpp"
 
-class file_http_app_t : public http_app_t {
+class file_http_app_t final : public http_app_t {
 public:
     explicit file_http_app_t(std::string _asset_dir);
 
-    void handle(const http_req_t &, http_res_t *result, signal_t *interruptor);
+    void handle(const http_req_t &, http_res_t *result, const signal_t *interruptor) override;
 private:
     void handle_blocking(std::string filename, http_res_t *res_out);
 

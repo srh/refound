@@ -28,7 +28,7 @@ class extproc_job_t : public home_thread_mixin_t {
 public:
     extproc_job_t(extproc_pool_t *_pool,
                   bool (*worker_fn) (read_stream_t *, write_stream_t *),
-                  signal_t *_user_interruptor);
+                  const signal_t *_user_interruptor);
     ~extproc_job_t();
 
     // All data written and read by the user must be accounted for, or the worker will
@@ -44,7 +44,7 @@ public:
 private:
     extproc_pool_t *pool;
     bool user_error;
-    signal_t *user_interruptor;
+    const signal_t *user_interruptor;
     wait_any_t combined_interruptor;
     object_buffer_t<cross_thread_semaphore_t<extproc_worker_t>::lock_t> worker_lock;
 };

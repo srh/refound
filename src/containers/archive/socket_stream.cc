@@ -119,14 +119,14 @@ void blocking_fd_watcher_t::on_shutdown_write() {
     write_open_ = false;
 }
 
-bool blocking_fd_watcher_t::wait_for_read(signal_t *interruptor) {
+bool blocking_fd_watcher_t::wait_for_read(const signal_t *interruptor) {
     guarantee(read_open_);
     // blocking IO and interruption don't go together nicely
     guarantee(!interruptor, "blocking_fd_watcher_t doesn't support interruption");
     return true;
 }
 
-bool blocking_fd_watcher_t::wait_for_write(signal_t *interruptor) {
+bool blocking_fd_watcher_t::wait_for_write(const signal_t *interruptor) {
     guarantee(write_open_);
     // blocking IO and interruption don't go together nicely
     guarantee(!interruptor, "blocking_fd_watcher_t doesn't support interruption");
@@ -174,7 +174,7 @@ void linux_event_fd_watcher_t::on_shutdown_write() {
     write_closed_.pulse();
 }
 
-bool linux_event_fd_watcher_t::wait_for_read(signal_t *interruptor) {
+bool linux_event_fd_watcher_t::wait_for_read(const signal_t *interruptor) {
     // Wait for a notification from the event queue, or an order to shut down
     assert_thread();
     guarantee(!io_in_progress_);
@@ -196,7 +196,7 @@ bool linux_event_fd_watcher_t::wait_for_read(signal_t *interruptor) {
     return is_read_open();
 }
 
-bool linux_event_fd_watcher_t::wait_for_write(signal_t *interruptor) {
+bool linux_event_fd_watcher_t::wait_for_write(const signal_t *interruptor) {
     // Wait for a notification from the event queue, or an order to shut down
     assert_thread();
     guarantee(!io_in_progress_);
