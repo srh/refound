@@ -125,6 +125,15 @@ rename_result config_cache_sindex_rename(
     bool overwrite,
     const signal_t *interruptor);
 
+bool config_cache_set_write_hook(
+        FDBTransaction *txn,
+        const auth::user_context_t &user_context,
+        reqlfdb_config_version expected_cv,
+        const database_id_t &db_id,
+        const namespace_id_t &table_id,
+        const optional<write_hook_config_t> &new_write_hook_config,
+        const signal_t *interruptor);
+
 void config_cache_cv_check(
     FDBTransaction *txn,
     reqlfdb_config_version expected_cv,

@@ -14,6 +14,7 @@
 #include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/op.hpp"
 #include "rdb_protocol/real_table.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/term_walker.hpp"
 #include "rdb_protocol/terms/terms.hpp"
 
@@ -40,24 +41,13 @@ public:
         scope_env_t *env, args_t *args, eval_flags_t) const override {
         counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
 
-        bool existed = false;
-        admin_err_t error;
-        datum_t write_hook;
-        if (env->env->reql_cluster_interface()->get_write_hook(
-                env->env->get_user_context(),
-                table->db,
-                name_string_t::guarantee_valid(table->name.c_str()),
-                env->env->interruptor,
-                &write_hook,
-                &error)) {
-            if (write_hook.has() &&
-                write_hook.get_type() != datum_t::type_t::R_NULL) {
-                existed = true;
-            }
-        }
+        // TODO: Maybe we actually want to ping fdb and see if the table still exists
+        // before we consider emitting any of the other errors first.  That would more
+        // precisely preserve prior behavior in terms of what errors take precedence.
+
         /* Parse the write_hook configuration */
         optional<write_hook_config_t> config;
-        datum_string_t message("deleted");
+        bool deletion_message = true;
         scoped_ptr_t<val_t> v = args->arg(env, 1);
         // RSI: Old reql versions hanging around, being unused, is pretty bad.
         // RSI: Something about write hooks not being specified vs. being specified as "null" in certain API's was weird.
@@ -111,27 +101,32 @@ public:
                    strprintf("Write hook functions must expect 3 arguments."));
         }
 
-        message =
-            existed ?
-            datum_string_t("replaced") :
-            datum_string_t("created");
+        deletion_message = true;
+
+        // QQQ: In 2.4.x we didn't call get_write_hook inside of a try catch block for the permission_error_t exception that might get thrown.  What happens if the user doesn't have permission?
 
     config_specified_without_value:
 
+        bool existed;
         try {
-            admin_err_t err;
-            if (!env->env->reql_cluster_interface()->set_write_hook(
-                    env->env->get_user_context(),
-                    table->db,
-                    name_string_t::guarantee_valid(table->name.c_str()),
-                    config,
-                    env->env->interruptor,
-                    &err)) {
-                REQL_RETHROW(err);
-            }
+            database_id_t db_id = table->db->id;
+            namespace_id_t table_id = table->get_id();
+            reqlfdb_config_version expected_cv = table->tbl->cv.get();
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                bool old_existed = config_cache_set_write_hook(
+                    txn, env->env->get_user_context(),
+                    expected_cv, db_id, table_id, config, env->env->interruptor);
+                commit(txn, env->env->interruptor);
+                existed = old_existed;
+            });
+            guarantee_fdb_TODO(loop_err, "retry loop fail in get_write_hook_term");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
+
+        datum_string_t message = deletion_message ? datum_string_t("deleted") :
+            existed ? datum_string_t("replaced") :
+                datum_string_t("created");
 
         ql::datum_object_builder_t res;
         res.overwrite(message, datum_t(1.0));
