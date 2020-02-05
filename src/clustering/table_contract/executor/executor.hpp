@@ -75,13 +75,11 @@ private:
     execution and create a new one. */
     class execution_key_t {
     public:
-        enum class role_t { primary, secondary, erase };
+        enum class role_t { primary };
         /* This is for generating perfmon keys */
         std::string role_name() const {
             switch (role) {
                 case role_t::primary: return "primary";
-                case role_t::secondary: return "secondary";
-                case role_t::erase: return "erase";
                 default: unreachable();
             }
         }
@@ -96,8 +94,7 @@ private:
     };
 
     execution_key_t get_contract_key(
-        const contract_t &contract,
-        const branch_id_t &branch);
+        const contract_t &contract);
 
     /* In response to Raft state changes, we want to delete existing executions and spawn
     new ones. However, deleting executions may block. So `raft_state_subs` notifies

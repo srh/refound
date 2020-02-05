@@ -2,9 +2,7 @@
 #include "clustering/table_contract/executor/executor.hpp"
 
 #include "clustering/table_contract/branch_history_gc.hpp"
-#include "clustering/table_contract/executor/exec_erase.hpp"
 #include "clustering/table_contract/executor/exec_primary.hpp"
-#include "clustering/table_contract/executor/exec_secondary.hpp"
 #include "clustering/table_contract/store_ptr.hpp"
 #include "store_subview.hpp"
 
@@ -13,7 +11,6 @@ public:
     execution_wrapper_t(
             contract_executor_t *_parent,
             const execution_key_t &key,
-            const branch_id_t &branch,
             const contract_id_t &_contract_id,
             const table_raft_state_t &state) :
         parent(_parent), contract_id(_contract_id),
@@ -24,14 +21,6 @@ public:
         switch (key.role) {
         case execution_key_t::role_t::primary:
             execution.init(new primary_execution_t(
-                &parent->execution_context, this, contract_id, state));
-            break;
-        case execution_key_t::role_t::secondary:
-            execution.init(new secondary_execution_t(
-                &parent->execution_context, this, contract_id, state, branch));
-            break;
-        case execution_key_t::role_t::erase:
-            execution.init(new erase_execution_t(
                 &parent->execution_context, this, contract_id, state));
             break;
         default: unreachable();
@@ -227,11 +216,10 @@ contract_executor_t::get_shard_status() {
 }
 
 contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
-        const contract_t &contract,
-        const branch_id_t &branch) {
+        const contract_t &contract) {
     execution_key_t key;
     guarantee(contract.the_server == server_id);
-    // TODO: remove execution_key_t::role_t::secondary, and ::erase.
+    // TODO: Maybe remove this fluff at all (of course).
     key.role = execution_key_t::role_t::primary;
     key.primary = server_id_t::from_server_uuid(nil_uuid());
     key.branch = branch_id_t{nil_uuid()};
@@ -245,24 +233,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
         ASSERT_NO_CORO_WAITING;
         raft_state->apply_read([&](const table_raft_state_t *new_state) {
             for (const auto &new_pair : new_state->contracts) {
-                /* Extract the current branch ID for the region covered by this contract.
-                If there are multiple branches for different subregions, we consider the
-                branch as incoherent and don't set a branch ID. */
-                branch_id_t branch{nil_uuid()};
-                bool branch_mismatch = false;
-                new_state->current_branches.visit(key_range_t::universe(),
-                [&](const region_t &, const branch_id_t &b) {
-                    if (branch.is_nil()) {
-                        branch = b;
-                    } else if (branch != b) {
-                        branch_mismatch = true;
-                    }
-                });
-                if (branch_mismatch) {
-                    branch = branch_id_t{nil_uuid()};
-                }
-
-                execution_key_t key = get_contract_key(new_pair.second, branch);
+                execution_key_t key = get_contract_key(new_pair.second);
                 dont_delete.insert(key);
                 auto it = executions.find(key);
                 if (it != executions.end()) {
@@ -274,7 +245,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
                     bool ok_to_create = executions.empty();
                     if (ok_to_create) {
                         executions[key] = make_scoped<execution_wrapper_t>(
-                            this, key, branch, new_pair.first, *new_state);
+                            this, key, new_pair.first, *new_state);
                     }
                 }
             }
