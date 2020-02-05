@@ -83,22 +83,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) override;
 
-    bool set_write_hook(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            const optional<write_hook_config_t> &config,
-            signal_t *interruptor,
-            admin_err_t *error_out) override;
-
-    bool get_write_hook(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &table,
-        signal_t *interruptor,
-        ql::datum_t *write_hook_datum_out,
-        admin_err_t *error_out) override;
-
     void set_next_reql_cluster_interface(reql_cluster_interface_t *next);
 
     artificial_table_backend_t *get_table_backend(

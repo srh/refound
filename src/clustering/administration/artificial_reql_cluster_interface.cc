@@ -133,40 +133,6 @@ bool artificial_reql_cluster_interface_t::table_status(
         db, name, bt, env, selection_out, error_out);
 }
 
-bool artificial_reql_cluster_interface_t::set_write_hook(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        const name_string_t &table,
-        const optional<write_hook_config_t> &config,
-        signal_t *interruptor,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; you can't set a "
-                      "write hook on the tables in it.",
-                      artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return m_next->set_write_hook(
-        user_context, db, table, config, interruptor, error_out);
-}
-
-bool artificial_reql_cluster_interface_t::get_write_hook(
-    auth::user_context_t const &user_context,
-    counted_t<const ql::db_t> db,
-    const name_string_t &table,
-    signal_t *interruptor,
-    ql::datum_t *write_hook_datum_out,
-    admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *write_hook_datum_out = ql::datum_t::null();
-        return true;
-    }
-    return m_next->get_write_hook(
-        user_context, db, table, interruptor, write_hook_datum_out, error_out);
-}
-
 void artificial_reql_cluster_interface_t::set_next_reql_cluster_interface(
         reql_cluster_interface_t *next) {
     m_next = next;

@@ -433,30 +433,4 @@ bool test_rdb_env_t::instance_t::table_status(
     return false;
 }
 
-bool test_rdb_env_t::instance_t::set_write_hook(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &table,
-        UNUSED const optional<write_hook_config_t> &config,
-        UNUSED signal_t *local_interruptor,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support set_write_hook()",
-        query_state_t::FAILED};
-    return false;
-}
-
-bool test_rdb_env_t::instance_t::get_write_hook(
-        UNUSED auth::user_context_t const &user_context,
-        UNUSED counted_t<const ql::db_t> db,
-        UNUSED const name_string_t &table,
-        UNUSED signal_t *local_interruptor,
-        UNUSED ql::datum_t *write_hook_datum_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "test_rdb_env_t::instance_t doesn't support get_write_hook()",
-        query_state_t::FAILED};
-    return false;
-}
-
 }  // namespace unittest

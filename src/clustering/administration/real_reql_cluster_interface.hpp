@@ -88,22 +88,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) override;
 
-    bool set_write_hook(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            const optional<write_hook_config_t> &config,
-            signal_t *interruptor,
-            admin_err_t *error_out) override;
-
-    bool get_write_hook(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            const name_string_t &table,
-            signal_t *interruptor,
-            ql::datum_t *write_hook_datum_out,
-            admin_err_t *error_out) override;
-
     /* `calculate_split_points_with_distribution` needs access to the underlying
     `namespace_interface_t` and `table_meta_client_t`. */
     table_meta_client_t *get_table_meta_client() override {
