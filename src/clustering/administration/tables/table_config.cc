@@ -4,7 +4,6 @@
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/tables/generate_config.hpp"
-#include "clustering/administration/tables/split_points.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "containers/archive/string_stream.hpp"

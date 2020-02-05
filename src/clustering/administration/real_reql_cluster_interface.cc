@@ -8,7 +8,6 @@
 #include "clustering/administration/servers/config_client.hpp"
 #include "clustering/administration/tables/calculate_status.hpp"
 #include "clustering/administration/tables/generate_config.hpp"
-#include "clustering/administration/tables/split_points.hpp"
 #include "clustering/administration/tables/table_config.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"

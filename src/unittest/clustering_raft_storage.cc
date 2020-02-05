@@ -5,7 +5,6 @@
 #include "clustering/administration/persist/file.hpp"
 #include "clustering/administration/persist/file_keys.hpp"
 #include "clustering/administration/persist/raft_storage_interface.hpp"
-#include "clustering/administration/tables/split_points.hpp"
 #include "clustering/table_contract/contract_metadata.hpp"
 #include "unittest/clustering_utils_raft.hpp"
 #include "unittest/unittest_utils.hpp"
