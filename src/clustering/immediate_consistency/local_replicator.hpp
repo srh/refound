@@ -9,7 +9,7 @@
 
 /* `local_replicator_t` receives writes from a `primary_dispatcher_t` on the same server
 and applies them directly to a `store_t` on the same server. It doesn't receive a
-backfill at startup; instead, it asserts that the store's state is equal to the starting
+back-fill at startup; instead, it asserts that the store's state is equal to the starting
 state of the `primary_dispatcher_t`'s branch, and then sets the metainfo to point at the
 starting state of the branch. So it must be created before any writes have happened on
 the `primary_dispatcher_t`.

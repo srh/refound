@@ -52,7 +52,7 @@ public:
 
 private:
     /* The actual work of executing the contract--accepting queries from the user,
-    performing backfills, etc.--is carried out by the three `execution_t` subclasses,
+    performing back-fills, etc.--is carried out by the three `execution_t` subclasses,
     `primary_execution_t`, `secondary_execution_t`, and `erase_execution_t`.
     `execution_wrapper_t` is just a simple wrapper around an `execution_t` with some
     supporting objects. */
