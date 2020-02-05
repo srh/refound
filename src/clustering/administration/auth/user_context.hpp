@@ -84,6 +84,8 @@ public:
     const char *permission_name() const { return "config"; }
 };
 
+// QQQ: These fdb functions should be config-cached in one way or another...
+
 class user_context_t
 {
 public:
