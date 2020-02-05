@@ -15,13 +15,13 @@ even after a failover or other reconfiguration. */
 class ack_counter_t {
 public:
     explicit ack_counter_t(const contract_t &_contract) :
-        contract(_contract), primary_ack(false), voter_acks(0), temp_voter_acks(0) { }
+        contract(_contract), primary_ack(false), voter_acks(0) { }
     void note_ack(const server_id_t &server);
     bool is_safe() const;
 private:
     const contract_t &contract;
     bool primary_ack;
-    size_t voter_acks, temp_voter_acks;
+    size_t voter_acks;
 
     DISABLE_COPYING(ack_counter_t);
 };
