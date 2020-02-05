@@ -3,7 +3,6 @@
 
 #include "clustering/immediate_consistency/local_replicator.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/immediate_consistency/remote_replicator_client.hpp"
 #include "clustering/immediate_consistency/remote_replicator_server.hpp"
 #include "clustering/immediate_consistency/standard_backfill_throttler.hpp"
 #include "clustering/table_manager/backfill_progress_tracker.hpp"
@@ -99,95 +98,5 @@ TPTEST(ClusteringBranch, ReadWrite) {
     run_with_primary(&run_read_write_test);
 }
 
-/* The `Backfill` test starts up a node with one mirror, inserts some data, and
-then adds another mirror. */
-
-void run_backfill_test(
-        simple_mailbox_cluster_t *cluster,
-        primary_dispatcher_t *dispatcher,
-        mock_store_t *store1,
-        local_replicator_t *local_replicator,
-        order_source_t *order_source) {
-    /* Start sending operations to the broadcaster */
-    std::map<std::string, std::string> inserter_state;
-    class inserter_t : public test_inserter_t {
-    public:
-        inserter_t(
-                primary_dispatcher_t *d,
-                std::map<std::string, std::string> *s,
-                order_source_t *os) :
-            test_inserter_t(os, "run_backfill_test::inserter_t", s),
-            dispatcher(d)
-        {
-            start();
-        }
-        ~inserter_t() {
-            if (running()) {
-                stop();
-            }
-        }
-    private:
-        void write(const std::string &key, const std::string &value,
-                order_token_t otok, signal_t *) {
-            write_t w = mock_overwrite(key, value);
-            simple_write_callback_t write_callback;
-            dispatcher->spawn_write(w, otok, &write_callback);
-            write_callback.wait_lazily_unordered();
-        }
-        std::string read(const std::string &, order_token_t, signal_t *) {
-            unreachable();
-        }
-        std::string generate_key() {
-            return dummy_key_gen();
-        }
-        primary_dispatcher_t *dispatcher;
-    } inserter(dispatcher, &inserter_state, order_source);
-
-    nap(100);
-
-    remote_replicator_server_t remote_replicator_server(
-        cluster->get_mailbox_manager(),
-        dispatcher);
-
-    standard_backfill_throttler_t backfill_throttler;
-    backfill_progress_tracker_t backfill_progress_tracker;
-    peer_id_t nil_peer;
-
-    /* Set up a second mirror */
-    mock_store_t store2(version_t::zero());
-    in_memory_branch_history_manager_t bhm2;
-    cond_t interruptor;
-    remote_replicator_client_t remote_replicator_client(
-        &backfill_throttler,
-        backfill_config_t(),
-        &backfill_progress_tracker,
-        cluster->get_mailbox_manager(),
-        server_id_t::generate_server_id(),
-        backfill_throttler_t::priority_t::critical_t::NO,
-        dispatcher->get_branch_id(),
-        remote_replicator_server.get_bcard(),
-        local_replicator->get_replica_bcard(),
-        server_id_t::generate_server_id(),
-        &store2,
-        &bhm2,
-        &interruptor);
-
-    nap(100);
-
-    /* Stop the inserter, then let any lingering writes finish */
-    inserter.stop();
-    /* Let any lingering writes finish */
-    let_stuff_happen();
-
-    /* Confirm that both mirrors have all of the writes */
-    for (std::map<std::string, std::string>::iterator it = inserter.values_inserted->begin();
-            it != inserter.values_inserted->end(); it++) {
-        EXPECT_EQ(it->second, mock_lookup(store1, it->first));
-        EXPECT_EQ(it->second, mock_lookup(&store2, it->first));
-    }
-}
-TPTEST(ClusteringBranch, Backfill) {
-    run_with_primary(&run_backfill_test);
-}
 
 }   /* namespace unittest */
