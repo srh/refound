@@ -8,11 +8,11 @@ void contract_t::sanity_check() const {
 }
 #endif /* NDEBUG */
 
-RDB_IMPL_EQUALITY_COMPARABLE_2(
-    contract_t, the_server, after_emergency_repair);
+RDB_IMPL_EQUALITY_COMPARABLE_1(
+    contract_t, the_server);
 
-RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(
-    contract_t, the_server, after_emergency_repair);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(
+    contract_t, the_server);
 
 #ifndef NDEBUG
 void contract_ack_t::sanity_check(
@@ -39,7 +39,7 @@ void contract_ack_t::sanity_check(
         "version has wrong region");
 
     bool is_voter = contract.the_server == server;
-    if (!contract.after_emergency_repair && is_voter) {
+    if (true && is_voter) {
         try {
             if (state == state_t::primary_need_branch) {
                 branch_history_combiner_t combiner(
@@ -192,7 +192,6 @@ table_raft_state_t make_new_table_raft_state(
         contract_t contract;
         contract.the_server = shard_conf.primary_replica;
         guarantee(!shard_conf.primary_replica.get_uuid().is_nil());
-        contract.after_emergency_repair = false;
         state.contracts.insert(std::make_pair(contract_id_t{generate_uuid()},
             contract));
         {

@@ -218,8 +218,7 @@ void calculate_all_contracts(
                 In these situations, we don't need the common ancestor, but computing it
                 might be dangerous because the branch history might be incomplete. */
                 bool compute_common_ancestor =
-                    (cpair.second.the_server == pair.first) &&
-                    !cpair.second.after_emergency_repair;
+                    (cpair.second.the_server == pair.first);
 
                 // TODO: No need for fragments?
                 region_map_t<contract_ack_frag_t> frags = break_ack_into_fragments(
@@ -281,14 +280,12 @@ void calculate_all_contracts(
                         However this assumption no longer holds if the Raft state
                         has just been overwritten by an emergency repair operation.
                         Hence we ignore missing branches in the copy operation. */
-                        bool ignore_missing_branches
-                            = old_contract.after_emergency_repair;
                         copy_branch_history_for_branch(
                             to_register,
                             this_contract_acks->at(
                                 old_contract.the_server).branch_history,
                             old_state,
-                            ignore_missing_branches,
+                            false /* ignore_missing_branches */,
                             add_branches_out);
                         registered_new_branch = make_optional(to_register);
                     }
@@ -298,7 +295,7 @@ void calculate_all_contracts(
                 `current_branch`. We'll use this to determine when it's safe to GC and
                 whether we can switch off the `after_emergency_repair` flag (if it was
                 on). */
-                bool can_gc_branch_history = true, can_end_after_emergency_repair = true;
+                bool can_gc_branch_history = true;
                 {
                     server_id_t server = new_contract.the_server;
                     auto it = this_contract_acks->find(server);
@@ -311,13 +308,6 @@ void calculate_all_contracts(
                         `current_branch`, so we should keep the branch history around in
                         order to make it easy for that replica to rejoin later. */
                         can_gc_branch_history = false;
-
-                        if (true) {
-                            /* If the `after_emergency_repair` flag is set to `true`, we
-                            need to leave it set to `true` until we can confirm that
-                            the branch history is intact. */
-                            can_end_after_emergency_repair = false;
-                        }
                     }
                 }
 
@@ -334,10 +324,6 @@ void calculate_all_contracts(
                         }
                     }
                 });
-
-                if (can_end_after_emergency_repair) {
-                    new_contract.after_emergency_repair = false;
-                }
 
                 new_contract_region_vector.push_back(reg);
                 new_contract_vector.push_back(new_contract);

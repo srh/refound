@@ -53,7 +53,7 @@ a manual override:
 
 class contract_t {
 public:
-    contract_t() : after_emergency_repair(false) { }
+    contract_t() { }
 
 #ifndef NDEBUG
     void sanity_check() const;
@@ -64,11 +64,6 @@ public:
     }
 
     server_id_t the_server;
-
-    /* `after_emergency_repair` is set to `true` when we conduct an emergency repair.
-    When it's `true` we'll use a different algorithm for choosing primary replicas. Once
-    the table has stabilized after the repair, we'll set it back to `false`. */
-    bool after_emergency_repair;
 };
 
 RDB_DECLARE_EQUALITY_COMPARABLE(contract_t);
