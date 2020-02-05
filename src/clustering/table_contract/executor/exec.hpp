@@ -3,16 +3,19 @@
 #define CLUSTERING_TABLE_CONTRACT_EXECUTOR_EXEC_HPP_
 
 #include "clustering/id_types.hpp"
-#include "clustering/immediate_consistency/backfill_metadata.hpp"
-#include "clustering/immediate_consistency/remote_replicator_metadata.hpp"
 #include "clustering/query_routing/metadata.hpp"
 #include "paths.hpp"
+#include "rpc/connectivity/peer_id.hpp"
+#include "rpc/connectivity/server_id.hpp"
 #include "store_view.hpp"
 
 class backfill_progress_tracker_t;
 class backfill_throttler_t;
+class branch_history_manager_t;
 class contract_ack_t;
 class io_backender_t;
+class mailbox_manager_t;
+class perfmon_collection_t;
 class table_raft_state_t;
 class table_query_bcard_t;
 template <class key_t, class value_t> class watchable_map_t;
@@ -23,8 +26,6 @@ the same table on different servers. They allow servers to request backfills fro
 another and subscribe to receive queries. */
 class contract_execution_bcard_t {
 public:
-    remote_replicator_server_bcard_t remote_replicator_server;
-    replica_bcard_t replica;
     peer_id_t peer;
 };
 

@@ -20,7 +20,6 @@ There is one `local_replicator_t` on the primary replica server of each shard.
 class local_replicator_t : public primary_dispatcher_t::dispatchee_t {
 public:
     local_replicator_t(
-        mailbox_manager_t *mailbox_manager,
         const server_id_t &server_id,
         primary_dispatcher_t *primary,
         store_view_t *store,
@@ -29,10 +28,6 @@ public:
 
     /* This destructor can block */
     ~local_replicator_t();
-
-    replica_bcard_t get_replica_bcard() {
-        return replica.get_replica_bcard();
-    }
 
     bool is_primary() const {
         return true;

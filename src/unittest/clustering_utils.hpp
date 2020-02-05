@@ -11,8 +11,6 @@
 #include "arch/timing.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/immediate_consistency/remote_replicator_metadata.hpp"
-#include "clustering/immediate_consistency/remote_replicator_server.hpp"
 #include "clustering/query_routing/primary_query_client.hpp"
 #include "clustering/query_routing/primary_query_server.hpp"
 #include "unittest/dummy_metadata_controller.hpp"

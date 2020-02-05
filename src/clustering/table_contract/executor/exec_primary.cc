@@ -4,7 +4,6 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/immediate_consistency/local_replicator.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/immediate_consistency/remote_replicator_server.hpp"
 #include "clustering/query_routing/direct_query_server.hpp"
 #include "clustering/table_contract/contract_metadata.hpp"
 #include "concurrency/cross_thread_signal.hpp"
@@ -213,16 +212,11 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         on_thread_t thread_switcher_3(store->home_thread());
 
         local_replicator_t local_replicator(
-            context->mailbox_manager,
             context->server_id,
             &primary_dispatcher,
             store,
             context->branch_history_manager,
             &interruptor_store_thread);
-
-        remote_replicator_server_t remote_replicator_server(
-            context->mailbox_manager,
-            &primary_dispatcher);
 
         auto_drainer_t primary_dispatcher_drainer;
         assignment_sentry_t<auto_drainer_t *> our_dispatcher_drainer_assign(
@@ -253,8 +247,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         /* Put an entry in the minidir so the replicas can find us */
         contract_execution_bcard_t ce_bcard;
-        ce_bcard.remote_replicator_server = remote_replicator_server.get_bcard();
-        ce_bcard.replica = local_replicator.get_replica_bcard();
         ce_bcard.peer = context->mailbox_manager->get_me();
         watchable_map_var_t<std::pair<server_id_t, branch_id_t>,
             contract_execution_bcard_t>::entry_t minidir_entry(

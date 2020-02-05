@@ -3,7 +3,6 @@
 
 #include "clustering/immediate_consistency/local_replicator.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/immediate_consistency/remote_replicator_server.hpp"
 #include "clustering/immediate_consistency/standard_backfill_throttler.hpp"
 #include "clustering/table_manager/backfill_progress_tracker.hpp"
 #include "containers/uuid.hpp"
@@ -35,7 +34,6 @@ void run_with_primary(
     mock_store_t initial_store(version_t::zero());
     in_memory_branch_history_manager_t branch_history_manager;
     local_replicator_t local_replicator(
-        cluster.get_mailbox_manager(),
         server_id_t::generate_server_id(),
         &primary_dispatcher,
         &initial_store,

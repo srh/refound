@@ -4,7 +4,6 @@
 #include "concurrency/cross_thread_signal.hpp"
 
 local_replicator_t::local_replicator_t(
-        mailbox_manager_t *mailbox_manager,
         const server_id_t &server_id,
         primary_dispatcher_t *primary,
         store_view_t *_store,
@@ -12,9 +11,7 @@ local_replicator_t::local_replicator_t(
         signal_t *interruptor) :
     store(_store),
     replica(
-        mailbox_manager,
         store,
-        bhm,
         primary->get_branch_id(),
         primary->get_branch_birth_certificate().initial_timestamp)
 {

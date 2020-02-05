@@ -1,6 +1,7 @@
 #ifndef STORE_SUBVIEW_HPP_
 #define STORE_SUBVIEW_HPP_
 
+#include "arch/runtime/runtime.hpp"
 #include "store_view.hpp"
 
 /* The query-routing logic provides the following ordering guarantees:
