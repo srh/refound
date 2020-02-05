@@ -3,7 +3,6 @@
 
 #include "clustering/immediate_consistency/local_replicator.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/immediate_consistency/standard_backfill_throttler.hpp"
 #include "clustering/table_manager/backfill_progress_tracker.hpp"
 #include "containers/uuid.hpp"
 #include "rdb_protocol/protocol.hpp"

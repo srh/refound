@@ -130,7 +130,7 @@ multi_table_manager_t::active_table_t::active_table_t(
     table(_table),
     table_id(_table_id),
     manager(parent->server_id, parent->mailbox_manager, parent->server_config_client,
-        parent->table_manager_directory, &parent->backfill_throttler,
+        parent->table_manager_directory,
         parent->connections_map, *parent->base_path, parent->io_backender, table_id,
         epoch, member_id, raft_storage, start_election_immediately, multistore_ptr,
         perfmon_collection_namespace),

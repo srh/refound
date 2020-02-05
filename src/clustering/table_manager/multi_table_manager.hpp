@@ -3,7 +3,6 @@
 #define CLUSTERING_TABLE_MANAGER_MULTI_TABLE_MANAGER_HPP_
 
 #include "clustering/administration/perfmon_collection_repo.hpp"
-#include "clustering/immediate_consistency/standard_backfill_throttler.hpp"
 #include "clustering/table_contract/store_ptr.hpp"
 #include "clustering/table_manager/table_manager.hpp"
 #include "concurrency/rwlock.hpp"
@@ -386,8 +385,6 @@ private:
     io_backender_t *io_backender;
 
     perfmon_collection_repo_t *perfmon_collection_repo;
-
-    standard_backfill_throttler_t backfill_throttler;
 
     /* This collects the `table_basic_config_t` for every non-deleted table in the
     `tables` map, for the benefit of the `table_meta_client_t`. */

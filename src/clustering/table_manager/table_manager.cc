@@ -11,7 +11,6 @@ table_manager_t::table_manager_t(
         server_config_client_t *_server_config_client,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
             *_table_manager_directory,
-        backfill_throttler_t *_backfill_throttler,
         watchable_map_t<std::pair<server_id_t, server_id_t>, empty_value_t>
             *_connections_map,
         const base_path_t &_base_path,
@@ -44,7 +43,7 @@ table_manager_t::table_manager_t(
                 return sc.state;
             }),
         execution_bcard_read_manager.get_values(), multistore_ptr, _base_path,
-        _io_backender, _backfill_throttler, &backfill_progress_tracker,
+        _io_backender, &backfill_progress_tracker,
         &perfmon_collection),
     execution_bcard_write_manager(
         mailbox_manager,

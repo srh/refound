@@ -33,7 +33,6 @@ public:
         store_ptr_t *multistore,
         const base_path_t &base_path,
         io_backender_t *io_backender,
-        backfill_throttler_t *backfill_throttler,
         backfill_progress_tracker_t *backfill_progress_tracker,
         perfmon_collection_t *perfmons);
     ~contract_executor_t();
