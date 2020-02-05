@@ -56,8 +56,7 @@ void calculate_server_usage(
 /* `validate_params()` checks if `params` are legal. */
 static void validate_params(
         const table_generate_config_params_t &params,
-        const std::map<name_string_t, std::set<server_id_t> > &servers_with_tags,
-        const server_name_map_t &server_names)
+        const std::map<name_string_t, std::set<server_id_t> > &servers_with_tags)
         THROWS_ONLY(admin_op_exc_t) {
     size_t total_replicas = 0;
     for (const auto &pair : params.num_replicas) {
@@ -109,7 +108,7 @@ static void validate_params(
                               "`%s` has both tags. The server tags used for replication "
                               "settings for a given table must be non-overlapping.",
                               it->first.c_str(), servers_claimed.at(server).c_str(),
-                              server_names.get(server).c_str()),
+                              server.print().c_str()),
                     query_state_t::FAILED);
             }
         }
@@ -215,8 +214,7 @@ void table_generate_config(
         table_meta_client_t *table_meta_client,
         const table_generate_config_params_t &params,
         signal_t *interruptor,
-        table_config_t::shard_t *config_the_shard_out,
-        server_name_map_t *server_names_out)
+        table_config_t::shard_t *config_the_shard_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             admin_op_exc_t) {
     long_calculation_yielder_t yielder;
@@ -225,7 +223,6 @@ void table_generate_config(
     tag. We have to make local copies because the values returned by
     `server_config_client` could change at any time, but we need the values to be
     consistent. */
-    server_name_map_t server_names;
     std::map<name_string_t, std::set<server_id_t> > servers_with_tags;
     server_config_client->get_server_config_map()->read_all(
     [&](const server_id_t &sid, const server_config_versioned_t *config) {
@@ -236,13 +233,9 @@ void table_generate_config(
                 any = true;
             }
         }
-        if (any) {
-            server_names.names.insert(std::make_pair(
-                sid, std::make_pair(config->version, config->config.name)));
-        }
     });
 
-    validate_params(params, servers_with_tags, server_names);
+    validate_params(params, servers_with_tags);
 
     yielder.maybe_yield(interruptor);
 
@@ -372,16 +365,6 @@ void table_generate_config(
                         }
                     }
                 });
-        }
-    }
-
-    {
-        const table_config_t::shard_t &shard = *config_the_shard_out;
-        guarantee(!shard.primary_replica.get_uuid().is_unset());
-        guarantee(1 == total_replicas);
-        {
-            server_id_t replica = shard.primary_replica;
-            server_names_out->names[replica] = server_names.names.at(replica);
         }
     }
 }

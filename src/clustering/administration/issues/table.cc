@@ -87,7 +87,8 @@ bool table_availability_issue_t::build_info_and_description(
             } else {
                 text += ", ";
             }
-            text += status.server_names.get(server).c_str();
+            // TODO: This whole issue shouldn't exist.
+            text += uuid_to_str(server.get_uuid());
         }
         *description_out = datum_string_t(text);
     } else {

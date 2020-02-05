@@ -257,8 +257,7 @@ void debug_table_status_artificial_table_backend_t::format_row(
             table_id,
             db_name_or_uuid,
             config_and_shards.config,
-            admin_identifier_format_t::uuid,
-            config_and_shards.server_names));
+            admin_identifier_format_t::uuid));
     builder.overwrite(
         "shard_scheme",
         convert_debug_table_shard_scheme_to_datum());

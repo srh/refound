@@ -31,8 +31,7 @@ void table_generate_config(
         const table_generate_config_params_t &params,
         signal_t *interruptor,
 
-        table_config_t::shard_t *config_the_shard_out,
-        server_name_map_t *server_names_out)
+        table_config_t::shard_t *config_the_shard_out)
 
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             admin_op_exc_t);

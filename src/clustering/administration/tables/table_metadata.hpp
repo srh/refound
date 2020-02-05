@@ -117,11 +117,6 @@ sync with the `table_shard_scheme_t` and the server name mapping. */
 class table_config_and_shards_t {
 public:
     table_config_t config;
-
-    // NNN: Does server_names get used now?
-    /* This contains an entry for every server mentioned in the config. The `uint64_t`s
-    are server config versions. */
-    server_name_map_t server_names;
 };
 
 RDB_DECLARE_SERIALIZABLE(table_config_and_shards_t);

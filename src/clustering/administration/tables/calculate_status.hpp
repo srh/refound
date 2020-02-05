@@ -53,15 +53,13 @@ public:
 
     /* No server appears in both `server_shards` and `disconnected`. Every server in
     `config` appears in either `server_shards` and `disconnected`, but some servers may
-    appear in `server_shards` that aren't in `config`. Every server in any of the three
-    appears in `server_names`. */
+    appear in `server_shards` that aren't in `config`. */
 
     scoped_ptr_t<table_config_and_shards_t> config = make_scoped<table_config_and_shards_t>();
     std::map<server_id_t, range_map_t<key_range_t::right_bound_t,
         table_shard_status_t> > server_shards;
     optional<server_id_t> raft_leader;
     std::set<server_id_t> disconnected;
-    server_name_map_t server_names;
 };
 
 /* Fetches the current `table_status_t` for a table that isn't a total loss. */

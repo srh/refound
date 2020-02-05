@@ -329,10 +329,9 @@ private:
         }
         // TODO: Wipe the config cache after the txn succeeds?
 
-        server_name_map_t dummy_map;
         ql::datum_t new_config = convert_table_config_to_datum(new_table_id,
             convert_name_to_datum(db->name), config,
-            admin_identifier_format_t::name, dummy_map);
+            admin_identifier_format_t::name);
 
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("tables_created", ql::datum_t(1.0));
@@ -459,12 +458,10 @@ private:
             REQL_RETHROW(error);
         }
 
-        server_name_map_t dummy_server_names;
-
         // TODO: Wipe the config cache after the txn succeeds?
         ql::datum_t old_config = convert_table_config_to_datum(
             fdb_result->first, convert_name_to_datum(db->name), fdb_result->second,
-            admin_identifier_format_t::name, dummy_server_names);
+            admin_identifier_format_t::name);
 
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("tables_dropped", ql::datum_t(1.0));

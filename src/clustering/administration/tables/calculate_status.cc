@@ -121,40 +121,12 @@ void get_table_status(
 
     /* Collect server names. We need the name of every server in the config, every
     server in `server_shards`, and the Raft leader. */
-    status_out->server_names = config.server_names;
-
     std::set<server_id_t> server_ids;
     for (const auto &server_shard : status_out->server_shards) {
         server_ids.insert(server_shard.first);
     }
     if (static_cast<bool>(status_out->raft_leader)) {
         server_ids.insert(status_out->raft_leader.get());
-    }
-
-    for (const auto &server_id : server_ids) {
-        if (status_out->server_names.names.count(server_id) == 0) {
-            server_config_client->get_server_config_map()->read_key(
-                server_id,
-                [&](const server_config_versioned_t *server_config) {
-                    if (server_config != nullptr) {
-                        status_out->server_names.names.insert(std::make_pair(
-                            server_id,
-                            std::make_pair(
-                                server_config->version, server_config->config.name)));
-                    } else {
-                        /* If we can't find the name for one of the servers in the
-                        response, then act as though it was disconnected. */
-                        status_out->server_names.names.insert(std::make_pair(
-                            server_id,
-                            std::make_pair(
-                                0,
-                                name_string_t::guarantee_valid(
-                                    "__disconnected_server__"))));
-                        status_out->disconnected.insert(server_id);
-                        status_out->server_shards.erase(server_id);
-                    }
-                });
-        }
     }
 
     /* Compute the overall level of table readiness by sending probe queries. */

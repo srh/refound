@@ -8,7 +8,6 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/namespace_interface_repository.hpp"
-#include "clustering/administration/tables/generate_config.hpp"
 #include "concurrency/cross_thread_watchable.hpp"
 #include "concurrency/watchable.hpp"
 #include "fdb/fdb.hpp"

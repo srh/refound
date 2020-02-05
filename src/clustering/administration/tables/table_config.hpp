@@ -21,8 +21,7 @@ ql::datum_t convert_table_config_to_datum(
         namespace_id_t table_id,
         const ql::datum_t &db_name_or_uuid,
         const table_config_t &config,
-        admin_identifier_format_t identifier_format,
-        const server_name_map_t &server_names);
+        admin_identifier_format_t identifier_format);
 
 ql::datum_t convert_write_hook_to_datum(
     const optional<write_hook_config_t> &write_hook);
@@ -63,7 +62,6 @@ private:
         const namespace_id_t &table_id,
         table_config_and_shards_t &&old_config,
         table_config_t &&new_config_no_shards,
-        server_name_map_t &&new_server_names,
         const name_string_t &old_db_name,
         const name_string_t &new_db_name,
         signal_t *interruptor)
@@ -73,7 +71,6 @@ private:
     void do_create(
         const namespace_id_t &table_id,
         table_config_t &&new_config_no_shards,
-        server_name_map_t &&new_server_names,
         const name_string_t &new_db_name,
         signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
