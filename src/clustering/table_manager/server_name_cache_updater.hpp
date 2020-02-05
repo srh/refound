@@ -15,9 +15,6 @@ public:
         server_config_client_t *server_config_client);
 
 private:
-    void on_config_change(
-        const server_id_t &server_id, const server_config_versioned_t *config);
-
     void update_blocking(signal_t *interruptor);
 
     raft_member_t<table_raft_state_t> *raft;
