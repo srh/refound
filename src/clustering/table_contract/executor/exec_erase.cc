@@ -3,6 +3,8 @@
 
 #include "concurrency/cross_thread_signal.hpp"
 
+// TODO: Remove this type... entirely, I guess.
+
 erase_execution_t::erase_execution_t(
         const execution_t::context_t *_context,
         execution_t::params_t *_params,
@@ -18,7 +20,7 @@ void erase_execution_t::update_contract_or_raft_state(
         DEBUG_VAR const contract_id_t &cid,
         DEBUG_VAR const table_raft_state_t &raft_state) {
     assert_thread();
-    rassert(raft_state.contracts.at(cid).the_replica != context->server_id);
+    crash("this is unreachable, apparently");
 }
 
 void erase_execution_t::run(auto_drainer_t::lock_t keepalive) {

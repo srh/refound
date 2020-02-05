@@ -80,18 +80,6 @@ ql::datum_t convert_debug_region_to_datum(const region_t &region) {
     return std::move(builder).to_datum();
 }
 
-ql::datum_t convert_debug_contract_primary_to_datum(
-        const contract_t::primary_t &primary) {
-    ql::datum_object_builder_t builder;
-    builder.overwrite("server", convert_uuid_to_datum(primary.server.get_uuid()));
-    builder.overwrite(
-        "hand_over",
-        static_cast<bool>(primary.hand_over)
-            ? convert_uuid_to_datum(primary.hand_over.get().get_uuid())
-            : ql::datum_t::null());
-    return std::move(builder).to_datum();
-}
-
 ql::datum_t convert_debug_contracts_to_datum(
         const std::map<contract_id_t, contract_t> &contracts) {
     ql::datum_array_builder_t builder(ql::configured_limits_t::unlimited);
@@ -100,31 +88,7 @@ ql::datum_t convert_debug_contracts_to_datum(
         contract_builder.overwrite(
             "contract", convert_uuid_to_datum(contract.first.value));
         contract_builder.overwrite(
-            "region", convert_debug_region_to_datum(key_range_t::universe()));
-        contract_builder.overwrite(
-            "replicas", convert_monoset_to_datum<server_id_t>(
-                [] (const server_id_t &sid) {
-                    return convert_uuid_to_datum(sid.get_uuid());
-                }, contract.second.the_replica));
-        contract_builder.overwrite(
-            "voters", convert_monoset_to_datum<server_id_t>(
-                [] (const server_id_t &sid) {
-                    return convert_uuid_to_datum(sid.get_uuid());
-                }, contract.second.the_voter));
-        contract_builder.overwrite(
-            "temp_voters",
-            static_cast<bool>(contract.second.temp_voters)
-                ? convert_set_to_datum<server_id_t>(
-                    [] (const server_id_t &sid) {
-                        return convert_uuid_to_datum(sid.get_uuid());
-                    }, contract.second.temp_voters.get())
-                : ql::datum_t::null());
-        contract_builder.overwrite(
-            "primary",
-            static_cast<bool>(contract.second.primary)
-                ? convert_debug_contract_primary_to_datum(
-                    contract.second.primary.get())
-                : ql::datum_t::null());
+            "the_server", convert_uuid_to_datum(contract.second.the_server.get_uuid()));
         builder.add(std::move(contract_builder).to_datum());
     }
     return std::move(builder).to_datum();

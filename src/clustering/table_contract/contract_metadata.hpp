@@ -53,15 +53,6 @@ a manual override:
 
 class contract_t {
 public:
-    class primary_t {
-    public:
-        /* The server that's supposed to be primary. */
-        server_id_t server;
-        /* If we're switching to another primary, then `hand_over` is the server ID of
-        the server we're switching to. */
-        optional<server_id_t> hand_over;
-    };
-
     contract_t() : after_emergency_repair(false) { }
 
 #ifndef NDEBUG
@@ -69,21 +60,10 @@ public:
 #endif /* NDEBUG */
 
     bool is_voter(const server_id_t &s) const {
-        return the_voter == s ||
-            (static_cast<bool>(temp_voters) && temp_voters->count(s) == 1);
+        return the_server == s;
     }
 
-    /* `replicas` is all the servers that are replicas for this table, whether voting or
-    non-voting. `voters` is a subset of `replicas` that just contains the voting
-    replicas. If we're in the middle of a transition between two sets of voters, then
-    `temp_voters` will contain the new set. */
-    server_id_t the_replica;
-    server_id_t the_voter;
-    optional<std::set<server_id_t> > temp_voters;
-
-    /* `primary` contains the server that's supposed to be primary. If we're in the
-    middle of a transition between two primaries, then `primary` will be empty. */
-    optional<primary_t> primary;
+    server_id_t the_server;
 
     /* `after_emergency_repair` is set to `true` when we conduct an emergency repair.
     When it's `true` we'll use a different algorithm for choosing primary replicas. Once
@@ -91,9 +71,7 @@ public:
     bool after_emergency_repair;
 };
 
-RDB_DECLARE_EQUALITY_COMPARABLE(contract_t::primary_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(contract_t);
-RDB_DECLARE_SERIALIZABLE(contract_t::primary_t);
 RDB_DECLARE_SERIALIZABLE(contract_t);
 
 /* Each contract is tagged with a `contract_id_t`. If the contract changes in any way, it
@@ -314,7 +292,6 @@ public:
 RDB_DECLARE_EQUALITY_COMPARABLE(table_shard_status_t);
 RDB_DECLARE_SERIALIZABLE(table_shard_status_t);
 
-void debug_print(printf_buffer_t *buf, const contract_t::primary_t &primary);
 void debug_print(printf_buffer_t *buf, const contract_t &contract);
 void debug_print(printf_buffer_t *buf, const contract_ack_t &ack);
 void debug_print(printf_buffer_t *buf, const table_raft_state_t &state);

@@ -119,11 +119,11 @@ bool is_streaming(
         const contract_t &old_c,
         const std::map<server_id_t, contract_ack_frag_t> &acks,
         server_id_t server) {
+    // TODO: Nobody is ever in secondary_streaming state.
     auto it = acks.find(server);
     if (it != acks.end() &&
             (it->second.state == contract_ack_t::state_t::secondary_streaming ||
-            (static_cast<bool>(old_c.primary) &&
-                old_c.primary->server == server))) {
+            (old_c.the_server == server))) {
         return true;
     } else {
         return false;
@@ -143,279 +143,13 @@ contract_t calculate_contract(
         ack *specifically* for `old_c`, it won't appear in this map; we don't include
         acks for contracts that were in the same region before `old_c`. */
         const std::map<server_id_t, contract_ack_frag_t> &acks) {
+    (void)old_c, (void)acks;  // TODO: Remove unused params.
+
 
     contract_t new_c = old_c;
 
     /* If there are new servers in `config.all_replicas`, add them to `c.replicas` */
-    new_c.the_replica = config.primary_replica;
-
-    /* If there is a mismatch between `config.voting_replicas()` and `c.voters`, then
-    add and/or remove voters until both sets match.
-    There are three important restrictions we have to consider here:
-    1. We should not remove voters if that would reduce the total number of voters
-       below the minimum of the size of the current voter set and the size of the
-       configured voter set. Consider the case where a user wants to replace
-       a few replicas by different ones. Without this restriction, we would often
-       remove all the old replicas from the voters set before enough of the new
-       replicas would become streaming to replace them.
-    2. To increase availability in some scenarios, we also don't remove replicas
-       if that would mean being left with less than a majority of streaming
-       replicas.
-    3. Only replicas that are streaming are guaranteed to have a complete branch
-       history. Once we make a replica voting, some parts of our logic assume that
-       the branch history is intact (most importantly our call to
-       `break_ack_into_fragments()` in `calculate_all_contracts()`).
-       To avoid this condition, we only add a replica to the voters list after it
-       has started streaming.
-       See https://github.com/rethinkdb/rethinkdb/issues/4866 for more details. */
-    std::set<server_id_t> config_voting_replicas;
-    config_voting_replicas.insert(config.primary_replica);
-
-    /* If we already initiated a voter change by setting `temp_voters`, it might be time
-    to commit that change by setting `voters` to `temp_voters`. */
-    if (static_cast<bool>(old_c.temp_voters)) {
-        /* Before we change `voters`, we have to make sure that we'll preserve the
-        invariant that every acked write is on a majority of `voters`. This is mostly the
-        job of the primary; it will not report `primary_ready` unless it is requiring
-        acks from a majority of both `voters` and `temp_voters` before acking writes to
-        the client, *and* it has ensured that every write that was acked before that
-        policy was implemented has been backfilled to a majority of `temp_voters`. So we
-        can't switch voters unless the primary reports `primary_ready`.
-        See `primary_execution_t::is_contract_ackable` for the detailed semantics of
-        the `primary_ready` state. */
-        if (static_cast<bool>(old_c.primary) &&
-                acks.count(old_c.primary->server) == 1 &&
-                acks.at(old_c.primary->server).state ==
-                    contract_ack_t::state_t::primary_ready) {
-            /* The `acks` we just checked are based on `old_c`, so we really shouldn't
-            commit any different set of `temp_voters`. */
-            guarantee(new_c.temp_voters == old_c.temp_voters);
-            /* OK, it's safe to commit. */
-            guarantee(new_c.temp_voters->size() == 1);
-            new_c.the_voter = *new_c.temp_voters->begin();
-            new_c.temp_voters.reset();
-        }
-    }
-
-    /* `visible_voters` includes all members of `voters` and `temp_voters` which could be
-    visible to a majority of `voters` (and `temp_voters`, if `temp_voters` exists). Note
-    that if the coordinator can't see server X, it will assume server X can see every
-    other server; this reduces spurious failovers when the coordinator loses contact with
-    other servers. */
-    std::set<server_id_t> visible_voters;
-    {
-        server_id_t server = new_c.the_replica;
-        visible_voters.insert(server);
-    }
-
-    /* If a server was removed from `config.replicas` and `c.voters` but it's still in
-    `c.replicas`, then remove it. And if it's primary, then make it not be primary. */
-    bool should_kill_primary = false;
-
-    /* If we don't have a primary, choose a primary. Servers are not eligible to be a
-    primary unless they are carrying every acked write. There will be at least one
-    eligible server if and only if we have reports from a majority of `new_c.voters`.
-
-    In addition, we must choose `config.primary_replica` if it is eligible. If
-    `config.primary_replica` has not sent an ack, we must wait for the failover timeout
-    to elapse before electing a different replica. This is to make sure that we won't
-    elect the wrong replica simply because the user's designated primary took a little
-    longer to send the ack. */
-    if (!static_cast<bool>(old_c.primary) && !old_c.after_emergency_repair) {
-        /* We have an invariant that every acked write must be on the path from the root
-        of the branch history to `old_c.branch`. So we project each voter's state onto
-        that path, then sort them by position along the path. Any voter that is at least
-        as up to date, according to that metric, as more than half of the voters
-        (including itself) is eligible. We also take into account whether a server is
-        visible to its peers when deciding which server to select. */
-
-        /* First, collect the states from the servers, and sort them by how up-to-date
-        they are. Note that we use the server ID as a secondary sorting key. This mean we
-        tend to pick the same server if we run the algorithm twice; this helps to reduce
-        unnecessary fragmentation. */
-        std::vector<std::pair<state_timestamp_t, server_id_t> > sorted_candidates;
-        {
-            const server_id_t server = new_c.the_voter;
-            if (acks.count(server) == 1 && acks.at(server).state ==
-                    contract_ack_t::state_t::secondary_need_primary) {
-                sorted_candidates.push_back(
-                    std::make_pair(*(acks.at(server).common_ancestor), server));
-            }
-        }
-        std::sort(sorted_candidates.begin(), sorted_candidates.end());
-
-        /* Second, determine which servers are eligible to become primary on the basis of
-        their data and their visibility to their peers. */
-        std::vector<server_id_t> eligible_candidates;
-        for (size_t i = 0; i < sorted_candidates.size(); ++i) {
-            server_id_t server = sorted_candidates[i].second;
-            /* If the server is not visible to more than half of its peers, then it is
-            not eligible to be primary */
-            if (visible_voters.count(server) == 0) {
-                continue;
-            }
-            /* `up_to_date_count` is the number of servers that `server` is at least as
-            up-to-date as. We know `server` must be at least as up-to-date as itself and
-            all of the servers that are earlier in the list. */
-            size_t up_to_date_count = i + 1;
-            /* If there are several servers with the same timestamp, they will appear
-            together in the list. So `server` may be at least as up-to-date as some of
-            the servers that appear after it in the list. */
-            while (up_to_date_count < sorted_candidates.size() &&
-                    sorted_candidates[up_to_date_count].first ==
-                        sorted_candidates[i].first) {
-                ++up_to_date_count;
-            }
-            /* OK, now `up_to_date_count` is the number of servers that this server is
-            at least as up-to-date as. */
-            if (up_to_date_count > 0 /* new_c.voters.size() / 2 */) {
-                eligible_candidates.push_back(server);
-            }
-        }
-
-        /* OK, now we can pick a primary. */
-        auto it = std::find(eligible_candidates.begin(), eligible_candidates.end(),
-                config.primary_replica);
-        if (it != eligible_candidates.end()) {
-            /* The user's designated primary is eligible, so use it. */
-            contract_t::primary_t p;
-            p.server = config.primary_replica;
-            new_c.primary.set(p);
-        } else if (!eligible_candidates.empty()) {
-            /* The user's designated primary is ineligible. We have to decide if we'll
-            wait for the user's designated primary to become eligible, or use one of the
-            other eligible candidates. */
-            if (!config.primary_replica.get_uuid().is_nil() &&
-                    visible_voters.count(config.primary_replica) == 1 &&
-                    acks.count(config.primary_replica) == 0) {
-                /* The user's designated primary is visible to a majority of its peers,
-                and the only reason it was disqualified is because we haven't seen an ack
-                from it yet. So we'll wait for it to send in an ack rather than electing
-                a different primary. */
-            } else {
-                /* We won't wait for it. */
-                contract_t::primary_t p;
-                /* `eligible_candidates` is ordered by how up-to-date they are */
-                p.server = eligible_candidates.back();
-                new_c.primary.set(p);
-            }
-        }
-
-    } else if (!static_cast<bool>(old_c.primary) && old_c.after_emergency_repair) {
-        /* If we recently completed an emergency repair operation, we use a different
-        procedure to pick the primary: we require all voters to be present, and then we
-        pick the voter with the highest version, regardless of `current_branch`. The
-        reason we can't take `current_branch` into account is that the emergency repair
-        might create gaps in the branch history, so we can't reliably compute each
-        replica's position on `current_branch`. The reason we require all replicas to be
-        present is to make the emergency repair safer. For example, imagine if a table
-        has three voters, A, B, and C. Suppose that voter B is lagging behind the others,
-        and voter C is removed by emergency repair. Then the normal algorithm could pick
-        voter B as the primary, even though it's missing some data. */
-        server_id_t best_primary = server_id_t::from_server_uuid(nil_uuid());
-        state_timestamp_t best_timestamp = state_timestamp_t::zero();
-        bool all_present = true;
-        {
-            server_id_t server = new_c.the_voter;
-            if (acks.count(server) == 1 && acks.at(server).state ==
-                    contract_ack_t::state_t::secondary_need_primary) {
-                state_timestamp_t timestamp = acks.at(server).version->timestamp;
-                if (best_primary.get_uuid().is_nil() || timestamp > best_timestamp) {
-                    best_primary = server;
-                    best_timestamp = timestamp;
-                }
-            } else {
-                all_present = false;
-            }
-        }
-        if (all_present) {
-            contract_t::primary_t p;
-            p.server = best_primary;
-            new_c.primary.set(p);
-        }
-    }
-
-    /* Sometimes we already have a primary, but we need to pick a different one. There
-    are three such situations:
-    - The existing primary is disconnected
-    - The existing primary isn't `config.primary_replica`, and `config.primary_replica`
-        is ready to take over the role
-    - `config.primary_replica` isn't ready to take over the role, but the existing
-        primary isn't even supposed to be a replica anymore.
-    In the first situation, we'll simply remove `c.primary`. In the second and third
-    situations, we'll first set `c.primary->warm_shutdown` to `true`, and then only
-    once the primary acknowledges that, we'll remove `c.primary`. Either way, once the
-    replicas acknowledge the contract in which we removed `c.primary`, the logic earlier
-    in this function will select a new primary. Note that we can't go straight from the
-    old primary to the new one; we need a majority of replicas to promise to stop
-    receiving updates from the old primary before it's safe to elect a new one. */
-    if (static_cast<bool>(old_c.primary)) {
-        /* Note we already checked for the case where the old primary wasn't supposed to
-        be a replica. If this is so, then `should_kill_primary` will already be set to
-        `true`. */
-
-        /* Check if we need to do an auto-failover. The precise form of this condition
-        isn't important for correctness. If we do an auto-failover when the primary isn't
-        actually dead, or don't do an auto-failover when the primary is actually dead,
-        the worst that will happen is we'll lose availability. */
-        if (!should_kill_primary && visible_voters.count(old_c.primary->server) == 0) {
-            should_kill_primary = true;
-        }
-
-        if (should_kill_primary) {
-            new_c.primary.reset();
-        } else if (old_c.primary->server != config.primary_replica) {
-            /* The old primary is still a valid replica, but it isn't equal to
-            `config.primary_replica`. So we have to do a hand-over to ensure that after
-            we kill the primary, `config.primary_replica` will be a valid candidate. */
-
-            if (old_c.primary->hand_over !=
-                    make_optional(config.primary_replica)) {
-                /* We haven't started the hand-over yet, or we're in the middle of a
-                hand-over to a different primary. */
-                if (acks.count(config.primary_replica) == 1 &&
-                        acks.at(config.primary_replica).state ==
-                            contract_ack_t::state_t::secondary_streaming &&
-                        visible_voters.count(config.primary_replica) == 1) {
-                    /* The new primary is ready, so begin the hand-over. */
-                    new_c.primary->hand_over.set(config.primary_replica);
-                } else {
-                    /* We're not ready to switch to the new primary yet. */
-                    if (static_cast<bool>(old_c.primary->hand_over)) {
-                        /* We were in the middle of a hand over to a different primary,
-                        and then the user changed `config.primary_replica`. But the new
-                        primary isn't ready yet, so cancel the old hand-over. (This is
-                        very uncommon.) */
-                        new_c.primary->hand_over.reset();
-                    }
-                }
-            } else {
-                /* We're already in the process of handing over to the new primary. */
-                if (acks.count(old_c.primary->server) == 1 &&
-                        acks.at(old_c.primary->server).state ==
-                            contract_ack_t::state_t::primary_ready) {
-                    /* The hand over is complete. Now it's safe to stop the old primary.
-                    The new primary will be started later, after a majority of the
-                    replicas acknowledge that they are no longer listening for writes
-                    from the old primary.
-                    See `primary_execution_t::is_contract_ackable` for a detailed
-                    explanation of what the `primary_ready` state implies. */
-                    new_c.primary.reset();
-                } else if (visible_voters.count(config.primary_replica) == 0) {
-                    /* Something went wrong with the new primary before the hand-over was
-                    complete. So abort the hand-over. */
-                    new_c.primary->hand_over.reset();
-                }
-            }
-        } else {
-            if (static_cast<bool>(old_c.primary->hand_over)) {
-                /* We were in the middle of a hand over, but then the user changed
-                `config.primary_replica` back to what it was before. (This is very
-                uncommon.) */
-                new_c.primary->hand_over.reset();
-            }
-        }
-    }
+    new_c.the_server = config.primary_replica;
 
     return new_c;
 }
@@ -484,9 +218,7 @@ void calculate_all_contracts(
                 In these situations, we don't need the common ancestor, but computing it
                 might be dangerous because the branch history might be incomplete. */
                 bool compute_common_ancestor =
-                    (cpair.second.the_voter == pair.first ||
-                        (static_cast<bool>(cpair.second.temp_voters) &&
-                            cpair.second.temp_voters->count(pair.first) == 1)) &&
+                    (cpair.second.the_server == pair.first) &&
                     !cpair.second.after_emergency_repair;
 
                 // TODO: No need for fragments?
@@ -522,15 +254,14 @@ void calculate_all_contracts(
 
                 /* Register a branch if a primary is asking us to */
                 optional<branch_id_t> registered_new_branch;
-                if (static_cast<bool>(old_contract.primary) &&
-                        static_cast<bool>(new_contract.primary) &&
-                        old_contract.primary->server ==
-                            new_contract.primary->server &&
-                        acks_map.count(old_contract.primary->server) == 1 &&
-                        acks_map.at(old_contract.primary->server).state ==
+                if (true &&
+                        true &&
+                        true &&
+                        acks_map.count(old_contract.the_server) == 1 &&
+                        acks_map.at(old_contract.the_server).state ==
                             contract_ack_t::state_t::primary_need_branch) {
                     branch_id_t to_register =
-                        *acks_map.at(old_contract.primary->server).branch;
+                        *acks_map.at(old_contract.the_server).branch;
                     bool already_registered = true;
                     old_state.current_branches.visit(reg,
                     [&](const region_t &, const branch_id_t &cur_branch) {
@@ -555,7 +286,7 @@ void calculate_all_contracts(
                         copy_branch_history_for_branch(
                             to_register,
                             this_contract_acks->at(
-                                old_contract.primary->server).branch_history,
+                                old_contract.the_server).branch_history,
                             old_state,
                             ignore_missing_branches,
                             add_branches_out);
@@ -569,7 +300,7 @@ void calculate_all_contracts(
                 on). */
                 bool can_gc_branch_history = true, can_end_after_emergency_repair = true;
                 {
-                    server_id_t server = new_contract.the_replica;
+                    server_id_t server = new_contract.the_server;
                     auto it = this_contract_acks->find(server);
                     if (it == this_contract_acks->end() || (
                             it->second.state !=
@@ -581,9 +312,7 @@ void calculate_all_contracts(
                         order to make it easy for that replica to rejoin later. */
                         can_gc_branch_history = false;
 
-                        if (new_contract.the_voter == server ||
-                                (static_cast<bool>(new_contract.temp_voters) &&
-                                    new_contract.temp_voters->count(server) == 1)) {
+                        if (true) {
                             /* If the `after_emergency_repair` flag is set to `true`, we
                             need to leave it set to `true` until we can confirm that
                             the branch history is intact. */

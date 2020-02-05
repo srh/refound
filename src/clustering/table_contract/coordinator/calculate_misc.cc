@@ -14,13 +14,13 @@ void calculate_server_names(
     std::set<server_id_t> all_replicas;
     for (const auto &pair : old_state.contracts) {
         if (remove_contracts.count(pair.first) == 0) {
-            all_replicas.insert(pair.second.the_replica);
+            all_replicas.insert(pair.second.the_server);
         }
     }
     for (const auto &pair : add_contracts) {
-        all_replicas.insert(pair.second.the_replica);
+        all_replicas.insert(pair.second.the_server);
         {
-            server_id_t server = pair.second.the_replica;
+            server_id_t server = pair.second.the_server;
             if (old_state.server_names.names.count(server) == 0) {
                 add_server_names_out->names.insert(std::make_pair(server,
                     old_state.config.server_names.names.at(server)));
@@ -57,12 +57,12 @@ void calculate_member_ids_and_raft_config(
     std::set<server_id_t> members_goal;
     members_goal.insert(sc.state.config.config.the_shard.primary_replica);
     for (const auto &pair : sc.state.contracts) {
-        members_goal.insert(pair.second.the_replica);
+        members_goal.insert(pair.second.the_server);
     }
     /* Assemble a set of all of the servers that ought to be Raft voters. */
     std::set<server_id_t> voters_goal;
     for (const auto &pair : sc.state.contracts) {
-        voters_goal.insert(pair.second.the_voter);
+        voters_goal.insert(pair.second.the_server);
     }
     /* Create entries in `add_member_ids_out` for any servers in `goal` that don't
     already have entries in `member_ids` */

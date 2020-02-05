@@ -86,7 +86,7 @@ void calculate_emergency_repair(
                         const key_range_t::right_bound_t &,
                         table_config_t::shard_t *shard) {
                     {
-                        server_id_t server = pair.second.the_replica;
+                        server_id_t server = pair.second.the_server;
                         shard->primary_replica = server;
                     }
                 });
@@ -133,7 +133,7 @@ void calculate_emergency_repair(
     servers in `member_ids` and `server_names` */
     for (const auto &pair : new_state_out->contracts) {
         {
-            server_id_t server = pair.second.the_replica;
+            server_id_t server = pair.second.the_server;
             if (new_state_out->member_ids.count(server) == 0) {
                 /* We generate a new member ID for every server. This shouldn't matter
                 because member IDs from the new epoch should never be compared to member

@@ -183,7 +183,7 @@ contract_executor_t::get_shard_status() {
         key_range_t::right_bound_t::make_unbounded());
     raft_state->apply_read([&](const table_raft_state_t *state) {
         for (const auto &pair : state->contracts) {
-            if (pair.second.the_replica != server_id) {
+            if (pair.second.the_server != server_id) {
                 continue;
             }
             result.visit_mutable(
@@ -230,24 +230,11 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
         const contract_t &contract,
         const branch_id_t &branch) {
     execution_key_t key;
-    if (static_cast<bool>(contract.primary) &&
-            contract.primary->server == server_id) {
-        key.role = execution_key_t::role_t::primary;
-        key.primary = server_id_t::from_server_uuid(nil_uuid());
-        key.branch = branch_id_t{nil_uuid()};
-    } else if (contract.the_replica == server_id) {
-        key.role = execution_key_t::role_t::secondary;
-        if (static_cast<bool>(contract.primary)) {
-            key.primary = contract.primary->server;
-        } else {
-            key.primary = server_id_t::from_server_uuid(nil_uuid());
-        }
-        key.branch = branch;
-    } else {
-        key.role = execution_key_t::role_t::erase;
-        key.primary = server_id_t::from_server_uuid(nil_uuid());
-        key.branch = branch_id_t{nil_uuid()};
-    }
+    guarantee(contract.the_server == server_id);
+    // TODO: remove execution_key_t::role_t::secondary, and ::erase.
+    key.role = execution_key_t::role_t::primary;
+    key.primary = server_id_t::from_server_uuid(nil_uuid());
+    key.branch = branch_id_t{nil_uuid()};
     return key;
 }
 

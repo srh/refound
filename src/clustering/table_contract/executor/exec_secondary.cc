@@ -16,7 +16,7 @@ secondary_execution_t::secondary_execution_t(
     execution_t(_context, _params)
 {
     const contract_t &c = raft_state.contracts.at(cid);
-    guarantee(c.the_replica == context->server_id);
+    guarantee(c.the_server == context->server_id);
 
     /* If the current contract doesn't have a primary, we won't attempt to connect to the
     primary. Also, if we don't have a branch ID yet or the current contract's region
@@ -26,10 +26,10 @@ secondary_execution_t::secondary_execution_t(
     trying to connect to the existing primary. In fact, we can't connect to the
     existing primary, since it's impossible to subscribe to a primary with a different
     region. */
-    if (static_cast<bool>(c.primary) && !_branch.is_nil() &&
+    if (!_branch.is_nil() &&
             raft_state.branch_history.branches.at(_branch).get_region() == region_t::universe()) {
         connect_to_primary = true;
-        primary = c.primary->server;
+        primary = c.the_server;
     } else {
         connect_to_primary = false;
         primary = server_id_t::from_server_uuid(nil_uuid());
@@ -48,8 +48,8 @@ void secondary_execution_t::update_contract_or_raft_state(
         const table_raft_state_t &raft_state) {
     assert_thread();
     const contract_t &c = raft_state.contracts.at(cid);
-    guarantee(c.the_replica == context->server_id);
-    guarantee(primary.get_uuid().is_nil() || primary == c.primary->server);
+    guarantee(c.the_server == context->server_id);
+    guarantee(primary.get_uuid().is_nil() || primary == c.the_server);
     if (contract_id != cid && static_cast<bool>(last_ack)) {
         params->send_ack(cid, *last_ack);
     }

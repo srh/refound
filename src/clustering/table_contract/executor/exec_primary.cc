@@ -13,20 +13,15 @@
 #include "store_view.hpp"
 
 void ack_counter_t::note_ack(const server_id_t &server) {
-    if (static_cast<bool>(contract.primary)) {
-        primary_ack |= (server == contract.primary->server);
+    if (true) {
+        primary_ack |= (server == contract.the_server);
     }
-    voter_acks += contract.the_voter == server ? 1 : 0;
-    if (static_cast<bool>(contract.temp_voters)) {
-        temp_voter_acks += contract.temp_voters->count(server);
-    }
+    voter_acks += contract.the_server == server ? 1 : 0;
 }
 
 bool ack_counter_t::is_safe() const {
     return primary_ack &&
-        voter_acks * 2 > 1 /* contract.voters.size() */ &&
-        (!static_cast<bool>(contract.temp_voters) ||
-            temp_voter_acks * 2 > contract.temp_voters->size());
+        voter_acks * 2 > 1 /* contract.voters.size() */;
 }
 
 class primary_execution_t::contract_info_t
@@ -63,8 +58,7 @@ primary_execution_t::primary_execution_t(
     execution_t(_context, _params), our_dispatcher(nullptr)
 {
     const contract_t &contract = raft_state.contracts.at(contract_id);
-    guarantee(static_cast<bool>(contract.primary));
-    guarantee(contract.primary->server == context->server_id);
+    guarantee(contract.the_server == context->server_id);
     latest_contract_home_thread = make_counted<contract_info_t>(
         contract_id, contract, raft_state.config.config.durability,
         raft_state.config.config.write_ack_config);
@@ -106,8 +100,7 @@ void primary_execution_t::update_contract_or_raft_state(
     }
 
     const contract_t &contract = raft_state.contracts.at(contract_id);
-    guarantee(static_cast<bool>(contract.primary));
-    guarantee(contract.primary->server == context->server_id);
+    guarantee(contract.the_server == context->server_id);
 
     counted_t<contract_info_t> new_contract = make_counted<contract_info_t>(
         contract_id,
@@ -357,15 +350,6 @@ bool primary_execution_t::on_write(
 
     counted_t<contract_info_t> contract_snapshot = latest_contract_store_thread;
 
-    if (static_cast<bool>(contract_snapshot->contract.primary->hand_over)) {
-        *error_out = admin_err_t{
-            "The primary replica is currently changing from one replica to "
-            "another. The write was not performed. This error should go away in a "
-            "couple of seconds.",
-            query_state_t::FAILED};
-        return false;
-    }
-
     /* Make sure that we have contact with a majority of replicas. It's bad practice to
     accept writes if we can't contact a majority of replicas because those writes might
     be lost during a failover. We do this even if the user set the ack threshold to
@@ -419,15 +403,6 @@ bool primary_execution_t::sync_committed_read(const read_t &read_request,
     DEBUG_ONLY(scoped_ptr_t<assert_finite_coro_waiting_t> finite_coro_waiting(
                    make_scoped<assert_finite_coro_waiting_t>(__FILE__, __LINE__)));
     counted_t<contract_info_t> contract_snapshot = latest_contract_store_thread;
-
-    if (static_cast<bool>(contract_snapshot->contract.primary->hand_over)) {
-        *error_out = admin_err_t{
-            "The primary replica is currently changing from one replica to "
-            "another. The read could not be guaranteed as committed. This error "
-            "should go away in a couple of seconds.",
-            query_state_t::FAILED};
-        return false;
-    }
 
     write_callback_t write_callback(&response,
                                     write_durability_t::HARD,
@@ -641,10 +616,6 @@ bool primary_execution_t::is_contract_ackable(
      actually eligible to become a primary.
      (the additional criteria is not critical for correctness, but makes sure that the
      transition to the new primary goes through smoothly) */
-    if (static_cast<bool>(contract_info->contract.primary->hand_over) &&
-        servers.count(*contract_info->contract.primary->hand_over) != 1) {
-        return false;
-    }
     ack_counter_t ack_counter(contract_info->contract);
     for (const server_id_t &s : servers) {
         ack_counter.note_ack(s);

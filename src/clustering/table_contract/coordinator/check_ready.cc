@@ -11,19 +11,13 @@ bool check_all_replicas_ready(
 
         /* Check if the config shard matches the contract */
         const contract_t &contract = pair.second;
-        if (contract.the_replica != shard->primary_replica ||
-                contract.the_voter != shard->primary_replica ||
-                static_cast<bool>(contract.temp_voters) ||
-                !static_cast<bool>(contract.primary) ||
-                contract.primary->server != shard->primary_replica ||
-                static_cast<bool>(contract.primary->hand_over) ||
-                contract.after_emergency_repair) {
+        if (contract.the_server != shard->primary_replica) {
             return false;
         }
 
         /* Check if all the replicas have acked the contract */
         {
-            server_id_t server = contract.the_replica;
+            server_id_t server = contract.the_server;
             bool ok;
             acks->read_key(std::make_pair(server, pair.first),
             [&](const contract_ack_t *ack) {
