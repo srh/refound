@@ -11,12 +11,12 @@
 /* We encounter a question of conflict resolution when building a secondary index.  The
 reason is, there is a min_pkey.  The problem is, with a naive implementation:
 
-1. When performing a write (key W), we must read the job info for min_pkey.
+1. When performing a write (key W), we must read the job info for unindexed_lower_bound (min_pkey here) and unindexed_upper_bound (end_pkey) here.
 
 2. Every sindex building operation requires that min_pkey be read, with value K1, and
 written, with value K2.  It also reads all the pkey rows with values (K1, K2].
 
-There are three key regions involved.  A. [-infinity, K1], B. (K1, K2], C. (K2, +infinity).
+There are three key regions involved.  A. [-infinity, K1], B. (K1, K2], C. (K2, end_pkey).
 
 Our write W only knows the value K1, because K2 is TBD.
 
@@ -56,10 +56,6 @@ the index is done being built.
 The information about the in-progress construction of the index changes frequently, so
 it needs to be stored elsewhere.  It gets stored in index_jobstate_by_task.
 */
-
-// TODO: To handle time series case, where index creation chases/lags behind time series
-// insertion point, we should compute [start,end] key interval of index creation task
-// and put that in the jobstate.  Two keys instead of one.
 
 ql::datum_t parse_table_value(const char *value, size_t data_length) {
     buffer_read_stream_t stream(value, data_length);
@@ -105,7 +101,7 @@ optional<fdb_job_info> execute_index_create_job(
     std::string pkey_prefix = table_pkey_prefix(index_create_info.table_id);
 
     fdb_future data_fut = transaction_uq_index_get_range(txn, pkey_prefix,
-        jobstate.unindexed_lower_bound, nullptr,
+        jobstate.unindexed_lower_bound, &jobstate.unindexed_upper_bound,
         0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
 
     // TODO: Apply a workaround for write contention problems mentioned above.
@@ -189,7 +185,9 @@ optional<fdb_job_info> execute_index_create_job(
             // Increment the pkey lower bound since it's inclusive and we need to do
             // that.
             pkey_str.push_back('\0');
-            fdb_index_jobstate new_jobstate{ukey_string{std::move(pkey_str)}};
+            fdb_index_jobstate new_jobstate{
+                ukey_string{std::move(pkey_str)},
+                std::move(jobstate.unindexed_upper_bound)};
 
             transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
                 new_jobstate);

@@ -621,6 +621,14 @@ MUST_USE bool config_cache_sindex_create(
     fdb_value_fut<table_config_t> table_config_fut
         = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
 
+    const std::string pkey_prefix = table_pkey_prefix(table_id);
+    const std::string pkey_prefix_end = prefix_end(pkey_prefix);
+    fdb_future last_key_fut{fdb_transaction_get_key(txn,
+        FDB_KEYSEL_LAST_LESS_THAN(
+            as_uint8(pkey_prefix_end.data()),
+            int(pkey_prefix_end.size())),
+        false)};
+
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
     check_cv(expected_cv, cv);
 
@@ -631,35 +639,50 @@ MUST_USE bool config_cache_sindex_create(
         crash("table config not present, when id matched config version");
     }
 
-    bool inserted = table_config.sindexes.emplace(index_name, sindex_config).second;
-    if (!inserted) {
-        return false;
+    {
+        bool inserted = table_config.sindexes.emplace(index_name, sindex_config).second;
+        if (!inserted) {
+            return false;
+        }
     }
-    inserted = table_config.fdb_sindexes.emplace(index_name,
-        sindex_metaconfig_t{new_sindex_id, new_index_create_task_id}).second;
+
+    // Two common situations:  (1) the table is empty, (2) the table is not empty.
+    const key_view last_key_view = future_block_on_key(last_key_fut.fut, interruptor);
+    const bool table_has_data = last_key_view.has_prefix(pkey_prefix);
+
+    const fdb_shared_task_id task_id_or_nil
+        = table_has_data ? new_index_create_task_id : fdb_shared_task_id{nil_uuid()};
+
+    bool inserted = table_config.fdb_sindexes.emplace(index_name,
+        sindex_metaconfig_t{new_sindex_id, task_id_or_nil}).second;
     guarantee(inserted, "table_config::fdb_sindexes is inconsistent with sindexes");
 
-    // TODO: This node should claim the job.
-    fdb_node_id claiming_node_id{nil_uuid()};
+    if (table_has_data) {
+        // TODO: This node should claim the job.
+        fdb_node_id claiming_node_id{nil_uuid()};
 
-    fdb_job_description desc{
-        fdb_job_type::index_create_job,
-        fdb_job_db_drop{},
-        fdb_job_index_create{table_id, index_name, new_sindex_id},
-    };
+        fdb_job_description desc{
+            fdb_job_type::index_create_job,
+            fdb_job_db_drop{},
+            fdb_job_index_create{table_id, index_name, new_sindex_id},
+        };
 
-    // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
-    // and avoid double round-trip latency.
+        // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
+        // and avoid double round-trip latency.
 
-    fdb_job_info ignored = add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
-        std::move(desc), interruptor);
-    (void)ignored;
+        fdb_job_info ignored = add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
+            std::move(desc), interruptor);
+        (void)ignored;
+
+        key_view pkey_only = last_key_view.without_prefix(int(pkey_prefix.size()));
+        std::string upper_bound_str(as_char(pkey_only.data), size_t(pkey_only.length));
+        upper_bound_str.push_back('\0');
+        fdb_index_jobstate jobstate{ukey_string{""}, ukey_string{upper_bound_str}};
+        transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
+    }
 
     // Table by name index unchanged.
     transaction_set_uq_index<table_config_by_id>(txn, table_id, table_config);
-
-    fdb_index_jobstate jobstate{ukey_string{""}};
-    transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
 
     cv.value++;
     transaction_set_config_version(txn, cv);

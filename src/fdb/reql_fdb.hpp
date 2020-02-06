@@ -168,13 +168,18 @@ struct key_view {
     const uint8_t *data;
     int length;
 
-    key_view without_prefix(int prefix_length) {
+    MUST_USE bool has_prefix(const std::string &prefix) const {
+        return int(prefix.size()) <= length &&
+            0 == memcmp(prefix.data(), data, prefix.size());
+    }
+
+    key_view without_prefix(int prefix_length) const {
         guarantee(prefix_length <= length);  // TODO: fail msg
         return key_view{data + prefix_length, length - prefix_length};
     }
     // TODO: Remove most usages/demote to rassert after some testing.
     // Checks prefix matches.
-    key_view guarantee_without_prefix(const std::string &prefix) {
+    key_view guarantee_without_prefix(const std::string &prefix) const {
         // TODO: fail msg
         guarantee(int(prefix.size()) <= length);
         guarantee(0 == memcmp(prefix.data(), data, int(prefix.size())));

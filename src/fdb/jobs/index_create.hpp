@@ -7,9 +7,18 @@
 #include "rpc/serialize_macros.hpp"
 
 struct fdb_index_jobstate {
-    // Right now, index building goes left-to-right, with no parallelization.  This is
-    // either the empty string or a last-seen pkey with '\0' on the end.
+    // [unindexed_lower_bound, unindexed_upper_bound) describes the content
+    // of the pkey store that has not been indexed.
+
+    // Either the empty string or a last-seen pkey with '\0' on the end.
     ukey_string unindexed_lower_bound;
+    // This is the last pkey in the store, with '\0' added on the end.
+    ukey_string unindexed_upper_bound;
+
+    // TODO: unindexed_upper_bound never changes as long as the jobstate exists, so we
+    // could have two jobstate keys, one getting cached by the clients.
+
+    // TODO: Verify FDB limits on value length are at least twice that of key length.
 };
 RDB_MAKE_SERIALIZABLE_1(fdb_index_jobstate, unindexed_lower_bound);
 
