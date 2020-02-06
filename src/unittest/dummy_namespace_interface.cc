@@ -103,14 +103,11 @@ void dummy_sharder_t::read(const read_t &_read,
                            signal_t *interruptor) {
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
-    {
-        read_t subread = _read;
-        if (_read.read_mode == read_mode_t::OUTDATED ||
-            _read.read_mode == read_mode_t::DEBUG_DIRECT) {
-            the_shard.performer->read_outdated(subread, response, interruptor);
-        } else {
-            the_shard.timestamper->read(subread, response, tok, interruptor);
-        }
+    if (_read.read_mode == read_mode_t::OUTDATED ||
+        _read.read_mode == read_mode_t::DEBUG_DIRECT) {
+        the_shard.performer->read_outdated(_read, response, interruptor);
+    } else {
+        the_shard.timestamper->read(_read, response, tok, interruptor);
     }
 }
 
@@ -120,28 +117,13 @@ void dummy_sharder_t::write(const write_t &_write,
                             signal_t *interruptor) {
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
-    std::vector<write_response_t> responses;
-    responses.reserve(1);
-
-    {
-        write_t subwrite;
-        if (_write.shard(region_t::universe(), &subwrite)) {
-            responses.push_back(write_response_t());
-            the_shard.timestamper->write(subwrite, &responses.back(), tok);
-            if (interruptor->is_pulsed()) {
-                throw interrupted_exc_t();
-            }
-        }
-    }
-
-    _write.unshard(responses.data(), responses.size(), response, ctx, interruptor);
+    the_shard.timestamper->write(_write, response, tok);
 }
 
 dummy_namespace_interface_t::
 dummy_namespace_interface_t(store_view_t *the_store, order_source_t
-                            *order_source, rdb_context_t *_ctx,
+                            *order_source,
                             bool initialize_metadata)
-    : ctx(_ctx)
 {
     /* Initialize metadata everywhere */
     if (initialize_metadata) {
@@ -180,7 +162,7 @@ dummy_namespace_interface_t(store_view_t *the_store, order_source_t
     // Just one shard now.
     dummy_sharder_t::shard_t shards_of_this_db = dummy_sharder_t::shard_t(the_timestamper.get(), the_performer.get());
 
-    sharder.init(new dummy_sharder_t(std::move(shards_of_this_db), ctx));
+    sharder.init(new dummy_sharder_t(std::move(shards_of_this_db)));
 }
 
 

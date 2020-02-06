@@ -250,6 +250,7 @@ void table_query_client_t::perform_immediate_read(
         } else {
             /* `keepalive.get_drain_signal()` was pulsed because the other server
             disconnected or stopped being a primary */
+            // TODO: Query state (for reads) wouldn't be indeterminate.  It's a read.  It failed.
             throw cannot_perform_query_exc_t(
                 "lost contact with primary replica",
                 query_state_t::INDETERMINATE);
@@ -277,11 +278,11 @@ void table_query_client_t::dispatch_immediate_write(
 
     if (interruptor->is_pulsed()) throw interrupted_exc_t();
 
-    std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > >
-        primaries_to_contact;
     scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> >
-        new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
+        primary_to_contact;
     {
+        scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> >
+            new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
         // TODO: We're sharding by universe.
         new_op_info->sharded_op = op;
         relationship_t *chosen_relationship = nullptr;
@@ -310,55 +311,15 @@ void table_query_client_t::dispatch_immediate_write(
             &new_op_info->enforcement_token);
         new_op_info->keepalive = auto_drainer_t::lock_t(
             &chosen_relationship->drainer);
-        primaries_to_contact.push_back(std::move(new_op_info));
-        new_op_info.init(
-            new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
+        primary_to_contact = std::move(new_op_info);
     }
 
-    std::vector<op_response_type> results(primaries_to_contact.size());
-    std::vector<optional<cannot_perform_query_exc_t> >
-        failures(primaries_to_contact.size());
-    pmap(primaries_to_contact.size(), std::bind(
-             &table_query_client_t::template perform_immediate_write<
-                 op_type, fifo_enforcer_token_type, op_response_type>,
-             this,
+    perform_immediate_write<op_type, fifo_enforcer_token_type, op_response_type>(
              how_to_run_query,
-             &primaries_to_contact,
-             &results,
-             &failures,
+             primary_to_contact.get(),
+             response,
              order_token,
-             ph::_1,
-             interruptor));
-
-    if (interruptor->is_pulsed()) throw interrupted_exc_t();
-
-    bool seen_non_failure = false;
-    optional<cannot_perform_query_exc_t> first_failure;
-    for (size_t i = 0; i < primaries_to_contact.size(); ++i) {
-        if (failures[i]) {
-            switch (failures[i]->get_query_state()) {
-            case query_state_t::FAILED:
-                if (!first_failure) first_failure = failures[i];
-                break;
-            case query_state_t::INDETERMINATE: throw *failures[i];
-            default: unreachable();
-            }
-        } else {
-            seen_non_failure = true;
-        }
-        if (seen_non_failure && first_failure) {
-            // If we got different responses from the different shards, we
-            // default to the safest error type.
-            throw cannot_perform_query_exc_t(
-                first_failure->what(), query_state_t::INDETERMINATE);
-        }
-    }
-    if (first_failure) {
-        guarantee(!seen_non_failure);
-        throw *first_failure;
-    }
-
-    op.unshard(results.data(), results.size(), response, ctx, interruptor);
+             interruptor);
 }
 
 template<class op_type, class fifo_enforcer_token_type, class op_response_type>
@@ -371,39 +332,30 @@ void table_query_client_t::perform_immediate_write(
         signal_t *)
     /* THROWS_ONLY(interrupted_exc_t, resource_lost_exc_t,
        cannot_perform_query_exc_t) */,
-    std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > >
-        *primaries_to_contact,
-    std::vector<op_response_type> *results,
-    std::vector<optional<cannot_perform_query_exc_t> > *failures,
+    immediate_op_info_t<op_type, fifo_enforcer_token_type>
+        *primary_to_contact,
+    op_response_type *result_out,
     order_token_t order_token,
-    size_t i,
-    signal_t *interruptor)
-    THROWS_NOTHING
+    const signal_t *interruptor)
+        THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t)
 {
-    immediate_op_info_t<op_type, fifo_enforcer_token_type> *primary_to_contact
-        = (*primaries_to_contact)[i].get();
-
     try {
         wait_any_t waiter(primary_to_contact->keepalive.get_drain_signal(), interruptor);
         (primary_to_contact->primary_client->*how_to_run_query)(
             primary_to_contact->sharded_op,
-            &results->at(i),
+            result_out,
             order_token,
             &primary_to_contact->enforcement_token,
             &waiter);
-    } catch (const cannot_perform_query_exc_t& e) {
-        (*failures)[i].set(e);
     } catch (const interrupted_exc_t&) {
         if (interruptor->is_pulsed()) {
-            /* Return immediately. `dispatch_immediate_op()` will notice that the
-            interruptor has been pulsed. */
-            return;
+            throw;
         } else {
             /* `keepalive.get_drain_signal()` was pulsed because the other server
             disconnected or stopped being a primary */
-            (*failures)[i].set(cannot_perform_query_exc_t(
+            throw cannot_perform_query_exc_t(
                 "lost contact with primary replica",
-                query_state_t::INDETERMINATE));
+                query_state_t::INDETERMINATE);
         }
     }
 }

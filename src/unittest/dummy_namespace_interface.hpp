@@ -63,9 +63,8 @@ public:
         // Region is universe.
     };
 
-    explicit dummy_sharder_t(shard_t &&_the_shard,
-                             rdb_context_t *_ctx)
-        : the_shard(std::move(_the_shard)), ctx(_ctx) { }
+    explicit dummy_sharder_t(shard_t &&_the_shard)
+        : the_shard(std::move(_the_shard)) { }
 
     void read(const read_t &read, read_response_t *response, order_token_t tok, signal_t *interruptor);
 
@@ -73,13 +72,12 @@ public:
 
 private:
     shard_t the_shard;
-    rdb_context_t *ctx;
 };
 
 class dummy_namespace_interface_t : public namespace_interface_t {
 public:
     dummy_namespace_interface_t(store_view_t *stores, order_source_t
-                                *order_source, rdb_context_t *_ctx,
+                                *order_source,
                                 bool initialize_metadata);
 
     void read(UNUSED auth::user_context_t const &user_context,
@@ -113,7 +111,6 @@ private:
     scoped_ptr_t<dummy_performer_t> the_performer;
     scoped_ptr_t<dummy_timestamper_t> the_timestamper;
     scoped_ptr_t<dummy_sharder_t> sharder;
-    rdb_context_t *ctx;
 };
 
 }   /* namespace unittest */

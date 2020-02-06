@@ -656,13 +656,6 @@ struct write_t {
 #ifndef NDEBUG
     region_t get_region() const THROWS_NOTHING;
 #endif // NDEBUG
-    // Returns true if the write had any side effects applicable to the
-    // region, and a non-empty write was written to write_out.
-    bool shard(const region_t &region,
-               write_t *write_out) const THROWS_NOTHING;
-    void unshard(write_response_t *responses, size_t count,
-                 write_response_t *response, rdb_context_t *cache, signal_t *)
-        const THROWS_NOTHING;
 
     // This is currently used to improve the cache's write transaction throttling.
     int expected_document_changes() const;
