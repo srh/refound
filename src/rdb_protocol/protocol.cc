@@ -480,68 +480,7 @@ struct rdb_r_shard_visitor_t : public boost::static_visitor<bool> {
     }
 
     bool operator()(const rget_read_t &rg) const {
-        bool do_read;
-        // TODO: What is hints, and does hints always contain region_t::universe?
-        if (rg.hints.has_value()) {
-            auto it = rg.hints->find(region_t::universe());
-            if (it != rg.hints->end()) {
-                do_read = rangey_read(rg);
-                auto *rr = boost::get<rget_read_t>(payload_out);
-                guarantee(rr);
-                if (do_read) {
-                    // TODO: We could avoid an `std::map` copy by making
-                    // `rangey_read` smarter.
-                    rr->hints.reset();
-                    if (!rg.sindex.has_value()) {
-                        if (!reversed(rg.sorting)) {
-                            guarantee(it->second.infinite || it->second.key >= rr->region.left);
-                            r_sanity_check(!it->second.infinite);  // See is_empty check below.
-                            rr->region.left = it->second.key;
-                        } else {
-                            key_range_t::right_bound_t rb = key_or_max(it->second).to_right_bound();
-                            guarantee(rb <= rr->region.right);
-                            rr->region.right = std::move(rb);
-                        }
-                        r_sanity_check(!rr->region.is_empty());
-                    } else {
-                        guarantee(rr->sindex.has_value());
-                        guarantee(rr->sindex->region.has_value());
-                        if (!reversed(rg.sorting)) {
-                            r_sanity_check(!it->second.infinite);  // See is_empty check below.
-                            rr->sindex->region->left = it->second.key;
-                        } else {
-                            rr->sindex->region->right = key_or_max(it->second).to_right_bound();
-                        }
-                        r_sanity_check(!rr->sindex->region->is_empty());
-                    }
-                }
-            } else {
-                do_read = false;
-            }
-        } else {
-            do_read = rangey_read(rg);
-        }
-        if (do_read) {
-            auto *rg_out = boost::get<rget_read_t>(payload_out);
-            rg_out->batchspec = rg_out->batchspec.scale_down(
-                rg.hints.has_value() ? rg.hints->size() : 1);
-            if (rg_out->primary_keys.has_value()) {
-                for (auto it = rg_out->primary_keys->begin();
-                     it != rg_out->primary_keys->end();) {
-                    auto cur_it = it++;
-                    if (!rg_out->region.contains_key(cur_it->first)) {
-                        rg_out->primary_keys->erase(cur_it);
-                    }
-                }
-                if (rg_out->primary_keys->empty()) {
-                    return false;
-                }
-            }
-            if (rg_out->stamp.has_value()) {
-                rg_out->stamp->region = rg_out->region;
-            }
-        }
-        return do_read;
+        return rangey_read(rg);
     }
 
     bool operator()(const intersecting_geo_read_t &gr) const {
@@ -781,13 +720,7 @@ void rdb_r_unshard_visitor_t::operator()(const nearest_geo_read_t &query) {
 }
 
 void rdb_r_unshard_visitor_t::operator()(const rget_read_t &rg) {
-    if (rg.hints.has_value() && count != rg.hints->size()) {
-        response_out->response = rget_read_response_t(
-            ql::exc_t(ql::base_exc_t::OP_FAILED, "Read aborted by unshard operation.",
-                      ql::backtrace_id_t::empty()));
-    } else {
-        unshard_range_batch<rget_read_response_t>(rg, rg.sorting);
-    }
+    unshard_range_batch<rget_read_response_t>(rg, rg.sorting);
 }
 
 template<class query_response_t, class query_t>
@@ -1300,11 +1233,10 @@ RDB_IMPL_SERIALIZABLE_4_FOR_CLUSTER(sindex_rangespec_t,
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
         sorting_t, int8_t,
         sorting_t::UNORDERED, sorting_t::DESCENDING);
-RDB_IMPL_SERIALIZABLE_11_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_10_FOR_CLUSTER(
     rget_read_t,
     stamp,
     region,
-    hints,
     primary_keys,
     serializable_env,
     table_name,

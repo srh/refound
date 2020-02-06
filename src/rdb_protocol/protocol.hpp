@@ -297,7 +297,6 @@ public:
 
     rget_read_t(optional<changefeed_stamp_t> &&_stamp,
                 region_t _region,
-                optional<std::map<region_t, lower_key_bound> > _hints,
                 optional<std::map<store_key_t, uint64_t> > _primary_keys,
                 serializable_env_t s_env,
                 std::string _table_name,
@@ -308,7 +307,6 @@ public:
                 sorting_t _sorting)
     : stamp(std::move(_stamp)),
       region(std::move(_region)),
-      hints(std::move(_hints)),
       primary_keys(std::move(_primary_keys)),
       serializable_env(std::move(s_env)),
       table_name(std::move(_table_name)),
@@ -321,7 +319,6 @@ public:
     optional<changefeed_stamp_t> stamp;
 
     region_t region; // We need this even for sindex reads due to sharding.
-    optional<std::map<region_t, lower_key_bound> > hints;
 
     // The `uint64_t`s here are counts.  This map is used to make `get_all` more
     // efficient, and it's legal to pass duplicate keys to `get_all`.

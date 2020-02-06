@@ -137,30 +137,6 @@ static void validate_and_record_stamps(
     }
 }
 
-optional<std::map<region_t, lower_key_bound> > active_ranges_to_hints(
-    sorting_t sorting, const optional<active_ranges_t> &ranges) {
-
-    if (!ranges) {
-        return r_nullopt;
-    }
-
-    std::map<region_t, lower_key_bound> hints;
-    for (auto &&pair : ranges->ranges) {
-        switch (pair.second.state) {
-        case range_state_t::ACTIVE:
-            hints[region_t(pair.first)] = !reversed(sorting)
-                ? pair.second.key_range.left
-                : pair.second.key_range.right;
-            break;
-        case range_state_t::SATURATED: break;
-        case range_state_t::EXHAUSTED: break;
-        default: unreachable();
-        }
-    }
-    r_sanity_check(!hints.empty());
-    return make_optional(std::move(hints));
-}
-
 enum class is_secondary_t { NO, YES };
 active_ranges_t new_active_ranges(
     const stream_t &stream,
@@ -1028,7 +1004,6 @@ rget_read_t primary_readgen_t::next_read_impl(
     return rget_read_t(
         std::move(stamp),
         std::move(region),
-        active_ranges_to_hints(sorting(batchspec), active_ranges),
         store_keys,
         serializable_env,
         table_name,
@@ -1140,7 +1115,6 @@ rget_read_t sindex_readgen_t::next_read_impl(
     return rget_read_t(
         std::move(stamp),
         region_t::universe(),
-        active_ranges_to_hints(sorting(batchspec), active_ranges),
         r_nullopt,
         serializable_env,
         table_name,

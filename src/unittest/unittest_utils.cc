@@ -39,7 +39,6 @@ struct make_sindex_read_t {
                 optional<changefeed_stamp_t>(),
                 region_t::universe(),
                 r_nullopt,
-                r_nullopt,
                 serializable_env_t{
                     ql::global_optargs_t(),
                     auth::user_context_t(auth::permissions_t(tribool::False, tribool::False, tribool::False, tribool::False)),
