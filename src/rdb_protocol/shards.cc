@@ -80,19 +80,19 @@ class grouped_acc_t : public accumulator_t {
 protected:
     explicit grouped_acc_t(T &&_default_val)
         : default_val(std::move(_default_val)) { }
-    virtual ~grouped_acc_t() { }
+    ~grouped_acc_t() override { }
 
-    virtual void finish_impl(continue_bool_t, result_t *out) {
+    void finish_impl(continue_bool_t, result_t *out) override {
         *out = grouped_t<T>();
         boost::get<grouped_t<T> >(*out).swap(acc);
         guarantee(acc.size() == 0);
     }
 private:
-    virtual continue_bool_t operator()(
+    continue_bool_t operator()(
             env_t *env,
             groups_t *groups,
             const store_key_t &key,
-            const std::function<datum_t()> &lazy_sindex_val) {
+            const std::function<datum_t()> &lazy_sindex_val) final {
         for (auto it = groups->begin(); it != groups->end(); ++it) {
             auto pair = acc.insert(std::make_pair(it->first, default_val));
             auto t_it = pair.first;
@@ -107,31 +107,10 @@ private:
         return should_send_batch() ? continue_bool_t::ABORT : continue_bool_t::CONTINUE;
     }
     virtual bool accumulate(env_t *env,
-                            const datum_t &el,
-                            T *t,
-                            const store_key_t &key,
-                            const std::function<datum_t()> &lazy_sindex_val) = 0;
-
-    virtual bool should_send_batch() = 0;
-
-    virtual void unshard(env_t *env, const std::vector<result_t *> &results) {
-        guarantee(acc.size() == 0);
-        std::map<datum_t, std::vector<T *>, optional_datum_less_t> vecs;
-        r_sanity_check(results.size() != 0);
-        for (auto res = results.begin(); res != results.end(); ++res) {
-            guarantee(*res);
-            grouped_t<T> *gres = boost::get<grouped_t<T> >(*res);
-            guarantee(gres);
-            for (auto kv = gres->begin(); kv != gres->end(); ++kv) {
-                vecs[kv->first].push_back(&kv->second);
-            }
-        }
-        for (auto kv = vecs.begin(); kv != vecs.end(); ++kv) {
-            auto t_it = acc.insert(std::make_pair(kv->first, default_val)).first;
-            unshard_impl(env, &t_it->second, kv->second);
-        }
-    }
-    virtual void unshard_impl(env_t *env, T *acc, const std::vector<T *> &ts) = 0;
+        const datum_t &el,
+        T *t,
+        const store_key_t &key,
+        const std::function<datum_t()> &lazy_sindex_val) = 0;
 
 protected:
     const T *get_default_val() { return &default_val; }
@@ -215,18 +194,6 @@ protected:
         unreachable();
     }
 
-    void unshard_impl(env_t *,
-                      stream_t *out,
-                      const std::vector<stream_t *> &streams) final {
-        r_sanity_check(streams.size() > 0);
-        for (auto &&stream : streams) {
-            r_sanity_check(stream->substreams.size() > 0);
-            for (auto &&pair : stream->substreams) {
-                bool inserted = out->substreams.insert(pair).second;
-                guarantee(inserted);
-            }
-        }
-    }
 private:
     const sorting_t sorting;
     const key_le_t key_le;
@@ -595,12 +562,6 @@ private:
                             const datum_t &el,
                             T *t) = 0;
 
-    virtual void unshard_impl(
-        env_t *env, T *out, const std::vector<T *> &ts) {
-        for (auto it = ts.begin(); it != ts.end(); ++it) {
-            unshard_impl(env, out, *it);
-        }
-    }
     virtual void unshard_impl(env_t *env, T *out, T *el) = 0;
     virtual bool should_send_batch() { return false; }
 };

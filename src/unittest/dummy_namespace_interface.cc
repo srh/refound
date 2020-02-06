@@ -103,26 +103,15 @@ void dummy_sharder_t::read(const read_t &_read,
                            signal_t *interruptor) {
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
-    std::vector<read_response_t> responses;
-    responses.reserve(1);
-
     {
-        read_t subread;
-        if (_read.shard_universe(&subread)) {
-            responses.push_back(read_response_t());
-            if (_read.read_mode == read_mode_t::OUTDATED ||
-                _read.read_mode == read_mode_t::DEBUG_DIRECT) {
-                the_shard.performer->read_outdated(subread, &responses.back(), interruptor);
-            } else {
-                the_shard.timestamper->read(subread, &responses.back(), tok, interruptor);
-            }
-            if (interruptor->is_pulsed()) {
-                throw interrupted_exc_t();
-            }
+        read_t subread = _read;
+        if (_read.read_mode == read_mode_t::OUTDATED ||
+            _read.read_mode == read_mode_t::DEBUG_DIRECT) {
+            the_shard.performer->read_outdated(subread, response, interruptor);
+        } else {
+            the_shard.timestamper->read(subread, response, tok, interruptor);
         }
     }
-
-    _read.unshard1(responses.data(), responses.size(), response, ctx, interruptor);
 }
 
 void dummy_sharder_t::write(const write_t &_write,

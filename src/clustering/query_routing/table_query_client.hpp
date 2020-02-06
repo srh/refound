@@ -114,13 +114,11 @@ private:
     template <class op_type, class fifo_enforcer_token_type, class op_response_type>
     void perform_immediate_read(
             void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
-            std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > > *masters_to_contact,
-            std::vector<op_response_type> *results,
-            std::vector<optional<cannot_perform_query_exc_t> > *failures,
+            immediate_op_info_t<op_type, fifo_enforcer_token_type> *masters_to_contact,
+            op_response_type *result_out,
             order_token_t order_token,
-            size_t i,
-            signal_t *interruptor)
-        THROWS_NOTHING;
+            const signal_t *interruptor)
+        THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     template <class op_type, class fifo_enforcer_token_type, class op_response_type>
     void dispatch_immediate_write(
@@ -155,12 +153,10 @@ private:
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     void perform_outdated_read(
-            std::vector<scoped_ptr_t<outdated_read_info_t> > *direct_readers_to_contact,
-            std::vector<read_response_t> *results,
-            std::vector<std::string> *failures,
-            size_t i,
-            signal_t *interruptor)
-        THROWS_NOTHING;
+            outdated_read_info_t *direct_reader_to_contact,
+            read_response_t *results_out,
+            const signal_t *interruptor)
+        THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     void dispatch_debug_direct_read(
             const read_t &op,

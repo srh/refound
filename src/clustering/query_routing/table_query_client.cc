@@ -176,89 +176,48 @@ void table_query_client_t::dispatch_immediate_read(
 
     if (interruptor->is_pulsed()) throw interrupted_exc_t();
 
-    std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > >
-        primaries_to_contact;
     scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> >
-        new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
+        primary_to_contact;
     {
-        // TODO: We're sharding by universe.
-        if (op.shard_universe(&new_op_info->sharded_op)) {
-            relationship_t *chosen_relationship = nullptr;
-            for (relationship_t *rel : relationships) {
-                // If some shards are currently intersecting (this should only happen
-                // temporarily while resharding). `reg` might be a subset of the region
-                // of the relationships in `rels`.
-                // We need to test for that, so we don't send operations to a shard with
-                // the wrong boundaries.
-                if (rel->primary_client) {
-                    if (chosen_relationship) {
-                        throw cannot_perform_query_exc_t(
-                            "too many primary replicas available",
-                            query_state_t::FAILED);
-                    }
-                    chosen_relationship = rel;
+        scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> >
+            new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
+        new_op_info->sharded_op = op;
+
+        relationship_t *chosen_relationship = nullptr;
+        for (relationship_t *rel : relationships) {
+            // If some shards are currently intersecting (this should only happen
+            // temporarily while resharding). `reg` might be a subset of the region
+            // of the relationships in `rels`.
+            // We need to test for that, so we don't send operations to a shard with
+            // the wrong boundaries.
+            if (rel->primary_client) {
+                if (chosen_relationship) {
+                    throw cannot_perform_query_exc_t(
+                        "too many primary replicas available",
+                        query_state_t::FAILED);
                 }
+                chosen_relationship = rel;
             }
-            if (!chosen_relationship) {
-                throw cannot_perform_query_exc_t(
-                    strprintf("primary replica not available"),
-                    query_state_t::FAILED);
-            }
-            new_op_info->primary_client = chosen_relationship->primary_client;
-            (new_op_info->primary_client->*how_to_make_token)(
-                &new_op_info->enforcement_token);
-            new_op_info->keepalive = auto_drainer_t::lock_t(
-                &chosen_relationship->drainer);
-            primaries_to_contact.push_back(std::move(new_op_info));
-            new_op_info.init(
-                new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
         }
-    }
-
-    std::vector<op_response_type> results(primaries_to_contact.size());
-    std::vector<optional<cannot_perform_query_exc_t> >
-        failures(primaries_to_contact.size());
-    pmap(primaries_to_contact.size(), std::bind(
-             &table_query_client_t::template perform_immediate_read<
-                 op_type, fifo_enforcer_token_type, op_response_type>,
-             this,
-             how_to_run_query,
-             &primaries_to_contact,
-             &results,
-             &failures,
-             order_token,
-             ph::_1,
-             interruptor));
-
-    if (interruptor->is_pulsed()) throw interrupted_exc_t();
-
-    bool seen_non_failure = false;
-    optional<cannot_perform_query_exc_t> first_failure;
-    for (size_t i = 0; i < primaries_to_contact.size(); ++i) {
-        if (failures[i]) {
-            switch (failures[i]->get_query_state()) {
-            case query_state_t::FAILED:
-                if (!first_failure) first_failure = failures[i];
-                break;
-            case query_state_t::INDETERMINATE: throw *failures[i];
-            default: unreachable();
-            }
-        } else {
-            seen_non_failure = true;
-        }
-        if (seen_non_failure && first_failure) {
-            // If we got different responses from the different shards, we
-            // default to the safest error type.
+        if (!chosen_relationship) {
             throw cannot_perform_query_exc_t(
-                first_failure->what(), query_state_t::INDETERMINATE);
+                strprintf("primary replica not available"),
+                query_state_t::FAILED);
         }
-    }
-    if (first_failure) {
-        guarantee(!seen_non_failure);
-        throw *first_failure;
+        new_op_info->primary_client = chosen_relationship->primary_client;
+        (new_op_info->primary_client->*how_to_make_token)(
+            &new_op_info->enforcement_token);
+        new_op_info->keepalive = auto_drainer_t::lock_t(
+            &chosen_relationship->drainer);
+        primary_to_contact = std::move(new_op_info);
     }
 
-    op.unshard1(results.data(), results.size(), response, ctx, interruptor);
+    perform_immediate_read<op_type, fifo_enforcer_token_type, op_response_type>(
+         how_to_run_query,
+         primary_to_contact.get(),
+         response,
+         order_token,
+         interruptor);
 }
 
 template<class op_type, class fifo_enforcer_token_type, class op_response_type>
@@ -271,39 +230,29 @@ void table_query_client_t::perform_immediate_read(
         signal_t *)
     /* THROWS_ONLY(interrupted_exc_t, resource_lost_exc_t,
        cannot_perform_query_exc_t) */,
-    std::vector<scoped_ptr_t<immediate_op_info_t<op_type, fifo_enforcer_token_type> > >
-        *primaries_to_contact,
-    std::vector<op_response_type> *results,
-    std::vector<optional<cannot_perform_query_exc_t> > *failures,
+    immediate_op_info_t<op_type, fifo_enforcer_token_type> *primary_to_contact,
+    op_response_type *result_out,
     order_token_t order_token,
-    size_t i,
-    signal_t *interruptor)
-    THROWS_NOTHING
+    const signal_t *interruptor)
+    THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t)
 {
-    immediate_op_info_t<op_type, fifo_enforcer_token_type> *primary_to_contact
-        = (*primaries_to_contact)[i].get();
-
     try {
         wait_any_t waiter(primary_to_contact->keepalive.get_drain_signal(), interruptor);
         (primary_to_contact->primary_client->*how_to_run_query)(
             primary_to_contact->sharded_op,
-            &results->at(i),
+            result_out,
             order_token,
             &primary_to_contact->enforcement_token,
             &waiter);
-    } catch (const cannot_perform_query_exc_t& e) {
-        (*failures)[i].set(e);
     } catch (const interrupted_exc_t&) {
         if (interruptor->is_pulsed()) {
-            /* Return immediately. `dispatch_immediate_op()` will notice that the
-            interruptor has been pulsed. */
-            return;
+            throw;
         } else {
             /* `keepalive.get_drain_signal()` was pulsed because the other server
             disconnected or stopped being a primary */
-            (*failures)[i].set(cannot_perform_query_exc_t(
+            throw cannot_perform_query_exc_t(
                 "lost contact with primary replica",
-                query_state_t::INDETERMINATE));
+                query_state_t::INDETERMINATE);
         }
     }
 }
@@ -334,37 +283,36 @@ void table_query_client_t::dispatch_immediate_write(
         new_op_info(new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
     {
         // TODO: We're sharding by universe.
-        if (op.shard(region_t::universe(), &new_op_info->sharded_op)) {
-            relationship_t *chosen_relationship = nullptr;
-            for (relationship_t *rel : relationships) {
-                // If some shards are currently intersecting (this should only happen
-                // temporarily while resharding). `reg` might be a subset of the region
-                // of the relationships in `rels`.
-                // We need to test for that, so we don't send operations to a shard with
-                // the wrong boundaries.
-                if (rel->primary_client) {
-                    if (chosen_relationship) {
-                        throw cannot_perform_query_exc_t(
-                            "too many primary replicas available",
-                            query_state_t::FAILED);
-                    }
-                    chosen_relationship = rel;
+        new_op_info->sharded_op = op;
+        relationship_t *chosen_relationship = nullptr;
+        for (relationship_t *rel : relationships) {
+            // If some shards are currently intersecting (this should only happen
+            // temporarily while resharding). `reg` might be a subset of the region
+            // of the relationships in `rels`.
+            // We need to test for that, so we don't send operations to a shard with
+            // the wrong boundaries.
+            if (rel->primary_client) {
+                if (chosen_relationship) {
+                    throw cannot_perform_query_exc_t(
+                        "too many primary replicas available",
+                        query_state_t::FAILED);
                 }
+                chosen_relationship = rel;
             }
-            if (!chosen_relationship) {
-                throw cannot_perform_query_exc_t(
-                    strprintf("primary replica not available"),
-                    query_state_t::FAILED);
-            }
-            new_op_info->primary_client = chosen_relationship->primary_client;
-            (new_op_info->primary_client->*how_to_make_token)(
-                &new_op_info->enforcement_token);
-            new_op_info->keepalive = auto_drainer_t::lock_t(
-                &chosen_relationship->drainer);
-            primaries_to_contact.push_back(std::move(new_op_info));
-            new_op_info.init(
-                new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
         }
+        if (!chosen_relationship) {
+            throw cannot_perform_query_exc_t(
+                strprintf("primary replica not available"),
+                query_state_t::FAILED);
+        }
+        new_op_info->primary_client = chosen_relationship->primary_client;
+        (new_op_info->primary_client->*how_to_make_token)(
+            &new_op_info->enforcement_token);
+        new_op_info->keepalive = auto_drainer_t::lock_t(
+            &chosen_relationship->drainer);
+        primaries_to_contact.push_back(std::move(new_op_info));
+        new_op_info.init(
+            new immediate_op_info_t<op_type, fifo_enforcer_token_type>());
     }
 
     std::vector<op_response_type> results(primaries_to_contact.size());
@@ -470,76 +418,53 @@ void table_query_client_t::dispatch_outdated_read(
         throw interrupted_exc_t();
     }
 
-    std::vector<scoped_ptr_t<outdated_read_info_t> > replicas_to_contact;
-
-    scoped_ptr_t<outdated_read_info_t> new_op_info(new outdated_read_info_t());
+    scoped_ptr_t<outdated_read_info_t> replica_to_contact;
     {
-        // TODO: We're sharding by universe().
-        if (op.shard_universe(&new_op_info->sharded_op)) {
-            std::vector<relationship_t *> potential_relationships;
-            relationship_t *chosen_relationship = nullptr;
-            for (relationship_t *rel : relationships) {
-                // See the comment in `dispatch_immediate_op` about why we need to
-                // check that `region` and the relationship's region are the same.
-                if (rel->direct_bcard != nullptr) {
-                    if (rel->is_local) {
-                        chosen_relationship = rel;
-                        break;
-                    } else {
-                        potential_relationships.push_back(rel);
-                    }
+        scoped_ptr_t<outdated_read_info_t> new_op_info(new outdated_read_info_t());
+        new_op_info->sharded_op = op;
+        std::vector<relationship_t *> potential_relationships;
+        relationship_t *chosen_relationship = nullptr;
+        for (relationship_t *rel : relationships) {
+            // See the comment in `dispatch_immediate_op` about why we need to
+            // check that `region` and the relationship's region are the same.
+            if (rel->direct_bcard != nullptr) {
+                if (rel->is_local) {
+                    chosen_relationship = rel;
+                    break;
+                } else {
+                    potential_relationships.push_back(rel);
                 }
             }
-            if (!chosen_relationship && !potential_relationships.empty()) {
-                chosen_relationship
-                    = potential_relationships[randint(potential_relationships.size())];
-            }
-            if (!chosen_relationship) {
-                /* Don't bother looking for masters; if there are no direct
-                   readers, there won't be any masters either. */
-                throw cannot_perform_query_exc_t(
-                    "no replica is available",
-                    query_state_t::FAILED);
-            }
-            new_op_info->direct_bcard = chosen_relationship->direct_bcard;
-            new_op_info->keepalive = auto_drainer_t::lock_t(
-                &chosen_relationship->drainer);
-            replicas_to_contact.push_back(std::move(new_op_info));
-            new_op_info.init(new outdated_read_info_t());
         }
+        if (!chosen_relationship && !potential_relationships.empty()) {
+            chosen_relationship
+                = potential_relationships[randint(potential_relationships.size())];
+        }
+        if (!chosen_relationship) {
+            /* Don't bother looking for masters; if there are no direct
+               readers, there won't be any masters either. */
+            throw cannot_perform_query_exc_t(
+                "no replica is available",
+                query_state_t::FAILED);
+        }
+        new_op_info->direct_bcard = chosen_relationship->direct_bcard;
+        new_op_info->keepalive = auto_drainer_t::lock_t(
+            &chosen_relationship->drainer);
+        replica_to_contact = std::move(new_op_info);
     }
 
-    std::vector<read_response_t> results(replicas_to_contact.size());
-    std::vector<std::string> failures(replicas_to_contact.size());
-    pmap(replicas_to_contact.size(),
-        std::bind(&table_query_client_t::perform_outdated_read, this,
-            &replicas_to_contact, &results, &failures, ph::_1, interruptor));
-
-    if (interruptor->is_pulsed()) throw interrupted_exc_t();
-
-    for (size_t i = 0; i < replicas_to_contact.size(); ++i) {
-        if (!failures[i].empty()) {
-            // Reads are never indeterminate.
-            throw cannot_perform_query_exc_t(failures[i], query_state_t::FAILED);
-        }
-    }
-
-    op.unshard1(results.data(), results.size(), response, ctx, interruptor);
+    perform_outdated_read(replica_to_contact.get(), response, interruptor);
 }
 
 void table_query_client_t::perform_outdated_read(
-        std::vector<scoped_ptr_t<outdated_read_info_t> > *replicas_to_contact,
-        std::vector<read_response_t> *results,
-        std::vector<std::string> *failures,
-        size_t i,
-        signal_t *interruptor) THROWS_NOTHING {
-    outdated_read_info_t *replica_to_contact = (*replicas_to_contact)[i].get();
-
-    try {
+        outdated_read_info_t *replica_to_contact,
+        read_response_t *result_out,
+        const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
+    {
         cond_t done;
         mailbox_t<read_response_t> cont(mailbox_manager,
             [&](signal_t *, const read_response_t &res) {
-                results->at(i) = res;
+                *result_out = res;
                 done.pulse();
             });
 
@@ -552,11 +477,8 @@ void table_query_client_t::perform_outdated_read(
         if (!done.is_pulsed()) {
             /* `wait_interruptible()` returned because
             `replica_to_contact->keepalive.get_drain_signal()` was pulsed */
-            failures->at(i).assign("lost contact with replica");
+            throw cannot_perform_query_exc_t("lost contact with replica", query_state_t::FAILED);
         }
-    } catch (const interrupted_exc_t &) {
-        /* Return immediately. `dispatch_immediate_op()` will notice that the
-        interruptor has been pulsed. */
     }
 }
 

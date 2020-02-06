@@ -466,7 +466,6 @@ public:
             // Returns a datum that might be null
             const std::function<datum_t()> &lazy_sindex_val) = 0;
     void finish(continue_bool_t last_cb, result_t *out);
-    virtual void unshard(env_t *env, const std::vector<result_t *> &results) = 0;
 protected:
     void mark_finished();
 private:
