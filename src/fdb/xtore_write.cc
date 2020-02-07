@@ -5,6 +5,8 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/protocol.hpp"
 
+
+
 struct fdb_write_visitor : public boost::static_visitor<void> {
 // OOO: Update these functions.
 #if 0
@@ -118,25 +120,21 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         update_sindexes(mod_report);
     }
 
-    void operator()(const sync_t &) {
-        sampler->new_sample();
-        response->response = sync_response_t();
-        superblock->write_acq_signal()->wait();
-
-        // TODO: Can't sync individual tables anymore (can we?).
-        store->rocks->sync();
-
-        // We know this sync_t operation will force all preceding write transactions
-        // (on our cache_conn_t) to flush before or at the same time, because the
-        // cache guarantees that.  (Right now it will force _all_ preceding write
-        // transactions to flush, on any conn, because they all touch the metainfo in
-        // the superblock.)
-        // TODO: More like, txn->no-commit.
-        txn->commit(store->rocksh().rocks, std::move(superblock));
-    }
 #endif  // 0
+    void operator()(const sync_t &) {
+        // TODO: Understand what this does.
+        sampler->new_sample();
+
+        // We have to check cv, for the usual reasons: to make sure table name->id
+        // mapping we used was legit.
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
+        response->response = sync_response_t();
+    }
 
     void operator()(const dummy_write_t &) {
+        // We have to check cv, for the usual reasons: to make sure table name->id
+        // mapping we used was legit.
         reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
         check_cv(expected_cv_, cv);
         response->response = dummy_write_response_t();
@@ -145,6 +143,9 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     // OOO: Remove this!
     template <class T>
     void operator()(const T&) { }
+
+    // One responsibility all visitor methods have is to check expected_cv.  Preferably
+    // before they try anything long and expensive.
 
     fdb_write_visitor(FDBTransaction *_txn,
             reqlfdb_config_version _expected_cv,
