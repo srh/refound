@@ -28,7 +28,10 @@ public:
     wire_func_t(const raw_term_t &body,
                 std::vector<sym_t> arg_names);
 
-    counted_t<const func_t> compile_wire_func() const;
+    const counted_t<const func_t> &compile_wire_func() const;
+    const counted_t<const func_t> &compile() const {
+        return compile_wire_func();
+    }
     backtrace_id_t get_bt() const;
 
     template <cluster_version_t W>
@@ -65,6 +68,14 @@ private:
     bool has() const { return wrapped.has(); }
     wire_func_t wrapped;
 };
+
+// A func that has been proven deterministic.
+class deterministic_func {
+public:
+    wire_func_t det_func;
+    const func_t *operator->() const;
+};
+RDB_MAKE_SERIALIZABLE_1(deterministic_func, det_func);
 
 class map_wire_func_t : public wire_func_t {
 public:

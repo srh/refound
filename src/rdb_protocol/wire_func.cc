@@ -40,7 +40,7 @@ wire_func_t &wire_func_t::operator=(const wire_func_t &assignee) {
 
 wire_func_t::~wire_func_t() { }
 
-counted_t<const func_t> wire_func_t::compile_wire_func() const {
+const counted_t<const func_t> &wire_func_t::compile_wire_func() const {
     r_sanity_check(func.has());
     return func;
 }
@@ -48,6 +48,10 @@ counted_t<const func_t> wire_func_t::compile_wire_func() const {
 backtrace_id_t wire_func_t::get_bt() const {
     r_sanity_check(func.has());
     return func->backtrace();
+}
+
+const func_t *deterministic_func::operator->() const {
+    return det_func.compile_wire_func().operator->();
 }
 
 enum class wire_func_type_t { REQL, JS };

@@ -20,7 +20,7 @@
 
 std::string format_write_hook_query(const write_hook_config_t &config) {
     std::string ret = "setWriteHook(";
-    ret += config.func.compile_wire_func()->print_js_function();
+    ret += config.func.det_func.compile_wire_func()->print_js_function();
     ret += ")";
     return ret;
 }
@@ -76,7 +76,8 @@ public:
                 string_read_stream_t rs(str.to_std(), prefix_sz);
                 deserialize<cluster_version_t::LATEST_DISK>(&rs, &func);
 
-                config.set(write_hook_config_t(func, reql_version_t::LATEST));
+                // We check the deterministic func condition immediately below.
+                config.set(write_hook_config_t(ql::deterministic_func{func}, reql_version_t::LATEST));
                 goto config_specified_with_value;
             } else if (d.get_type() == datum_t::R_NULL) {
                 goto config_specified_without_value;
@@ -84,17 +85,18 @@ public:
         }
 
         // This way it will complain about it not being a function.
-        config.set(write_hook_config_t(ql::wire_func_t(v->as_func(env->env)),
+        // We check the deterministic func condition immediately below.
+        config.set(write_hook_config_t(ql::deterministic_func{ql::wire_func_t(v->as_func(env->env))},
                                        reql_version_t::LATEST));
 
     config_specified_with_value:
 
-        config->func.compile_wire_func()->assert_deterministic(
+        config->func.det_func.compile_wire_func()->assert_deterministic(
                 constant_now_t::no,
                 "Write hook functions must be deterministic.");
 
         {
-            optional<size_t> arity = config->func.compile_wire_func()->arity();
+            optional<size_t> arity = config->func.det_func.compile_wire_func()->arity();
 
             rcheck(static_cast<bool>(arity) && arity.get() == 3,
                    base_exc_t::LOGIC,

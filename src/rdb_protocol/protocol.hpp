@@ -549,26 +549,22 @@ struct batched_replace_t {
     batched_replace_t(
             std::vector<store_key_t> &&_keys,
             const std::string &_pkey,
-            const counted_t<const ql::func_t> &func,
-            const optional<counted_t<const ql::func_t> > &wh,
+            const ql::deterministic_func &func,
+            const optional<ql::deterministic_func> &wh,
             serializable_env_t s_env,
             return_changes_t _return_changes)
         : keys(std::move(_keys)),
           pkey(_pkey),
           f(func),
+          write_hook(wh),
           serializable_env(std::move(s_env)),
           return_changes(_return_changes) {
         r_sanity_check(keys.size() != 0);
-
-        if (wh.has_value()) {
-            write_hook.set(ql::wire_func_t(*wh));
-        }
-
     }
     std::vector<store_key_t> keys;
     std::string pkey;
-    ql::wire_func_t f;
-    optional<ql::wire_func_t> write_hook;
+    ql::deterministic_func f;
+    optional<ql::deterministic_func> write_hook;
     serializable_env_t serializable_env;
     return_changes_t return_changes;
 };
@@ -579,18 +575,18 @@ struct batched_insert_t {
     batched_insert_t(
         std::vector<ql::datum_t> &&_inserts,
         const std::string &_pkey,
-        const optional<counted_t<const ql::func_t> > &_write_hook,
+        const optional<ql::deterministic_func> &_write_hook,
         conflict_behavior_t _conflict_behavior,
-        const optional<counted_t<const ql::func_t> > &_conflict_func,
+        const optional<ql::deterministic_func> &_conflict_func,
         const ql::configured_limits_t &_limits,
         serializable_env_t s_env,
         return_changes_t _return_changes);
 
     std::vector<ql::datum_t> inserts;
     std::string pkey;
-    optional<ql::wire_func_t> write_hook;
+    optional<ql::deterministic_func> write_hook;
     conflict_behavior_t conflict_behavior;
-    optional<ql::wire_func_t> conflict_func;
+    optional<ql::deterministic_func> conflict_func;
     ql::configured_limits_t limits;
     serializable_env_t serializable_env;
     return_changes_t return_changes;

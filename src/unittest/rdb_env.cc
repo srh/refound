@@ -136,7 +136,7 @@ void mock_namespace_interface_t::write_visitor_t::operator()(
             data_it->second : ql::datum_t::null();
 
         ql::datum_t new_val
-            = r.f.compile_wire_func()->call(parent->env, old_val)->as_datum(parent->env);
+            = r.f->call(parent->env, old_val)->as_datum(parent->env);
         parent->data.erase(*it);
 
         bool err;

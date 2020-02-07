@@ -132,7 +132,7 @@ private:
         counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
         return_changes_t return_changes = parse_return_changes(env, args, backtrace());
 
-        optional<counted_t<const ql::func_t> > conflict_func;
+        optional<ql::deterministic_func> conflict_func;
 
         scoped_ptr_t<val_t> conflict_optarg = args->optarg(env, "conflict");
         const conflict_behavior_t conflict_behavior
@@ -156,20 +156,21 @@ private:
             }
         }
         if (conflict_behavior == conflict_behavior_t::FUNCTION) {
-            conflict_func.set(conflict_optarg->as_func(env->env));
-
+            counted_t<const ql::func_t> f = conflict_optarg->as_func(env->env);
             // Check that insert function is atomic.
-            rcheck((*conflict_func)->is_deterministic().test(single_server_t::no,
-                                                              constant_now_t::yes),
+            rcheck(f->is_deterministic().test(single_server_t::no,
+                                              constant_now_t::yes),
                    base_exc_t::LOGIC,
                    strprintf("The conflict function passed to `insert` must "
                              "be deterministic."));
+
             // Check correct arity on function
-            optional<size_t> arity = (*conflict_func)->arity();
+            optional<size_t> arity = f->arity();
             rcheck(static_cast<bool>(arity) && (arity.get() == 0 || arity.get() == 3),
                    base_exc_t::LOGIC,
                    strprintf("The conflict function passed to `insert` should "
                              "expect 3 arguments."));
+            conflict_func.set(ql::deterministic_func{ql::wire_func_t(f)});
         }
 
         bool done = false;

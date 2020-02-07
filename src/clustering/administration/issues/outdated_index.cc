@@ -73,7 +73,7 @@ outdated_index_issue_tracker_t::outdated_index_issue_tracker_t(
         table_meta_client(_table_meta_client) { }
 
 bool outdated_index_issue_tracker_t::is_acceptable_outdated(const sindex_config_t &sindex_config) {
-    if (sindex_config.func.is_simple_selector()) {
+    if (sindex_config.func.det_func.is_simple_selector()) {
         switch(sindex_config.func_version) {
             // A version should return false if it breaks compatibility for even simple sindexes.
         case reql_version_t::v2_4_is_latest:

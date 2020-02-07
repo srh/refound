@@ -251,7 +251,7 @@ std::string format_index_create_query(
     // TODO: Theoretically we need to escape quotes and UTF-8 characters inside the name.
     // Maybe use RapidJSON? Does our pretty-printer even do that for strings?
     std::string ret = "indexCreate('" + name + "', ";
-    ret += config.func.compile_wire_func()->print_js_function();
+    ret += config.func.det_func.compile_wire_func()->print_js_function();
     bool first_optarg = true;
     if (config.multi == sindex_multi_bool_t::MULTI) {
         if (first_optarg) {
@@ -337,7 +337,7 @@ public:
             // We do it this way so that if someone passes a string, we produce
             // a type error asking for a function rather than BINARY.
             if (!got_func) {
-                config.func = ql::map_wire_func_t(v->as_func(env->env));
+                config.func = ql::deterministic_func{ql::wire_func_t(v->as_func(env->env))};
                 config.func_version = reql_version_t::LATEST;
             }
         } else {
@@ -349,11 +349,11 @@ public:
                 make_counted<func_term_t>(&empty_compile_env,
                                           r.fun(x, r.var(x)[name_datum]).root_term());
 
-            config.func = ql::map_wire_func_t(func_term_term->eval_to_func(env->scope));
+            config.func = ql::deterministic_func{ql::wire_func_t(func_term_term->eval_to_func(env->scope))};
             config.func_version = reql_version_t::LATEST;
         }
 
-        config.func.compile_wire_func()->assert_deterministic(
+        config.func.det_func.compile_wire_func()->assert_deterministic(
                 constant_now_t::no,
                 "Index functions must be deterministic.");
 

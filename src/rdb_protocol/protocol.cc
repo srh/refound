@@ -549,26 +549,22 @@ region_t write_t::get_region() const THROWS_NOTHING {
 batched_insert_t::batched_insert_t(
         std::vector<ql::datum_t> &&_inserts,
         const std::string &_pkey,
-        const optional<counted_t<const ql::func_t> > &_write_hook,
+        const optional<ql::deterministic_func> &_write_hook,
         conflict_behavior_t _conflict_behavior,
-        const optional<counted_t<const ql::func_t> > &_conflict_func,
+        const optional<ql::deterministic_func> &_conflict_func,
         const ql::configured_limits_t &_limits,
         serializable_env_t s_env,
         return_changes_t _return_changes)
-        : inserts(std::move(_inserts)), pkey(_pkey),
+        : inserts(std::move(_inserts)),
+          pkey(_pkey),
+          write_hook(_write_hook),
           conflict_behavior(_conflict_behavior),
+          conflict_func(_conflict_func),
           limits(_limits),
           serializable_env(std::move(s_env)),
           return_changes(_return_changes) {
     r_sanity_check(inserts.size() != 0);
 
-    if (_conflict_func.has_value()) {
-        conflict_func.set(ql::wire_func_t(*_conflict_func));
-    }
-
-    if (_write_hook.has_value()) {
-        write_hook.set(ql::wire_func_t(*_write_hook));
-    }
 #ifndef NDEBUG
     // These checks are done above us, but in debug mode we do them
     // again.  (They're slow.)  We do them above us because the code in

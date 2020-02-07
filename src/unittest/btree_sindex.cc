@@ -18,7 +18,7 @@
 
 namespace unittest {
 
-ql::map_wire_func_t generate_random_field_wire_func() {
+ql::deterministic_func generate_random_field_wire_func() {
     ql::minidriver_t r(ql::backtrace_id_t::empty());
     auto x = ql::minidriver_t::dummy_var_t::SINDEXCREATE_X;
     ql::var_scope_t scope;
@@ -29,7 +29,7 @@ ql::map_wire_func_t generate_random_field_wire_func() {
     counted_t<ql::func_term_t> func_term_term =
         make_counted<ql::func_term_t>(&empty_compile_env,
                                     r.fun(x, r.var(x)[name_datum]).root_term());
-    return ql::map_wire_func_t(func_term_term->eval_to_func(scope));
+    return ql::deterministic_func{ql::wire_func_t(func_term_term->eval_to_func(scope))};
 }
 
 bool equivalent_definitions(const sindex_disk_info_t &x, const sindex_disk_info_t &y) {

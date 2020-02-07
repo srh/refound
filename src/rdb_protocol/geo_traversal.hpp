@@ -57,10 +57,10 @@ private:
 class geo_sindex_data_t {
 public:
     geo_sindex_data_t(
-            const ql::map_wire_func_t &_wire_func,
+            const ql::deterministic_func &_wire_func,
             reql_version_t _func_reql_version,
             sindex_multi_bool_t _multi) :
-        func(_wire_func.compile_wire_func()),
+        func(_wire_func.det_func.compile()),
         func_reql_version(_func_reql_version),
         multi(_multi) { }
 private:

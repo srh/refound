@@ -62,13 +62,13 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(sindex_geo_bool_t, int8_t,
 
 struct sindex_disk_info_t {
     sindex_disk_info_t() { }
-    sindex_disk_info_t(const ql::map_wire_func_t &_mapping,
+    sindex_disk_info_t(const ql::deterministic_func &_mapping,
                        const sindex_reql_version_info_t &_mapping_version_info,
                        sindex_multi_bool_t _multi,
                        sindex_geo_bool_t _geo) :
         mapping(_mapping), mapping_version_info(_mapping_version_info),
         multi(_multi), geo(_geo) { }
-    ql::map_wire_func_t mapping;
+    ql::deterministic_func mapping;
     sindex_reql_version_info_t mapping_version_info;
     sindex_multi_bool_t multi;
     sindex_geo_bool_t geo;

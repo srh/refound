@@ -509,13 +509,13 @@ public:
                        ql::datumspec_t _datumspec,
                        key_range_t *_active_region_range_inout,
                        reql_version_t wire_func_reql_version,
-                       ql::map_wire_func_t wire_func,
+                       const ql::deterministic_func &wire_func,
                        sindex_multi_bool_t _multi)
         : pkey_range(std::move(_pkey_range)),
           datumspec(std::move(_datumspec)),
           active_region_range_inout(_active_region_range_inout),
           func_reql_version(wire_func_reql_version),
-          func(wire_func.compile_wire_func()),
+          func(wire_func.det_func.compile()),
           multi(_multi) {
         datumspec.visit<void>(
             [&](const ql::datum_range_t &r) {
@@ -1723,7 +1723,7 @@ void compute_keys(const store_key_t &primary_key,
                          reql_version);
 
     ql::datum_t index =
-        index_info.mapping.compile_wire_func()->call(&sindex_env, doc)->as_datum(&sindex_env);
+        index_info.mapping.det_func.compile()->call(&sindex_env, doc)->as_datum(&sindex_env);
 
     if (index_info.multi == sindex_multi_bool_t::MULTI
         && index.get_type() == ql::datum_t::R_ARRAY) {

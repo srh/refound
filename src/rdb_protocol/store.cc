@@ -759,12 +759,12 @@ class func_replacer_t : public btree_batched_replacer_t {
 public:
     func_replacer_t(ql::env_t *_env,
                     std::string _pkey,
-                    const ql::wire_func_t &wf,
+                    const ql::deterministic_func &wf,
                     counted_t<const ql::func_t> wh,
                     return_changes_t _return_changes)
         : env(_env),
           pkey(std::move(_pkey)),
-          f(wf.compile_wire_func()),
+          f(wf.det_func.compile_wire_func()),
           write_hook(std::move(wh)),
           return_changes(_return_changes) { }
     ql::datum_t replace(
@@ -792,12 +792,10 @@ public:
           datums(&bi.inserts),
           conflict_behavior(bi.conflict_behavior),
           pkey(bi.pkey),
-          return_changes(bi.return_changes) {
-        if (bi.conflict_func.has_value()) {
-            conflict_func.set(bi.conflict_func->compile_wire_func());
-        }
+          return_changes(bi.return_changes),
+          conflict_func(bi.conflict_func) {
         if (bi.write_hook.has_value()) {
-            write_hook = bi.write_hook->compile_wire_func();
+            write_hook = bi.write_hook->det_func.compile_wire_func();
         }
     }
     ql::datum_t replace(const ql::datum_t &d,
@@ -826,7 +824,7 @@ private:
     const conflict_behavior_t conflict_behavior;
     const std::string pkey;
     const return_changes_t return_changes;
-    optional<counted_t<const ql::func_t> > conflict_func;
+    optional<ql::deterministic_func> conflict_func;
 };
 
 struct rdb_write_visitor_t : public boost::static_visitor<void> {
@@ -844,7 +842,7 @@ struct rdb_write_visitor_t : public boost::static_visitor<void> {
 
             counted_t<const ql::func_t> write_hook;
             if (br.write_hook.has_value()) {
-                write_hook = br.write_hook->compile_wire_func();
+                write_hook = br.write_hook->det_func.compile_wire_func();
             }
 
             func_replacer_t replacer(&ql_env,
