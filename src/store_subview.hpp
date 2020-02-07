@@ -120,14 +120,6 @@ public:
             durability, timestamp, order_token, token, interruptor);
     }
 
-    void reset_data(
-            write_durability_t durability,
-            signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) {
-        home_thread_mixin_t::assert_thread();
-        store_view->reset_data(durability, interruptor);
-    }
-
 private:
     store_view_t *store_view;
 

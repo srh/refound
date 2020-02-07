@@ -19,7 +19,6 @@
 #include "containers/scoped.hpp"
 #include "logger.hpp"
 #include "rdb_protocol/btree.hpp"
-#include "rdb_protocol/erase_range.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/store_metainfo.hpp"
 #include "stl_utils.hpp"
@@ -222,60 +221,6 @@ void store_t::write(
     metainfo->update(real_superblock.get(), rocksh(), new_metainfo);
     scoped_ptr_t<real_superblock_lock> real_supe = std::move(real_superblock);
     protocol_write(std::move(txn), _write, response, timestamp, std::move(real_supe), interruptor);
-}
-
-void store_t::reset_data(
-        const write_durability_t durability,
-        signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t) {
-    assert_thread();
-    with_priority_t p(CORO_PRIORITY_RESET_DATA);
-
-    // Erase the data in small chunks
-    const uint64_t max_erased_per_pass = 100;
-    for (continue_bool_t done_erasing = continue_bool_t::CONTINUE;
-         done_erasing == continue_bool_t::CONTINUE;) {
-        scoped_ptr_t<txn_t> txn;
-        scoped_ptr_t<real_superblock_lock> superblock;
-
-        const int expected_change_count = 2 + max_erased_per_pass;
-        write_token_t token;
-        new_write_token(&token);
-        acquire_superblock_for_write(expected_change_count,
-                                     durability,
-                                     &token,
-                                     &txn,
-                                     &superblock,
-                                     interruptor);
-
-        superblock->sindex_block_write_signal()->wait();
-
-        /* Note we don't allow interruption during this step; it's too easy to end up in
-        an inconsistent state. */
-        cond_t non_interruptor;
-
-        std::vector<rdb_modification_report_t> mod_reports;
-        key_range_t deleted_region;
-        done_erasing = rdb_erase_small_range(rocksh(),
-                                             btree.get(),
-                                             region_t::universe(),
-                                             superblock.get(),
-                                             &non_interruptor,
-                                             max_erased_per_pass,
-                                             &mod_reports,
-                                             &deleted_region);
-
-        metainfo->update(superblock.get(),
-                         rocksh(),
-                         region_map_t<version_t>(deleted_region, version_t::zero()));
-
-        if (!mod_reports.empty()) {
-            // TODO: Pass along the transactionality from rdb_erase_small_range for rocksdb.
-            update_sindexes(txn.get(), std::move(superblock), mod_reports);
-        } else {
-            txn->commit(rocks, std::move(superblock));
-        }
-    }
 }
 
 std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > store_t::sindex_list(

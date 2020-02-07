@@ -68,11 +68,6 @@ public:
             signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
-    void reset_data(
-            write_durability_t durability,
-            signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-
     // Used by unit tests that expected old-style stuff.
     std::string values(std::string key);
     repli_timestamp_t timestamps(std::string key);

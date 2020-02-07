@@ -237,24 +237,6 @@ void mock_store_t::write(
 }
 
 
-void mock_store_t::reset_data(
-        UNUSED write_durability_t durability,
-        signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
-    assert_thread();
-
-    write_token_t token;
-    new_write_token(&token);
-
-    object_buffer_t<fifo_enforcer_sink_t::exit_write_t>::destruction_sentinel_t
-        destroyer(&token.main_write_token);
-
-    wait_interruptible(token.main_write_token.get(), interruptor);
-
-    table_.clear();
-
-    metainfo_.update(region_t::universe(), version_t::zero());
-}
-
 std::string mock_store_t::values(std::string key) {
     auto it = table_.find(store_key_t(key));
     if (it == table_.end()) {

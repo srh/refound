@@ -89,13 +89,6 @@ public:
             signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) = 0;
 
-    /* Deletes every key, and sets the metainfo for the db to
-    version_t::zero(). */
-    virtual void reset_data(
-            write_durability_t durability,
-            signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) = 0;
-
 protected:
     store_view_t() { }
 

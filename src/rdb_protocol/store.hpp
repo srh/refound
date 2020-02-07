@@ -116,11 +116,6 @@ public:
             signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
-    void reset_data(
-            write_durability_t durability,
-            signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-
     /* End of `store_view_t` interface */
 
     std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > sindex_list(

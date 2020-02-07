@@ -14,7 +14,6 @@
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/datum_json.hpp"
 #include "rdb_protocol/env.hpp"
-#include "rdb_protocol/erase_range.hpp"
 #include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/store.hpp"
@@ -260,71 +259,6 @@ TPTEST(RDBBtree, SindexPostConstruct) {
     background_inserts_done.wait();
 
     check_keys_are_present(&store, sindex_name);
-}
-
-
-TPTEST(RDBBtree, SindexEraseRange) {
-    recreate_temporary_directory(base_path_t("."));
-    temp_rockstore temp_rocks;
-    io_backender_t io_backender(temp_rocks.rocks(), file_direct_io_mode_t::buffered_desired);
-
-    store_t store(
-            io_backender.rocks(),
-            "unit_test_store",
-            true,
-            &get_global_perfmon_collection(),
-            nullptr,
-            &io_backender,
-            base_path_t("."),
-            namespace_id_t{generate_uuid()},
-            update_sindexes_t::UPDATE);
-
-    cond_t dummy_interruptor;
-
-    insert_rows(0, (TOTAL_KEYS_TO_INSERT * 9) / 10, &store);
-
-    sindex_name_t sindex_name = create_sindex(&store);
-
-    cond_t background_inserts_done;
-    spawn_writes(&store, &background_inserts_done);
-    background_inserts_done.wait();
-
-    check_keys_are_present(&store, sindex_name);
-
-    {
-        /* Now we erase all of the keys we just inserted. */
-        write_token_t token;
-        store.new_write_token(&token);
-
-        scoped_ptr_t<txn_t> txn;
-        scoped_ptr_t<real_superblock_lock> superblock;
-        store.acquire_superblock_for_write(
-            1,
-            write_durability_t::SOFT,
-            &token,
-            &txn,
-            &superblock,
-            &dummy_interruptor);
-
-        const key_range_t test_range = key_range_t::universe();
-        superblock->sindex_block_write_signal()->wait();
-
-        std::vector<rdb_modification_report_t> mod_reports;
-        key_range_t deleted_range;
-        rdb_erase_small_range(
-            store.rocksh(),
-            store.btree.get(),
-            key_range_t::universe(),
-            superblock.get(),
-            &dummy_interruptor,
-            0,
-            &mod_reports,
-            &deleted_range);
-
-        store.update_sindexes(txn.get(), std::move(superblock), mod_reports);
-    }
-
-    check_keys_are_NOT_present(&store, sindex_name);
 }
 
 TPTEST(RDBBtree, SindexInterruptionViaDrop) {

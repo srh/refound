@@ -23,7 +23,6 @@
 #include "rdb_protocol/configured_limits.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/datumspec.hpp"
-#include "rdb_protocol/erase_range.hpp"
 #include "rdb_protocol/geo/ellipsoid.hpp"
 #include "rdb_protocol/geo/lon_lat_types.hpp"
 #include "rdb_protocol/optargs.hpp"
