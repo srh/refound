@@ -14,8 +14,12 @@ Of course, it is the responsibility of secondary index key serialization to
 maintain ordering in the face of having something attached to its suffix.
 
 E.g. "a" < "aa" must be maintained, even when the primary keys "b" and "c" get attached.
+*/
 
-
+/*
+It turns out this file's functions are only used for system indexes, not RethinkDB table
+primary key and secondary indexes, but that's just because we want to reuse existing
+code as much as possible.
 */
 
 

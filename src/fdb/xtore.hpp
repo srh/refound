@@ -10,6 +10,7 @@ struct reqlfdb_config_version;
 class interrupted_exc_t;
 struct namespace_id_t;
 class signal_t;
+class table_config_t;
 struct read_t;
 struct read_response_t;
 struct write_t;
@@ -18,12 +19,14 @@ struct write_response_t;
 read_response_t apply_read(FDBTransaction *txn,
     reqlfdb_config_version expected_cv,
     const namespace_id_t &table_id,
+    const table_config_t &table_config,
     const read_t &read,
     const signal_t *interruptor);
 
 write_response_t apply_write(FDBTransaction *txn,
     reqlfdb_config_version expected_cv,
     const namespace_id_t &table_id,
+    const table_config_t &table_config,
     const write_t &write,
     const signal_t *interruptor);
 

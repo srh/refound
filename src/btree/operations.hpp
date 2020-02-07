@@ -2,6 +2,8 @@
 #ifndef BTREE_OPERATIONS_HPP_
 #define BTREE_OPERATIONS_HPP_
 
+// TODO: Remove with fdb
+
 // TODO: Remove or make use of.
 /* `delete_mode_t` controls how `apply_keyvalue_change()` acts when `kv_loc->value` is
 empty. */

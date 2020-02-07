@@ -144,11 +144,10 @@ optional<fdb_job_info> execute_index_create_job(
 
     // Okay, now compute the sindex write.
 
-    std::string index_prefix = table_index_prefix(index_create_info.table_id,
-        index_create_info.sindex_id);
-
     // We reuse the same buffer through the loop.
-    std::string fdb_key = index_prefix;
+    std::string fdb_key = table_index_prefix(index_create_info.table_id,
+        index_create_info.sindex_id);
+    const size_t index_prefix_size = fdb_key.size();
 
     // See rdb_update_sindexes    <- TODO: Remove this comment.
     for (int i = 0; i < kv_count; ++i) {
@@ -160,17 +159,21 @@ optional<fdb_job_info> execute_index_create_job(
         ql::datum_t doc = parse_table_value(void_as_char(kvs[i].value), kvs[i].value_length);
 
         // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
-        std::vector<std::pair<store_key_t, ql::datum_t>> keys;
-        compute_keys(primary_key, std::move(doc), index_info, &keys, nullptr);
+        try {
+            std::vector<std::pair<store_key_t, ql::datum_t>> keys;
+            compute_keys(primary_key, std::move(doc), index_info, &keys, nullptr);
 
-        for (auto &sindex_key_pair : keys) {
-            // TODO: Make sure fdb key limits are followed.
-            rdbtable_sindex_fdb_key_onto(&fdb_key, sindex_key_pair.first);
-            uint8_t value[1];
-            fdb_transaction_set(txn,
-                as_uint8(fdb_key.data()), int(fdb_key.size()),
-                value, 0);
-            fdb_key.resize(index_prefix.size());
+            for (auto &sindex_key_pair : keys) {
+                // TODO: Make sure fdb key limits are followed.
+                rdbtable_sindex_fdb_key_onto(&fdb_key, sindex_key_pair.first);
+                uint8_t value[1];
+                fdb_transaction_set(txn,
+                    as_uint8(fdb_key.data()), int(fdb_key.size()),
+                    value, 0);
+                fdb_key.resize(index_prefix_size);
+            }
+        } catch (const ql::base_exc_t &) {
+            // Do nothing (the row doesn't get put into the index)
         }
     }
 

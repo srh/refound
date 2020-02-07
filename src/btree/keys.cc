@@ -66,8 +66,9 @@ bool unescaped_str_to_key(const char *str, int len, store_key_t *buf) {
     }
 }
 
+// QQQ: Remove this!
 std::string key_to_unescaped_str(const store_key_t &key) {
-    return std::string(reinterpret_cast<const char *>(key.data()), key.size());
+    return key.str();
 }
 
 std::string key_to_debug_str(const store_key_t &key) {

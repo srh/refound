@@ -85,12 +85,28 @@ Table format:
 */
 
 fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key) {
+    // TODO: Look at all callers and make an rassert.
     guarantee(key.size() <= INT_MAX);
     return fdb_future{fdb_transaction_get(
         txn,
         as_uint8(key.data()),
         int(key.size()),
         false)};
+}
+
+void transaction_clear_std_str(FDBTransaction *txn, const std::string &key) {
+    // TODO: Look at all callers and make an rassert.
+    guarantee(key.size() <= INT_MAX);
+    fdb_transaction_clear(txn, as_uint8(key.data()), int(key.size()));
+}
+
+void transaction_set_std_str(FDBTransaction *txn, const std::string &key,
+        const std::string &value) {
+    // TODO: Look at all callers and make an rassert.
+    guarantee(key.size() <= INT_MAX);
+    guarantee(value.size() <= INT_MAX);
+    fdb_transaction_set(txn, as_uint8(key.data()), int(key.size()),
+        as_uint8(value.data()), int(value.size()));
 }
 
 fdb_value future_block_on_value(FDBFuture *fut, const signal_t *interruptor) {
