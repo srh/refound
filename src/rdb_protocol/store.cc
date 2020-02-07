@@ -1005,7 +1005,6 @@ private:
     const repli_timestamp_t timestamp;
     profile::sampler_t *const sampler;
     profile::trace_t *const trace;
-    profile::event_log_t event_log_out;
 
     DISABLE_COPYING(rdb_write_visitor_t);
 };
