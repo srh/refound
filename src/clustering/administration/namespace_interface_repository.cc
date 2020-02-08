@@ -179,7 +179,7 @@ void namespace_repo_t::create_and_destroy_namespace_interface(
 }
 
 namespace_interface_access_t namespace_repo_t::get_namespace_interface(
-        const namespace_id_t &ns_id, signal_t *interruptor) {
+        const namespace_id_t &ns_id, const signal_t *interruptor) {
     /* Find or create a cache entry for the table. When we find or create the cache, we
     need to wait until the `namespace_interface_t *` is actually ready before returning,
     but we want to be sure to hold a reference to the cache entry in the meantime. So we

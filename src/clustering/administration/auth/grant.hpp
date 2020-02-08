@@ -18,7 +18,7 @@ MUST_USE bool grant(
         auth::user_context_t const &user_context,
         auth::username_t username,
         ql::datum_t permissions,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const std::function<auth::permissions_t *(auth::user_t *)> &permission_selector_function,
         ql::datum_t *result_out,
         admin_err_t *error_out)

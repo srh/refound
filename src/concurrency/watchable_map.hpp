@@ -5,11 +5,12 @@
 #include <functional>
 #include <map>
 
-#include "concurrency/signal.hpp"
 #include "concurrency/pubsub.hpp"
 #include "concurrency/watchable.hpp"
 #include "containers/map_sentries.hpp"
 #include "containers/optional.hpp"
+
+class signal_t;
 
 /* `watchable_map_t` is like `watchable_t` except specialized for holding a map in which
 the keys usually update independently. If the map contains N keys, it takes O(log(N))
@@ -91,7 +92,7 @@ public:
     void run_key_until_satisfied(
         const key_t &key,
         const callable_t &fun,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* `run_all_until_satisfied()` repeatedly calls `fun()` with `this` until `fun`
     returns `true` or `interruptor` is pulsed. It's efficient because it only retries
@@ -99,7 +100,7 @@ public:
     template<class callable_t>
     void run_all_until_satisfied(
         const callable_t &fun,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
 protected:
     watchable_map_t() { }

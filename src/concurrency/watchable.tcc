@@ -184,7 +184,7 @@ void run_until_satisfied_apply(const callable_type &_fun, const value_type *val,
 template<class value_type>
 template<class callable_type>
 void watchable_t<value_type>::run_until_satisfied(const callable_type &fun,
-        signal_t *interruptor, int64_t nap_before_retry_ms) THROWS_ONLY(interrupted_exc_t) {
+        const signal_t *interruptor, int64_t nap_before_retry_ms) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
     bool is_done = false;
@@ -221,7 +221,7 @@ void run_until_satisfied_2(
         const clone_ptr_t<watchable_t<a_type> > &a,
         const clone_ptr_t<watchable_t<b_type> > &b,
         const callable_type &fun,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         int64_t nap_before_retry_ms) THROWS_ONLY(interrupted_exc_t) {
     a->assert_thread();
     b->assert_thread();

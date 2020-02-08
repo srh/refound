@@ -16,7 +16,7 @@ namespace metadata {
 
 read_txn_t::read_txn_t(
         metadata_file_t *f,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
     file(f),
     rwlock_acq(&file->rwlock, access_t::read, interruptor)
     { }
@@ -24,7 +24,7 @@ read_txn_t::read_txn_t(
 read_txn_t::read_txn_t(
         metadata_file_t *f,
         write_access_t,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
     file(f),
     rwlock_acq(&file->rwlock, access_t::write, interruptor)
     { }
@@ -37,7 +37,7 @@ std::pair<std::string, bool> read_txn_t::read_bin(
 void read_txn_t::read_many_bin(
         const store_key_t &key_prefix,
         const std::function<void(const std::string &key_suffix, read_stream_t *)> &cb,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     // TODO: Use or remove interruptor.
     (void)interruptor;
     std::string full_prefix = METADATA_PREFIX + key_to_unescaped_str(key_prefix);
@@ -58,7 +58,7 @@ void read_txn_t::read_many_bin(
 
 write_txn_t::write_txn_t(
         metadata_file_t *_file,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
     read_txn_t(_file, write_access_t::write, interruptor)
     { }
 
@@ -69,7 +69,7 @@ void write_txn_t::commit() {
 void write_txn_t::write_bin(
         const store_key_t &key,
         const write_message_t *msg,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     // TODO: Use or remove interruptor param.
     (void)interruptor;
     // TODO: Verify that we can stack writes and deletes on a rocksdb WriteBatch.
@@ -105,7 +105,7 @@ metadata_file_t::metadata_file_t(
 metadata_file_t::metadata_file_t(
         io_backender_t *io_backender,
         perfmon_collection_t *perfmon_parent,
-        const std::function<void(write_txn_t *, signal_t *)> &initializer) :
+        const std::function<void(write_txn_t *, const signal_t *)> &initializer) :
     rocks_options(true),
     rocks(io_backender->rocks())
 {

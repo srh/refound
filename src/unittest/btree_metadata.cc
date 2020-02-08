@@ -20,7 +20,7 @@ TPTEST(BtreeMetadata, MetadataTest) {
         metadata_file_t file(
             &io_backender,
             &get_global_perfmon_collection(),
-            [&](metadata_file_t::write_txn_t *txn, signal_t *interruptor) {
+            [&](metadata_file_t::write_txn_t *txn, const signal_t *interruptor) {
                 txn->write(big_string_key, std::string("small string"), interruptor);
             });
         metadata_file_t::write_txn_t txn(&file, &non_interruptor);
@@ -76,7 +76,7 @@ TPTEST(BtreeMetadata, ManyKeysBigValues) {
         metadata_file_t file(
             &io_backender,
             &get_global_perfmon_collection(),
-            [&](metadata_file_t::write_txn_t *, signal_t *) { });
+            [&](metadata_file_t::write_txn_t *, const signal_t *) { });
         metadata_file_t::write_txn_t txn(&file, &non_interruptor);
         for (const auto &pair : data) {
             txn.write(prefix.suffix(pair.first), pair.second, &non_interruptor);

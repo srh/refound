@@ -534,7 +534,7 @@ std::vector<log_message_t> thread_pool_log_writer_t::tail(
         int max_lines,
         struct timespec min_timestamp,
         struct timespec max_timestamp,
-        signal_t *interruptor) THROWS_ONLY(log_read_exc_t, interrupted_exc_t) {
+        const signal_t *interruptor) THROWS_ONLY(log_read_exc_t, interrupted_exc_t) {
     assert_thread();
 
     volatile bool cancel = false;

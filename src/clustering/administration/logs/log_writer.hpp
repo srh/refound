@@ -70,7 +70,7 @@ public:
     thread_pool_log_writer_t();
     ~thread_pool_log_writer_t();
 
-    std::vector<log_message_t> tail(int max_lines, struct timespec min_timestamp, struct timespec max_timestamp, signal_t *interruptor) THROWS_ONLY(log_read_exc_t, interrupted_exc_t);
+    std::vector<log_message_t> tail(int max_lines, struct timespec min_timestamp, struct timespec max_timestamp, const signal_t *interruptor) THROWS_ONLY(log_read_exc_t, interrupted_exc_t);
 
     log_write_issue_tracker_t *get_log_write_issue_tracker() {
         return &log_write_issue_tracker;

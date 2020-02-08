@@ -61,7 +61,7 @@ public:
     metadata_file_t(
         io_backender_t *io_backender,
         perfmon_collection_t *perfmon_parent,
-        const std::function<void(write_txn_t *, signal_t *)> &initializer);
+        const std::function<void(write_txn_t *, const signal_t *)> &initializer);
     ~metadata_file_t();
 
 private:
@@ -79,7 +79,7 @@ namespace metadata {
     // the rocksdb backend -- but we are maintaining compatibility with older callers.
     class read_txn_t {
     public:
-        read_txn_t(metadata_file_t *file, signal_t *interruptor);
+        read_txn_t(metadata_file_t *file, const signal_t *interruptor);
 
         template<class T, cluster_version_t W = cluster_version_t::LATEST_DISK>
         T read(const key_t<T> &key) {
@@ -109,7 +109,7 @@ namespace metadata {
                 const key_t<T> &key_prefix,
                 const std::function<void(
                     const std::string &key_suffix, const T &value)> &cb,
-                signal_t *interruptor) {
+                const signal_t *interruptor) {
             read_many_bin(
                 key_prefix.key,
                 [&](const std::string &key_suffix, read_stream_t *bin_value) {
@@ -127,7 +127,7 @@ namespace metadata {
 
     private:
         /* This constructor is used by `write_txn_t` */
-        read_txn_t(metadata_file_t *file, write_access_t, signal_t *interruptor);
+        read_txn_t(metadata_file_t *file, write_access_t, const signal_t *interruptor);
 
         std::pair<std::string, bool> read_bin(
             const store_key_t &key);
@@ -136,7 +136,7 @@ namespace metadata {
             const store_key_t &key_prefix,
             const std::function<void(
                 const std::string &key_suffix, read_stream_t *)> &cb,
-            signal_t *interruptor);
+            const signal_t *interruptor);
 
         metadata_file_t *file;
         rwlock_acq_t rwlock_acq;
@@ -144,20 +144,20 @@ namespace metadata {
 
 class write_txn_t : public read_txn_t {
 public:
-    write_txn_t(metadata_file_t *file, signal_t *interruptor);
+    write_txn_t(metadata_file_t *file, const signal_t *interruptor);
 
     template<class T>
     void write(
             const key_t<T> &key,
             const T &value,
-            signal_t *interruptor) {
+            const signal_t *interruptor) {
         write_message_t wm;
         serialize<cluster_version_t::LATEST_DISK>(&wm, value);
         write_bin(key.key, &wm, interruptor);
     }
 
     template<class T>
-    void erase(const key_t<T> &key, signal_t *interruptor) {
+    void erase(const key_t<T> &key, const signal_t *interruptor) {
         write_bin(key.key, nullptr, interruptor);
     }
 
@@ -175,7 +175,7 @@ private:
     void write_bin(
         const store_key_t &key,
         const write_message_t *msg,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 };
 }  // namespace metadata
 

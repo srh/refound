@@ -35,7 +35,7 @@ template<class callable_t>
 void watchable_map_t<key_t, value_t>::run_key_until_satisfied(
         const key_t &key,
         const callable_t &fun,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     assert_thread();
     cond_t ok;
     key_subs_t subs(this, key,
@@ -51,7 +51,7 @@ template<class key_t, class value_t>
 template<class callable_t>
 void watchable_map_t<key_t, value_t>::run_all_until_satisfied(
         const callable_t &fun,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     assert_thread();
     cond_t *notify = nullptr;
     all_subs_t subs(this,

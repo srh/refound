@@ -42,7 +42,7 @@ public:
     ~namespace_repo_t();
 
     namespace_interface_access_t get_namespace_interface(const namespace_id_t &ns_id,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
 private:
     struct namespace_cache_t;

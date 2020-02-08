@@ -28,7 +28,7 @@ public:
     log_server_business_card_t get_business_card();
 private:
     void handle_request(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         int max_lines, struct timespec min_timestamp, struct timespec max_timestamp,
         log_server_business_card_t::result_mailbox_t::address_t cont);
     mailbox_manager_t *mailbox_manager;
@@ -55,7 +55,7 @@ std::vector<log_message_t> fetch_log_file(
     int max_entries,
     struct timespec min_timestamp,
     struct timespec max_timestamp,
-    signal_t *interruptor)
+    const signal_t *interruptor)
     THROWS_ONLY(log_transfer_exc_t, log_read_exc_t, interrupted_exc_t);
 
 #endif /* CLUSTERING_ADMINISTRATION_LOGS_LOG_TRANSFER_HPP_ */
