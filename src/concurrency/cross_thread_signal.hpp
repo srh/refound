@@ -31,7 +31,7 @@ class cross_thread_signal_t :
     public signal_t
 {
 public:
-    cross_thread_signal_t(signal_t *source, threadnum_t dest_thread);
+    cross_thread_signal_t(const signal_t *source, threadnum_t dest_thread);
 
 private:
     friend class cross_thread_signal_subscription_t;
