@@ -1,9 +1,9 @@
 #include "fdb/jobs/index_create.hpp"
 
 #include "clustering/administration/tables/table_metadata.hpp"
+#include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs/job_utils.hpp"
-#include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/btree.hpp"  // For compute_keys
@@ -98,7 +98,7 @@ optional<fdb_job_info> execute_index_create_job(
     // So we've got the key from which to start scanning.  Now what?  Scan in a big
     // block?  Small block?  Medium?  Going with medium.
 
-    std::string pkey_prefix = table_pkey_prefix(index_create_info.table_id);
+    std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
 
     fdb_future data_fut = transaction_uq_index_get_range(txn, pkey_prefix,
         jobstate.unindexed_lower_bound, &jobstate.unindexed_upper_bound,
@@ -145,7 +145,7 @@ optional<fdb_job_info> execute_index_create_job(
     // Okay, now compute the sindex write.
 
     // We reuse the same buffer through the loop.
-    std::string fdb_key = table_index_prefix(index_create_info.table_id,
+    std::string fdb_key = rfdb::table_index_prefix(index_create_info.table_id,
         index_create_info.sindex_id);
     const size_t index_prefix_size = fdb_key.size();
 

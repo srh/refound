@@ -141,7 +141,7 @@ void update_fdb_sindexes(
             }
         }
 
-        std::string fdb_key = table_index_prefix(table_id,
+        std::string fdb_key = rfdb::table_index_prefix(table_id,
             fdb_sindex_config.sindex_id);
         const size_t index_prefix_size = fdb_key.size();
 

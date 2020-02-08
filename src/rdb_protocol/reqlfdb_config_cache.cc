@@ -5,6 +5,7 @@
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/archive/string_stream.hpp"
+#include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs.hpp"
 #include "fdb/jobs/index_create.hpp"
@@ -393,7 +394,7 @@ void help_remove_table(
         }
     }
 
-    std::string prefix = table_key_prefix(table_id);
+    std::string prefix = rfdb::table_key_prefix(table_id);
     transaction_clear_prefix_range(txn, prefix);
 }
 
@@ -621,7 +622,7 @@ MUST_USE bool config_cache_sindex_create(
     fdb_value_fut<table_config_t> table_config_fut
         = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
 
-    const std::string pkey_prefix = table_pkey_prefix(table_id);
+    const std::string pkey_prefix = rfdb::table_pkey_prefix(table_id);
     const std::string pkey_prefix_end = prefix_end(pkey_prefix);
     fdb_future last_key_fut{fdb_transaction_get_key(txn,
         FDB_KEYSEL_LAST_LESS_THAN(
@@ -700,7 +701,7 @@ void help_erase_sindex_content(
         transaction_erase_uq_index<index_jobstate_by_task>(txn, cfg.creation_task_or_nil);
     }
 
-    transaction_clear_prefix_range(txn, table_index_prefix(table_id, cfg.sindex_id));
+    transaction_clear_prefix_range(txn, rfdb::table_index_prefix(table_id, cfg.sindex_id));
 }
 
 // TODO: Users' db/table config permissions ought to get cleaned up when we drop a db or table.

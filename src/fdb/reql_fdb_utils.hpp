@@ -95,31 +95,4 @@ void transaction_read_whole_range_coro(FDBTransaction *txn,
     }
 }
 
-inline std::string table_key_prefix(const namespace_id_t &table_id) {
-    // TODO: Use binary uuid's.  This is on a fast path...
-    // Or don't even use uuid's.
-    std::string ret = "tables/";
-    uuid_onto_str(table_id.value, &ret);
-    ret += '/';
-    return ret;
-}
-
-inline std::string table_index_prefix(
-        const namespace_id_t &table_id,
-        const sindex_id_t &index_id) {
-    std::string ret = table_key_prefix(table_id);
-    uuid_onto_str(index_id.value, &ret);
-    ret += '/';
-    return ret;
-}
-
-inline std::string table_pkey_prefix(
-        const namespace_id_t &table_id) {
-    std::string ret = table_key_prefix(table_id);
-    ret += '/';
-    return ret;
-}
-
-
-
 #endif  // RETHINKDB_FDB_REQL_FDB_UTILS_HPP_
