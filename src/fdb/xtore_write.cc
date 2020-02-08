@@ -169,39 +169,6 @@ void update_fdb_sindexes(
     }  // for each sindex
 }
 
-// TODO: Large value impl will rewrite kv_location_set and kv_location_get (and any
-// other kv_location funcs).
-
-// The signature will need to change with large values because we'll need to wipe out the old value (if it's larger and uses more keys).
-MUST_USE ql::serialization_result_t
-kv_location_set(
-        FDBTransaction *txn, const std::string &kv_location,
-        const ql::datum_t &data) {
-    std::string str;
-    ql::serialization_result_t res = datum_serialize_to_string(data, &str);
-    if (bad(res)) {
-        return res;
-    }
-
-    transaction_set_std_str(txn, kv_location, str);
-    return res;
-}
-
-void kv_location_delete(
-        FDBTransaction *txn, const std::string &kv_location) {
-    transaction_clear_std_str(txn, kv_location);
-}
-
-// QQQ: Of course, at some point, this will not be a raw fdb_future, or not one we get
-// values off of, so we'll want to hard-wrap the future type.
-struct fdb_datum_fut : public fdb_future {
-    explicit fdb_datum_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
-};
-
-fdb_datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_location) {
-    return fdb_datum_fut{transaction_get_std_str(txn, kv_location)};
-}
-
 void rdb_fdb_set(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
@@ -217,7 +184,7 @@ void rdb_fdb_set(
     // slice->stats.pm_keys_set.record();
     // slice->stats.pm_total_keys_set += 1;
     std::string kv_location = rfdb::table_primary_key(table_id, key);
-    fdb_datum_fut old_value_fut = kv_location_get(txn, kv_location);
+    rfdb::datum_fut old_value_fut = rfdb::kv_location_get(txn, kv_location);
 
     fdb_value old_value = future_block_on_value(old_value_fut.fut, interruptor);
 
@@ -229,7 +196,7 @@ void rdb_fdb_set(
     mod_info->added.first = data;
 
     if (overwrite || !old_value.present) {
-        ql::serialization_result_t res = kv_location_set(txn, kv_location, data);
+        ql::serialization_result_t res = rfdb::kv_location_set(txn, kv_location, data);
         if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
             rfail_typed_target(&data, "Array too large for disk writes "
                                "(limit 100,000 elements).");
@@ -257,14 +224,14 @@ void rdb_fdb_delete(
     // slice->stats.pm_total_keys_set += 1;
 
     std::string kv_location = rfdb::table_primary_key(table_id, key);
-    fdb_datum_fut old_value_fut = kv_location_get(txn, kv_location);
+    rfdb::datum_fut old_value_fut = rfdb::kv_location_get(txn, kv_location);
 
     fdb_value old_value = future_block_on_value(old_value_fut.fut, interruptor);
 
     /* Update the modification report. */
     if (old_value.present) {
         mod_info->deleted.first = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
-        kv_location_delete(txn, kv_location);
+        rfdb::kv_location_delete(txn, kv_location);
     }
 
     response->result = (old_value.present ? point_delete_result_t::DELETED : point_delete_result_t::MISSING);
@@ -294,7 +261,7 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         const store_key_t &key,
         const std::string &precomputed_kv_location,
         const one_fdb_replace_t *replacer,
-        fdb_datum_fut &&old_value_fut,
+        rfdb::datum_fut &&old_value_fut,
         rdb_modification_info_t *mod_info_out,
         const signal_t *interruptor) {
     const return_changes_t return_changes = replacer->should_return_changes();
@@ -339,12 +306,12 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
 
             /* Now that the change has passed validation, write it to ~disk~ fdb */
             if (new_val.get_type() == ql::datum_t::R_NULL) {
-                kv_location_delete(txn, precomputed_kv_location);
+                rfdb::kv_location_delete(txn, precomputed_kv_location);
             } else {
                 // TODO: Remove this sanity check, we already did rcheck_row_replacement.
                 r_sanity_check(new_val.get_field(primary_key, ql::NOTHROW).has());
                 ql::serialization_result_t res =
-                    kv_location_set(txn, precomputed_kv_location, new_val);
+                    rfdb::kv_location_set(txn, precomputed_kv_location, new_val);
                 if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
                     rfail_typed_target(&new_val, "Array too large for disk writes "
                                        "(limit 100,000 elements).");
@@ -387,14 +354,14 @@ batched_replace_response_t rdb_fdb_batched_replace(
         std::vector<rdb_modification_report_t> *mod_reports_out) {
     std::vector<std::string> kv_locations;
     kv_locations.reserve(keys.size());
-    std::vector<fdb_datum_fut> old_value_futs;
+    std::vector<rfdb::datum_fut> old_value_futs;
     old_value_futs.reserve(keys.size());
 
     // TODO: Might we perform too many concurrent reads from fdb?  We had
     // MAX_CONCURRENT_REPLACES=8 before.
     for (size_t i = 0; i < keys.size(); ++i) {
         kv_locations.push_back(rfdb::table_primary_key(table_id, keys[i]));
-        old_value_futs.push_back(kv_location_get(txn, kv_locations.back()));
+        old_value_futs.push_back(rfdb::kv_location_get(txn, kv_locations.back()));
     }
 
     ql::datum_t stats = ql::datum_t::empty_object();

@@ -3,11 +3,31 @@
 #include "errors.hpp"
 #include <boost/variant/static_visitor.hpp>
 
+#include "fdb/btree_utils.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/protocol.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
+#include "rdb_protocol/serialize_datum_onto_blob.hpp"
+
+void rdb_fdb_get(FDBTransaction *txn, const namespace_id_t &table_id,
+        const store_key_t &store_key, point_read_response_t *response,
+        const signal_t *interruptor) {
+    std::string kv_location = rfdb::table_primary_key(table_id, store_key);
+    rfdb::datum_fut value_fut = rfdb::kv_location_get(txn, kv_location);
+
+    fdb_value value = future_block_on_value(value_fut.fut, interruptor);
+
+    if (!value.present) {
+        response->data = ql::datum_t::null();
+    } else {
+        ql::datum_t datum = datum_deserialize_from_uint8(value.data, size_t(value.length));
+        response->data = std::move(datum);
+    }
+}
 
 struct fdb_read_visitor : public boost::static_visitor<void> {
+// OOO: Make sure there is no #if 0 left
 #if 0
     void operator()(const changefeed_subscribe_t &s) {
         auto cserver = store->get_or_make_changefeed_server();
@@ -161,14 +181,18 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             res->resp.reset();
         }
     }
+#endif  // 0
 
     void operator()(const point_read_t &get) {
         response->response = point_read_response_t();
         point_read_response_t *res =
             boost::get<point_read_response_t>(&response->response);
-        rdb_get(store->rocksh(), get.key, superblock.get(), res);
+        rdb_fdb_get(txn_, table_id_, get.key, res, interruptor);
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
     }
 
+#if 0
     void operator()(const intersecting_geo_read_t &geo_read) {
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
