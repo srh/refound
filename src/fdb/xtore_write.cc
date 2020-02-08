@@ -430,6 +430,37 @@ batched_replace_response_t rdb_fdb_batched_replace(
     return std::move(out).to_datum();
 }
 
+class func_fdb_replacer_t : public btree_batched_replacer_t {
+public:
+    func_fdb_replacer_t(ql::env_t *_env,
+                        std::string _pkey,
+                        const ql::deterministic_func &wf,
+                        counted_t<const ql::func_t> wh,
+                        return_changes_t _return_changes)
+        : env(_env),
+          pkey(std::move(_pkey)),
+          f(wf.det_func.compile_wire_func()),
+          write_hook(std::move(wh)),
+          return_changes(_return_changes) { }
+    ql::datum_t replace(
+        const ql::datum_t &d, size_t) const {
+        ql::datum_t res = f->call(env, d, ql::LITERAL_OK)->as_datum(env);
+
+        const ql::datum_t &write_timestamp = env->get_deterministic_time();
+        r_sanity_check(write_timestamp.has());
+        return apply_write_hook(pkey, d, res, write_timestamp, write_hook);
+    }
+    return_changes_t should_return_changes() const { return return_changes; }
+private:
+    ql::env_t *const env;
+    datum_string_t pkey;
+    const counted_t<const ql::func_t> f;
+    const counted_t<const ql::func_t> write_hook;
+    const return_changes_t return_changes;
+};
+
+
+
 class datum_fdb_replacer_t : public btree_batched_replacer_t {
 public:
     explicit datum_fdb_replacer_t(ql::env_t *_env,
@@ -489,54 +520,47 @@ void handle_mod_reports(FDBTransaction *txn,
 
 
 struct fdb_write_visitor : public boost::static_visitor<void> {
-// OOO: Update these functions.
-#if 0
-// TODO: trace not used used in this type.
     void operator()(const batched_replace_t &br) {
-        try {
-            ql::env_t ql_env(
-                ctx,
-                ql::return_empty_normal_batches_t::NO,
-                interruptor,
-                br.serializable_env,
-                trace);
-            rdb_modification_report_cb_t sindex_cb(
-                store, superblock.get(),
-                auto_drainer_t::lock_t(&store->drainer));
+        // TODO: Does trace really get used after we put it in ql_env?
+        ql::env_t ql_env(
+            nullptr,    // QQQ: Include global optargs in op_term_t::is_deterministic impl.
+            ql::return_empty_normal_batches_t::NO,
+            interruptor,
+            br.serializable_env,
+            trace);
 
-            counted_t<const ql::func_t> write_hook;
-            if (br.write_hook.has_value()) {
-                write_hook = br.write_hook->compile_wire_func();
-            }
-
-            func_replacer_t replacer(&ql_env,
-                                    br.pkey,
-                                    br.f,
-                                    write_hook,
-                                    br.return_changes);
-
-            response->response =
-                rdb_batched_replace(
-                    store->rocksh(),
-                    btree_info_t(btree, timestamp, datum_string_t(br.pkey)),
-                    superblock.get(),
-                    br.keys,
-                    &replacer,
-                    &sindex_cb,
-                    ql_env.limits(),
-                    sampler,
-                    trace);
-        } catch (const interrupted_exc_t &exc) {
-            txn->commit(store->rocksh().rocks, std::move(superblock));
-            throw;
+        // TODO: Make func_fdb_replacer_t take a deterministic_func write hook.
+        counted_t<const ql::func_t> write_hook;
+        if (br.write_hook.has_value()) {
+            write_hook = br.write_hook->det_func.compile_wire_func();
         }
-        txn->commit(store->rocksh().rocks, std::move(superblock));
+
+        func_fdb_replacer_t replacer(&ql_env, br.pkey, br.f,
+            write_hook, br.return_changes);
+        std::vector<rdb_modification_report_t> mod_reports;
+        response->response =
+            rdb_fdb_batched_replace(
+                txn_,
+                table_id_,
+                *table_config_,
+                br.keys,
+                &replacer,
+                ql_env.limits(),
+                sampler,
+                trace,
+                interruptor,
+                &mod_reports);
+
+        // We call check_cv before using jobstate_futs_.
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
+
+        handle_mod_reports(txn_, table_id_, *table_config_, std::move(mod_reports),
+            &jobstate_futs_, interruptor);
     }
-#endif  // 0
 
     // QQQ: Is batched_insert_t::pkey merely the table's pkey?  Seems weird to have.
     void operator()(const batched_insert_t &bi) {
-        std::vector<rdb_modification_report_t> mod_reports;
         ql::env_t ql_env(
             nullptr,  // QQQ: Include global optargs in op_term_t::is_deterministic impl.
             ql::return_empty_normal_batches_t::NO,
@@ -550,6 +574,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         for (auto it = bi.inserts.begin(); it != bi.inserts.end(); ++it) {
             keys.emplace_back(it->get_field(datum_string_t(bi.pkey)).print_primary());
         }
+        std::vector<rdb_modification_report_t> mod_reports;
         response->response =
             rdb_fdb_batched_replace(
                 txn_,
@@ -624,10 +649,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         check_cv(expected_cv_, cv);
         response->response = dummy_write_response_t();
     }
-
-    // OOO: Remove this!
-    template <class T>
-    void operator()(const T&) { }
 
     // One responsibility all visitor methods have is to check expected_cv.  Preferably
     // before they try anything long and expensive.
