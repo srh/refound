@@ -5,14 +5,17 @@
 
 #include "btree/operations.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
+// TODO: Really include this?  What's it for?
+#include "concurrency/queue/unlimited_fifo.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/jobs/index_create.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/env.hpp"  // TODO: Remove include
+#include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
-#include "rdb_protocol/protocol.hpp"
+#include "rdb_protocol/table_common.hpp"
 
 // OOO: Move to btree/keys.hpp
 namespace std {
@@ -24,8 +27,31 @@ template<> struct hash<store_key_t> {
 }  // namespace std
 
 struct jobstate_futs {
+    // If jobstates has a value, the futs are empty and consumed.  Otherwise, they are
+    // non-empty.
+
     // The strings are of course unique sindex names.
     std::vector<std::pair<std::string, fdb_value_fut<fdb_index_jobstate>>> futs_by_sindex;
+    optional<std::unordered_map<std::string, fdb_index_jobstate>> jobstates;
+
+    // You must check_cv before calling this.
+    //   (OOO: See that we do.)
+    const std::unordered_map<std::string, fdb_index_jobstate> &
+    block_on_jobstates(const signal_t *interruptor) {
+        if (!jobstates.has_value()) {
+            std::unordered_map<std::string, fdb_index_jobstate> mp;
+            for (auto &pair : futs_by_sindex) {
+                fdb_index_jobstate js;
+                if (!pair.second.block_and_deserialize(interruptor, &js)) {
+                    crash("check_cv should be called before this");
+                }
+                mp.emplace(std::move(pair.first), std::move(js));
+            }
+            jobstates.set(std::move(mp));
+            futs_by_sindex.clear();
+        }
+        return *jobstates;
+    }
 };
 
 jobstate_futs get_jobstates(
@@ -42,29 +68,17 @@ jobstate_futs get_jobstates(
     return ret;
 }
 
-// You must check_cv before calling this.
-std::unordered_map<std::string, fdb_index_jobstate>
-block_on_jobstates(jobstate_futs &&futs, const signal_t *interruptor) {
-    std::unordered_map<std::string, fdb_index_jobstate> ret;
-    for (auto &pair : futs.futs_by_sindex) {
-        fdb_index_jobstate js = pair.second.block_and_deserialize(interruptor);
-        ret.emplace(std::move(pair.first), std::move(js));
-    }
-    return ret;
-}
-
 void update_fdb_sindexes(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         rdb_modification_report_t &&modification,
-        jobstate_futs &&jobstate_futs,
+        jobstate_futs *jobstate_futs,
         const signal_t *interruptor) {
     // The thing is, we know the sindex has to be in good shape.
 
     // TODO: We only need to block on jobstates whose sindexes have a mutation.
-    std::unordered_map<std::string, fdb_index_jobstate> jobstates
-        = block_on_jobstates(std::move(jobstate_futs), interruptor);
+    const auto &jobstates = jobstate_futs->block_on_jobstates(interruptor);
 
     for (const auto &pair : table_config.sindexes) {
         const sindex_config_t &sindex_config = pair.second;
@@ -80,7 +94,6 @@ void update_fdb_sindexes(
                 continue;
             }
         }
-
 
         // TODO: Making this copy is gross -- would be better if compute_keys took sindex_config.
         sindex_disk_info_t sindex_info{
@@ -174,6 +187,13 @@ kv_location_set(
     return res;
 }
 
+void kv_location_delete(
+        FDBTransaction *txn, const std::string &kv_location) {
+    transaction_clear_std_str(txn, kv_location);
+}
+
+// QQQ: Of course, at some point, this will not be a raw fdb_future, or not one we get
+// values off of, so we'll want to hard-wrap the future type.
 struct fdb_datum_fut : public fdb_future {
     explicit fdb_datum_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
 };
@@ -236,24 +256,237 @@ void rdb_fdb_delete(
     // slice->stats.pm_keys_set.record();
     // slice->stats.pm_total_keys_set += 1;
 
-    // NNN: Make table pkey/skey wrappers for the purpose of dealing with large values.
-
     std::string kv_location = rfdb::table_primary_key(table_id, key);
-    fdb_future old_value_fut = transaction_get_std_str(txn, kv_location);
-
-    // NNN: Read any sindex jobstates concurrently with the old value.  And check the
-    // config version _before_ we do a second round of sindex old-value reading.
+    fdb_datum_fut old_value_fut = kv_location_get(txn, kv_location);
 
     fdb_value old_value = future_block_on_value(old_value_fut.fut, interruptor);
 
     /* Update the modification report. */
     if (old_value.present) {
         mod_info->deleted.first = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
-        transaction_clear_std_str(txn, kv_location);
+        kv_location_delete(txn, kv_location);
     }
 
     response->result = (old_value.present ? point_delete_result_t::DELETED : point_delete_result_t::MISSING);
 }
+
+class one_fdb_replace_t {
+public:
+    one_fdb_replace_t(const btree_batched_replacer_t *_replacer, size_t _index)
+        : replacer(_replacer), index(_index) { }
+
+    ql::datum_t replace(const ql::datum_t &d) const {
+        return replacer->replace(d, index);
+    }
+    return_changes_t should_return_changes() const { return replacer->should_return_changes(); }
+private:
+    const btree_batched_replacer_t *const replacer;
+    const size_t index;
+};
+
+// TODO: Consider making each replace in a separate fdb transaction.
+
+// Note that "and_return_superblock" in the name is just to explain how the code evolved
+// from pre-fdb functions.  There is no superblock.
+batched_replace_response_t rdb_fdb_replace_and_return_superblock(
+        FDBTransaction *txn,
+        const table_config_t &table_config,
+        const store_key_t &key,
+        const std::string &precomputed_kv_location,
+        const one_fdb_replace_t *replacer,
+        fdb_datum_fut &&old_value_fut,
+        rdb_modification_info_t *mod_info_out,
+        const signal_t *interruptor) {
+    const return_changes_t return_changes = replacer->should_return_changes();
+    // TODO: Remove these lines or supply them somehow.
+    // TODO: Pass in primary_key instead of recomputing it every time.
+    const datum_string_t primary_key(table_config.basic.primary_key);
+
+    {
+        // TODO: Add these pm's.
+        // info.btree->slice->stats.pm_keys_set.record();
+        // info.btree->slice->stats.pm_total_keys_set += 1;
+
+        fdb_value maybe_fdb_value = future_block_on_value(old_value_fut.fut, interruptor);
+
+        ql::datum_t old_val;
+        if (!maybe_fdb_value.present) {
+            // If there's no entry with this key, pass NULL to the function.
+            old_val = ql::datum_t::null();
+        } else {
+            // Otherwise pass the entry with this key to the function.
+            old_val = datum_deserialize_from_uint8(maybe_fdb_value.data, size_t(maybe_fdb_value.length));
+            guarantee(old_val.get_field(primary_key, ql::NOTHROW).has());
+        }
+        guarantee(old_val.has());
+
+        ql::datum_t new_val;
+        try {
+            /* Compute the replacement value for the row */
+            new_val = replacer->replace(old_val);
+
+            /* Validate the replacement value and generate a stats object to return to
+            the user, but don't return it yet if we need to make changes. The reason for
+            this odd order is that we need to validate the change before we write the
+            change. */
+            rcheck_row_replacement(primary_key, key, old_val, new_val);
+            bool was_changed;
+            ql::datum_t resp = make_row_replacement_stats(
+                primary_key, key, old_val, new_val, return_changes, &was_changed);
+            if (!was_changed) {
+                return resp;
+            }
+
+            /* Now that the change has passed validation, write it to ~disk~ fdb */
+            if (new_val.get_type() == ql::datum_t::R_NULL) {
+                kv_location_delete(txn, precomputed_kv_location);
+            } else {
+                // TODO: Remove this sanity check, we already did rcheck_row_replacement.
+                r_sanity_check(new_val.get_field(primary_key, ql::NOTHROW).has());
+                ql::serialization_result_t res =
+                    kv_location_set(txn, precomputed_kv_location, new_val);
+                if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
+                    rfail_typed_target(&new_val, "Array too large for disk writes "
+                                       "(limit 100,000 elements).");
+                } else if (res & ql::serialization_result_t::EXTREMA_PRESENT) {
+                    rfail_typed_target(&new_val, "`r.minval` and `r.maxval` cannot be "
+                                       "written to disk.");
+                }
+                r_sanity_check(!ql::bad(res));
+            }
+
+            /* Report the changes for sindex and change-feed purposes */
+            // TODO: Can we just assign R_NULL values to deleted and added?
+            if (old_val.get_type() != ql::datum_t::R_NULL) {
+                mod_info_out->deleted.first = old_val;
+            }
+            if (new_val.get_type() != ql::datum_t::R_NULL) {
+                mod_info_out->added.first = new_val;
+            }
+
+            return resp;
+
+        } catch (const ql::base_exc_t &e) {
+            return make_row_replacement_error_stats(old_val,
+                                                    new_val,
+                                                    return_changes,
+                                                    e.what());
+        }
+    }
+}
+
+
+batched_replace_response_t rdb_fdb_batched_replace(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const std::vector<store_key_t> &keys,
+        const btree_batched_replacer_t *replacer,
+        ql::configured_limits_t limits,
+        profile::sampler_t *sampler,
+        profile::trace_t *trace,
+        const signal_t *interruptor,
+        std::vector<rdb_modification_report_t> *mod_reports_out) {
+    std::vector<std::string> kv_locations;
+    kv_locations.reserve(keys.size());
+    std::vector<fdb_datum_fut> old_value_futs;
+    old_value_futs.reserve(keys.size());
+
+    // TODO: Might we perform too many concurrent reads from fdb?  We had
+    // MAX_CONCURRENT_REPLACES=8 before.
+    for (size_t i = 0; i < keys.size(); ++i) {
+        kv_locations.push_back(rfdb::table_primary_key(table_id, keys[i]));
+        old_value_futs.push_back(kv_location_get(txn, kv_locations.back()));
+    }
+
+    ql::datum_t stats = ql::datum_t::empty_object();
+
+    std::set<std::string> conditions;
+
+    // TODO: Might we perform too many concurrent reads from fdb?  We had
+    // MAX_CONCURRENT_REPLACES=8 before.
+    for (size_t i = 0; i < keys.size(); ++i) {
+        mod_reports_out->emplace_back(keys[i]);
+        rdb_modification_report_t &mod_report = mod_reports_out->back();
+        // TODO: Is one_replace_t fluff?
+        one_fdb_replace_t one_replace(replacer, i);
+
+        ql::datum_t res = rdb_fdb_replace_and_return_superblock(
+            txn,
+            table_config,
+            keys[i],
+            kv_locations[i],
+            &one_replace,
+            std::move(old_value_futs[i]),
+            &mod_report.info,
+            interruptor);
+
+        // TODO: This is just going to be shitty performance.
+        stats = stats.merge(res, ql::stats_merge, limits, &conditions);
+    }
+
+    ql::datum_object_builder_t out(stats);
+    out.add_warnings(conditions, limits);
+    return std::move(out).to_datum();
+}
+
+class datum_fdb_replacer_t : public btree_batched_replacer_t {
+public:
+    explicit datum_fdb_replacer_t(ql::env_t *_env,
+                                  const batched_insert_t &bi)
+        : env(_env),
+          datums(&bi.inserts),
+          conflict_behavior(bi.conflict_behavior),
+          pkey(bi.pkey),
+          return_changes(bi.return_changes),
+          conflict_func(bi.conflict_func) {
+        if (bi.write_hook.has_value()) {
+            write_hook = bi.write_hook->det_func.compile_wire_func();
+        }
+    }
+    ql::datum_t replace(const ql::datum_t &d,
+                        size_t index) const {
+        guarantee(index < datums->size());
+        ql::datum_t newd = (*datums)[index];
+        ql::datum_t res = resolve_insert_conflict(env,
+                                             pkey,
+                                             d,
+                                             newd,
+                                             conflict_behavior,
+                                             conflict_func);
+        const ql::datum_t &write_timestamp = env->get_deterministic_time();
+        r_sanity_check(write_timestamp.has());
+        res = apply_write_hook(datum_string_t(pkey), d, res, write_timestamp,
+                               write_hook);
+        return res;
+    }
+    return_changes_t should_return_changes() const { return return_changes; }
+private:
+    ql::env_t *env;
+
+    counted_t<const ql::func_t> write_hook;
+
+    const std::vector<ql::datum_t> *const datums;
+    const conflict_behavior_t conflict_behavior;
+    const std::string pkey;
+    const return_changes_t return_changes;
+    optional<ql::deterministic_func> conflict_func;
+};
+
+void handle_mod_reports(FDBTransaction *txn,
+        const namespace_id_t &table_id, const table_config_t &table_config,
+        std::vector<rdb_modification_report_t> &&reports,
+        jobstate_futs *futs, const signal_t *interruptor) {
+    for (rdb_modification_report_t &report : reports) {
+        if (report.info.deleted.first.has() || report.info.added.first.has()) {
+            update_fdb_sindexes(txn, table_id, table_config,
+                std::move(report),
+                futs,
+                interruptor);
+        }
+    }
+}
+
 
 struct fdb_write_visitor : public boost::static_visitor<void> {
 // OOO: Update these functions.
@@ -299,43 +532,44 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         }
         txn->commit(store->rocksh().rocks, std::move(superblock));
     }
-
-    void operator()(const batched_insert_t &bi) {
-        try {
-            rdb_modification_report_cb_t sindex_cb(
-                store, superblock.get(),
-                auto_drainer_t::lock_t(&store->drainer));
-            ql::env_t ql_env(
-                ctx,
-                ql::return_empty_normal_batches_t::NO,
-                interruptor,
-                bi.serializable_env,
-                trace);
-            datum_replacer_t replacer(&ql_env,
-                                    bi);
-            std::vector<store_key_t> keys;
-            keys.reserve(bi.inserts.size());
-            for (auto it = bi.inserts.begin(); it != bi.inserts.end(); ++it) {
-                keys.emplace_back(it->get_field(datum_string_t(bi.pkey)).print_primary());
-            }
-            response->response =
-                rdb_batched_replace(
-                    store->rocksh(),
-                    btree_info_t(btree, timestamp, datum_string_t(bi.pkey)),
-                    superblock.get(),
-                    keys,
-                    &replacer,
-                    &sindex_cb,
-                    bi.limits,
-                    sampler,
-                    trace);
-        } catch (const interrupted_exc_t &exc) {
-            txn->commit(store->rocksh().rocks, std::move(superblock));
-            throw;
-        }
-        txn->commit(store->rocksh().rocks, std::move(superblock));
-    }
 #endif  // 0
+
+    // QQQ: Is batched_insert_t::pkey merely the table's pkey?  Seems weird to have.
+    void operator()(const batched_insert_t &bi) {
+        std::vector<rdb_modification_report_t> mod_reports;
+        ql::env_t ql_env(
+            nullptr,  // QQQ: Include global optargs in op_term_t::is_deterministic impl.
+            ql::return_empty_normal_batches_t::NO,
+            interruptor,
+            bi.serializable_env,
+            trace);
+        // TODO: Does the type datum_replacer_t or datum_fdb_replacer_t really need to exist?
+        datum_fdb_replacer_t replacer(&ql_env, bi);
+        std::vector<store_key_t> keys;
+        keys.reserve(bi.inserts.size());
+        for (auto it = bi.inserts.begin(); it != bi.inserts.end(); ++it) {
+            keys.emplace_back(it->get_field(datum_string_t(bi.pkey)).print_primary());
+        }
+        response->response =
+            rdb_fdb_batched_replace(
+                txn_,
+                table_id_,
+                *table_config_,
+                keys,
+                &replacer,
+                bi.limits,
+                sampler,
+                trace,
+                interruptor,
+                &mod_reports);
+
+        // We call check_cv before using jobstate_futs_.
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
+
+        handle_mod_reports(txn_, table_id_, *table_config_, std::move(mod_reports),
+            &jobstate_futs_, interruptor);
+    }
 
     void operator()(const point_write_t &w) {
         // TODO: Understand this line vvv
@@ -344,13 +578,14 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         point_write_response_t *res =
             boost::get<point_write_response_t>(&response->response);
 
-        // TODO: Previously we didn't pass back the superblock.
         rdb_modification_report_t mod_report(w.key);
         rdb_fdb_set(txn_, table_id_, w.key, w.data, w.overwrite, res,
             &mod_report.info, interruptor);
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
 
         update_fdb_sindexes(txn_, table_id_, *table_config_, std::move(mod_report),
-            std::move(jobstate_futs_), interruptor);
+            &jobstate_futs_, interruptor);
     }
 
     // TODO: This is only used in unit tests.  We could use regular writes instead.
@@ -368,7 +603,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         check_cv(expected_cv_, cv);
 
         update_fdb_sindexes(txn_, table_id_, *table_config_, std::move(mod_report),
-            std::move(jobstate_futs_), interruptor);
+            &jobstate_futs_, interruptor);
     }
 
     void operator()(const sync_t &) {
@@ -404,7 +639,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             profile::sampler_t *_sampler,
             profile::trace_t *_trace_or_null,
             write_response_t *_response,
-            const signal_t *_interruptor) :
+            signal_t *_interruptor) :
         txn_(_txn),
         expected_cv_(_expected_cv),
         cv_fut_(transaction_get_config_version(_txn)),
@@ -421,7 +656,9 @@ private:
     FDBTransaction *const txn_;
     const reqlfdb_config_version expected_cv_;
     fdb_value_fut<reqlfdb_config_version> cv_fut_;
-    // TODO: We use these for everything except dummy writes, right?  Are we going to remove sync_t?
+    // TODO: Maybe don't compute jobstate_futs for every write, like sync_t, if that still exists.
+    // Note that we should call check_cv before we call code that assumes the jobstate
+    // futs are legit.
     jobstate_futs jobstate_futs_;
     const namespace_id_t table_id_;
     const table_config_t *table_config_;
@@ -429,7 +666,7 @@ private:
     // TODO: Rename trace to trace_or_null?
     profile::trace_t *const trace;
     write_response_t *const response;
-    const signal_t *const interruptor;
+    signal_t *const interruptor;
 
     DISABLE_COPYING(fdb_write_visitor);
 };
@@ -442,7 +679,7 @@ write_response_t apply_write(FDBTransaction *txn,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         const write_t &write,
-        const signal_t *interruptor) {
+        signal_t *interruptor) {
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(write.profile);
     write_response_t response;
     {
