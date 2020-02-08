@@ -134,7 +134,7 @@ public:
     block and it may fail. */
     void get_config(
         const namespace_id_t &table_id,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         table_config_and_shards_t *config_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
 
@@ -142,7 +142,7 @@ public:
     If it can't find a config for a certain table, then it puts the table's name and info
     into `disconnected_configs_out` instead. */
     void list_configs(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         std::map<namespace_id_t, table_config_and_shards_t> *configs_out,
         std::map<namespace_id_t, table_basic_config_t> *disconnected_configs_out)
         THROWS_ONLY(interrupted_exc_t);
@@ -151,7 +151,7 @@ public:
     status of each one. */
     void get_sindex_status(
         const namespace_id_t &table_id,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
             *index_statuses_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
@@ -162,7 +162,7 @@ public:
     void get_shard_status(
         const namespace_id_t &table_id,
         all_replicas_ready_mode_t all_replicas_ready_mode,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         std::map<server_id_t, range_map_t<key_range_t::right_bound_t,
             table_shard_status_t> > *shard_statuses_out,
         bool *all_replicas_ready_out)
@@ -172,7 +172,7 @@ public:
     This is for displaying raft information in `rethinkdb.table_status`. */
     void get_raft_leader(
         const namespace_id_t &table_id,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         optional<server_id_t> *raft_leader_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
 
@@ -181,7 +181,7 @@ public:
     void get_debug_status(
         const namespace_id_t &table_id,
         all_replicas_ready_mode_t all_replicas_ready_mode,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         std::map<server_id_t, table_status_response_t> *responses_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
 
@@ -191,7 +191,7 @@ public:
     void create(
         namespace_id_t new_table_id,
         const table_config_and_shards_t &new_config,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t);
 
@@ -199,7 +199,7 @@ public:
     exists it will always succeed, even if the other servers are not accessible. */
     void drop(
         const namespace_id_t &table_id,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t);
 
     /* `set_config()` changes the configuration of the table with the given ID. It may
@@ -207,7 +207,7 @@ public:
     void set_config(
         const namespace_id_t &table_id,
         const table_config_and_shards_change_t &table_config_and_shards_change,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t, config_change_exc_t);
 
@@ -222,7 +222,7 @@ public:
         const namespace_id_t &table_id,
         emergency_repair_mode_t mode,
         bool dry_run,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         table_config_and_shards_t *new_config_out,
         bool *erase_found_out,
         bool *rollback_found_out)
@@ -239,7 +239,7 @@ private:
         const namespace_id_t &table_id,
         const table_raft_state_t &raft_state,
         const multi_table_manager_timestamp_epoch_t &epoch,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t);
 
@@ -254,7 +254,7 @@ private:
         const optional<namespace_id_t> &table,
         const table_status_request_t &request,
         server_selector_t servers,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const std::function<void(
             const server_id_t &server,
             const namespace_id_t &table,
@@ -267,7 +267,7 @@ private:
     `failed_table_op_exc_t` or `maybe_failed_table_op_exc_t`, then `retry()` catches the
     exception, waits for some time, and calls `fun()` again. After some number of tries
     it gives up and allows the exception to bubble up to the caller. */
-    void retry(const std::function<void(signal_t *)> &fun, signal_t *interruptor);
+    void retry(const std::function<void(const signal_t *)> &fun, const signal_t *interruptor);
 
     NORETURN void throw_appropriate_exception(const namespace_id_t &table_id)
         THROWS_ONLY(no_such_table_exc_t, failed_table_op_exc_t);
@@ -275,7 +275,7 @@ private:
     void wait_until_change_visible(
         const namespace_id_t &table_id,
         const std::function<bool(const timestamped_basic_config_t *)> &cb,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, maybe_failed_table_op_exc_t);
 
     mailbox_manager_t *const mailbox_manager;

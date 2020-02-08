@@ -95,7 +95,7 @@ void table_meta_client_t::list_names(
 
 void table_meta_client_t::get_config(
         const namespace_id_t &table_id,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         table_config_and_shards_t *config_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
     cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
@@ -119,7 +119,7 @@ void table_meta_client_t::get_config(
 }
 
 void table_meta_client_t::list_configs(
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         std::map<namespace_id_t, table_config_and_shards_t> *configs_out,
         std::map<namespace_id_t, table_basic_config_t> *disconnected_configs_out)
         THROWS_ONLY(interrupted_exc_t) {
@@ -151,7 +151,7 @@ void table_meta_client_t::list_configs(
 
 void table_meta_client_t::get_sindex_status(
         const namespace_id_t &table_id,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
             *sindex_statuses_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
@@ -199,7 +199,7 @@ void table_meta_client_t::get_sindex_status(
 void table_meta_client_t::get_shard_status(
         const namespace_id_t &table_id,
         all_replicas_ready_mode_t all_replicas_ready_mode,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         std::map<server_id_t, range_map_t<key_range_t::right_bound_t,
             table_shard_status_t> > *shard_statuses_out,
         bool *all_replicas_ready_out)
@@ -237,7 +237,7 @@ void table_meta_client_t::get_shard_status(
 
 void table_meta_client_t::get_raft_leader(
         const namespace_id_t &table_id,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         optional<server_id_t> *raft_leader_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
     cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
@@ -255,7 +255,7 @@ void table_meta_client_t::get_raft_leader(
 void table_meta_client_t::get_debug_status(
         const namespace_id_t &table_id,
         all_replicas_ready_mode_t all_replicas_ready_mode,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         std::map<server_id_t, table_status_response_t> *responses_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
     cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
@@ -287,7 +287,7 @@ void table_meta_client_t::get_debug_status(
 void table_meta_client_t::create(
         namespace_id_t table_id,
         const table_config_and_shards_t &initial_config,
-        signal_t *interruptor_on_caller)
+        const signal_t *interruptor_on_caller)
         THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t) {
     cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
@@ -309,7 +309,7 @@ void table_meta_client_t::create(
 
 void table_meta_client_t::drop(
         const namespace_id_t &table_id,
-        signal_t *interruptor_on_caller)
+        const signal_t *interruptor_on_caller)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t) {
     cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
     on_thread_t thread_switcher(home_thread());
@@ -365,14 +365,14 @@ void table_meta_client_t::drop(
 void table_meta_client_t::set_config(
         const namespace_id_t &table_id,
         const table_config_and_shards_change_t &table_config_and_shards_change,
-        signal_t *interruptor_on_caller)
+        const signal_t *interruptor_on_caller)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t, config_change_exc_t) {
     cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
     on_thread_t thread_switcher(home_thread());
 
     multi_table_manager_timestamp_t timestamp;
-    retry([&](signal_t *interruptor2) {
+    retry([&](const signal_t *interruptor2) {
         /* Find the server (if any) which is acting as leader for the table */
         uuid_u best_leader_uuid;
         table_manager_bcard_t::leader_bcard_t::set_config_mailbox_t::address_t
@@ -464,7 +464,7 @@ void table_meta_client_t::emergency_repair(
         const namespace_id_t &table_id,
         emergency_repair_mode_t mode,
         bool dry_run,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         table_config_and_shards_t *new_config_out,
         bool *rollback_found_out,
         bool *erase_found_out)
@@ -542,7 +542,7 @@ void table_meta_client_t::create_or_emergency_repair(
         const namespace_id_t &table_id,
         const table_raft_state_t &raft_state,
         const multi_table_manager_timestamp_t::epoch_t &epoch,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t) {
     assert_thread();
@@ -670,7 +670,7 @@ void table_meta_client_t::get_status(
         const optional<namespace_id_t> &table,
         const table_status_request_t &request,
         server_selector_t servers,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const std::function<void(
             const server_id_t &server,
             const namespace_id_t &table,
@@ -777,8 +777,8 @@ void table_meta_client_t::get_status(
 }
 
 void table_meta_client_t::retry(
-        const std::function<void(signal_t *)> &fun,
-        signal_t *interruptor) {
+        const std::function<void(const signal_t *)> &fun,
+        const signal_t *interruptor) {
     /* 8 tries at 300ms initially with 1.5x exponential backoff means the last try will
     be about 15 seconds after the first try. Since that's about ten times the Raft
     election timeout, we can be reasonably certain that if it fails that many times there
@@ -830,7 +830,7 @@ NORETURN void table_meta_client_t::throw_appropriate_exception(
 void table_meta_client_t::wait_until_change_visible(
         const namespace_id_t &table_id,
         const std::function<bool(const timestamped_basic_config_t *)> &cb,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, maybe_failed_table_op_exc_t)
 {
     signal_timer_t timeout;
