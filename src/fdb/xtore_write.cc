@@ -17,14 +17,13 @@
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
 #include "rdb_protocol/table_common.hpp"
 
-// OOO: Move to btree/keys.hpp
-namespace std {
-template<> struct hash<store_key_t> {
+// This isn't in btree/keys.hpp only because I don't want to include <functional> in it.
+// Stupid, yeah.
+struct store_key_hash {
     size_t operator()(const store_key_t& x) const {
         return std::hash<std::string>()(x.str());
     }
 };
-}  // namespace std
 
 struct jobstate_futs {
     // If jobstates has a value, the futs are empty and consumed.  Otherwise, they are
@@ -102,7 +101,7 @@ void update_fdb_sindexes(
             sindex_config.multi,
             sindex_config.geo};
 
-        std::unordered_set<store_key_t> deletion_keys;
+        std::unordered_set<store_key_t, store_key_hash> deletion_keys;
 
         if (modification.info.deleted.first.has()) {
             try {
@@ -122,7 +121,7 @@ void update_fdb_sindexes(
             }
         }
 
-        std::unordered_set<store_key_t> addition_keys;
+        std::unordered_set<store_key_t, store_key_hash> addition_keys;
 
         if (modification.info.added.first.has()) {
             try {
