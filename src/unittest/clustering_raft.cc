@@ -126,7 +126,7 @@ TPTEST(ClusteringRaft, Regression4234) {
     }
 
     cluster.run_on_member(leader,
-    [&](dummy_raft_member_t *member, signal_t *) {
+    [&](dummy_raft_member_t *member, const signal_t *) {
         guarantee(member != nullptr);
         raft_member_t<dummy_raft_state_t>::change_lock_t change_lock(
             member, &non_interruptor);

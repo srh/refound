@@ -47,7 +47,7 @@ scoped_ptr_t<ql::query_params_t> json_protocol_t::parse_query_from_buffer(
 
 scoped_ptr_t<ql::query_params_t> json_protocol_t::parse_query(
         tcp_conn_t *conn,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         ql::query_cache_t *query_cache) {
     int64_t token;
     uint32_t size;
@@ -204,7 +204,7 @@ void json_protocol_t::write_response_to_buffer(ql::response_t *response,
 void json_protocol_t::send_response(ql::response_t *response,
                                     int64_t token,
                                     tcp_conn_t *conn,
-                                    signal_t *interruptor) {
+                                    const signal_t *interruptor) {
     uint32_t data_size; // filled in below
     const size_t prefix_size = sizeof(token) + sizeof(data_size);
 

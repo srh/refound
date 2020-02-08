@@ -6,7 +6,7 @@
 
 distribution_progress_estimator_t::distribution_progress_estimator_t(
         store_view_t *store,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     static const int max_depth = 2;
     static const size_t result_limit = 128;
 

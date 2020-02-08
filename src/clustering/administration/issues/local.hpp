@@ -46,7 +46,7 @@ public:
     }
 
 private:
-    void on_get(signal_t *, const mailbox_t<local_issues_t>::address_t &reply);
+    void on_get(const signal_t *, const mailbox_t<local_issues_t>::address_t &reply);
 
     mailbox_manager_t *const mailbox_manager;
     log_write_issue_tracker_t *const log_write_issue_tracker;
@@ -60,7 +60,7 @@ public:
     local_issue_client_t(
         mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *_directory);
-    std::vector<scoped_ptr_t<issue_t> > get_issues(signal_t *interruptor) const;
+    std::vector<scoped_ptr_t<issue_t> > get_issues(const signal_t *interruptor) const;
 
 private:
     mailbox_manager_t *const mailbox_manager;

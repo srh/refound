@@ -99,7 +99,7 @@ private:
         const connectivity_cluster_t::connection_pair_t *pair);
 
     void on_update(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const typename minidir_bcard_t<key_t, value_t>::update_message_t &msg);
 
     mailbox_manager_t *const mailbox_manager;

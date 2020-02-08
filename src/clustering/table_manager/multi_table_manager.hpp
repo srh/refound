@@ -120,7 +120,7 @@ public:
     `access_t::read` is sufficient.
      */
     template <typename F>
-    void visit_tables(signal_t *interruptor, access_t access, const F &callable) {
+    void visit_tables(const signal_t *interruptor, access_t access, const F &callable) {
         /* Fetch information for all tables that we know about. First we get in line for
         each rwlock, then we release the global mutex assertion, then we wait for each
         rwlock acquisition to be ready and copy out its data. */
@@ -163,7 +163,7 @@ public:
     `access_t::read` is sufficient.*/
     template <typename F>
     void visit_table(
-            const namespace_id_t &table_id, signal_t *interruptor, access_t access,
+            const namespace_id_t &table_id, const signal_t *interruptor, access_t access,
             const F &callable) {
         mutex_assertion_t::acq_t global_mutex_acq(&mutex);
         auto it = tables.find(table_id);
@@ -325,11 +325,11 @@ private:
     /* `on_action()` and `on_get_config()` are mailbox callbacks */
 
     void on_action(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const multi_table_manager_bcard_t::action_message_t &msg);
 
     void on_get_status(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const multi_table_manager_bcard_t::get_status_message_t &msg);
 
     /* `do_sync()` checks if it is necessary to send an action message to the given

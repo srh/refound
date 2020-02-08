@@ -45,14 +45,14 @@ public:
         return &start_cond;
     }
 
-    bool check_readiness(table_readiness_t readiness, signal_t *interruptor);
+    bool check_readiness(table_readiness_t readiness, const signal_t *interruptor);
 
     void read(
             auth::user_context_t const &user_context,
             const read_t &r,
             read_response_t *response,
             order_token_t order_token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(
                 interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t);
 
@@ -61,7 +61,7 @@ public:
             const write_t &w,
             write_response_t *response,
             order_token_t order_token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(
                 interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t);
 
@@ -100,11 +100,11 @@ private:
     void dispatch_immediate_read(
             /* `how_to_make_token` and `how_to_run_query` have type pointer-to-member-function. */
             void (primary_query_client_t::*how_to_make_token)(fifo_enforcer_token_type *),
-            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *response, order_token_t, fifo_enforcer_token_type *, signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
+            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *response, order_token_t, fifo_enforcer_token_type *, const signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
             const op_type &op,
             op_response_type *response,
             order_token_t order_token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     // The exception specification of `how_to_run_query` is commented out in
@@ -113,7 +113,7 @@ private:
     // dispatch_immediate_op, which still has the exception specification.
     template <class op_type, class fifo_enforcer_token_type, class op_response_type>
     void perform_immediate_read(
-            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
+            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, const signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
             immediate_op_info_t<op_type, fifo_enforcer_token_type> *masters_to_contact,
             op_response_type *result_out,
             order_token_t order_token,
@@ -124,11 +124,11 @@ private:
     void dispatch_immediate_write(
             /* `how_to_make_token` and `how_to_run_query` have type pointer-to-member-function. */
             void (primary_query_client_t::*how_to_make_token)(fifo_enforcer_token_type *),
-            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *response, order_token_t, fifo_enforcer_token_type *, signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
+            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *response, order_token_t, fifo_enforcer_token_type *, const signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
             const op_type &op,
             op_response_type *response,
             order_token_t order_token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     // The exception specification of `how_to_run_query` is commented out in
@@ -137,7 +137,7 @@ private:
     // dispatch_immediate_op, which still has the exception specification.
     template <class op_type, class fifo_enforcer_token_type, class op_response_type>
     void perform_immediate_write(
-            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
+            void (primary_query_client_t::*how_to_run_query)(const op_type &, op_response_type *, order_token_t, fifo_enforcer_token_type *, const signal_t *) /* THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) */,
             immediate_op_info_t<op_type, fifo_enforcer_token_type> *master_to_contact,
             op_response_type *result_out,
             order_token_t order_token,
@@ -147,7 +147,7 @@ private:
     void dispatch_outdated_read(
             const read_t &op,
             read_response_t *response,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     void perform_outdated_read(
@@ -159,7 +159,7 @@ private:
     void dispatch_debug_direct_read(
             const read_t &op,
             read_response_t *response,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     void update_registrant(const std::pair<peer_id_t, branch_id_t> &key,

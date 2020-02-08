@@ -15,7 +15,7 @@ public:
         const namespace_id_t &_table_id,
         metadata_file_t *_metadata_file,
         metadata_file_t::read_txn_t *metadata_read_txn,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     branch_birth_certificate_t get_branch(const branch_id_t &branch)
         const THROWS_ONLY(missing_branch_exc_t);

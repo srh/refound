@@ -79,7 +79,7 @@ scoped_ptr_t<profile::trace_t> maybe_make_profile_trace(profile_bool_t profile) 
 
 env_t::env_t(rdb_context_t *ctx,
              return_empty_normal_batches_t _return_empty_normal_batches,
-             signal_t *_interruptor,
+             const signal_t *_interruptor,
              serializable_env_t s_env,
              profile::trace_t *_trace)
     : serializable_(std::move(s_env)),
@@ -99,7 +99,7 @@ env_t::env_t(rdb_context_t *ctx,
 
 env_t::env_t(rdb_context_t *ctx,
              return_empty_normal_batches_t _return_empty_normal_batches,
-             signal_t *_interruptor,
+             const signal_t *_interruptor,
              global_optargs_t _global_optargs,
              auth::user_context_t _user_context,
              datum_t _deterministic_time,
@@ -114,7 +114,7 @@ env_t::env_t(rdb_context_t *ctx,
           _trace) { }
 
 // Used in constructing the env for rdb_update_single_sindex and many unit tests.
-env_t::env_t(signal_t *_interruptor,
+env_t::env_t(const signal_t *_interruptor,
              return_empty_normal_batches_t _return_empty_normal_batches,
              reql_version_t _reql_version)
     : serializable_{

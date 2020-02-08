@@ -143,8 +143,8 @@ public:
 
 protected:
     virtual void write(
-            const std::string &, const std::string &, order_token_t, signal_t *) = 0;
-    virtual std::string read(const std::string &, order_token_t, signal_t *) = 0;
+            const std::string &, const std::string &, order_token_t, const signal_t *) = 0;
+    virtual std::string read(const std::string &, order_token_t, const signal_t *) = 0;
     virtual std::string generate_key() = 0;
 
     virtual void report_error(

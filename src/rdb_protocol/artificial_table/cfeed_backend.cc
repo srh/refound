@@ -60,7 +60,7 @@ bool cfeed_artificial_table_backend_t::read_changes(
     ql::env_t *env,
     const ql::changefeed::streamspec_t &ss,
     ql::backtrace_id_t bt,
-    signal_t *interruptor,
+    const signal_t *interruptor,
     counted_t<ql::datum_stream_t> *cfeed_out,
     admin_err_t *error_out) {
 

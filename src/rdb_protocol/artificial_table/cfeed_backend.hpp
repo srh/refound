@@ -26,7 +26,7 @@ public:
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
         ql::backtrace_id_t bt,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         counted_t<ql::datum_stream_t> *cfeed_out,
         admin_err_t *error_out);
 
@@ -59,7 +59,7 @@ public:
         virtual bool get_initial_values(
             const new_mutex_acq_t *proof,
             std::vector<ql::datum_t> *initial_values_out,
-            signal_t *interruptor) = 0;
+            const signal_t *interruptor) = 0;
 
         new_mutex_t mutex;
         auth::user_context_t m_user_context;
@@ -88,7 +88,7 @@ protected:
     virtual scoped_ptr_t<machinery_t> construct_changefeed_machinery(
         lifetime_t<name_resolver_t const &> name_resolver,
         auth::user_context_t const &user_context,
-        signal_t *interruptor) = 0;
+        const signal_t *interruptor) = 0;
 
     /* The subclass must call this in its destructor. It ensures that the changefeed
     machinery is destroyed. It may block. The purpose of this is because most subclasses

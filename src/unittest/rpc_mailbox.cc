@@ -41,7 +41,7 @@ private:
     class read_impl_t : public mailbox_read_callback_t {
     public:
         explicit read_impl_t(dummy_mailbox_t *_parent) : parent(_parent) { }
-        void read(read_stream_t *stream, UNUSED signal_t *interruptor) {
+        void read(read_stream_t *stream, UNUSED const signal_t *interruptor) {
             int i;
             archive_result_t res = deserialize<cluster_version_t::CLUSTER>(stream, &i);
             if (bad(res)) { throw fake_archive_exc_t(); }
@@ -133,7 +133,7 @@ TPTEST_MULTITHREAD(RPCMailboxTest, TypedMailbox, 3) {
 
     std::vector<std::string> inbox;
     mailbox_t<std::string> mbox(&m,
-        [&](signal_t *, const std::string &str) {
+        [&](const signal_t *, const std::string &str) {
             inbox.push_back(str);
         });
 

@@ -17,7 +17,7 @@ bool checked_read_row_from_backend(
         auth::user_context_t const &user_context,
         artificial_table_backend_t *backend,
         const ql::datum_t &pval,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         ql::datum_t *row_out,
         admin_err_t *error_out) {
     // Note that we'll catch the `auth::permission_error_t` that this may throw in the
@@ -361,7 +361,7 @@ void artificial_table_t::do_single_update(
         const std::function<ql::datum_t(ql::datum_t)>
             &function,
         return_changes_t return_changes,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout) {
     cross_thread_mutex_t::acq_t txn = m_backend->aquire_transaction_mutex();

@@ -8,7 +8,7 @@ local_replicator_t::local_replicator_t(
         primary_dispatcher_t *primary,
         store_view_t *_store,
         branch_history_manager_t *bhm,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
     store(_store),
     replica(
         store,
@@ -75,7 +75,7 @@ local_replicator_t::~local_replicator_t() {
 void local_replicator_t::do_read(
         const read_t &read,
         state_timestamp_t min_timestamp,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out) {
     replica.do_read(read, min_timestamp, interruptor, response_out);
 }
@@ -85,7 +85,7 @@ void local_replicator_t::do_write_sync(
         state_timestamp_t timestamp,
         order_token_t order_token,
         write_durability_t durability,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out) {
     replica.do_write(
         write, timestamp, order_token, durability,
@@ -96,7 +96,7 @@ void local_replicator_t::do_write_async(
         const write_t &write,
         state_timestamp_t timestamp,
         order_token_t order_token,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     write_response_t dummy;
     replica.do_write(
         write, timestamp, order_token, write_durability_t::SOFT,
@@ -104,7 +104,7 @@ void local_replicator_t::do_write_async(
 }
 
 void local_replicator_t::do_dummy_write(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out) {
     replica.do_dummy_write(interruptor, response_out);
 }

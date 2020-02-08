@@ -307,7 +307,7 @@ void find_table_duplicates(
 }
 
 std::vector<scoped_ptr_t<issue_t> > name_collision_issue_tracker_t::get_issues(
-        UNUSED signal_t *interruptor) const {
+        UNUSED const signal_t *interruptor) const {
     cluster_semilattice_metadata_t metadata = cluster_sl_view->get();
     std::vector<scoped_ptr_t<issue_t> > issues;
 

@@ -117,7 +117,7 @@ table_issue_tracker_t::table_issue_tracker_t(
 table_issue_tracker_t::~table_issue_tracker_t() { }
 
 std::vector<scoped_ptr_t<issue_t> > table_issue_tracker_t::get_issues(
-        signal_t *interruptor) const {
+        const signal_t *interruptor) const {
     std::map<namespace_id_t, table_basic_config_t> table_names;
     table_meta_client->list_names(&table_names);
 
@@ -141,7 +141,7 @@ std::vector<scoped_ptr_t<issue_t> > table_issue_tracker_t::get_issues(
 
 void table_issue_tracker_t::check_table(const namespace_id_t &table_id,
                                         std::vector<scoped_ptr_t<issue_t> > *issues_out,
-                                        signal_t *interruptor) const {
+                                        const signal_t *interruptor) const {
     table_status_t status;
     try {
         table_config_and_shards_t config;

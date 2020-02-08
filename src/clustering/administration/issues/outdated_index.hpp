@@ -40,11 +40,11 @@ class outdated_index_issue_tracker_t : public issue_tracker_t {
 public:
     explicit outdated_index_issue_tracker_t(table_meta_client_t *_table_meta_client);
 
-    std::vector<scoped_ptr_t<issue_t> > get_issues(signal_t *interruptor) const;
+    std::vector<scoped_ptr_t<issue_t> > get_issues(const signal_t *interruptor) const;
 
     static void log_outdated_indexes(multi_table_manager_t *multi_table_manager,
                                      const cluster_semilattice_metadata_t &metadata,
-                                     signal_t *interruptor);
+                                     const signal_t *interruptor);
 
     static bool is_acceptable_outdated(const sindex_config_t &sindex_config);
 private:

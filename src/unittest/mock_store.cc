@@ -80,7 +80,7 @@ region_map_t<version_t> mock_store_t::get_metainfo(
         order_token_t order_token,
         read_token_t *token,
         const region_t &_region,
-        signal_t *interruptor)
+        const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
     object_buffer_t<fifo_enforcer_sink_t::exit_read_t>::destruction_sentinel_t destroyer(&token->main_read_token);
@@ -99,7 +99,7 @@ void mock_store_t::set_metainfo(const region_map_t<version_t> &new_metainfo,
                                 order_token_t order_token,
                                 write_token_t *token,
                                 UNUSED write_durability_t durability,
-                                signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+                                const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
     object_buffer_t<fifo_enforcer_sink_t::exit_write_t>::destruction_sentinel_t destroyer(&token->main_write_token);
@@ -122,7 +122,7 @@ void mock_store_t::read(
         const read_t &_read,
         read_response_t *response,
         read_token_t *token,
-        signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+        const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
     {
@@ -184,7 +184,7 @@ void mock_store_t::write(
         state_timestamp_t timestamp,
         order_token_t order_token,
         write_token_t *token,
-        signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+        const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
     {

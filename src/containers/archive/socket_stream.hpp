@@ -32,7 +32,7 @@ public:
 
     int64_t read(void *buf, int64_t count);
     int64_t write(const void *buf, int64_t count);
-    void wait_for_pipe_client(signal_t *interruptor);
+    void wait_for_pipe_client(const signal_t *interruptor);
 
     void set_interruptor(const signal_t *_interruptor) { interruptor = _interruptor; }
 

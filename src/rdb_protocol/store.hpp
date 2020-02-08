@@ -84,7 +84,7 @@ public:
             order_token_t order_token,
             read_token_t *token,
             const region_t &region,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
     void set_metainfo(
@@ -92,7 +92,7 @@ public:
             order_token_t order_token,
             write_token_t *token,
             write_durability_t durability,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
     // TODO implement rocks reading below.
@@ -101,7 +101,7 @@ public:
             const read_t &read,
             read_response_t *response,
             read_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
     void write(
@@ -113,13 +113,13 @@ public:
             state_timestamp_t timestamp,
             order_token_t order_token,
             write_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
     /* End of `store_view_t` interface */
 
     std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > sindex_list(
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     /* Warning: If the index already exists, this function will crash. Make sure that
@@ -127,17 +127,17 @@ public:
     void sindex_create(
             const std::string &name,
             const sindex_config_t &config,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     void sindex_rename_multi(
             const std::map<std::string, std::string> &name_changes,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     void sindex_drop(
             const std::string &id,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     new_mutex_in_line_t get_in_line_for_sindex_queue(real_superblock_lock *sindex_block);
@@ -230,20 +230,20 @@ public:
     void protocol_read(const read_t &read,
                        read_response_t *response,
                        scoped_ptr_t<real_superblock_lock> superblock,
-                       signal_t *interruptor);
+                       const signal_t *interruptor);
 
     void protocol_write(scoped_ptr_t<txn_t> txn,
                         const write_t &write,
                         write_response_t *response,
                         state_timestamp_t timestamp,
                         scoped_ptr_t<real_superblock_lock> superblock,
-                        signal_t *interruptor);
+                        const signal_t *interruptor);
 
     void acquire_superblock_for_read(
             read_token_t *token,
             scoped_ptr_t<txn_t> *txn_out,
             scoped_ptr_t<real_superblock_lock> *sb_out,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     void acquire_superblock_for_write(
@@ -252,7 +252,7 @@ public:
             write_token_t *token,
             scoped_ptr_t<txn_t> *txn_out,
             scoped_ptr_t<real_superblock_lock> *sb_out,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     // Used by `delayed_clear_and_drop_sindex` and during index post-construction.
@@ -260,7 +260,7 @@ public:
     void clear_sindex_data(
             uuid_u sindex_id,
             const key_range_t &pkey_range_to_clear,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     rockshard rocksh() const {

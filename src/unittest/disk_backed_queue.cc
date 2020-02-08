@@ -65,7 +65,7 @@ TEST(DiskBackedQueue, BigVals) {
 }
 
 static void randomly_delay(int, const signal_t *) {
-    // NNN: Pass interruptor to nap, please!
+    // A non-interruptor because the test was already that way.
     nap(randint(100));
 }
 

@@ -20,7 +20,7 @@ public:
 
     ~name_collision_issue_tracker_t();
 
-    std::vector<scoped_ptr_t<issue_t> > get_issues(signal_t *interruptor) const;
+    std::vector<scoped_ptr_t<issue_t> > get_issues(const signal_t *interruptor) const;
 
 private:
     server_config_client_t *server_config_client;

@@ -5,7 +5,7 @@
 
 tcp_conn_stream_t::tcp_conn_stream_t(
     tls_ctx_t *tls_ctx, const ip_address_t &host, int port,
-    signal_t *interruptor, int local_port
+    const signal_t *interruptor, int local_port
 ) :
     conn_(
 #ifdef ENABLE_TLS
@@ -104,7 +104,7 @@ int64_t make_buffered_tcp_conn_stream_wrapper_t::write(const void *p, int64_t n)
 
 keepalive_tcp_conn_stream_t::keepalive_tcp_conn_stream_t(
     tls_ctx_t *tls_ctx, const ip_address_t &host, int port,
-    signal_t *interruptor, int local_port
+    const signal_t *interruptor, int local_port
 ) :
     tcp_conn_stream_t(tls_ctx, host, port, interruptor, local_port),
     keepalive_callback(NULL) { }

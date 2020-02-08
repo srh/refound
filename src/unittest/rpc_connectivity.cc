@@ -154,7 +154,7 @@ public:
     on_timeout_t(int64_t ms, callable_t handler) {
         handler_ = handler;
         timer.start(ms);
-        waiter.start([this](signal_t *interruptor) {
+        waiter.start([this](const signal_t *interruptor) {
             wait_any_t both(&timer, interruptor);
             both.wait();
             if (timer.is_pulsed()) {

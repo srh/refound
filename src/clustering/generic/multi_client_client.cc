@@ -9,12 +9,12 @@ template <class request_type>
 multi_client_client_t<request_type>::multi_client_client_t(
         mailbox_manager_t *mm,
         const mc_business_card_t &server,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
     mailbox_manager(mm) {
 
     mailbox_t<server_business_card_t> intro_mailbox(
         mailbox_manager,
-        [&](signal_t *, const server_business_card_t &bc) {
+        [&](const signal_t *, const server_business_card_t &bc) {
             intro_promise.pulse(bc);
         });
 

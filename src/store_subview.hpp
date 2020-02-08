@@ -74,7 +74,7 @@ public:
             order_token_t order_token,
             read_token_t *token,
             const region_t &_region,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
         return store_view->get_metainfo(order_token, token, _region, interruptor);
@@ -84,7 +84,7 @@ public:
                       order_token_t order_token,
                       write_token_t *token,
                       write_durability_t durability,
-                      signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+                      const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
         store_view->set_metainfo(
             new_metainfo, order_token, token, durability, interruptor);
@@ -95,7 +95,7 @@ public:
             const read_t &_read,
             read_response_t *response,
             read_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
 
@@ -112,7 +112,7 @@ public:
             state_timestamp_t timestamp,
             order_token_t order_token,
             write_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) {
         home_thread_mixin_t::assert_thread();
 

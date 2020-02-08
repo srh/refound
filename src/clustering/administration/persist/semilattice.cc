@@ -17,7 +17,7 @@ semilattice_persister_t<metadata_t>::semilattice_persister_t(
 }
 
 template <class metadata_t>
-void semilattice_persister_t<metadata_t>::persist(signal_t *interruptor) {
+void semilattice_persister_t<metadata_t>::persist(const signal_t *interruptor) {
     if (interruptor->is_pulsed()) {
         throw interrupted_exc_t();
     }

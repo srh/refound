@@ -9,7 +9,7 @@
 namespace ql {
 
 configured_limits_t from_optargs(
-        rdb_context_t *ctx, signal_t *interruptor, global_optargs_t *args,
+        rdb_context_t *ctx, const signal_t *interruptor, global_optargs_t *args,
         ql::datum_t deterministic_time) {
     size_t changefeed_queue_size = configured_limits_t::default_changefeed_queue_size;
     size_t array_size_limit = configured_limits_t::default_array_size_limit;

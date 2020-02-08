@@ -9,14 +9,6 @@
 
 // nap()
 
-void nap(int64_t ms) THROWS_NOTHING {
-    if (ms > 0) {
-        signal_timer_t timer;
-        timer.start(ms);
-        timer.wait_lazily_ordered();
-    }
-}
-
 void nap(int64_t ms, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     signal_timer_t timer(ms);
     wait_interruptible(&timer, interruptor);

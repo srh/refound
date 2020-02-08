@@ -58,7 +58,7 @@ bool server_config_client_t::set_config(
         const server_id_t &server_id,
         const name_string_t &old_server_name,
         const server_config_t &new_config,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         admin_err_t *error_out) {
     bool name_collision = false, is_noop = false;
     server_config_map.read_all(
@@ -102,7 +102,7 @@ bool server_config_client_t::set_config(
         promise_t<std::pair<server_config_version_t, std::string> > reply;
         mailbox_t<server_config_version_t, std::string> ack_mailbox(
             mailbox_manager,
-            [&](signal_t *, server_config_version_t v, const std::string &m) {
+            [&](const signal_t *, server_config_version_t v, const std::string &m) {
                 reply.pulse(std::make_pair(v, m));
             });
         disconnect_watcher_t disconnect_watcher(mailbox_manager, *peer);

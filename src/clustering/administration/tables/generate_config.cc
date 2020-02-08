@@ -16,7 +16,7 @@ inner loop. It also checks the whether an interruptor signal has been pulsed. */
 class long_calculation_yielder_t {
 public:
     long_calculation_yielder_t() : t(get_ticks()) { }
-    void maybe_yield(signal_t *interruptor) {
+    void maybe_yield(const signal_t *interruptor) {
         ticks_t now = get_ticks();
         /* We yield every 10ms. */
         if (now.nanos > t.nanos + secs_to_ticks(1).nanos / 100) {
@@ -185,7 +185,7 @@ void pick_best_pairings(
         std::multiset<counted_t<countable_wrapper_t<server_pairings_t> > > &&pairings,
         int usage_cost,
         long_calculation_yielder_t *yielder,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const std::function<void(size_t, server_id_t)> &callback) {
     const size_t num_shards = 1;
     size_t shard_replicas = 0;
@@ -213,7 +213,7 @@ void table_generate_config(
         namespace_id_t table_id,
         table_meta_client_t *table_meta_client,
         const table_generate_config_params_t &params,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         table_config_t::shard_t *config_the_shard_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             admin_op_exc_t) {

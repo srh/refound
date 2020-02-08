@@ -450,7 +450,8 @@ void connectivity_cluster_t::send_message(connection_t *connection,
     /* We're allowed to block indefinitely, but it's tempting to write code on
     the assumption that we won't. This might catch some programming errors. */
     if (randint(10) == 0) {
-        nap(10);
+        cond_t non_interruptor;
+        nap(10, &non_interruptor);
     }
 #endif
 

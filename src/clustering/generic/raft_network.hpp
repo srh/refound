@@ -49,7 +49,7 @@ private:
     bool send_rpc(
         const raft_member_id_t &dest,
         const raft_rpc_request_t<state_t> &rpc,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         raft_rpc_reply_t *reply_out);
     void send_virtual_heartbeats(
         const optional<raft_term_t> &term);
@@ -58,7 +58,7 @@ private:
 
     /* The `on_rpc()` methods are mailbox callbacks. */
     void on_rpc(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const raft_rpc_request_t<state_t> &rpc,
         const mailbox_t<raft_rpc_reply_t>::address_t &reply_addr);
 

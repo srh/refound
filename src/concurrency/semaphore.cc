@@ -32,7 +32,7 @@ void static_semaphore_t::co_lock(int64_t count) {
     // TODO: Remove the need for in_callback checks.
 }
 
-void static_semaphore_t::co_lock_interruptible(signal_t *interruptor, int64_t count) {
+void static_semaphore_t::co_lock_interruptible(const signal_t *interruptor, int64_t count) {
     rassert(!in_callback);
     struct : public semaphore_available_callback_t, public cond_t {
         void on_semaphore_available() { pulse(); }
@@ -110,7 +110,7 @@ void adjustable_semaphore_t::co_lock(int64_t count) {
     // TODO: remove need for in_callback checks
 }
 
-void adjustable_semaphore_t::co_lock_interruptible(signal_t *interruptor, int64_t count) {
+void adjustable_semaphore_t::co_lock_interruptible(const signal_t *interruptor, int64_t count) {
     rassert(!in_callback);
     struct : public semaphore_available_callback_t, public cond_t {
         void on_semaphore_available() { pulse(); }

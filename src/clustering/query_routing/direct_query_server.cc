@@ -19,7 +19,7 @@ direct_query_bcard_t direct_query_server_t::get_bcard() {
 }
 
 void direct_query_server_t::on_read(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const read_t &read,
         const mailbox_addr_t<read_response_t> &cont) {
 

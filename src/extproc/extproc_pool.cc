@@ -10,7 +10,7 @@ extproc_pool_t::extproc_pool_t(size_t worker_count) :
     dealloc_timer(DEALLOC_TIMER_FREQ_MS, this),
     worker_semaphore(worker_count,
                      extproc_spawner_t::get_instance()),
-    dealloc_pumper([this](signal_t *interruptor_) { dealloc_blocking(interruptor_); })
+    dealloc_pumper([this](const signal_t *interruptor_) { dealloc_blocking(interruptor_); })
     { }
 
 extproc_pool_t::~extproc_pool_t() {

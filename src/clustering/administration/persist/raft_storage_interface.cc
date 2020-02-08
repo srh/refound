@@ -40,7 +40,7 @@ table_raft_storage_interface_t::table_raft_storage_interface_t(
         metadata_file_t *_file,
         metadata_file_t::read_txn_t *txn,
         const namespace_id_t &_table_id,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
         file(_file), table_id(_table_id) {
     table_raft_stored_header_t header = txn->read(
         mdprefix_table_raft_header().suffix(uuid_to_str(table_id)));

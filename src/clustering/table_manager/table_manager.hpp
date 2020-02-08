@@ -52,7 +52,7 @@ public:
 
     void get_status(
         const table_status_request_t &request,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         table_status_response_t *response)
         THROWS_ONLY(interrupted_exc_t);
 
@@ -67,7 +67,7 @@ private:
 
     private:
         void on_set_config(
-            signal_t *interruptor,
+            const signal_t *interruptor,
             const table_config_and_shards_change_t &table_config_and_shards_change,
             const mailbox_addr_t<optional<multi_table_manager_timestamp_t>, bool> &reply_addr);
 

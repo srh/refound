@@ -60,14 +60,14 @@ private:
         const write_t &request,
         fifo_enforcer_sink_t::exit_write_t *exiter,
         order_token_t order_token,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out,
         admin_err_t *error_out);
     bool on_read(
         const read_t &request,
         fifo_enforcer_sink_t::exit_read_t *exiter,
         order_token_t order_token,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out,
         admin_err_t *error_out);
 
@@ -76,7 +76,7 @@ private:
     has been committed to disk on a majority of replicas for each shard. */
     bool sync_committed_read(const read_t &read_request,
                              order_token_t order_token,
-                             signal_t *interruptor,
+                             const signal_t *interruptor,
                              admin_err_t *error_out);
 
     /* `update_contract_or_raft_state()` spawns `update_contract_on_store_thread()`
@@ -97,7 +97,7 @@ private:
     succeeds or is interrupted. */
     void sync_contract_with_replicas(
         counted_t<contract_info_t> contract,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* `is_contract_ackable()` is a helper function for `sync_contract_with_replicas()`
     that returns `true` if it's safe to ack `primary_ready` for the given contract, given

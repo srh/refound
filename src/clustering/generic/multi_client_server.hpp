@@ -45,7 +45,7 @@ private:
     public:
         client_t(multi_client_server_t *p,
                  const client_business_card_t &client_bc,
-                 UNUSED signal_t *interruptor) :
+                 UNUSED const signal_t *interruptor) :
             registrant(p->user_data),
             drainer(new auto_drainer_t),
             request_mailbox(new mailbox_t<request_type>(p->mailbox_manager,
@@ -61,7 +61,7 @@ private:
         }
 
     private:
-        void on_request(signal_t *interruptor, const request_type &request) {
+        void on_request(const signal_t *interruptor, const request_type &request) {
             try {
                 registrant.perform_request(request, interruptor);
             } catch (const interrupted_exc_t &) {

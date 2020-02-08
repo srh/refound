@@ -18,7 +18,7 @@ replica_t::replica_t(
 void replica_t::do_read(
         const read_t &read,
         state_timestamp_t min_timestamp,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out) {
     assert_thread();
     rassert(!read.get_region().is_empty());
@@ -56,7 +56,7 @@ void replica_t::do_write(
         state_timestamp_t timestamp,
         order_token_t order_token,
         write_durability_t durability,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out) {
     assert_thread();
     rassert(!region_is_empty(write.get_region()));
@@ -101,7 +101,7 @@ void replica_t::do_write(
 }
 
 void replica_t::do_dummy_write(
-        UNUSED signal_t *interruptor,
+        UNUSED const signal_t *interruptor,
         write_response_t *response_out) {
     assert_thread();
     response_out->response = dummy_write_response_t();

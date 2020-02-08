@@ -332,7 +332,7 @@ server_t::server_t(mailbox_manager_t *_manager, store_t *_parent)
 
 server_t::~server_t() { }
 
-void server_t::stop_mailbox_cb(signal_t *, client_t::addr_t addr) {
+void server_t::stop_mailbox_cb(const signal_t *, client_t::addr_t addr) {
     auto_drainer_t::lock_t lock(&drainer);
     rwlock_in_line_t spot(&clients_lock, access_t::read);
     spot.read_signal()->wait_lazily_unordered();
@@ -345,7 +345,7 @@ void server_t::stop_mailbox_cb(signal_t *, client_t::addr_t addr) {
     }
 }
 
-void server_t::limit_stop_mailbox_cb(signal_t *,
+void server_t::limit_stop_mailbox_cb(const signal_t *,
                                      client_t::addr_t addr,
                                      optional<std::string> sindex,
                                      uuid_u limit_uuid) {
@@ -1733,7 +1733,7 @@ public:
                 mailbox_manager_t *manager,
                 namespace_interface_t *ns_if,
                 namespace_id_t const &table_id,
-                signal_t *interruptor,
+                const signal_t *interruptor,
                 lifetime_t<name_resolver_t const &> name_resolver);
     ~real_feed_t();
 
@@ -1744,7 +1744,7 @@ private:
     virtual void maybe_remove_feed() { client->maybe_remove_feed(client_lock, table_id); }
     virtual void stop_limit_sub(limit_sub_t *sub);
 
-    void mailbox_cb(signal_t *interruptor, stamped_msg_t msg);
+    void mailbox_cb(const signal_t *interruptor, stamped_msg_t msg);
     void constructor_cb();
 
     auto_drainer_t::lock_t client_lock;
@@ -1783,7 +1783,7 @@ real_feed_t::real_feed_t(auto_drainer_t::lock_t _client_lock,
                          mailbox_manager_t *_manager,
                          namespace_interface_t *ns_if,
                          namespace_id_t const &_table_id,
-                         signal_t *interruptor,
+                         const signal_t *interruptor,
                          lifetime_t<name_resolver_t const &> _name_resolver)
     : feed_t(_table_id, _name_resolver),
       client_lock(std::move(_client_lock)),
@@ -2552,7 +2552,10 @@ public:
     void init(const std::vector<std::pair<std::string, std::pair<datum_t, datum_t> > >
               &start_data) {
 #ifndef NDEBUG
-        nap(randint(250)); // Nap up to 250ms to test queueing.
+        {
+            cond_t non_interruptor;
+            nap(randint(250), &non_interruptor); // Nap up to 250ms to test queueing.
+        }
 #endif
         got_init += 1;
         for (const auto &pair : start_data) {
@@ -2966,7 +2969,7 @@ void msg_visit(feed_t *feed,
     feed->update_stamps(server_uuid, stamp);
 }
 
-void real_feed_t::mailbox_cb(signal_t *, stamped_msg_t msg) {
+void real_feed_t::mailbox_cb(const signal_t *, stamped_msg_t msg) {
     // We stop receiving messages when detached (we're only receiving
     // messages because we haven't managed to get a message to the
     // stop mailboxes for some of the primary replicas yet).  This also stops
@@ -3741,7 +3744,7 @@ client_t::client_t(
         const std::function<
             namespace_interface_access_t(
                 const namespace_id_t &,
-                signal_t *)
+                const signal_t *)
             > &_namespace_source,
         lifetime_t<name_resolver_t const &> _name_resolver) :
     manager(_manager),

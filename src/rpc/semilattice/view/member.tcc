@@ -22,7 +22,7 @@ public:
         return superview->get()[key];
     }
 
-    void sync_from(peer_id_t peer, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+    void sync_from(peer_id_t peer, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
         superview->sync_from(peer, interruptor);
     }
 
@@ -56,11 +56,11 @@ public:
         superview->join(map);
     }
 
-    void sync_from(peer_id_t peer, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+    void sync_from(peer_id_t peer, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
         superview->sync_from(peer, interruptor);
     }
 
-    void sync_to(peer_id_t peer, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+    void sync_to(peer_id_t peer, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
         superview->sync_to(peer, interruptor);
     }
 

@@ -10,7 +10,7 @@ cross_thread_watchable_variable_t<value_t>::cross_thread_watchable_variable_t(
     watchable_thread(get_thread_id()),
     dest_thread(_dest_thread),
     rethreader(this),
-    deliver_pumper([this](signal_t *interruptor) { this->deliver(interruptor); }),
+    deliver_pumper([this](const signal_t *interruptor) { this->deliver(interruptor); }),
     subs([this]() { this->deliver_pumper.notify(); })
 {
     rassert(original->get_rwi_lock_assertion()->home_thread() == watchable_thread);
@@ -21,7 +21,7 @@ cross_thread_watchable_variable_t<value_t>::cross_thread_watchable_variable_t(
 
 template <class value_t>
 void cross_thread_watchable_variable_t<value_t>::deliver(
-        UNUSED signal_t *interruptor) {
+        UNUSED const signal_t *interruptor) {
     value_t temp = original->get();
     on_thread_t thread_switcher(dest_thread);
     value = temp;
@@ -45,7 +45,7 @@ cross_thread_watchable_map_var_t<key_t, value_t>::cross_thread_watchable_map_var
     input_thread(get_thread_id()),
     output_thread(_output_thread),
     rethreader(this),
-    deliver_pumper([this](signal_t *interruptor) { this->deliver(interruptor); }),
+    deliver_pumper([this](const signal_t *interruptor) { this->deliver(interruptor); }),
     subs(input,
         [this](const key_t &key, const value_t *new_value) {
             this->on_change(key, new_value);
@@ -65,7 +65,7 @@ void cross_thread_watchable_map_var_t<key_t, value_t>::on_change(
 
 template<class key_t, class value_t>
 void cross_thread_watchable_map_var_t<key_t, value_t>::deliver(
-        UNUSED signal_t *interruptor) {
+        UNUSED const signal_t *interruptor) {
     guarantee(get_thread_id() == input_thread);
     std::map<key_t, optional<value_t> > local_changes;
     std::swap(local_changes, queued_changes);

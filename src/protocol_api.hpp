@@ -72,7 +72,7 @@ public:
                       const read_t &,
                       read_response_t *response,
                       order_token_t tok,
-                      signal_t *interruptor)
+                      const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) = 0;
 
@@ -80,14 +80,14 @@ public:
                        const write_t &,
                        write_response_t *response,
                        order_token_t tok,
-                       signal_t *interruptor)
+                       const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) = 0;
 
     virtual signal_t *get_initial_ready_signal() { return nullptr; }
 
     virtual bool check_readiness(table_readiness_t readiness,
-                                 signal_t *interruptor) = 0;
+                                 const signal_t *interruptor) = 0;
 
 protected:
     virtual ~namespace_interface_t() { }

@@ -92,7 +92,7 @@ public:
 
     virtual void run_query(ql::query_params_t *query_params,
                            ql::response_t *response_out,
-                           signal_t *interruptor) = 0;
+                           const signal_t *interruptor) = 0;
 };
 
 class query_server_t : public http_app_t {
@@ -123,7 +123,7 @@ private:
     void connection_loop(tcp_conn_t *conn,
                          size_t max_concurrent_queries,
                          ql::query_cache_t *query_cache,
-                         signal_t *interruptor);
+                         const signal_t *interruptor);
 
     // For HTTP server
     void handle(const http_req_t &request,

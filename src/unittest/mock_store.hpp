@@ -39,21 +39,21 @@ public:
             order_token_t order_token,
             read_token_t *token,
             const region_t &region,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     void set_metainfo(const region_map_t<version_t> &new_metainfo,
                       order_token_t order_token,
                       write_token_t *token,
                       write_durability_t durability,
-                      signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
+                      const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
 
     void read(
             DEBUG_ONLY(const metainfo_checker_t &metainfo_checker, )
             const read_t &read,
             read_response_t *response,
             read_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
     void write(
@@ -65,7 +65,7 @@ public:
             state_timestamp_t timestamp,
             order_token_t order_token,
             write_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
     // Used by unit tests that expected old-style stuff.

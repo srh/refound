@@ -43,7 +43,7 @@ public:
     /* `flush()` blocks until `callback` has run completely at least once since the last
     call to `notify()`. (Or if `callback` started before the call to `notify()` but
     called `include_latest_notification()` after the call to `notify()`.) */
-    void flush(signal_t *interruptor);
+    void flush(const signal_t *interruptor);
 
     /* `drain()` interrupts any running instances of the callback and waits until they
     finish. No further callbacks will be spawned once `drain()` is called, even if

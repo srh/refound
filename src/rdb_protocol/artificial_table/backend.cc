@@ -35,7 +35,7 @@ bool artificial_table_backend_t::read_all_rows_filtered(
         auth::user_context_t const &user_context,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
         admin_err_t *error_out) {
 
@@ -89,7 +89,7 @@ bool artificial_table_backend_t::read_all_rows_filtered_as_stream(
         ql::backtrace_id_t bt,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         counted_t<ql::datum_stream_t> *rows_out,
         admin_err_t *error_out) {
     std::vector<ql::datum_t> rows;

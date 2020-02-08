@@ -31,7 +31,7 @@ public:
 
     class lock_t {
     public:
-        explicit lock_t(cross_thread_semaphore_t *_parent, signal_t *interruptor) :
+        explicit lock_t(cross_thread_semaphore_t *_parent, const signal_t *interruptor) :
             parent(_parent), value(parent->lock(interruptor)) { }
 
         ~lock_t() {
@@ -78,7 +78,7 @@ private:
         explicit request_t(cross_thread_semaphore_t *_parent);
         ~request_t();
 
-        value_t *wait_and_get(signal_t *interruptor);
+        value_t *wait_and_get(const signal_t *interruptor);
 
     private:
         cross_thread_semaphore_t *parent;
@@ -92,7 +92,7 @@ private:
         request_node_t *request;
     };
 
-    value_t *lock(signal_t *interruptor);
+    value_t *lock(const signal_t *interruptor);
     void unlock(value_t *value);
 
     // Mutex to control access, since a lock may be constructed from any thread
@@ -134,7 +134,7 @@ void cross_thread_semaphore_t<value_t>::pass_value_coroutine(request_node_t *req
 }
 
 template <class value_t>
-value_t *cross_thread_semaphore_t<value_t>::lock(signal_t *interruptor) {
+value_t *cross_thread_semaphore_t<value_t>::lock(const signal_t *interruptor) {
     system_mutex_t::lock_t _lock(&mutex);
     value_t *result = nullptr;
 
@@ -208,7 +208,7 @@ cross_thread_semaphore_t<value_t>::request_t::~request_t() {
 }
 
 template <class value_t>
-value_t *cross_thread_semaphore_t<value_t>::request_t::wait_and_get(signal_t *interruptor) {
+value_t *cross_thread_semaphore_t<value_t>::request_t::wait_and_get(const signal_t *interruptor) {
     value_t *result = nullptr;
 
     if (interruptor == nullptr) {

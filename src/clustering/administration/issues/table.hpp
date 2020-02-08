@@ -20,12 +20,12 @@ public:
         namespace_repo_t *_namespace_repo);
     ~table_issue_tracker_t();
 
-    std::vector<scoped_ptr_t<issue_t> > get_issues(signal_t *interruptor) const;
+    std::vector<scoped_ptr_t<issue_t> > get_issues(const signal_t *interruptor) const;
 
 private:
     void check_table(const namespace_id_t &table_id,
                      std::vector<scoped_ptr_t<issue_t> > *issues_out,
-                     signal_t *interruptor) const;
+                     const signal_t *interruptor) const;
 
     server_config_client_t *server_config_client;
     table_meta_client_t *table_meta_client;

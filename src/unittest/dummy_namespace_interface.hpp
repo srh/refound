@@ -22,11 +22,11 @@ public:
     void read(const read_t &read,
               read_response_t *response,
               DEBUG_VAR state_timestamp_t expected_timestamp,
-              signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
+              const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
 
     void read_outdated(const read_t &read,
                        read_response_t *response,
-                       signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
+                       const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
 
     void write(const write_t &write,
                write_response_t *response,
@@ -43,7 +43,7 @@ struct dummy_timestamper_t {
 public:
     dummy_timestamper_t(dummy_performer_t *n, order_source_t *order_source);
 
-    void read(const read_t &read, read_response_t *response, order_token_t otok, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
+    void read(const read_t &read, read_response_t *response, order_token_t otok, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
 
     void write(const write_t &write, write_response_t *response, order_token_t otok) THROWS_NOTHING;
 private:
@@ -66,9 +66,9 @@ public:
     explicit dummy_sharder_t(shard_t &&_the_shard)
         : the_shard(std::move(_the_shard)) { }
 
-    void read(const read_t &read, read_response_t *response, order_token_t tok, signal_t *interruptor);
+    void read(const read_t &read, read_response_t *response, order_token_t tok, const signal_t *interruptor);
 
-    void write(const write_t &write, write_response_t *response, order_token_t tok, signal_t *interruptor);
+    void write(const write_t &write, write_response_t *response, order_token_t tok, const signal_t *interruptor);
 
 private:
     shard_t the_shard;
@@ -84,7 +84,7 @@ public:
               const read_t &_read,
               read_response_t *response,
               order_token_t tok,
-              signal_t *interruptor)
+              const signal_t *interruptor)
                   THROWS_ONLY(cannot_perform_query_exc_t,
                               interrupted_exc_t,
                               auth::permission_error_t) {
@@ -95,14 +95,14 @@ public:
                const write_t &_write,
                write_response_t *response,
                order_token_t tok,
-               signal_t *interruptor)
+               const signal_t *interruptor)
                    THROWS_ONLY(cannot_perform_query_exc_t,
                                interrupted_exc_t,
                                auth::permission_error_t) {
         return sharder->write(_write, response, tok, interruptor);
     }
 
-    bool check_readiness(table_readiness_t, signal_t *) {
+    bool check_readiness(table_readiness_t, const signal_t *) {
         throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
     }
 

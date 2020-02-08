@@ -15,7 +15,7 @@ class monitoring_controller_t {
 public:
     class registrant_t {
     public:
-        registrant_t(monitoring_controller_t *c, const std::string& data, signal_t *) :
+        registrant_t(monitoring_controller_t *c, const std::string& data, const signal_t *) :
                 parent(c) {
             EXPECT_FALSE(parent->has_registrant);
             parent->has_registrant = true;

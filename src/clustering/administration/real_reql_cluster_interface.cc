@@ -54,7 +54,7 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         m_table_meta_client),
     m_changefeed_client(
         m_mailbox_manager,
-        [this](const namespace_id_t &id, signal_t *interruptor) {
+        [this](const namespace_id_t &id, const signal_t *interruptor) {
             return this->m_namespace_repo.get_namespace_interface(id, interruptor);
         },
         name_resolver),
@@ -77,7 +77,7 @@ bool real_reql_cluster_interface_t::db_drop_uuid(
             auth::user_context_t const &user_context,
             database_id_t database_id,
             const name_string_t &name,
-            signal_t *interruptor_on_home,
+            const signal_t *interruptor_on_home,
             ql::datum_t *result_out,
             admin_err_t *error_out) {
     assert_thread();
@@ -188,7 +188,7 @@ admin_err_t table_already_exists_error(
 
 bool real_reql_cluster_interface_t::table_list(
         counted_t<const ql::db_t> db,
-        UNUSED signal_t *interruptor_on_caller,
+        UNUSED const signal_t *interruptor_on_caller,
         std::set<name_string_t> *names_out,
         UNUSED admin_err_t *error_out) {
     // TODO: fdb-ize this function.
@@ -208,7 +208,7 @@ bool real_reql_cluster_interface_t::table_find(
         const name_string_t &name,
         counted_t<const ql::db_t> db,
         UNUSED optional<admin_identifier_format_t> identifier_format,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
     // TODO: fdb-ize this function.
@@ -302,7 +302,7 @@ bool is_joined(const T &multiple, const T &divisor) {
 
 void real_reql_cluster_interface_t::wait_for_cluster_metadata_to_propagate(
         const cluster_semilattice_metadata_t &metadata,
-        signal_t *interruptor_on_caller) {
+        const signal_t *interruptor_on_caller) {
     int threadnum = get_thread_id().threadnum;
 
     // TODO: Remove this.

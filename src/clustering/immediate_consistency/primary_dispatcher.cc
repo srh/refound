@@ -85,7 +85,7 @@ void primary_dispatcher_t::read(
         const read_t &_read,
         fifo_enforcer_sink_t::exit_read_t *lock,
         order_token_t order_token,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out)
         THROWS_ONLY(cannot_perform_query_exc_t, interrupted_exc_t) {
     assert_thread();

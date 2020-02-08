@@ -7,6 +7,7 @@
 #include <string>
 
 #include "arch/address.hpp"
+#include "arch/timing.hpp"
 #include "containers/scoped.hpp"
 #include "fdb/fdb.hpp"
 #include "paths.hpp"
@@ -27,6 +28,11 @@ static constexpr int CPU_SHARDING_FACTOR = 1;
 // it.
 inline FDBDatabase *TODO_fdb() {
     return nullptr;
+}
+
+inline void nap(int64_t ms) {
+    cond_t non_interruptor;
+    nap(ms, &non_interruptor);
 }
 
 

@@ -13,7 +13,7 @@ public:
     explicit timestamp_enforcer_t(state_timestamp_t initial) : timestamp(initial) { }
 
     /* Blocks until all timestamps less than or equal to `goal` have been completed. */
-    void wait_all_before(state_timestamp_t goal, signal_t *interruptor);
+    void wait_all_before(state_timestamp_t goal, const signal_t *interruptor);
 
     /* Returns the latest timestamp such that all timestamps less than or equal to it
     have been completed. */

@@ -50,7 +50,7 @@ std::vector<log_message_t> fetch_log_file(
     promise_t<boost::variant<std::vector<log_message_t>, std::string> > promise;
     log_server_business_card_t::result_mailbox_t reply_mailbox(
         mm,
-        [&](signal_t *,
+        [&](const signal_t *,
                 const boost::variant<std::vector<log_message_t>, std::string> &r) {
             promise.pulse(r);
         });

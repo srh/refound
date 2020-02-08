@@ -184,7 +184,7 @@ void store_t::read(
         const read_t &_read,
         read_response_t *response,
         read_token_t *token,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
     scoped_ptr_t<txn_t> txn;
@@ -206,7 +206,7 @@ void store_t::write(
         state_timestamp_t timestamp,
         UNUSED order_token_t order_token,  // TODO
         write_token_t *token,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
@@ -224,7 +224,7 @@ void store_t::write(
 }
 
 std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > store_t::sindex_list(
-        UNUSED signal_t *interruptor)
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     scoped_ptr_t<real_superblock_lock> superblock;
     scoped_ptr_t<txn_t> txn;
@@ -274,7 +274,7 @@ std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > store_t::sin
 void store_t::sindex_create(
         const std::string &name,
         const sindex_config_t &config,
-        UNUSED signal_t *interruptor)
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     scoped_ptr_t<real_superblock_lock> superblock;
     scoped_ptr_t<txn_t> txn;
@@ -311,7 +311,7 @@ void store_t::sindex_create(
 
 void store_t::sindex_rename_multi(
         const std::map<std::string, std::string> &name_changes,
-        UNUSED signal_t *interruptor)
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     scoped_ptr_t<real_superblock_lock> superblock;
     scoped_ptr_t<txn_t> txn;
@@ -360,7 +360,7 @@ sindex_name_t compute_sindex_deletion_name(uuid_u sindex_uuid) {
 
 void store_t::sindex_drop(
         const std::string &name,
-        UNUSED signal_t *interruptor)
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     scoped_ptr_t<real_superblock_lock> superblock;
     scoped_ptr_t<txn_t> txn;
@@ -613,7 +613,7 @@ private:
 void store_t::clear_sindex_data(
         uuid_u sindex_id,
         const key_range_t &pkey_range_to_clear,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     /* Delete one piece of the secondary index at a time */
     key_range_t remaining_range = key_range_t::universe();
@@ -877,7 +877,7 @@ region_map_t<version_t> store_t::get_metainfo(
         UNUSED order_token_t order_token,  // TODO
         read_token_t *token,
         const region_t &_region,
-        signal_t *interruptor)
+        const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
     scoped_ptr_t<txn_t> txn;
@@ -892,7 +892,7 @@ void store_t::set_metainfo(const region_map_t<version_t> &new_metainfo,
                            UNUSED order_token_t order_token,  // TODO
                            write_token_t *token,
                            write_durability_t durability,
-                           signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+                           const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
     scoped_ptr_t<txn_t> txn;
@@ -914,7 +914,7 @@ void store_t::acquire_superblock_for_read(
         read_token_t *token,
         scoped_ptr_t<txn_t> *txn_out,
         scoped_ptr_t<real_superblock_lock> *sb_out,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 
@@ -933,7 +933,7 @@ void store_t::acquire_superblock_for_write(
         write_token_t *token,
         scoped_ptr_t<txn_t> *txn_out,
         scoped_ptr_t<real_superblock_lock> *sb_out,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
 

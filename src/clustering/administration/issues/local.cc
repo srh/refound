@@ -21,7 +21,7 @@ local_issue_server_t::local_issue_server_t(
     { }
 
 void local_issue_server_t::on_get(
-        signal_t *, const mailbox_t<local_issues_t>::address_t &reply) {
+        const signal_t *, const mailbox_t<local_issues_t>::address_t &reply) {
     local_issues_t issues;
     issues.log_write_issues = log_write_issue_tracker->get_issues();
     issues.memory_issues = memory_issue_tracker->get_issues();
@@ -35,7 +35,7 @@ local_issue_client_t::local_issue_client_t(
     { }
 
 std::vector<scoped_ptr_t<issue_t> > local_issue_client_t::get_issues(
-        signal_t *interruptor) const {
+        const signal_t *interruptor) const {
     std::vector<std::pair<server_id_t, local_issue_bcard_t> > bcards;
     directory->read_all(
     [&](const peer_id_t &, const cluster_directory_metadata_t *md) {
@@ -50,7 +50,7 @@ std::vector<scoped_ptr_t<issue_t> > local_issue_client_t::get_issues(
             cond_t got_reply;
             mailbox_t<local_issues_t> reply_mailbox(
                 mailbox_manager,
-                [&](signal_t *, const local_issues_t &issues) {
+                [&](const signal_t *, const local_issues_t &issues) {
                     for (const auto &issue : issues.log_write_issues) {
                         log_write_issue_t copy = issue;
                         copy.add_server(bcards[i].first);

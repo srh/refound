@@ -8,7 +8,7 @@ namespace unittest {
 void dummy_performer_t::read(const read_t &_read,
                              read_response_t *response,
                              DEBUG_VAR state_timestamp_t expected_timestamp,
-                             signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+                             const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     read_token_t token;
     store->new_read_token(&token);
 
@@ -24,7 +24,7 @@ void dummy_performer_t::read(const read_t &_read,
 
 void dummy_performer_t::read_outdated(const read_t &_read,
                                       read_response_t *response,
-                                      signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+                                      const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     read_token_t token;
     store->new_read_token(&token);
 
@@ -84,7 +84,7 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
 void dummy_timestamper_t::read(const read_t &_read,
                                read_response_t *response,
                                order_token_t otok,
-                               signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
+                               const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
     order_sink.check_out(otok);
     next->read(_read, response, current_timestamp, interruptor);
 }
@@ -100,7 +100,7 @@ void dummy_timestamper_t::write(const write_t &_write,
 void dummy_sharder_t::read(const read_t &_read,
                            read_response_t *response,
                            order_token_t tok,
-                           signal_t *interruptor) {
+                           const signal_t *interruptor) {
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
     if (_read.read_mode == read_mode_t::OUTDATED ||
@@ -114,7 +114,7 @@ void dummy_sharder_t::read(const read_t &_read,
 void dummy_sharder_t::write(const write_t &_write,
                             write_response_t *response,
                             order_token_t tok,
-                            signal_t *interruptor) {
+                            const signal_t *interruptor) {
     if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
 
     the_shard.timestamper->write(_write, response, tok);

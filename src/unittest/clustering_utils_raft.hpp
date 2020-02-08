@@ -64,20 +64,20 @@ public:
     live_t get_live(const raft_member_id_t &member_id) const;
     void set_live(const raft_member_id_t &member_id, live_t live);
 
-    raft_member_id_t find_leader(signal_t *interruptor);
+    raft_member_id_t find_leader(const signal_t *interruptor);
     raft_member_id_t find_leader(int timeout);
 
     /* Tries to perform the given change on the member with the given ID. */
     bool try_change(
         raft_member_id_t id,
         const uuid_u &change,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* Like `try_change()` but for Raft configuration changes */
     bool try_config_change(
         raft_member_id_t id,
         const raft_config_t &new_config,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* `get_all_member_ids()` returns the member IDs of all the members of the cluster,
     alive or dead.  */
@@ -88,7 +88,7 @@ public:
     pointer. */
     void run_on_member(
         const raft_member_id_t &member_id,
-        const std::function<void(dummy_raft_member_t *, signal_t *)> &fun);
+        const std::function<void(dummy_raft_member_t *, const signal_t *)> &fun);
 
 private:
     class member_info_t :

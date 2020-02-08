@@ -30,7 +30,7 @@ server_config_business_card_t server_config_server_t::get_business_card() {
 }
 
 void server_config_server_t::on_set_config(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const server_config_t &new_config,
         const mailbox_t<uint64_t, std::string>::address_t &ack_addr) {
     if (interruptor->is_pulsed()) {

@@ -29,7 +29,7 @@ void table_generate_config(
         /* `table_generate_config()` will validate `params`, so there's no need for the
         caller to do so. */
         const table_generate_config_params_t &params,
-        signal_t *interruptor,
+        const signal_t *interruptor,
 
         table_config_t::shard_t *config_the_shard_out)
 

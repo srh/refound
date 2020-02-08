@@ -41,7 +41,7 @@ public:
             const namespace_id_t &table_id,
             const table_inactive_persistent_state_t &state,
             metadata_file_t::read_txn_t *metadata_read_txn)> &inactive_cb,
-        signal_t *interruptor);
+        const signal_t *interruptor);
     void write_metadata_active(
         const namespace_id_t &table_id,
         const table_active_persistent_state_t &state,
@@ -57,12 +57,12 @@ public:
         const namespace_id_t &table_id,
         metadata_file_t::read_txn_t *metadata_read_txn,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_out,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         perfmon_collection_t *perfmon_collection_serializers);
     void create_multistore(
         const namespace_id_t &table_id,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_out,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         perfmon_collection_t *perfmon_collection_serializers);
     void destroy_multistore(
         const namespace_id_t &table_id,

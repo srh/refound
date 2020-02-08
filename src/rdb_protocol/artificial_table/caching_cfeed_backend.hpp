@@ -59,7 +59,7 @@ private:
         bool get_initial_values(
             const new_mutex_acq_t *proof,
             std::vector<ql::datum_t> *out,
-            signal_t *interruptor);
+            const signal_t *interruptor);
 
         /* Pulsed when all of the initial values have been fetched. */
         cond_t ready;
@@ -81,12 +81,12 @@ private:
 
     private:
         void run(auto_drainer_t::lock_t keepalive) THROWS_NOTHING;
-        bool diff_dirty(const new_mutex_acq_t *proof, signal_t *interruptor);
+        bool diff_dirty(const new_mutex_acq_t *proof, const signal_t *interruptor);
         bool diff_one(const ql::datum_t &key, const new_mutex_acq_t *proof,
-            signal_t *interruptor);
+            const signal_t *interruptor);
         bool diff_all(bool is_break, const new_mutex_acq_t *proof,
-            signal_t *interruptor);
-        bool get_values(signal_t *interruptor, std::map<store_key_t, ql::datum_t> *out);
+            const signal_t *interruptor);
+        bool get_values(const signal_t *interruptor, std::map<store_key_t, ql::datum_t> *out);
 
         caching_cfeed_artificial_table_backend_t *parent;
 
@@ -101,7 +101,7 @@ private:
         construct_changefeed_machinery(
             lifetime_t<name_resolver_t const &> name_resolver,
             auth::user_context_t const &user_context,
-            signal_t *interruptor);
+            const signal_t *interruptor);
 
     std::map<auth::user_context_t, caching_machinery_t *> caching_machineries;
 };

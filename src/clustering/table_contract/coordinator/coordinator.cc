@@ -29,7 +29,7 @@ contract_coordinator_t::contract_coordinator_t(
 
 optional<raft_log_index_t> contract_coordinator_t::change_config(
         const std::function<void(table_config_and_shards_t *)> &changer,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     assert_thread();
     scoped_ptr_t<raft_member_t<table_raft_state_t>::change_token_t> change_token;
     raft_log_index_t log_index;
@@ -63,7 +63,7 @@ optional<raft_log_index_t> contract_coordinator_t::change_config(
     return make_optional(log_index);
 }
 
-bool contract_coordinator_t::check_all_replicas_ready(signal_t *interruptor) {
+bool contract_coordinator_t::check_all_replicas_ready(const signal_t *interruptor) {
     assert_thread();
     /* The bulk of the work is in the `::check_all_replicas_ready()` function defined in
     `check_ready.hpp`. But we also make sure to commit the state that `check_ready` saw
@@ -92,7 +92,7 @@ bool contract_coordinator_t::check_all_replicas_ready(signal_t *interruptor) {
 }
 
 bool contract_coordinator_t::check_outdated_all_replicas_ready(
-        UNUSED signal_t *interruptor) {
+        UNUSED const signal_t *interruptor) {
     assert_thread();
     bool ok;
     raft->get_latest_state()->apply_read(
@@ -123,7 +123,7 @@ void contract_coordinator_t::on_ack_change(
     contract_pumper.notify();
 }
 
-void contract_coordinator_t::pump_contracts(signal_t *interruptor) {
+void contract_coordinator_t::pump_contracts(const signal_t *interruptor) {
     assert_thread();
 
     /* Wait a little while to give changes time to accumulate, because
@@ -189,7 +189,7 @@ void contract_coordinator_t::pump_contracts(signal_t *interruptor) {
     }
 }
 
-void contract_coordinator_t::pump_configs(signal_t *interruptor) {
+void contract_coordinator_t::pump_configs(const signal_t *interruptor) {
     assert_thread();
 
     while (true) {

@@ -53,7 +53,7 @@ bool artificial_reql_cluster_interface_t::db_config(
 }
 
 bool artificial_reql_cluster_interface_t::table_list(counted_t<const ql::db_t> db,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         std::set<name_string_t> *names_out, admin_err_t *error_out) {
     if (db->name == artificial_reql_cluster_interface_t::database_name) {
         for (auto it = m_table_backends.begin(); it != m_table_backends.end(); ++it) {
@@ -74,7 +74,7 @@ bool artificial_reql_cluster_interface_t::table_find(
         const name_string_t &name,
         counted_t<const ql::db_t> db,
         optional<admin_identifier_format_t> identifier_format,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
     if (db->name == artificial_reql_cluster_interface_t::database_name) {

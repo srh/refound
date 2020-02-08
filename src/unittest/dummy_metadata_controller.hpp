@@ -7,6 +7,9 @@
 #include "arch/timing.hpp"
 #include "rpc/semilattice/view.hpp"
 #include "concurrency/mutex.hpp"
+#include "unittest/unittest_utils.hpp"
+
+namespace unittest {
 
 /* `dummy_semilattice_controller_t` exposes a `semilattice_readwrite_view_t`
 (via the `get_view()` method) which isn't hooked up to any other nodes in the
@@ -48,12 +51,14 @@ private:
                 semilattice_join(&controller->metadata, new_metadata);
                 controller->change_publisher.publish(&dummy_semilattice_controller_t::call);
             }
-            if (rng.randint(2) == 0) nap(rng.randint(10));
+            if (rng.randint(2) == 0) {
+                nap(rng.randint(10));
+            }
         }
-        void sync_from(peer_id_t, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+        void sync_from(peer_id_t, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
             if (rng.randint(2) == 0) nap(rng.randint(10), interruptor);
         }
-        void sync_to(peer_id_t, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+        void sync_to(peer_id_t, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
             if (rng.randint(2) == 0) nap(rng.randint(10), interruptor);
         }
         publisher_t<std::function<void()> > *get_publisher() {
@@ -74,5 +79,7 @@ private:
     }
     publisher_controller_t<std::function<void()> > change_publisher;
 };
+
+}
 
 #endif /* UNITTEST_DUMMY_METADATA_CONTROLLER_HPP_ */

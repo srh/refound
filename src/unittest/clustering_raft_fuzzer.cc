@@ -107,7 +107,7 @@ public:
         raft_config_t final_config;
         final_config.voting_members.insert(leader);
 
-        cluster.run_on_member(leader, [&](dummy_raft_member_t *m, signal_t *) {
+        cluster.run_on_member(leader, [&](dummy_raft_member_t *m, const signal_t *) {
                 m->get_readiness_for_config_change()->run_until_satisfied([&](bool v) {
                     return v;
                 }, &final_interruptor);
@@ -118,7 +118,7 @@ public:
     }
 
 private:
-    void fuzz_states(cond_t *done, signal_t *interruptor) {
+    void fuzz_states(cond_t *done, const signal_t *interruptor) {
         try {
             while (true) {
                 signal_timer_t timeout;
@@ -145,7 +145,7 @@ private:
         done->pulse();
     }
 
-    void fuzz_config(cond_t *done, signal_t *interruptor) {
+    void fuzz_config(cond_t *done, const signal_t *interruptor) {
         try {
             while (true) {
                 signal_timer_t timeout;
@@ -171,7 +171,7 @@ private:
                 if (rng.randint(3) == 0 && config.voting_members.size() > 0) {
                     raft_member_id_t leader = cluster.find_leader(interruptor);
                     // Check if we're in the middle of a joint consensus
-                    cluster.run_on_member(leader, [&] (dummy_raft_member_t *m, signal_t *) {
+                    cluster.run_on_member(leader, [&] (dummy_raft_member_t *m, const signal_t *) {
                             scoped_ptr_t<dummy_raft_member_t::change_lock_t> lock;
                             lock.init(new dummy_raft_member_t::change_lock_t(m, interruptor));
                             bool is_joint = (m->get_committed_state()->get().config !=
@@ -223,7 +223,7 @@ private:
         done->pulse();
     }
 
-    void fuzz_writes(cond_t *done, signal_t *interruptor) {
+    void fuzz_writes(cond_t *done, const signal_t *interruptor) {
         try {
             while (true) {
                 signal_timer_t timeout;

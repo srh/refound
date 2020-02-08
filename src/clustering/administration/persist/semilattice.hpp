@@ -17,13 +17,13 @@ public:
     /* `stop_and_flush()` finishes flushing the current value to disk but stops
     responding to future changes. It's usually called right before the
     destructor. */
-    void stop_and_flush(signal_t *interruptor) THROWS_NOTHING {
+    void stop_and_flush(const signal_t *interruptor) THROWS_NOTHING {
         subs.reset();
         persist_pumper.flush(interruptor);
     }
 
 private:
-    void persist(signal_t *interruptor);
+    void persist(const signal_t *interruptor);
 
     metadata_file_t * const file;
     metadata_file_t::key_t<metadata_t> const key;

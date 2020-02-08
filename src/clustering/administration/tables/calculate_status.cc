@@ -10,7 +10,7 @@ bool wait_for_table_readiness(
         table_readiness_t readiness,
         namespace_repo_t *namespace_repo,
         table_meta_client_t *table_meta_client,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t) {
     namespace_interface_access_t ns_if =
         namespace_repo->get_namespace_interface(table_id, interruptor);
@@ -45,7 +45,7 @@ size_t wait_for_many_tables_readiness(
         table_readiness_t readiness,
         namespace_repo_t *namespace_repo,
         table_meta_client_t *table_meta_client,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
     std::set<namespace_id_t> tables = original_tables;
     while (true) {
@@ -73,7 +73,7 @@ void get_table_status(
         namespace_repo_t *namespace_repo,
         table_meta_client_t *table_meta_client,
         server_config_client_t *server_config_client,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         table_status_t *status_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t) {
     status_out->total_loss = false;

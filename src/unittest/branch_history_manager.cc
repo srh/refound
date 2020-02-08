@@ -7,6 +7,7 @@
 #include "arch/timing.hpp"
 #include "clustering/id_types.hpp"
 #include "rdb_protocol/protocol.hpp"
+#include "unittest/unittest_utils.hpp"
 
 namespace unittest {
 

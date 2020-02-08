@@ -19,7 +19,7 @@ public:
             const write_t &request,
             fifo_enforcer_sink_t::exit_write_t *exiter,
             order_token_t order_token,
-            UNUSED signal_t *interruptor,
+            UNUSED const signal_t *interruptor,
             write_response_t *response_out,
             admin_err_t *error_out) {
         order_sink.check_out(order_token);
@@ -39,7 +39,7 @@ public:
             const read_t &request,
             fifo_enforcer_sink_t::exit_read_t *exiter,
             order_token_t order_token,
-            UNUSED signal_t *interruptor,
+            UNUSED const signal_t *interruptor,
             read_response_t *response_out,
             admin_err_t *error_out) {
         order_sink.check_out(order_token);

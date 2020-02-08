@@ -11,7 +11,7 @@ sindex_manager_t::sindex_manager_t(
         store_ptr_t *multistore_,
         const clone_ptr_t<watchable_t<table_config_t> > &table_config_) :
     multistore(multistore_), table_config(table_config_),
-    update_pumper([this](signal_t *interruptor) { update_blocking(interruptor); }),
+    update_pumper([this](const signal_t *interruptor) { update_blocking(interruptor); }),
     table_config_subs([this]() { update_pumper.notify(); })
 {
     watchable_t<table_config_t>::freeze_t freeze(table_config);
@@ -20,7 +20,7 @@ sindex_manager_t::sindex_manager_t(
 }
 
 std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-sindex_manager_t::get_status(signal_t *interruptor) const {
+sindex_manager_t::get_status(const signal_t *interruptor) const {
     /* First, we make a list of all the sindexes in the config. Then, we iterate over
     the actual sindexes in the stores and try to match them to the sindexes in the
     config. If we find a match, we accumulate the `sindex_status_t`s. If there's a sindex
@@ -62,7 +62,7 @@ sindex_manager_t::get_status(signal_t *interruptor) const {
     return res;
 }
 
-void sindex_manager_t::update_blocking(signal_t *interruptor) {
+void sindex_manager_t::update_blocking(const signal_t *interruptor) {
     std::map<std::string, sindex_config_t> goal;
     table_config->apply_read([&](const table_config_t *config) {
         goal = config->sindexes;

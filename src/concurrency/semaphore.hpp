@@ -21,7 +21,7 @@ public:
 
     virtual void lock(semaphore_available_callback_t *cb, int64_t count = 1) = 0;
     virtual void co_lock(int64_t count = 1) = 0;
-    virtual void co_lock_interruptible(signal_t *interruptor, int64_t count = 1) = 0;
+    virtual void co_lock_interruptible(const signal_t *interruptor, int64_t count = 1) = 0;
     virtual void unlock(int64_t count = 1) = 0;
     virtual void lock_now(int64_t count = 1) = 0;
     virtual void force_lock(int64_t count = 1) = 0;
@@ -68,7 +68,7 @@ public:
 
     void co_lock(int64_t count = 1);
 
-    void co_lock_interruptible(signal_t *interruptor, int64_t count = 1);
+    void co_lock_interruptible(const signal_t *interruptor, int64_t count = 1);
 
     void unlock(int64_t count = 1);
     void lock_now(int64_t count = 1);
@@ -119,7 +119,7 @@ public:
     void lock(semaphore_available_callback_t *cb, int64_t count = 1);
 
     void co_lock(int64_t count = 1);
-    void co_lock_interruptible(signal_t *interruptor, int64_t count = 1);
+    void co_lock_interruptible(const signal_t *interruptor, int64_t count = 1);
 
     void unlock(int64_t count = 1);
     void lock_now(int64_t count = 1);

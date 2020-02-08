@@ -1122,7 +1122,7 @@ void run_rethinkdb_create(const base_path_t &base_path,
         metadata_file_t metadata_file(
             &io_backender,
             &metadata_perfmon_collection,
-            [&](metadata_file_t::write_txn_t *write_txn, signal_t *interruptor) {
+            [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
                 write_txn->write(mdkey_server_id(),
                     our_server_id, interruptor);
                 write_txn->write(mdkey_server_config(),
@@ -1176,7 +1176,7 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
             metadata_file.init(new metadata_file_t(
                 &io_backender,
                 &metadata_perfmon_collection,
-                [&](metadata_file_t::write_txn_t *write_txn, signal_t *interruptor) {
+                [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
                     write_txn->write(mdkey_server_id(),
                         *our_server_id, interruptor);
                     write_txn->write(mdkey_server_config(),

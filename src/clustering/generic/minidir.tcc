@@ -33,7 +33,7 @@ void minidir_read_manager_t<key_t, value_t>::on_connection_change(
 
 template<class key_t, class value_t>
 void minidir_read_manager_t<key_t, value_t>::on_update(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const typename minidir_bcard_t<key_t, value_t>::update_message_t &msg) {
     const peer_id_t &peer_id = msg.peer_id;
     const minidir_link_id_t &link_id = msg.link_id;

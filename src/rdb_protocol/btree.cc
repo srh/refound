@@ -2028,7 +2028,7 @@ public:
             const std::set<uuid_u> &sindexes_to_post_construct,
             cond_t *on_indexes_deleted,
             const std::function<bool(int64_t)> &check_should_abort,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         : store_(store),
           sindexes_to_post_construct_(sindexes_to_post_construct),
           on_indexes_deleted_(on_indexes_deleted),
@@ -2194,7 +2194,7 @@ private:
     store_t *store_;
     const std::set<uuid_u> sindexes_to_post_construct_;
     cond_t *on_indexes_deleted_;
-    signal_t *interruptor_;
+    const signal_t *interruptor_;
 
     std::function<bool(int64_t)> check_should_abort_;
 
@@ -2224,7 +2224,7 @@ void post_construct_secondary_index_range(
         const std::set<uuid_u> &sindex_ids_to_post_construct,
         key_range_t *construction_range_inout,
         const std::function<bool(int64_t)> &check_should_abort,
-        signal_t *interruptor)
+        const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t) {
     // TODO: Do read operations with rockstore.
 

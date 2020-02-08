@@ -22,7 +22,7 @@ primary_query_bcard_t primary_query_server_t::get_bcard() {
 
 void primary_query_server_t::client_t::perform_request(
         const primary_query_bcard_t::request_t &request,
-        UNUSED signal_t *interruptor)
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t)
 {
     /* Note that we only pay attention to `parent->shutdown_cond`; we don't ever use

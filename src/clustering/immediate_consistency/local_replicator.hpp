@@ -24,7 +24,7 @@ public:
         primary_dispatcher_t *primary,
         store_view_t *store,
         branch_history_manager_t *bhm,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* This destructor can block */
     ~local_replicator_t();
@@ -36,7 +36,7 @@ public:
     void do_read(
         const read_t &read,
         state_timestamp_t min_timestamp,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out);
 
     void do_write_sync(
@@ -44,17 +44,17 @@ public:
         state_timestamp_t timestamp,
         order_token_t order_token,
         write_durability_t durability,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out);
 
     void do_write_async(
         const write_t &write,
         state_timestamp_t timestamp,
         order_token_t order_token,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     void do_dummy_write(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out);
 
 private:

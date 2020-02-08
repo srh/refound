@@ -38,7 +38,7 @@ table_query_client_t::table_query_client_t(
 }
 
 bool table_query_client_t::check_readiness(table_readiness_t readiness,
-                                           signal_t *interruptor) {
+                                           const signal_t *interruptor) {
     rassert(readiness != table_readiness_t::finished,
             "Cannot check for the 'finished' state with namespace_interface_t.");
     try {
@@ -100,7 +100,7 @@ void table_query_client_t::read(
         const read_t &r,
         read_response_t *response,
         order_token_t order_token,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) {
     table_basic_config_t table_basic_config;
@@ -136,7 +136,7 @@ void table_query_client_t::write(
         const write_t &w,
         write_response_t *response,
         order_token_t order_token,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) {
     table_basic_config_t table_basic_config;
@@ -167,11 +167,11 @@ void table_query_client_t::dispatch_immediate_read(
         op_response_type *,
         order_token_t,
         fifo_enforcer_token_type *,
-        signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
+        const signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
     const op_type &op,
     op_response_type *response,
     order_token_t order_token,
-    signal_t *interruptor)
+    const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
 
     if (interruptor->is_pulsed()) throw interrupted_exc_t();
@@ -227,7 +227,7 @@ void table_query_client_t::perform_immediate_read(
         op_response_type *,
         order_token_t,
         fifo_enforcer_token_type *,
-        signal_t *)
+        const signal_t *)
     /* THROWS_ONLY(interrupted_exc_t, resource_lost_exc_t,
        cannot_perform_query_exc_t) */,
     immediate_op_info_t<op_type, fifo_enforcer_token_type> *primary_to_contact,
@@ -269,11 +269,11 @@ void table_query_client_t::dispatch_immediate_write(
         op_response_type *,
         order_token_t,
         fifo_enforcer_token_type *,
-        signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
+        const signal_t *) THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t),
     const op_type &op,
     op_response_type *response,
     order_token_t order_token,
-    signal_t *interruptor)
+    const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
 
     if (interruptor->is_pulsed()) throw interrupted_exc_t();
@@ -329,7 +329,7 @@ void table_query_client_t::perform_immediate_write(
         op_response_type *,
         order_token_t,
         fifo_enforcer_token_type *,
-        signal_t *)
+        const signal_t *)
     /* THROWS_ONLY(interrupted_exc_t, resource_lost_exc_t,
        cannot_perform_query_exc_t) */,
     immediate_op_info_t<op_type, fifo_enforcer_token_type>
@@ -363,7 +363,7 @@ void table_query_client_t::perform_immediate_write(
 void table_query_client_t::dispatch_outdated_read(
     const read_t &op,
     read_response_t *response,
-    signal_t *interruptor)
+    const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
 
     if (interruptor->is_pulsed()) {
@@ -415,7 +415,7 @@ void table_query_client_t::perform_outdated_read(
     {
         cond_t done;
         mailbox_t<read_response_t> cont(mailbox_manager,
-            [&](signal_t *, const read_response_t &res) {
+            [&](const signal_t *, const read_response_t &res) {
                 *result_out = res;
                 done.pulse();
             });
@@ -437,7 +437,7 @@ void table_query_client_t::perform_outdated_read(
 void table_query_client_t::dispatch_debug_direct_read(
         const read_t &op,
         read_response_t *response,
-        signal_t *interruptor_on_caller)
+        const signal_t *interruptor_on_caller)
         THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t) {
     cross_thread_signal_t interruptor_on_mtm(
         interruptor_on_caller, multi_table_manager->home_thread());

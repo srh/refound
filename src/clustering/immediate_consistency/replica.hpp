@@ -30,7 +30,7 @@ public:
     void do_read(
         const read_t &read,
         state_timestamp_t token,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out);
 
     /* Warning: If you interrupt `do_write()`, the `replica_t` will be left in an
@@ -40,11 +40,11 @@ public:
         state_timestamp_t timestamp,
         order_token_t order_token,
         write_durability_t durability,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out);
 
     void do_dummy_write(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out);
 
 private:

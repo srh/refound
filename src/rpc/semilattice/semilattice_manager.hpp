@@ -56,8 +56,8 @@ private:
         semilattice_manager_t *parent;
         metadata_t get();
         void join(const metadata_t &);
-        void sync_from(peer_id_t, signal_t *) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t);
-        void sync_to(peer_id_t, signal_t *) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t);
+        void sync_from(peer_id_t, const signal_t *) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t);
+        void sync_to(peer_id_t, const signal_t *) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t);
         publisher_t<std::function<void()> > *get_publisher();
     };
 
@@ -75,7 +75,7 @@ private:
         const connectivity_cluster_t::connection_pair_t *pair);
 
     void join_metadata_locally(metadata_t);
-    void wait_for_version_from_peer(peer_id_t peer, metadata_version_t version, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t);
+    void wait_for_version_from_peer(peer_id_t peer, metadata_version_t version, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t);
 
     const std::shared_ptr<root_view_t> root_view;
 

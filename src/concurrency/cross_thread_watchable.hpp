@@ -41,7 +41,7 @@ public:
 
 private:
     friend class cross_thread_watcher_subscription_t;
-    void deliver(signal_t *interruptor);
+    void deliver(const signal_t *interruptor);
 
     class w_t : public watchable_t<value_t> {
     public:
@@ -146,7 +146,7 @@ public:
 
 private:
     void on_change(const key_t &key, const value_t *value);
-    void deliver(signal_t *interruptor);
+    void deliver(const signal_t *interruptor);
     watchable_map_var_t<key_t, value_t> output_var;
     threadnum_t input_thread, output_thread;
     std::map<key_t, optional<value_t> > queued_changes;

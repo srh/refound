@@ -31,7 +31,7 @@ public:
     virtual void read(
         read_stream_t *stream,
         /* `interruptor` will be pulsed if the mailbox is destroyed. */
-        signal_t *interruptor) = 0;
+        const signal_t *interruptor) = 0;
 };
 
 template <class... Args>
@@ -65,10 +65,10 @@ class mailbox_t {
     public:
         explicit read_impl_t(mailbox_t<Args...> *_parent) : parent(_parent) { }
         template <size_t... Is>
-        void read_helper(signal_t *interruptor, std::tuple<Args...> &&tup, rindex_sequence<Is...>) {
+        void read_helper(const signal_t *interruptor, std::tuple<Args...> &&tup, rindex_sequence<Is...>) {
             parent->fun(interruptor, std::move(std::get<Is>(tup))...);
         }
-        void read(read_stream_t *stream, signal_t *interruptor) {
+        void read(read_stream_t *stream, const signal_t *interruptor) {
             std::tuple<Args...> args;
             archive_result_t res = deserialize<cluster_version_t::CLUSTER>(stream, &args);
             if (bad(res)) { throw fake_archive_exc_t(); }
@@ -83,7 +83,7 @@ public:
     typedef mailbox_addr_t<Args...> address_t;
 
     mailbox_t(mailbox_manager_t *manager,
-              const std::function< void(signal_t *, Args...)> &f) :
+              const std::function< void(const signal_t *, Args...)> &f) :
         reader(this), fun(f), mailbox(manager, &reader)
         { }
 
@@ -101,7 +101,7 @@ private:
     template <class... Args2>
     friend void send(mailbox_manager_t *, mailbox_addr_t<Args2...>, const Args2 &... args);
 
-    std::function< void(signal_t *, Args...) > fun;
+    std::function< void(const signal_t *, Args...) > fun;
     raw_mailbox_t mailbox;
 };
 

@@ -4,7 +4,7 @@
 
 # TODO: Remove RocksDB stuff
 ROCKSDB_STATIC_LIB := $(BUILD_DIR)/rocksdb/librocksdb.a
-ROCKSDB_LIBS := $(ROCKSDB_STATIC_LIB) -lbz2
+ROCKSDB_LIBS := $(ROCKSDB_STATIC_LIB) -lbz2 -llz4
 
 # TODO: Do we want a static lib, do we want to statically link FDB?
 FDB_DYNAMIC_LIB := $(BUILD_DIR)/fdb/libfdb_c_6.2.10.so

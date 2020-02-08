@@ -145,7 +145,7 @@ void dummy_raft_cluster_t::set_live(const raft_member_id_t &member_id, live_t li
 
 /* Blocks until it finds a cluster member which is advertising itself as ready for
 changes, then returns that member's ID. */
-raft_member_id_t dummy_raft_cluster_t::find_leader(signal_t *interruptor) {
+raft_member_id_t dummy_raft_cluster_t::find_leader(const signal_t *interruptor) {
     while (true) {
         for (const auto &pair : members) {
             if (pair.second->member_drainer.has() &&
@@ -174,9 +174,9 @@ raft_member_id_t dummy_raft_cluster_t::find_leader(int timeout) {
 bool dummy_raft_cluster_t::try_change(
         raft_member_id_t id,
         const uuid_u &change,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     bool res;
-    run_on_member(id, [&](dummy_raft_member_t *member, signal_t *interruptor2) {
+    run_on_member(id, [&](dummy_raft_member_t *member, const signal_t *interruptor2) {
         res = false;
         if (member != nullptr) {
             /* `interruptor2` is only pulsed when the member is being destroyed, so
@@ -210,9 +210,9 @@ bool dummy_raft_cluster_t::try_change(
 bool dummy_raft_cluster_t::try_config_change(
         raft_member_id_t id,
         const raft_config_t &new_config,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     bool res;
-    run_on_member(id, [&](dummy_raft_member_t *member, signal_t *interruptor2) {
+    run_on_member(id, [&](dummy_raft_member_t *member, const signal_t *interruptor2) {
         res = false;
         if (member != nullptr) {
             /* `interruptor2` is only pulsed when the member is being destroyed, so
@@ -257,7 +257,7 @@ the given ID. If the member is currently dead, it calls the function with a NULL
 pointer. */
 void dummy_raft_cluster_t::run_on_member(
         const raft_member_id_t &member_id,
-        const std::function<void(dummy_raft_member_t *, signal_t *)> &fun) {
+        const std::function<void(dummy_raft_member_t *, const signal_t *)> &fun) {
     member_info_t *i = members.at(member_id).get();
     if (i->member_drainer.has()) {
         auto_drainer_t::lock_t keepalive = i->member_drainer->lock();
@@ -378,7 +378,7 @@ size_t dummy_raft_traffic_generator_t::get_num_changes() {
 
 void dummy_raft_traffic_generator_t::check_changes_present() {
     raft_member_id_t leader = cluster->find_leader(60000);
-    cluster->run_on_member(leader, [&](dummy_raft_member_t *m, signal_t *) {
+    cluster->run_on_member(leader, [&](dummy_raft_member_t *m, const signal_t *) {
         std::set<uuid_u> all_changes;
         for (const uuid_u &change : m->get_committed_state()->get().state.state) {
             all_changes.insert(change);
@@ -425,7 +425,7 @@ void do_writes_raft(dummy_raft_cluster_t *cluster, int expect, int ms) {
             }
         }
         raft_member_id_t leader = cluster->find_leader(&timer);
-        cluster->run_on_member(leader, [&](dummy_raft_member_t *m, signal_t *) {
+        cluster->run_on_member(leader, [&](dummy_raft_member_t *m, const signal_t *) {
             std::set<uuid_u> all_changes;
             for (const uuid_u &change : m->get_committed_state()->get().state.state) {
                 all_changes.insert(change);

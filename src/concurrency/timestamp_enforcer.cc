@@ -5,7 +5,7 @@
 #include "containers/map_sentries.hpp"
 
 void timestamp_enforcer_t::wait_all_before(
-        state_timestamp_t goal, signal_t *interruptor) {
+        state_timestamp_t goal, const signal_t *interruptor) {
     if (goal > timestamp) {
         cond_t waiter;
         multimap_insertion_sentry_t<state_timestamp_t, cond_t *> sentry(

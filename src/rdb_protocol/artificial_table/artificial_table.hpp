@@ -105,7 +105,7 @@ private:
         const std::function<ql::datum_t(ql::datum_t)>
             &function,
         return_changes_t return_changes,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout);
 

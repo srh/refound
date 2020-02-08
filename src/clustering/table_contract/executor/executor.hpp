@@ -100,13 +100,13 @@ private:
     `update()` may spawn new executions, but it may not delete them, because that would
     block. Instead, it puts their regions in `to_delete_out`, and then
     `update_blocking()` deletes them. */
-    void update_blocking(signal_t *interruptor);
+    void update_blocking(const signal_t *interruptor);
     void update(const table_raft_state_t &new_state,
                 std::set<execution_key_t> *to_delete_out);
 
     /* `gc_branch_history()` runs in a `pump_coro_t` to garbage-collect the branch
     history. */
-    void gc_branch_history(signal_t *interruptor);
+    void gc_branch_history(const signal_t *interruptor);
 
     const server_id_t server_id;
     clone_ptr_t<watchable_t<table_raft_state_t> > raft_state;

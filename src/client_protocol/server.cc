@@ -217,7 +217,7 @@ int query_server_t::get_port() const {
     return tcp_listener->get_port();
 }
 
-void write_datum(tcp_conn_t *connection, ql::datum_t datum, signal_t *interruptor) {
+void write_datum(tcp_conn_t *connection, ql::datum_t datum, const signal_t *interruptor) {
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     datum.write_json(&writer);
@@ -225,7 +225,7 @@ void write_datum(tcp_conn_t *connection, ql::datum_t datum, signal_t *interrupto
     connection->write(buffer.GetString(), buffer.GetSize(), interruptor);
 }
 
-ql::datum_t read_datum(tcp_conn_t *connection, signal_t *interruptor) {
+ql::datum_t read_datum(tcp_conn_t *connection, const signal_t *interruptor) {
     std::array<char, 2048> buffer;
 
     std::size_t offset = 0;
@@ -565,7 +565,7 @@ template <class protocol_t>
 void query_server_t::connection_loop(tcp_conn_t *conn,
                                      size_t max_concurrent_queries,
                                      ql::query_cache_t *query_cache,
-                                     signal_t *drain_signal) {
+                                     const signal_t *drain_signal) {
     std::exception_ptr err;
     std::string err_str;
     cond_t abort;

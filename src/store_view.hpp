@@ -55,7 +55,7 @@ public:
             order_token_t order_token,
             read_token_t *token,
             const region_t &region,
-            signal_t *interruptor)
+            const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) = 0;
 
     /* Replaces the metainfo in `new_metainfo`'s domain with `new_metainfo`. */
@@ -64,7 +64,7 @@ public:
             order_token_t order_token,
             write_token_t *token,
             write_durability_t durability,
-            signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) = 0;
+            const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) = 0;
 
     /* Performs a read. The read's region must be a subset of the store's region. */
     virtual void read(
@@ -72,7 +72,7 @@ public:
             const read_t &read,
             read_response_t *response,
             read_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) = 0;
 
     /* Performs a write. `new_metainfo`'s region must be a subset of the store's region,
@@ -86,7 +86,7 @@ public:
             state_timestamp_t timestamp,
             order_token_t order_token,
             write_token_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t) = 0;
 
 protected:

@@ -333,7 +333,7 @@ void table_meta_client_t::drop(
             disconnect_watcher_t dw(mailbox_manager, pair.first);
             cond_t got_ack;
             mailbox_t<> ack_mailbox(mailbox_manager,
-                [&](signal_t *) { got_ack.pulse(); });
+                [&](const signal_t *) { got_ack.pulse(); });
             send(mailbox_manager, pair.second.action_mailbox,
                  {table_id,
                   multi_table_manager_timestamp_t::deletion(),
@@ -419,7 +419,7 @@ void table_meta_client_t::set_config(
         promise_t<std::pair<optional<multi_table_manager_timestamp_t>, bool> > promise;
         mailbox_t<optional<multi_table_manager_timestamp_t>, bool>
             ack_mailbox(mailbox_manager,
-            [&](signal_t *,
+            [&](const signal_t *,
                     const optional<multi_table_manager_timestamp_t> &change_timestamp,
                     bool is_change_successful) {
                 promise.pulse(std::make_pair(change_timestamp, is_change_successful));
@@ -604,7 +604,7 @@ void table_meta_client_t::create_or_emergency_repair(
                 pair.second.action_mailbox.get_peer());
             cond_t got_ack;
             mailbox_t<> ack_mailbox(mailbox_manager,
-                [&](signal_t *) { got_ack.pulse(); });
+                [&](const signal_t *) { got_ack.pulse(); });
             send(mailbox_manager, pair.second.action_mailbox,
                  {table_id,
                   timestamp,
@@ -754,7 +754,7 @@ void table_meta_client_t::get_status(
             cond_t got_ack;
             mailbox_t<std::map<namespace_id_t, table_status_response_t>>
             ack_mailbox(mailbox_manager,
-                [&](signal_t *, const std::map<
+                [&](const signal_t *, const std::map<
                         namespace_id_t, table_status_response_t> &resp) {
                     for (const auto &pair : resp) {
                         callback(bcard->server_id, pair.first, pair.second);

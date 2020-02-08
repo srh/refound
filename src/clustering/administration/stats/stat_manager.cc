@@ -25,7 +25,7 @@ get_stats_mailbox_address_t stat_manager_t::get_address() {
 }
 
 void stat_manager_t::on_stats_request(
-        UNUSED signal_t *interruptor,
+        UNUSED const signal_t *interruptor,
         const return_address_t& reply_address,
         const std::set<std::vector<stat_id_t> >& requested_stats) {
     perfmon_filter_t request(requested_stats);
@@ -42,12 +42,12 @@ bool fetch_stats_from_server(
         mailbox_manager_t *mailbox_manager,
         const get_stats_mailbox_address_t &request_addr,
         const std::set<std::vector<stat_manager_t::stat_id_t> > &filter,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         ql::datum_t *stats_out,
         admin_err_t *error_out) {
     cond_t done;
     mailbox_t<ql::datum_t> return_mailbox(mailbox_manager,
-        [&](signal_t *, ql::datum_t s) {
+        [&](const signal_t *, ql::datum_t s) {
             *stats_out = s;
             done.pulse();
         });

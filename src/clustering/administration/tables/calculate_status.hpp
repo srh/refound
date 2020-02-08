@@ -27,7 +27,7 @@ bool wait_for_table_readiness(
     table_readiness_t readiness,
     namespace_repo_t *namespace_repo,
     table_meta_client_t *table_meta_client,
-    signal_t *interruptor)
+    const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t);
 
 /* Blocks until all of the tables in the given set are either deleted or ready at the
@@ -38,7 +38,7 @@ size_t wait_for_many_tables_readiness(
     table_readiness_t readiness,
     namespace_repo_t *namespace_repo,
     table_meta_client_t *table_meta_client,
-    signal_t *interruptor)
+    const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t);
 
 /* `table_status_t` describes the current status of a table, in a format that can be
@@ -69,7 +69,7 @@ void get_table_status(
     namespace_repo_t *namespace_repo,
     table_meta_client_t *table_meta_client,
     server_config_client_t *server_config_client,
-    signal_t *interruptor,
+    const signal_t *interruptor,
     table_status_t *status_out)
     THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t);
 

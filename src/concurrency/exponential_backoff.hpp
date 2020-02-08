@@ -11,7 +11,7 @@ public:
         min_backoff_ms(_mnbm), max_backoff_ms(_mxbm), fail_factor(_ff),
         success_factor(_sf), backoff_ms(0)
         { }
-    void failure(signal_t *interruptor) {
+    void failure(const signal_t *interruptor) {
         if (backoff_ms == 0) {
             coro_t::yield();
             backoff_ms = min_backoff_ms;

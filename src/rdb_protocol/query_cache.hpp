@@ -54,7 +54,7 @@ public:
               int64_t _token,
               new_semaphore_in_line_t _throttler,
               query_cache_t::entry_t *_entry,
-              signal_t *interruptor);
+              const signal_t *interruptor);
 
         // Run a new query
         void run(env_t *env, response_t *res);
@@ -85,16 +85,16 @@ public:
     // Methods to obtain a unique reference to a given entry in the cache
     scoped_ptr_t<ref_t> create(query_params_t *query_params,
                                ql::datum_t &&deterministic_time,
-                               signal_t *interruptor);
+                               const signal_t *interruptor);
 
     scoped_ptr_t<ref_t> get(query_params_t *query_params,
-                            signal_t *interruptor);
+                            const signal_t *interruptor);
 
     void noreply_wait(const query_params_t &query_params,
-                      signal_t *interruptor);
+                      const signal_t *interruptor);
 
     // Issue a stop query to the cache
-    void stop_query(query_params_t *query_params, signal_t *interruptor);
+    void stop_query(query_params_t *query_params, const signal_t *interruptor);
 
     // Directly stop a query by its entry
     void terminate_internal(entry_t *entry);

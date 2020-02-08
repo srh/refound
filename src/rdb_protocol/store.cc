@@ -706,7 +706,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
                        rdb_context_t *_ctx,
                        read_response_t *_response,
                        profile::trace_t *_trace,
-                       signal_t *_interruptor) :
+                       const signal_t *_interruptor) :
         response(_response),
         ctx(_ctx),
         interruptor(_interruptor),
@@ -719,7 +719,7 @@ private:
 
     read_response_t *const response;
     rdb_context_t *const ctx;
-    signal_t *const interruptor;
+    const signal_t *const interruptor;
     btree_slice_t *const btree;
     store_t *const store;
     scoped_ptr_t<real_superblock_lock> superblock;
@@ -731,7 +731,7 @@ private:
 void store_t::protocol_read(const read_t &_read,
                             read_response_t *response,
                             scoped_ptr_t<real_superblock_lock> superblock,
-                            signal_t *interruptor) {
+                            const signal_t *interruptor) {
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
 
     {
@@ -970,7 +970,7 @@ struct rdb_write_visitor_t : public boost::static_visitor<void> {
                         profile::sampler_t *_sampler,
                         profile::trace_t *_trace,
                         write_response_t *_response,
-                        signal_t *_interruptor) :
+                        const signal_t *_interruptor) :
         txn(std::move(_txn)),
         btree(_btree),
         store(_store),
@@ -997,7 +997,7 @@ private:
     store_t *const store;
     write_response_t *const response;
     rdb_context_t *const ctx;
-    signal_t *const interruptor;
+    const signal_t *const interruptor;
     scoped_ptr_t<real_superblock_lock> superblock;
     const repli_timestamp_t timestamp;
     profile::sampler_t *const sampler;
@@ -1011,7 +1011,7 @@ void store_t::protocol_write(scoped_ptr_t<txn_t> txn,
                              write_response_t *response,
                              state_timestamp_t timestamp,
                              scoped_ptr_t<real_superblock_lock> superblock,
-                             signal_t *interruptor) {
+                             const signal_t *interruptor) {
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_write.profile);
 
     {

@@ -34,14 +34,14 @@ public:
 
     bool read_all_rows_as_vector(
             auth::user_context_t const &user_context,
-            signal_t *interruptor_on_caller,
+            const signal_t *interruptor_on_caller,
             std::vector<ql::datum_t> *rows_out,
             admin_err_t *error_out);
 
     bool read_row(
             auth::user_context_t const &user_context,
             ql::datum_t primary_key,
-            signal_t *interruptor_on_caller,
+            const signal_t *interruptor_on_caller,
             ql::datum_t *row_out,
             admin_err_t *error_out);
 
@@ -55,7 +55,7 @@ protected:
             computation is non-trivial, so it's easier if `table_common` does it for all
             the subclasses. */
             const ql::datum_t &db_name_or_uuid,
-            signal_t *interruptor_on_home,
+            const signal_t *interruptor_on_home,
             ql::datum_t *row_out)
         THROWS_ONLY(
             interrupted_exc_t,

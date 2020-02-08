@@ -167,7 +167,7 @@ raft_persistent_state_t<state_t> raft_member_t<state_t>::get_state_for_init(
 template<class state_t>
 raft_member_t<state_t>::change_lock_t::change_lock_t(
         raft_member_t *parent,
-        signal_t *interruptor) :
+        const signal_t *interruptor) :
     mutex_acq(&parent->mutex, interruptor) {
     DEBUG_ONLY_CODE(parent->check_invariants(&mutex_acq));
 }
@@ -1291,7 +1291,7 @@ void raft_member_t<state_t>::candidate_and_leader_coro(
     guarantee(mode == mode_t::follower);
     mutex_acq->guarantee_is_holding(&mutex);
     leader_keepalive.assert_is_holding(leader_drainer.get());
-    signal_t *interruptor = leader_keepalive.get_drain_signal();
+    const signal_t *interruptor = leader_keepalive.get_drain_signal();
 
     /* Raft paper, Section 5.2: "To begin an election, a follower increments its current
     term and transitions to candidate state."
@@ -1501,7 +1501,7 @@ template<class state_t>
 bool raft_member_t<state_t>::candidate_run_election(
         scoped_ptr_t<new_mutex_acq_t> *mutex_acq,
         signal_t *cancel_signal,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     (*mutex_acq)->guarantee_is_holding(&mutex);
     guarantee(mode == mode_t::candidate);
 

@@ -48,7 +48,7 @@ void pump_coro_t::include_latest_notifications() {
     queued = false;
 }
 
-void pump_coro_t::flush(signal_t *interruptor) {
+void pump_coro_t::flush(const signal_t *interruptor) {
     assert_thread();
     mutex_assertion_t::acq_t acq(&mutex);
     guarantee(!drained, "flush() might never succeed if we're draining");

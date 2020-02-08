@@ -28,7 +28,7 @@ uint64_t collatz(uint64_t n) {
 // Calculates the nth fibonacci number.
 class fib_job_t {
 public:
-    fib_job_t(size_t n, extproc_pool_t *pool, signal_t *interruptor) :
+    fib_job_t(size_t n, extproc_pool_t *pool, const signal_t *interruptor) :
         extproc_job(pool, &worker_fn, interruptor),
         iterations(n) { }
 
@@ -76,7 +76,7 @@ public:
     //
     // NB. The iterated collatz function has been shown to terminate for numbers
     // <= 10 billion.
-    collatz_job_t(uint64_t n, extproc_pool_t *pool, signal_t *interruptor) :
+    collatz_job_t(uint64_t n, extproc_pool_t *pool, const signal_t *interruptor) :
         extproc_job(pool, &worker_fn, interruptor),
         last_value(n) {
         // Kick off the worker with the initial value
@@ -362,7 +362,7 @@ SPAWNER_TEST(ExtProc, CrashedJob) {
 
 class hang_job_t {
 public:
-    hang_job_t(extproc_pool_t *pool, signal_t *interruptor) :
+    hang_job_t(extproc_pool_t *pool, const signal_t *interruptor) :
         extproc_job(pool, &worker_fn, interruptor) { }
 
 private:

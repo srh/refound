@@ -31,7 +31,7 @@ public:
 private:
     /* `on_set_config()` is a mailbox callback */
     void on_set_config(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const server_config_t &new_config,
         const mailbox_t<uint64_t, std::string>::address_t &ack_addr);
 

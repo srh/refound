@@ -58,7 +58,7 @@ public:
 
     // Acquires the lock.  The constructor blocks the coroutine until the lock
     // is acquired or the interruptor is pulsed.
-    new_mutex_acq_t(new_mutex_t *lock, signal_t *interruptor) : in_line(lock) {
+    new_mutex_acq_t(new_mutex_t *lock, const signal_t *interruptor) : in_line(lock) {
         wait_interruptible(in_line.acq_signal(), interruptor);
 
     }

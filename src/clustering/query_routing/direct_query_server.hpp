@@ -23,7 +23,7 @@ public:
 
 private:
     void on_read(
-            signal_t *interruptor,
+            const signal_t *interruptor,
             const read_t &,
             const mailbox_addr_t<read_response_t> &);
 

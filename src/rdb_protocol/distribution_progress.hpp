@@ -19,7 +19,7 @@ You can also serialize this, so you can send the distribution over to a differen
 and estimate progress there. */
 class distribution_progress_estimator_t {
 public:
-    distribution_progress_estimator_t(store_view_t *store, signal_t *interruptor);
+    distribution_progress_estimator_t(store_view_t *store, const signal_t *interruptor);
 
     // Default constructor only for serialization
     distribution_progress_estimator_t() : distribution_counts_sum(0) { }

@@ -42,11 +42,11 @@ private:
     static const uuid_u base_disk_compaction_id;
 
     void on_get_job_reports(
-        UNUSED signal_t *interruptor,
+        UNUSED const signal_t *interruptor,
         business_card_t::return_mailbox_t::address_t const &reply_address);
 
     void on_job_interrupt(
-        UNUSED signal_t *interruptor,
+        UNUSED const signal_t *interruptor,
         uuid_u const &id,
         auth::user_context_t const &user_context);
 

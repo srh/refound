@@ -61,11 +61,11 @@ public:
             admin_err_t *error_out) override;
 
     bool table_list(counted_t<const ql::db_t> db,
-            signal_t *interruptor,
+            const signal_t *interruptor,
             std::set<name_string_t> *names_out, admin_err_t *error_out) override;
     bool table_find(const name_string_t &name, counted_t<const ql::db_t> db,
             optional<admin_identifier_format_t> identifier_format,
-            signal_t *interruptor, counted_t<base_table_t> *table_out,
+            const signal_t *interruptor, counted_t<base_table_t> *table_out,
             admin_err_t *error_out) override;
     bool table_config(
             auth::user_context_t const &user_context,

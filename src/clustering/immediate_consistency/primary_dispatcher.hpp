@@ -39,7 +39,7 @@ public:
         virtual void do_read(
             const read_t &read,
             state_timestamp_t min_timestamp,
-            signal_t *interruptor,
+            const signal_t *interruptor,
             read_response_t *response_out) = 0;
 
         /* `do_write_sync()` blocks until the write has been performed with the given
@@ -52,15 +52,15 @@ public:
             state_timestamp_t timestamp,
             order_token_t order_token,
             write_durability_t durability,
-            signal_t *interruptor,
+            const signal_t *interruptor,
             write_response_t *response_out) = 0;
         virtual void do_write_async(
             const write_t &write,
             state_timestamp_t timestamp,
             order_token_t order_token,
-            signal_t *interruptor) = 0;
+            const signal_t *interruptor) = 0;
         virtual void do_dummy_write(
-            signal_t *interruptor,
+            const signal_t *interruptor,
             write_response_t *response_out) = 0;
     protected:
         virtual ~dispatchee_t() { }
@@ -161,7 +161,7 @@ public:
         const read_t &r,
         fifo_enforcer_sink_t::exit_read_t *lock,
         order_token_t tok,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out)
         THROWS_ONLY(cannot_perform_query_exc_t, interrupted_exc_t);
 

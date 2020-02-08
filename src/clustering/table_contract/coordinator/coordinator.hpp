@@ -42,14 +42,14 @@ public:
     change the cluster config. */
     optional<raft_log_index_t> change_config(
         const std::function<void(table_config_and_shards_t *)> &changer,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* Returns `true` if we can confirm that the contracts match the config and all of
     the contracts are fully executed.
     `check_outdated_all_replicas_ready` skips the expensive test transaction on
     the raft state. */
-    bool check_all_replicas_ready(signal_t *interruptor);
-    bool check_outdated_all_replicas_ready(signal_t *interruptor);
+    bool check_all_replicas_ready(const signal_t *interruptor);
+    bool check_outdated_all_replicas_ready(const signal_t *interruptor);
 
 private:
     void on_ack_change(
@@ -57,14 +57,14 @@ private:
 
     /* `pump_contracts()` is what actually issues the new contracts. It eventually gets
     run after every change. */
-    void pump_contracts(signal_t *interruptor);
+    void pump_contracts(const signal_t *interruptor);
 
     /* `pump_configs()` makes changes to the `member_ids` field of the
     `table_raft_state_t` and to the Raft cluster configuration. It's separate from
     `pump_contracts()` because the Raft cluster configuration changes are limited by the
     Raft cluster's readiness for configuration changes, so it's best if they're not
     handled in the same function. */
-    void pump_configs(signal_t *interruptor);
+    void pump_configs(const signal_t *interruptor);
 
     raft_member_t<table_raft_state_t> *const raft;
     watchable_map_t<std::pair<server_id_t, contract_id_t>, contract_ack_t> *const acks;

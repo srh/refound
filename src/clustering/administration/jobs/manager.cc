@@ -44,7 +44,7 @@ jobs_manager_business_card_t jobs_manager_t::get_business_card() {
 }
 
 void jobs_manager_t::on_get_job_reports(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const business_card_t::return_mailbox_t::address_t &reply_address) {
     std::vector<query_job_report_t> query_job_reports;
     std::vector<disk_compaction_job_report_t> disk_compaction_job_reports;
@@ -154,7 +154,7 @@ void jobs_manager_t::on_get_job_reports(
 }
 
 void jobs_manager_t::on_job_interrupt(
-        UNUSED signal_t *interruptor,
+        UNUSED const signal_t *interruptor,
         uuid_u const &id,
         auth::user_context_t const &user_context) {
     if (drainer.is_draining()) {

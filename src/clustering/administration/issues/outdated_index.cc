@@ -87,7 +87,7 @@ bool outdated_index_issue_tracker_t::is_acceptable_outdated(const sindex_config_
 void outdated_index_issue_tracker_t::log_outdated_indexes(
         multi_table_manager_t *multi_table_manager,
         const cluster_semilattice_metadata_t &metadata,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     try {
         multi_table_manager->visit_tables(interruptor, access_t::read,
             [&] (const namespace_id_t &table_id,
@@ -128,7 +128,7 @@ void outdated_index_issue_tracker_t::log_outdated_indexes(
 }
 
 std::vector<scoped_ptr_t<issue_t> > outdated_index_issue_tracker_t::get_issues(
-        signal_t *interruptor) const {
+        const signal_t *interruptor) const {
     std::vector<scoped_ptr_t<issue_t> > res;
     outdated_index_issue_t::index_map_t index_map;
 

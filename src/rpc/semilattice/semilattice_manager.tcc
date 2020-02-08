@@ -255,7 +255,7 @@ private:
 };
 
 template<class metadata_t>
-void semilattice_manager_t<metadata_t>::root_view_t::sync_from(peer_id_t peer, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+void semilattice_manager_t<metadata_t>::root_view_t::sync_from(peer_id_t peer, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
     guarantee(parent, "accessing `semilattice_manager_t` root view when cluster no longer exists");
     parent->assert_thread();
 
@@ -295,7 +295,7 @@ void semilattice_manager_t<metadata_t>::root_view_t::sync_from(peer_id_t peer, s
 }
 
 template<class metadata_t>
-void semilattice_manager_t<metadata_t>::root_view_t::sync_to(peer_id_t peer, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+void semilattice_manager_t<metadata_t>::root_view_t::sync_to(peer_id_t peer, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
     guarantee(parent, "accessing `semilattice_manager_t` root view when cluster no longer exists");
     parent->assert_thread();
 
@@ -557,7 +557,7 @@ void semilattice_manager_t<metadata_t>::join_metadata_locally(metadata_t added_m
 }
 
 template<class metadata_t>
-void semilattice_manager_t<metadata_t>::wait_for_version_from_peer(peer_id_t peer, metadata_version_t version, signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
+void semilattice_manager_t<metadata_t>::wait_for_version_from_peer(peer_id_t peer, metadata_version_t version, const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t, sync_failed_exc_t) {
     assert_thread();
     mutex_assertion_t::acq_t acq(&peer_version_mutex);
     typename std::map<peer_id_t, metadata_version_t>::iterator it = last_versions_seen.find(peer);

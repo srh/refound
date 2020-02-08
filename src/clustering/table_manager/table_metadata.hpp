@@ -328,7 +328,7 @@ public:
             const namespace_id_t &table_id,
             const table_inactive_persistent_state_t &state,
             metadata::read_txn_t *metadata_read_txn)> &inactive_cb,
-        signal_t *interruptor) = 0;
+        const signal_t *interruptor) = 0;
 
     /* `write_metadata_active()` sets the stored metadata for the table to be the given
     `state` and `raft_state`. It then returns a `raft_storage_interface_t *` that can be
@@ -354,12 +354,12 @@ public:
         const namespace_id_t &table_id,
         metadata::read_txn_t *metadata_read_txn,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_out,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         perfmon_collection_t *perfmon_collection_serializers) = 0;
     virtual void create_multistore(
         const namespace_id_t &table_id,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_out,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         perfmon_collection_t *perfmon_collection_serializers) = 0;
     virtual void destroy_multistore(
         const namespace_id_t &table_id,

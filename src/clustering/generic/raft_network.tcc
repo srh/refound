@@ -30,7 +30,7 @@ template<class state_t>
 bool raft_networked_member_t<state_t>::send_rpc(
         const raft_member_id_t &dest,
         const raft_rpc_request_t<state_t> &request,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         raft_rpc_reply_t *reply_out) {
     /* Find the given member's mailbox address */
     optional<raft_business_card_t<state_t> > bcard = peers->get_key(dest);
@@ -43,7 +43,7 @@ bool raft_networked_member_t<state_t>::send_rpc(
     cond_t got_reply;
     mailbox_t<raft_rpc_reply_t> reply_mailbox(
         mailbox_manager,
-        [&](signal_t *, raft_rpc_reply_t &&reply) {
+        [&](const signal_t *, raft_rpc_reply_t &&reply) {
             *reply_out = reply;
             got_reply.pulse();
         });
@@ -75,7 +75,7 @@ watchable_map_t<raft_member_id_t, optional<raft_term_t> > *
 
 template<class state_t>
 void raft_networked_member_t<state_t>::on_rpc(
-        UNUSED signal_t *interruptor,
+        UNUSED const signal_t *interruptor,
         const raft_rpc_request_t<state_t> &request,
         const mailbox_t<raft_rpc_reply_t>::address_t &reply_addr) {
     raft_rpc_reply_t reply;

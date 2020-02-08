@@ -24,7 +24,7 @@ void mock_namespace_interface_t::read(
         const read_t &query,
         read_response_t *response,
         UNUSED order_token_t tok,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) {
     if (interruptor->is_pulsed()) {
@@ -39,7 +39,7 @@ void mock_namespace_interface_t::write(
         const write_t &query,
         write_response_t *response,
         UNUSED order_token_t tok,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) {
     if (interruptor->is_pulsed()) {
@@ -57,7 +57,7 @@ std::string mock_namespace_interface_t::get_primary_key() const {
     return primary_key.to_std();
 }
 
-bool mock_namespace_interface_t::check_readiness(table_readiness_t, signal_t *) {
+bool mock_namespace_interface_t::check_readiness(table_readiness_t, const signal_t *) {
     throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
 }
 
@@ -358,7 +358,7 @@ bool test_rdb_env_t::instance_t::db_config(
 }
 
 bool test_rdb_env_t::instance_t::table_list(counted_t<const ql::db_t> db,
-        UNUSED signal_t *local_interruptor, std::set<name_string_t> *names_out,
+        UNUSED const signal_t *local_interruptor, std::set<name_string_t> *names_out,
         UNUSED admin_err_t *error_out) {
     for (auto it = tables.begin(); it != tables.end(); it++) {
         if (it->first.first == db->id) {
@@ -376,7 +376,7 @@ class fake_ref_tracker_t : public namespace_interface_access_t::ref_tracker_t {
 bool test_rdb_env_t::instance_t::table_find(const name_string_t &name,
         counted_t<const ql::db_t> db,
         optional<admin_identifier_format_t> identifier_format,
-        UNUSED signal_t *local_interruptor, counted_t<base_table_t> *table_out,
+        UNUSED const signal_t *local_interruptor, counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
     auto it = tables.find(std::make_pair(db->id, name));
     if (it == tables.end()) {

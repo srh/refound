@@ -46,7 +46,7 @@ public:
         metadata_file_t *file,
         metadata_file_t::read_txn_t *txn,
         const namespace_id_t &table_id,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* This constructor writes a new Raft state to the metadata file. */
     table_raft_storage_interface_t(

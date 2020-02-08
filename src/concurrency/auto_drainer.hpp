@@ -113,7 +113,7 @@ private:
 
     private:
         void serve(auto_drainer_t::lock_t keepalive, scoped_ptr_t<tcp_conn_t> &conn) {
-            signal_t *interruptor = keepalive.get_drain_signal();
+            const signal_t *interruptor = keepalive.get_drain_signal();
             try {
                 serve_queries_until_interrupted(conn, context, interruptor);
             } catch (const interrupted_exc_t &) {

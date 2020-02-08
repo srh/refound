@@ -282,7 +282,7 @@ void post_construct_secondary_index_range(
         const std::set<uuid_u> &sindexes_to_post_construct,
         key_range_t *construction_range_inout,
         const std::function<bool(int64_t)> &check_should_abort,
-        signal_t *interruptor)
+        const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t);
 
 // Exposed now for fdb.

@@ -322,7 +322,7 @@ bool primary_execution_t::on_write(
         const write_t &request,
         fifo_enforcer_sink_t::exit_write_t *exiter,
         order_token_t order_token,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         write_response_t *response_out,
         admin_err_t *error_out) {
     store->assert_thread();
@@ -383,7 +383,7 @@ bool primary_execution_t::on_write(
 
 bool primary_execution_t::sync_committed_read(const read_t &read_request,
                                               order_token_t order_token,
-                                              signal_t *interruptor,
+                                              const signal_t *interruptor,
                                               admin_err_t *error_out) {
     write_response_t response;
     write_t request = write_t::make_sync(read_request.get_region(),
@@ -421,7 +421,7 @@ bool primary_execution_t::on_read(
         const read_t &request,
         fifo_enforcer_sink_t::exit_read_t *exiter,
         order_token_t order_token,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         read_response_t *response_out,
         admin_err_t *error_out) {
     store->assert_thread();
@@ -545,7 +545,7 @@ void primary_execution_t::update_contract_on_store_thread(
 
 void primary_execution_t::sync_contract_with_replicas(
         counted_t<contract_info_t> contract,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     store->assert_thread();
     guarantee(our_dispatcher != nullptr);
     while (true) {

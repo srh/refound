@@ -46,7 +46,7 @@ public:
         const read_t &query,
         read_response_t *response,
         UNUSED order_token_t tok,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t);
 
@@ -55,11 +55,11 @@ public:
         const write_t &query,
         write_response_t *response,
         UNUSED order_token_t tok,
-        signal_t *interruptor)
+        const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t);
 
-    bool check_readiness(table_readiness_t readiness, signal_t *interruptor);
+    bool check_readiness(table_readiness_t readiness, const signal_t *interruptor);
 
     std::map<store_key_t, ql::datum_t> *get_data();
 
@@ -165,11 +165,11 @@ public:
                 admin_err_t *error_out) override;
 
         bool table_list(counted_t<const ql::db_t> db,
-                signal_t *interruptor,
+                const signal_t *interruptor,
                 std::set<name_string_t> *names_out, admin_err_t *error_out) override;
         bool table_find(const name_string_t &name, counted_t<const ql::db_t> db,
                 optional<admin_identifier_format_t> identifier_format,
-                signal_t *interruptor, counted_t<base_table_t> *table_out,
+                const signal_t *interruptor, counted_t<base_table_t> *table_out,
                 admin_err_t *error_out) override;
         bool table_config(
                 auth::user_context_t const &user_context,

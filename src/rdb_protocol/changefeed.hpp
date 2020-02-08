@@ -219,7 +219,7 @@ public:
         const std::function<
             namespace_interface_access_t(
                 const namespace_id_t &,
-                signal_t *)
+                const signal_t *)
             > &_namespace_source,
         lifetime_t<name_resolver_t const &> _name_resolver);
     ~client_t();
@@ -240,7 +240,7 @@ private:
     std::function<
         namespace_interface_access_t(
             const namespace_id_t &,
-            signal_t *)
+            const signal_t *)
         > const namespace_source;
     name_resolver_t const &name_resolver;
     std::map<namespace_id_t, scoped_ptr_t<real_feed_t> > feeds;
@@ -517,8 +517,8 @@ public:
     auto_drainer_t::lock_t get_keepalive();
 private:
     friend class limit_manager_t;
-    void stop_mailbox_cb(signal_t *interruptor, client_t::addr_t addr);
-    void limit_stop_mailbox_cb(signal_t *interruptor,
+    void stop_mailbox_cb(const signal_t *interruptor, client_t::addr_t addr);
+    void limit_stop_mailbox_cb(const signal_t *interruptor,
                                client_t::addr_t addr,
                                optional<std::string> sindex,
                                uuid_u uuid);

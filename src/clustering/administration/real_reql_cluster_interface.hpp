@@ -49,7 +49,7 @@ public:
             auth::user_context_t const &user_context,
             database_id_t database_id,
             const name_string_t &name,
-            signal_t *interruptor_on_home,
+            const signal_t *interruptor_on_home,
             ql::datum_t *result_out,
             admin_err_t *error_out);
     bool db_config(
@@ -62,14 +62,14 @@ public:
 
     bool table_list(
             counted_t<const ql::db_t> db,
-            signal_t *interruptor,
+            const signal_t *interruptor,
             std::set<name_string_t> *names_out,
             admin_err_t *error_out) override;
     bool table_find(
             const name_string_t &name,
             counted_t<const ql::db_t> db,
             optional<admin_identifier_format_t> identifier_format,
-            signal_t *interruptor, counted_t<base_table_t> *table_out,
+            const signal_t *interruptor, counted_t<base_table_t> *table_out,
             admin_err_t *error_out) override;
     bool table_config(
             auth::user_context_t const &user_context,
@@ -121,7 +121,7 @@ private:
 
     void wait_for_cluster_metadata_to_propagate(
             const cluster_semilattice_metadata_t &metadata,
-            signal_t *interruptor);
+            const signal_t *interruptor);
 
     // This could soooo be optimized if you don't want to copy the whole thing.
     void get_databases_metadata(databases_semilattice_metadata_t *out);
@@ -138,7 +138,7 @@ private:
     void wait_internal(
             std::set<namespace_id_t> tables,
             table_readiness_t readiness,
-            signal_t *interruptor,
+            const signal_t *interruptor,
             ql::datum_t *result_out,
             int *count_out)
             THROWS_ONLY(interrupted_exc_t, admin_op_exc_t);

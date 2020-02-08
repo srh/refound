@@ -259,7 +259,7 @@ void multi_table_manager_t::help_construct() {
 }
 
 void multi_table_manager_t::on_action(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const multi_table_manager_bcard_t::action_message_t &msg) {
     typedef multi_table_manager_bcard_t::status_t action_status_t;
 
@@ -523,7 +523,7 @@ void multi_table_manager_t::on_action(
 }
 
 void multi_table_manager_t::on_get_status(
-        signal_t *interruptor,
+        const signal_t *interruptor,
         const multi_table_manager_bcard_t::get_status_message_t &msg) {
 
     const std::set<namespace_id_t> &tables_of_interest = msg.table_ids;

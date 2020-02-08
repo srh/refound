@@ -258,7 +258,7 @@ public:
 
     void run_query(ql::query_params_t *query_params,
                    ql::response_t *res_out,
-                   signal_t *interruptor) {
+                   const signal_t *interruptor) {
         if (!handler_thread) {
             handler_thread.set(get_thread_id());
         }

@@ -63,7 +63,7 @@ int64_t socket_stream_t::write(const void *buf, int64_t count) {
     return ret;
 }
 
-void socket_stream_t::wait_for_pipe_client(signal_t *interruptor) {
+void socket_stream_t::wait_for_pipe_client(const signal_t *interruptor) {
     rassert(event_watcher != nullptr);
     overlapped_operation_t op(event_watcher);
     // TODO WINDOWS: msdn claim that the overlapped must contain

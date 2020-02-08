@@ -30,7 +30,7 @@ public:
 
     void run_query(ql::query_params_t *query_params,
                    ql::response_t *response_out,
-                   signal_t *interruptor);
+                   const signal_t *interruptor);
 private:
     void fill_server_info(ql::response_t *out);
 

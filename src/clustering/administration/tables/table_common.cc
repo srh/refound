@@ -27,7 +27,7 @@ std::string common_table_artificial_table_backend_t::get_primary_key_name() {
 
 bool common_table_artificial_table_backend_t::read_all_rows_as_vector(
         auth::user_context_t const &user_context,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
@@ -92,7 +92,7 @@ bool common_table_artificial_table_backend_t::read_all_rows_as_vector(
 bool common_table_artificial_table_backend_t::read_row(
         auth::user_context_t const &user_context,
         ql::datum_t primary_key,
-        signal_t *interruptor_on_caller,
+        const signal_t *interruptor_on_caller,
         ql::datum_t *row_out,
         UNUSED admin_err_t *error_out) {
     cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());

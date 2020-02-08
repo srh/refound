@@ -18,7 +18,7 @@ public:
     primary_query_client_t(
             mailbox_manager_t *mm,
             const primary_query_bcard_t &master,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t);
 
     void new_read_token(fifo_enforcer_sink_t::exit_read_t *out);
@@ -28,7 +28,7 @@ public:
             read_response_t *response,
             order_token_t otok,
             fifo_enforcer_sink_t::exit_read_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
     void new_write_token(fifo_enforcer_sink_t::exit_write_t *out);
@@ -38,7 +38,7 @@ public:
             write_response_t *response,
             order_token_t otok,
             fifo_enforcer_sink_t::exit_write_t *token,
-            signal_t *interruptor)
+            const signal_t *interruptor)
             THROWS_ONLY(interrupted_exc_t, cannot_perform_query_exc_t);
 
 private:

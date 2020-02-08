@@ -51,7 +51,7 @@ private:
                 peer_id_t peer,
                 business_card_t business_card,
                 auto_drainer_t::lock_t &&_keepalive,
-                signal_t *interruptor) :
+                const signal_t *interruptor) :
             keepalive(std::move(_keepalive)),
             registrar(_registrar),
             mutex_acq(std::move(_mutex_acq)),
@@ -120,7 +120,7 @@ private:
     };
 
     void on_create(
-            signal_t *interruptor,
+            const signal_t *interruptor,
             registration_id_t rid,
             peer_id_t peer,
             business_card_t business_card) {
@@ -150,7 +150,7 @@ private:
                                   business_card, std::move(keepalive), interruptor);
     }
 
-    void on_delete(UNUSED signal_t *interruptor, registration_id_t rid) {
+    void on_delete(UNUSED const signal_t *interruptor, registration_id_t rid) {
 
         /* Acquire the mutex so we don't race with `on_create()`. */
         mutex_t::acq_t mutex_acq(&mutex);

@@ -90,7 +90,7 @@ class issue_tracker_t {
 public:
     issue_tracker_t() { }
     virtual ~issue_tracker_t() { }
-    virtual std::vector<scoped_ptr_t<issue_t> > get_issues(signal_t *interruptor) const = 0;
+    virtual std::vector<scoped_ptr_t<issue_t> > get_issues(const signal_t *interruptor) const = 0;
 private:
     DISABLE_COPYING(issue_tracker_t);
 };

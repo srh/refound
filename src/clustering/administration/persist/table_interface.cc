@@ -122,7 +122,7 @@ void real_table_persistence_interface_t::read_all_metadata(
             const namespace_id_t &table_id,
             const table_inactive_persistent_state_t &state,
             metadata_file_t::read_txn_t *metadata_read_txn)> &inactive_cb,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     metadata_file_t::read_txn_t read_txn(metadata_file, interruptor);
 
     std::map<namespace_id_t, table_active_persistent_state_t> active_tables;
@@ -208,7 +208,7 @@ void real_table_persistence_interface_t::load_multistore(
         const namespace_id_t &table_id,
         metadata_file_t::read_txn_t *metadata_read_txn,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_out,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         perfmon_collection_t *perfmon_collection_serializers) {
     scoped_ptr_t<real_branch_history_manager_t> bhm(
         new real_branch_history_manager_t(
@@ -231,7 +231,7 @@ void real_table_persistence_interface_t::load_multistore(
 void real_table_persistence_interface_t::create_multistore(
         const namespace_id_t &table_id,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_out,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         perfmon_collection_t *perfmon_collection_serializers) {
     metadata_file_t::read_txn_t read_txn(metadata_file, interruptor);
     load_multistore(

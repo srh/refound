@@ -99,7 +99,7 @@ caching_cfeed_artificial_table_backend_t::caching_machinery_t::~caching_machiner
 bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::get_initial_values(
         const new_mutex_acq_t *proof,
         std::vector<ql::datum_t> *out,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     proof->guarantee_is_holding(&mutex);
 
     /* Calling `diff_dirty()` is necessary to make sure that the initial values are
@@ -155,7 +155,7 @@ void caching_cfeed_artificial_table_backend_t::caching_machinery_t::run(
 }
 
 bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::diff_dirty(
-        const new_mutex_acq_t *proof, signal_t *interruptor) {
+        const new_mutex_acq_t *proof, const signal_t *interruptor) {
     /* Copy the dirtiness flags into local variables and reset them. Resetting them now
     is important because it means that notifications that arrive while we're processing
     the current batch will be queued up instead of ignored. */
@@ -177,7 +177,7 @@ bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::diff_dirty(
 }
 
 bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::diff_one(
-        const ql::datum_t &key, const new_mutex_acq_t *proof, signal_t *interruptor) {
+        const ql::datum_t &key, const new_mutex_acq_t *proof, const signal_t *interruptor) {
     /* Fetch new value from backend */
     ql::datum_t new_val;
     admin_err_t error;
@@ -210,7 +210,7 @@ bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::diff_one(
 }
 
 bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::diff_all(
-        bool is_break, const new_mutex_acq_t *proof, signal_t *interruptor) {
+        bool is_break, const new_mutex_acq_t *proof, const signal_t *interruptor) {
     /* Fetch the new values of everything */
     std::map<store_key_t, ql::datum_t> new_values;
     if (!get_values(interruptor, &new_values)) {
@@ -250,7 +250,7 @@ bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::diff_all(
 }
 
 bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::get_values(
-        signal_t *interruptor, std::map<store_key_t, ql::datum_t> *out) {
+        const signal_t *interruptor, std::map<store_key_t, ql::datum_t> *out) {
     out->clear();
     admin_err_t error;
     std::vector<ql::datum_t> datums;
@@ -286,7 +286,7 @@ scoped_ptr_t<cfeed_artificial_table_backend_t::machinery_t>
 caching_cfeed_artificial_table_backend_t::construct_changefeed_machinery(
         lifetime_t<name_resolver_t const &> name_resolver,
         auth::user_context_t const &user_context,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     scoped_ptr_t<caching_machinery_t> machinery(
         new caching_machinery_t(get_table_id(), name_resolver, user_context, this));
     wait_interruptible(&machinery->ready, interruptor);

@@ -60,7 +60,7 @@ public:
         const server_id_t &server_id,
         const name_string_t &old_server_name,   /* for error messages */
         const server_config_t &new_server_config,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         admin_err_t *error_out);
 
     void update_server_connectivity(

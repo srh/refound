@@ -550,7 +550,7 @@ public:
     virtual bool send_rpc(
         const raft_member_id_t &dest,
         const raft_rpc_request_t<state_t> &request,
-        signal_t *interruptor,
+        const signal_t *interruptor,
         raft_rpc_reply_t *reply_out) = 0;
 
     /* `send_virtual_heartbeats()` sends a virtual continuous stream of heartbeat
@@ -631,7 +631,7 @@ public:
     conditional on the state. */
     class change_lock_t {
     public:
-        change_lock_t(raft_member_t *parent, signal_t *interruptor);
+        change_lock_t(raft_member_t *parent, const signal_t *interruptor);
     private:
         friend class raft_member_t;
         new_mutex_acq_t mutex_acq;
@@ -858,7 +858,7 @@ private:
         lock. */
         scoped_ptr_t<new_mutex_acq_t> *mutex_acq,
         signal_t *cancel_signal,
-        signal_t *interruptor);
+        const signal_t *interruptor);
 
     /* `leader_spawn_update_coros()` is a helper function for
     `candidate_and_leader_coro()` that spawns or kills instances of `run_updates()` as

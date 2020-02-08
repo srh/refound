@@ -39,7 +39,7 @@ query_cache_t::const_iterator query_cache_t::end() const {
 
 scoped_ptr_t<query_cache_t::ref_t> query_cache_t::create(query_params_t *query_params,
                                                          ql::datum_t &&deterministic_time,
-                                                         signal_t *interruptor) {
+                                                         const signal_t *interruptor) {
     guarantee(this == query_params->query_cache);
     query_params->maybe_release_query_id();
     if (queries.find(query_params->token) != queries.end()) {
@@ -85,7 +85,7 @@ scoped_ptr_t<query_cache_t::ref_t> query_cache_t::create(query_params_t *query_p
 }
 
 scoped_ptr_t<query_cache_t::ref_t> query_cache_t::get(query_params_t *query_params,
-                                                      signal_t *interruptor) {
+                                                      const signal_t *interruptor) {
     guarantee(this == query_params->query_cache);
     query_params->maybe_release_query_id();
     auto it = queries.find(query_params->token);
@@ -103,7 +103,7 @@ scoped_ptr_t<query_cache_t::ref_t> query_cache_t::get(query_params_t *query_para
 }
 
 void query_cache_t::noreply_wait(const query_params_t &query_params,
-                                 signal_t *interruptor) {
+                                 const signal_t *interruptor) {
     guarantee(this == query_params.query_cache);
     auto it = queries.find(query_params.token);
     if (it != queries.end()) {
@@ -118,7 +118,7 @@ void query_cache_t::noreply_wait(const query_params_t &query_params,
         }, interruptor);
 }
 
-void query_cache_t::stop_query(query_params_t *query_params, signal_t *interruptor) {
+void query_cache_t::stop_query(query_params_t *query_params, const signal_t *interruptor) {
     r_sanity_check(query_params->type == Query::STOP);
     guarantee(this == query_params->query_cache);
     assert_thread();
@@ -145,7 +145,7 @@ query_cache_t::ref_t::ref_t(query_cache_t *_query_cache,
                             int64_t _token,
                             new_semaphore_in_line_t _throttler,
                             query_cache_t::entry_t *_entry,
-                            signal_t *interruptor) :
+                            const signal_t *interruptor) :
         entry(_entry),
         token(_token),
         trace(maybe_make_profile_trace(entry->profile)),

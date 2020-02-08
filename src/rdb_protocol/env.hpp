@@ -47,12 +47,12 @@ public:
     // take a reql_version parameter.
     env_t(rdb_context_t *ctx,
           return_empty_normal_batches_t return_empty_normal_batches,
-          signal_t *interruptor,
+          const signal_t *interruptor,
           serializable_env_t s_env,
           profile::trace_t *trace);
     env_t(rdb_context_t *ctx,
           return_empty_normal_batches_t _return_empty_normal_batches,
-          signal_t *_interruptor,
+          const signal_t *_interruptor,
           global_optargs_t _global_optargs,
           auth::user_context_t _user_context,
           datum_t _deterministic_time,
@@ -61,7 +61,7 @@ public:
     // Used in unittest and for some secondary index environments (hence the
     // reql_version parameter).  (For secondary index writes, the interruptor definitely
     // should be a dummy cond.)
-    env_t(signal_t *interruptor,
+    env_t(const signal_t *interruptor,
           return_empty_normal_batches_t return_empty_normal_batches,
           reql_version_t reql_version);
 
@@ -136,7 +136,7 @@ public:
     const return_empty_normal_batches_t return_empty_normal_batches;
 
     // The interruptor signal while a query evaluates.
-    signal_t *const interruptor;
+    const signal_t *const interruptor;
 
     // This is non-empty when profiling is enabled.
     profile::trace_t *const trace;

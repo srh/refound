@@ -26,7 +26,7 @@ public:
             ql::response_t *error_out);
 
     static scoped_ptr_t<ql::query_params_t> parse_query(tcp_conn_t *conn,
-                                                        signal_t *interruptor,
+                                                        const signal_t *interruptor,
                                                         ql::query_cache_t *query_cache);
 
     // Used by the HTTP ReQL server to write the query response into the HTTP response
@@ -36,7 +36,7 @@ public:
     static void send_response(ql::response_t *response,
                               int64_t token,
                               tcp_conn_t *conn,
-                              signal_t *interruptor);
+                              const signal_t *interruptor);
 };
 
 #endif // CLIENT_PROTOCOL_JSON_HPP_

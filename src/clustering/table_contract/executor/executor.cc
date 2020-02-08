@@ -211,7 +211,7 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
     return key;
 }
 
-void contract_executor_t::update_blocking(signal_t *interruptor) {
+void contract_executor_t::update_blocking(const signal_t *interruptor) {
     new_mutex_acq_t executions_mutex_acq(&executions_mutex, interruptor);
     std::set<execution_key_t> dont_delete;
     {
@@ -253,7 +253,7 @@ void contract_executor_t::update_blocking(signal_t *interruptor) {
     }
 }
 
-void contract_executor_t::gc_branch_history(signal_t *interruptor) {
+void contract_executor_t::gc_branch_history(const signal_t *interruptor) {
     new_mutex_acq_t executions_mutex_acq(&executions_mutex, interruptor);
     std::set<branch_id_t> remove_branches;
     execution_context.branch_history_manager->prepare_gc(&remove_branches);

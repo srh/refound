@@ -659,7 +659,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             profile::sampler_t *_sampler,
             profile::trace_t *_trace_or_null,
             write_response_t *_response,
-            signal_t *_interruptor) :
+            const signal_t *_interruptor) :
         txn_(_txn),
         expected_cv_(_expected_cv),
         cv_fut_(transaction_get_config_version(_txn)),
@@ -686,7 +686,7 @@ private:
     // TODO: Rename trace to trace_or_null?
     profile::trace_t *const trace;
     write_response_t *const response;
-    signal_t *const interruptor;
+    const signal_t *const interruptor;
 
     DISABLE_COPYING(fdb_write_visitor);
 };
@@ -699,7 +699,7 @@ write_response_t apply_write(FDBTransaction *txn,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         const write_t &write,
-        signal_t *interruptor) {
+        const signal_t *interruptor) {
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(write.profile);
     write_response_t response;
     {
