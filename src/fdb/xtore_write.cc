@@ -3,10 +3,11 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "errors.hpp"
+#include <boost/variant/static_visitor.hpp>
+
 #include "btree/operations.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
-// TODO: Really include this?  What's it for?
-#include "concurrency/queue/unlimited_fifo.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/jobs/index_create.hpp"
 #include "fdb/typed.hpp"
@@ -382,8 +383,6 @@ batched_replace_response_t rdb_fdb_batched_replace(
         const std::vector<store_key_t> &keys,
         const btree_batched_replacer_t *replacer,
         ql::configured_limits_t limits,
-        profile::sampler_t *sampler,
-        profile::trace_t *trace,
         const signal_t *interruptor,
         std::vector<rdb_modification_report_t> *mod_reports_out) {
     std::vector<std::string> kv_locations;
@@ -545,8 +544,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 br.keys,
                 &replacer,
                 ql_env.limits(),
-                sampler,
-                trace,
                 interruptor,
                 &mod_reports);
 
@@ -582,8 +579,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 keys,
                 &replacer,
                 bi.limits,
-                sampler,
-                trace,
                 interruptor,
                 &mod_reports);
 
@@ -703,12 +698,15 @@ write_response_t apply_write(FDBTransaction *txn,
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(write.profile);
     write_response_t response;
     {
+        // TODO: The read version has some PROFILER_STARER_IF_ENABLED macro.
         profile::sampler_t start_write("Perform write on shard.", trace);  // TODO: Change message.
         // TODO: Pass &response.response, actually.
-        fdb_write_visitor v(txn, expected_cv, table_id, &table_config, &start_write, trace.get_or_null(), &response, interruptor);
+        fdb_write_visitor v(txn, expected_cv, table_id, &table_config, &start_write,
+            trace.get_or_null(), &response, interruptor);
         boost::apply_visitor(v, write.write);
     }
 
+    // TODO: Remove n_shards.
     response.n_shards = 1;
     if (trace.has()) {
         response.event_log = std::move(*trace).extract_event_log();
