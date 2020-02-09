@@ -9,6 +9,7 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"
+#include "rdb_protocol/geo_traversal.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
@@ -834,6 +835,63 @@ void do_fdb_snap_read(
     }
 }
 
+void rdb_fdb_get_nearest_slice(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const sindex_id_t &sindex_id,
+        const lon_lat_point_t &center,
+        double max_dist,
+        uint64_t max_results,
+        const ellipsoid_spec_t &geo_system,
+        ql::env_t *ql_env,
+        const sindex_disk_info_t &sindex_info,
+        nearest_geo_read_response_t *response) {
+
+    guarantee(sindex_info.geo == sindex_geo_bool_t::GEO);
+    PROFILE_STARTER_IF_ENABLED(
+        ql_env->profile() == profile_bool_t::PROFILE,
+        "Do nearest traversal on geospatial index.",
+        ql_env->trace);
+
+    const reql_version_t sindex_func_reql_version =
+        sindex_info.mapping_version_info.latest_compatible_reql_version;
+
+    // TODO (daniel): Instead of calling this multiple times until we are done,
+    //   results should be streamed lazily. Also, even if we don't do that,
+    //   the copying of the result we do here is bad.
+    nearest_traversal_state_t state(center, max_results, max_dist, geo_system);
+    response->results_or_error = nearest_geo_read_response_t::result_t();
+    do {
+        nearest_geo_read_response_t partial_response;
+        try {
+            nearest_traversal_cb_t callback(
+                geo_sindex_data_t(sindex_info.mapping,
+                                  sindex_func_reql_version, sindex_info.multi),
+                ql_env,
+                &state);
+            geo_fdb_traversal(
+                txn, table_id, sindex_id, key_range_t::universe(), &callback);
+            callback.finish(&partial_response);
+        } catch (const geo_exception_t &e) {
+            partial_response.results_or_error =
+                ql::exc_t(ql::base_exc_t::LOGIC, e.what(),
+                          ql::backtrace_id_t::empty());
+        }
+        if (boost::get<ql::exc_t>(&partial_response.results_or_error)) {
+            response->results_or_error = partial_response.results_or_error;
+            return;
+        } else {
+            auto partial_res = boost::get<nearest_geo_read_response_t::result_t>(
+                &partial_response.results_or_error);
+            guarantee(partial_res != nullptr);
+            auto full_res = boost::get<nearest_geo_read_response_t::result_t>(
+                &response->results_or_error);
+            std::move(partial_res->begin(), partial_res->end(),
+                      std::back_inserter(*full_res));
+        }
+    } while (state.proceed_to_next_batch() == continue_bool_t::CONTINUE);
+}
+
 
 struct fdb_read_visitor : public boost::static_visitor<void> {
 // OOO: Make sure there is no #if 0 left
@@ -1064,10 +1122,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             geo_read.stamp ? is_stamp_read_t::YES : is_stamp_read_t::NO,
             res);
     }
+#endif  // 0
 
     void operator()(const nearest_geo_read_t &geo_read) {
         ql::env_t ql_env(
-            ctx,
+            nullptr,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             geo_read.serializable_env,
@@ -1078,14 +1137,14 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             boost::get<nearest_geo_read_response_t>(&response->response);
 
         sindex_disk_info_t sindex_info;
-        uuid_u sindex_uuid;
+        sindex_id_t sindex_id;
         try {
-            acquire_sindex_for_read(
-                    store,
-                    superblock.get(),
-                    geo_read.table_name,
-                    geo_read.sindex_id,
-                    &sindex_info, &sindex_uuid);
+            acquire_fdb_sindex_for_read(
+                *table_config_,
+                geo_read.table_name,  // TODO: Wtf is this field?  display_name()?
+                geo_read.sindex_id,  // TODO: Rename to sindex_name.
+                &sindex_info,
+                &sindex_id);
         } catch (const ql::exc_t &e) {
             res->results_or_error = e;
             return;
@@ -1102,16 +1161,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             return;
         }
 
-        superblock->read_acq_signal()->wait_lazily_ordered();
-        rockshard rocksh = store->rocksh();
-        rockstore::snapshot snap = make_snapshot(rocksh.rocks);
-        superblock.reset();
-
-        rdb_get_nearest_slice(
-            snap.snap,
-            store->rocksh(),
-            sindex_uuid,
-            store->get_sindex_slice(sindex_uuid),
+        rdb_fdb_get_nearest_slice(
+            txn_,
+            table_id_,
+            sindex_id,
             geo_read.center,
             geo_read.max_dist,
             geo_read.max_results,
@@ -1119,8 +1172,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             &ql_env,
             sindex_info,
             res);
+
+        // TODO: Check the cv after the first request.
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
     }
-#endif  // 0
 
     void operator()(const rget_read_t &rget) {
         response->response = rget_read_response_t();

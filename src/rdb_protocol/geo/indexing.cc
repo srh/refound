@@ -15,6 +15,8 @@
 #include "concurrency/interruptor.hpp"
 #include "concurrency/signal.hpp"
 #include "containers/scoped.hpp"
+#include "fdb/btree_utils.hpp"
+#include "fdb/id_types.hpp"
 #include "rdb_protocol/geo/exceptions.hpp"
 #include "rdb_protocol/geo/geojson.hpp"
 #include "rdb_protocol/geo/geo_visitor.hpp"
@@ -587,6 +589,155 @@ continue_bool_t geo_traversal(
         }
         // At this point key_slice has had the prefix truncated.
         pos = key_slice.ToString();
+    }
+
+}
+
+continue_bool_t geo_fdb_traversal(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const sindex_id_t &sindex_id,
+        const key_range_t &sindex_range,
+        geo_index_traversal_helper_t *helper) {
+    std::string fdb_kv_prefix = rfdb::table_index_prefix(table_id, sindex_id);
+
+    // TODO: Medium, streaming batch size backoff logic etc, is partial iteration even allowable at all?
+
+    // TODO: We may be more in "seek" mode here, and fdb_transaction_get_key might be
+    // the tool to use.
+    /*
+    rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(txn, fdb_kv_prefix,
+        sindex_range.left, sindex_range.right.unbounded ? nullptr : &sindex_range.right.key(),
+        0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+    */
+
+    // There are two modes of iteration:  Stepping forward to cells and cell
+    // ancestors, and stepping through the contents of a cover cell or ancestor cell.
+
+    std::string pos = key_to_unescaped_str(sindex_range.left);
+
+    const std::string *sindex_range_right_ptr = sindex_range.right.unbounded ? nullptr :
+        &sindex_range.right.internal_key.str();
+
+    for (;;) {
+        // QQQ: We could (should) perform a bunch of parallel queries to fdb, right?
+
+        // At this point, we want to advance the iterator forward to the first
+        // cell key intersecting the cover, greater than or equal to prefixed_left_bound.
+        if (!helper->skip_forward_to_seek_key(&pos)) {
+            return continue_bool_t::CONTINUE;
+        }
+
+        rfdb::datum_range_fut rfut = rfdb::kv_prefix_get_range_str(txn, fdb_kv_prefix,
+            pos, sindex_range_right_ptr,
+            0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
+
+        const FDBKeyValue *kvs = valgrind_undefined(nullptr);
+        int kv_count = 0;
+        fdb_bool_t more = true;
+        // It's unclear if a zero-count read (except at end of stream) is even possible.
+        while (more && kv_count == 0) {
+            fdb_error_t err = fdb_future_get_keyvalue_array(rfut.fut, &kvs, &kv_count, &more);
+            check_for_fdb_transaction(err);
+        }
+
+        if (kv_count == 0) {
+            return continue_bool_t::CONTINUE;
+        }
+
+        key_view key_slice{void_as_uint8(kvs[0].key), kvs[0].key_length};
+        key_slice = key_slice.guarantee_without_prefix(fdb_kv_prefix);
+        rfdb::value_view value_slice{void_as_uint8(kvs[0].value), kvs[0].value_length};
+
+        store_key_t skey(key_slice.length, key_slice.data);
+        S2CellId cellid = btree_key_to_s2cellid(skey);
+
+        bool found_cell = false;
+        S2CellId max_cell;
+        // And now we want to see: Are we intersecting?  Or do we need to seek further?
+        for (S2CellId cell : helper->query_cells()) {
+            if (cell.contains(cellid)) {
+                // We're inside the cell.  Iterate through it entirely.
+                max_cell = cell.range_max();
+                found_cell = true;
+                break;
+            } else if (cellid.contains(cell)) {
+                // Iterate through all keys with the entire ancestor's _value_.
+                max_cell = cellid;
+                found_cell = true;
+                break;
+            } else {
+                // We're outside the cell.  Go to the next one.
+                continue;
+            }
+        }
+
+        if (!found_cell) {
+            pos = skey.str();
+            continue;
+        }
+
+        // TODO: Use index key concat helper.
+        std::string stop_line
+            = rfdb::index_key_concat_str(fdb_kv_prefix,
+                prefix_end(s2cellid_to_key(max_cell)));
+
+        // We iterate through the rest of kvs, refreshing it with more range queries as
+        // necessary.
+        int kvs_index = 1;
+        for (;;) {
+            // key_slice at this point has had the prefix truncated.
+            continue_bool_t contbool = helper->handle_pair(
+                std::make_pair(as_char(key_slice.data), size_t(key_slice.length)),
+                std::make_pair(as_char(value_slice.data), size_t(value_slice.length)));
+            if (contbool == continue_bool_t::ABORT) {
+                return continue_bool_t::ABORT;
+            }
+
+            if (kvs_index == kv_count) {
+                if (!more) {
+                    break;
+                }
+
+                // OOO: leftopen_range_str is hideous
+                // It's important that we reassign to rfut for kvs lifetime to be correct.
+                rfut = rfdb::kv_prefix_get_leftopen_range_str(txn, fdb_kv_prefix, std::string(as_char(key_slice.data), size_t(key_slice.length)),
+                     sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+                kv_count = 0;
+                while (more && kv_count == 0) {
+                    fdb_error_t err = fdb_future_get_keyvalue_array(rfut.fut, &kvs, &kv_count, &more);
+                    check_for_fdb_transaction(err);
+                }
+
+                if (kv_count == 0) {
+                    rassert(!more);
+                    break;
+                }
+
+                kvs_index = 0;
+            }
+
+            key_slice = key_view{void_as_uint8(kvs[kvs_index].key), kvs[kvs_index].key_length};
+            key_slice.guarantee_without_prefix(fdb_kv_prefix);
+            value_slice = rfdb::value_view{void_as_uint8(kvs[kvs_index].value), kvs[kvs_index].value_length};
+
+            kvs_index++;
+
+            if (std::string(as_char(key_slice.data), size_t(key_slice.length)) >= stop_line) {  // TODO: Perf.
+                break;
+            }
+        }
+
+        // At this point, maybe we've iterated through an entire cell's range or
+        // value, maybe not.  The iterator is now pointing at the key _past_
+        // that cell (or is not valid).  We continue through the loop if it's
+        // valid.
+        if (!more) {
+            return continue_bool_t::CONTINUE;
+        }
+        // At this point key_slice has had the prefix truncated.
+        // TODO: The key_slice lifetime logic (relative to the fdb future) is a bit fragile.
+        pos = std::string(as_char(key_slice.data), size_t(key_slice.length));
     }
 
 }

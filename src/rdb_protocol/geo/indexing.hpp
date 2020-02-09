@@ -8,14 +8,17 @@
 #include "btree/keys.hpp"
 #include "btree/types.hpp"
 #include "containers/counted.hpp"
+#include "fdb/fdb.hpp"
 #include "rdb_protocol/geo/s2/s2cellid.h"
 
 namespace ql {
 class datum_t;
 }
 namespace rocksdb { class Snapshot; }
+struct namespace_id_t;
 class rockshard;
 class signal_t;
+struct sindex_id_t;
 
 
 /* Polygons and lines are inserted into an index by computing a coverage of them
@@ -105,5 +108,11 @@ continue_bool_t geo_traversal(
         const key_range_t &sindex_range,
         geo_index_traversal_helper_t *helper);
 
+continue_bool_t geo_fdb_traversal(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const sindex_id_t &sindex_id,
+        const key_range_t &sindex_range,
+        geo_index_traversal_helper_t *helper);
 
 #endif  // RDB_PROTOCOL_GEO_INDEXING_HPP_

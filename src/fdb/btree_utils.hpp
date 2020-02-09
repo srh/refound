@@ -54,6 +54,11 @@ inline std::string index_key_concat(const std::string &kv_prefix, const store_ke
     return kv_prefix + key.str();
 }
 
+// key should really be a store_key_t.  TODO: Remove
+inline std::string index_key_concat_str(const std::string &kv_prefix, const std::string &key) {
+    return kv_prefix + key;
+}
+
 // QQQ: Of course, at some point, this will not be a raw fdb_future, or not one we get
 // values off of, so we'll want to hard-wrap the future type.
 struct datum_fut : public fdb_future {
@@ -75,8 +80,22 @@ void kv_location_delete(FDBTransaction *txn, const std::string &kv_location);
 
 datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_location);
 
-datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &prefix,
+datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_prefix,
     const store_key_t &lower, const store_key_t *upper_or_null,
+    int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+    fdb_bool_t snapshot, fdb_bool_t reverse);
+
+// Uses lower and upper_or_null should be store_key_t's, but they're std::strings.
+// TODO: Remove.
+datum_range_fut kv_prefix_get_range_str(FDBTransaction *txn, const std::string &prefix,
+    const std::string &lower, const std::string *upper_or_null,
+    int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+    fdb_bool_t snapshot, fdb_bool_t reverse);
+
+// Uses lower and upper_or_null should be store_key_t's, but they're std::strings.
+// TODO: Remove.
+datum_range_fut kv_prefix_get_leftopen_range_str(FDBTransaction *txn, const std::string &prefix,
+    const std::string &lower_open, const std::string *upper_or_null,
     int limit, int target_bytes, FDBStreamingMode mode, int iteration,
     fdb_bool_t snapshot, fdb_bool_t reverse);
 
