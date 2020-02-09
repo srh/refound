@@ -1375,7 +1375,6 @@ void rdb_get_intersecting_slice(
     const reql_version_t sindex_func_reql_version =
         sindex_info.mapping_version_info.latest_compatible_reql_version;
     collect_all_geo_intersecting_cb_t callback(
-        slice,
         geo_job_data_t(ql_env,
                        // The sorting is never `DESCENDING`, so this is always right.
                        ql::limit_read_last_key(sindex_range.left),
@@ -1425,7 +1424,6 @@ void rdb_get_nearest_slice(
         nearest_geo_read_response_t partial_response;
         try {
             nearest_traversal_cb_t callback(
-                slice,
                 geo_sindex_data_t(sindex_info.mapping,
                                   sindex_func_reql_version, sindex_info.multi),
                 ql_env,

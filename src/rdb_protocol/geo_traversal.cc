@@ -75,14 +75,12 @@ geo_job_data_t::geo_job_data_t(
 
 /* ----------- geo_intersecting_cb_t -----------*/
 geo_intersecting_cb_t::geo_intersecting_cb_t(
-        btree_slice_t *_slice,
         geo_sindex_data_t &&_sindex,
         ql::env_t *_env,
         std::set<std::pair<store_key_t, optional<uint64_t> > >
             *_distinct_emitted_in_out)
     : geo_index_traversal_helper_t(
         _env->interruptor),
-      slice(_slice),
       sindex(std::move(_sindex)),
       env(_env),
       distinct_emitted(_distinct_emitted_in_out) {
@@ -127,8 +125,9 @@ continue_bool_t geo_intersecting_cb_t::on_candidate(
 
     ql::datum_t val = datum_deserialize_from_vec(value.first, value.second);
 
-    slice->stats.pm_keys_read.record();
-    slice->stats.pm_total_keys_read += 1;
+    // TODO: Implement these perfmons
+    // slice->stats.pm_keys_read.record();
+    // slice->stats.pm_total_keys_read += 1;
 
     // Everything happens in key order after this. (Concurrent traversal used to
     // have a fifo token, allowing preceding code to run out of order.)
@@ -205,12 +204,11 @@ continue_bool_t geo_intersecting_cb_t::on_candidate(
 
 /* ----------- collect_all_geo_intersecting_cb_t -----------*/
 collect_all_geo_intersecting_cb_t::collect_all_geo_intersecting_cb_t(
-        btree_slice_t *_slice,
         geo_job_data_t &&_job,
         geo_sindex_data_t &&_sindex,
         const ql::datum_t &_query_geometry,
         rget_read_response_t *_resp_out)
-    : geo_intersecting_cb_t(_slice, std::move(_sindex), _job.env, &distinct_emitted),
+    : geo_intersecting_cb_t(std::move(_sindex), _job.env, &distinct_emitted),
       job(std::move(_job)), response(_resp_out) {
     guarantee(response != NULL);
     init_query(_query_geometry);
@@ -305,11 +303,10 @@ continue_bool_t nearest_traversal_state_t::proceed_to_next_batch() {
 }
 
 nearest_traversal_cb_t::nearest_traversal_cb_t(
-        btree_slice_t *_slice,
         geo_sindex_data_t &&_sindex,
         ql::env_t *_env,
         nearest_traversal_state_t *_state) :
-    geo_intersecting_cb_t(_slice, std::move(_sindex), _env, &_state->distinct_emitted),
+    geo_intersecting_cb_t(std::move(_sindex), _env, &_state->distinct_emitted),
     state(_state) {
     init_query_geometry();
 }
