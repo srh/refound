@@ -159,7 +159,7 @@ fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_clear_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_set_std_str(FDBTransaction *txn, const std::string &key, const std::string &vaue);
 
-// TODO: Rename to "value_view".
+// TODO: Rename to "maybe_value_view" or "fdb_view" or something
 struct fdb_value {
     fdb_bool_t present;
     const uint8_t *data;

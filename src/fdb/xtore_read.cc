@@ -767,6 +767,7 @@ void do_fdb_snap_read(
         ql::env_t *env,
         const rget_read_t &rget,
         rget_read_response_t *res) {
+    // TODO: Do the check_cv inside this function if it ever performs more than one round-trip.
     if (!rget.sindex.has_value()) {
         rdb_fdb_rget_snapshot_slice(
             txn,
@@ -1145,6 +1146,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             rget.serializable_env,
             trace);
         do_fdb_snap_read(txn_, table_id_, *table_config_, &ql_env, rget, res);
+        // TODO: If do_fdb_snap_read performs multiple requests, check the cv after the
+        // first one.
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
     }
 
 #if 0
