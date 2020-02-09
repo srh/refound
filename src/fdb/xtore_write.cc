@@ -96,11 +96,7 @@ void update_fdb_sindexes(
         }
 
         // TODO: Making this copy is gross -- would be better if compute_keys took sindex_config.
-        sindex_disk_info_t sindex_info{
-            sindex_config.func,
-            sindex_reql_version_info_t{sindex_config.func_version,sindex_config.func_version,sindex_config.func_version},  // TODO: Verify we just dumbly use latest_compatible_reql_version.
-            sindex_config.multi,
-            sindex_config.geo};
+        sindex_disk_info_t sindex_info = rfdb::sindex_config_to_disk_info(sindex_config);
 
         std::unordered_set<store_key_t, store_key_hash> deletion_keys;
 

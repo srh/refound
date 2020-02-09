@@ -100,6 +100,7 @@ optional<fdb_job_info> execute_index_create_job(
 
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
 
+    // OOO: Use kv_prefix_get_range.
     fdb_future data_fut = transaction_uq_index_get_range(txn, pkey_prefix,
         jobstate.unindexed_lower_bound, &jobstate.unindexed_upper_bound,
         0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);

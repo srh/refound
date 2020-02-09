@@ -31,4 +31,23 @@ rfdb::datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_locat
     return datum_fut{transaction_get_std_str(txn, kv_location)};
 }
 
+datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_prefix,
+        const store_key_t &lower, const store_key_t *upper_or_null,
+        int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+        fdb_bool_t snapshot, fdb_bool_t reverse) {
+    std::string lower_key = index_key_concat(kv_prefix, lower);
+    std::string upper_key = upper_or_null ? index_key_concat(kv_prefix, *upper_or_null)
+        : prefix_end(kv_prefix);
+
+    return datum_range_fut{fdb_transaction_get_range(txn,
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower_key.data()), int(lower_key.size())),
+        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper_key.data()), int(upper_key.size())),
+        limit,
+        target_bytes,
+        mode,
+        iteration,
+        snapshot,
+        reverse)};
+}
+
 }  // namespace rfdb

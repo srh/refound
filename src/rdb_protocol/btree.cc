@@ -625,6 +625,7 @@ public:
 private:
     rocks_rget_cb *cb;
     size_t copies;
+    DISABLE_COPYING(rocks_rget_cb_wrapper);
 };
 
 rocks_rget_cb::rocks_rget_cb(rget_io_data_t &&_io,
