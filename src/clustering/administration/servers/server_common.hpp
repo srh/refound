@@ -17,7 +17,12 @@ pseudo-tables. Subclasses should implement `format_row()` and `write_row()`, in 
 `lookup()`. */
 
 class common_server_artificial_table_backend_t :
-    public caching_cfeed_artificial_table_backend_t {
+#if RDB_CF
+    public caching_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
+{
 public:
     common_server_artificial_table_backend_t(
             name_string_t const &table_name,
@@ -63,9 +68,11 @@ protected:
     watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory;
     server_config_client_t *server_config_client;
 
+#if RDB_CF
     /* We use `directory_subs` to notify the `caching_cfeed_..._backend_t` that a row has
     changed. */
     watchable_map_t<peer_id_t, cluster_directory_metadata_t>::all_subs_t directory_subs;
+#endif
 };
 
 #endif /* CLUSTERING_ADMINISTRATION_SERVERS_SERVER_COMMON_HPP_ */

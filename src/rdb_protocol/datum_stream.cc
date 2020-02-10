@@ -117,6 +117,7 @@ lower_key_bound_range active_ranges_to_range(const active_ranges_t &ranges) {
     return lower_key_bound_range::half_open(start, end);
 }
 
+#if RDB_CF
 static void validate_and_record_stamps(
         const optional<changefeed_stamp_t> &stamp,
         const optional<changefeed_stamp_response_t> &stamp_response,
@@ -136,6 +137,7 @@ static void validate_and_record_stamps(
         }
     }
 }
+#endif  // RDB_CF
 
 enum class is_secondary_t { NO, YES };
 active_ranges_t new_active_ranges(
@@ -304,13 +306,14 @@ private:
 };
 
 
-
+#if RDB_CF
 changefeed::keyspec_t empty_reader_t::get_changespec() const {
     return changefeed::keyspec_t(
         changefeed::keyspec_t::empty_t(),
         table,
         table_name);
 }
+#endif  // RDB_CF
 
 // TODO: Probably, this code is designed to unshard from hash shards.  I bet
 // this could be simpler.
@@ -323,6 +326,7 @@ raw_stream_t rget_response_reader_t::unshard(
     auto stream = groups_to_batch(gs->get_underlying_map());
     if (!active_ranges) {
         optional<std::map<region_t, uuid_u> > opt_shard_ids;
+#if RDB_CF
         if (res.stamp_response.has_value()) {
             opt_shard_ids.set(std::map<region_t, uuid_u>());
             for (const auto &pair : *res.stamp_response->stamp_infos) {
@@ -330,6 +334,7 @@ raw_stream_t rget_response_reader_t::unshard(
                     std::make_pair(region_t::universe(), pair.first));
             }
         }
+#endif  // RDB_CF
         active_ranges.set(new_active_ranges(
             stream, readgen->original_keyrange(), opt_shard_ids,
             readgen->sindex_name() ? is_secondary_t::YES : is_secondary_t::NO));
@@ -486,11 +491,14 @@ void rget_response_reader_t::add_transformation(transform_variant_t &&tv) {
     transforms.push_back(std::move(tv));
 }
 
+#if RDB_CF
 bool rget_response_reader_t::add_stamp(changefeed_stamp_t _stamp) {
     stamp.set(std::move(_stamp));
     return true;
 }
+#endif  // RDB_CF
 
+#if RDB_CF
 optional<active_state_t> rget_response_reader_t::get_active_state() {
     if (!stamp || !active_ranges || shard_stamp_infos.empty()) {
         return r_nullopt;
@@ -515,6 +523,7 @@ optional<active_state_t> rget_response_reader_t::get_active_state() {
         std::move(shard_last_read_stamps),
         DEBUG_ONLY(readgen->sindex_name())});
 }
+#endif  // RDB_CF
 
 void rget_response_reader_t::accumulate(env_t *env,
                                         eager_acc_t *acc,
@@ -642,7 +651,11 @@ void rget_reader_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     started = true;
     batchspec_t batchspec = batchspec_t::all();
     read_t read = readgen->next_read(
-        active_ranges, stamp, transforms, batchspec);
+        active_ranges,
+#if RDB_CF
+        stamp,
+#endif
+        transforms, batchspec);
     rget_read_response_t resp = do_read(env, std::move(read));
 
     auto *rr = boost::get<rget_read_t>(&read.read);
@@ -667,9 +680,12 @@ rget_reader_t::do_range_read(env_t *env, const read_t &read) {
     r_sanity_check(rr);
     rget_read_response_t res = do_read(env, read);
 
+#if RDB_CF
     r_sanity_check(stamp.has_value() == rr->stamp.has_value());
     validate_and_record_stamps(stamp, res.stamp_response, &shard_stamp_infos);
+#endif  // RDB_CF
 
+    // OOO: There should be no read unsharding of any kind anymore.
     return unshard(rr->sorting, std::move(res));
 }
 
@@ -682,7 +698,11 @@ bool rget_reader_t::load_items(env_t *env, const batchspec_t &batchspec) {
         items = do_range_read(
             env,
             readgen->next_read(
-                active_ranges, stamp, transforms, batchspec));
+                active_ranges,
+#if RDB_CF
+                stamp,
+#endif
+                transforms, batchspec));
         r_sanity_check(active_ranges);
         readgen->sindex_sort(&items, batchspec);
     }
@@ -699,7 +719,11 @@ void intersecting_reader_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     started = true;
     batchspec_t batchspec = batchspec_t::all();
     read_t read = readgen->next_read(
-        active_ranges, stamp, transforms, batchspec);
+        active_ranges,
+#if RDB_CF
+        stamp,
+#endif
+        transforms, batchspec);
     rget_read_response_t resp = do_read(env, std::move(read));
 
     auto *stream = boost::get<grouped_t<stream_t> >(&resp.result);
@@ -757,12 +781,17 @@ bool intersecting_reader_t::load_items(env_t *env, const batchspec_t &batchspec)
     started = true;
     while (items_index >= items.size() && !shards_exhausted()) { // read some more
         read_t read = readgen->next_read(
-                active_ranges, stamp, transforms, batchspec);
+                active_ranges,
+#if RDB_CF
+                stamp,
+#endif
+                transforms, batchspec);
 
         intersecting_geo_read_t *gr = boost::get<intersecting_geo_read_t>(&read.read);
         r_sanity_check(gr != nullptr);
 
         optional<datum_t> old_query_geometry;
+#if RDB_CF
         if (gr->stamp.has_value()) {
             // If this read is done for the initial values on a changefeed, we
             // need to expand the query geometry sent to the shards to account for
@@ -784,6 +813,7 @@ bool intersecting_reader_t::load_items(env_t *env, const batchspec_t &batchspec)
                                e.what());
             }
         }
+#endif  // RDB_CF
 
         std::vector<rget_item_t> unfiltered_items = do_intersecting_read(
             env, std::move(read));
@@ -830,8 +860,10 @@ std::vector<rget_item_t> intersecting_reader_t::do_intersecting_read(
     r_sanity_check(gr);
     r_sanity_check(gr->sindex.region.has_value());
 
+#if RDB_CF
     r_sanity_check(stamp.has_value() == gr->stamp.has_value());
     validate_and_record_stamps(stamp, res.stamp_response, &shard_stamp_infos);
+#endif
 
     return unshard(sorting_t::UNORDERED, std::move(res));
 }
@@ -867,17 +899,26 @@ rget_readgen_t::rget_readgen_t(
 
 read_t rget_readgen_t::next_read(
     const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
     optional<changefeed_stamp_t> stamp,
+#endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
     return read_t(
         next_read_impl(
             active_ranges,
+#if RDB_CF
             std::move(stamp),
+#endif
             std::move(transforms),
             batchspec),
         profile,
-        stamp ? up_to_date_read_mode(read_mode) : read_mode);
+#if RDB_CF
+        stamp ? up_to_date_read_mode(read_mode) : read_mode
+#else
+        read_mode
+#endif
+        );
 }
 
 sorting_t readgen_t::sorting(const batchspec_t &batchspec) const {
@@ -891,7 +932,9 @@ read_t rget_readgen_t::terminal_read(
     const batchspec_t &batchspec) const {
     rget_read_t read = next_read_impl(
         r_nullopt, // No active ranges, just use the original range.
+#if RDB_CF
         optional<changefeed_stamp_t>(), // No need to stamp terminals.
+#endif
         transforms,
         batchspec);
     read.terminal.set(_terminal);
@@ -994,7 +1037,9 @@ scoped_ptr_t<readgen_t> primary_readgen_t::make(
 
 rget_read_t primary_readgen_t::next_read_impl(
     const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
     optional<changefeed_stamp_t> stamp,
+#endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
     region_t region = active_ranges
@@ -1002,7 +1047,9 @@ rget_read_t primary_readgen_t::next_read_impl(
         : datumspec.covering_range().to_primary_keyrange();
     r_sanity_check(!region.is_empty());
     return rget_read_t(
+#if RDB_CF
         std::move(stamp),
+#endif
         std::move(region),
         store_keys,
         serializable_env,
@@ -1027,6 +1074,7 @@ optional<std::string> primary_readgen_t::sindex_name() const {
     return optional<std::string>();
 }
 
+#if RDB_CF
 changefeed::keyspec_t::range_t primary_readgen_t::get_range_spec(
         std::vector<transform_variant_t> transforms) const {
     return changefeed::keyspec_t::range_t{
@@ -1036,6 +1084,7 @@ changefeed::keyspec_t::range_t primary_readgen_t::get_range_spec(
         datumspec,
         r_nullopt};
 }
+#endif  // RDB_CF
 
 sindex_readgen_t::sindex_readgen_t(
     serializable_env_t s_env,
@@ -1091,7 +1140,9 @@ void sindex_readgen_t::sindex_sort(
 
 rget_read_t sindex_readgen_t::next_read_impl(
     const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
     optional<changefeed_stamp_t> stamp,
+#endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
 
@@ -1113,7 +1164,9 @@ rget_read_t sindex_readgen_t::next_read_impl(
     r_sanity_check(!ds.is_empty());
 
     return rget_read_t(
+#if RDB_CF
         std::move(stamp),
+#endif
         region_t::universe(),
         r_nullopt,
         serializable_env,
@@ -1136,11 +1189,13 @@ optional<std::string> sindex_readgen_t::sindex_name() const {
     return make_optional(sindex);
 }
 
+#if RDB_CF
 changefeed::keyspec_t::range_t sindex_readgen_t::get_range_spec(
         std::vector<transform_variant_t> transforms) const {
     return changefeed::keyspec_t::range_t{
         std::move(transforms), sindex_name(), sorting_, datumspec, r_nullopt};
 }
+#endif  // RDB_CF
 
 intersecting_readgen_t::intersecting_readgen_t(
     serializable_env_t s_env,
@@ -1176,13 +1231,17 @@ scoped_ptr_t<readgen_t> intersecting_readgen_t::make(
 
 read_t intersecting_readgen_t::next_read(
     const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
     optional<changefeed_stamp_t> stamp,
+#endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
     return read_t(
         next_read_impl(
             active_ranges,
+#if RDB_CF
             std::move(stamp),
+#endif
             std::move(transforms),
             batchspec),
         profile,
@@ -1196,7 +1255,9 @@ read_t intersecting_readgen_t::terminal_read(
     intersecting_geo_read_t read =
         next_read_impl(
             r_nullopt,
+#if RDB_CF
             optional<changefeed_stamp_t>(), // No need to stamp terminals.
+#endif
             transforms,
             batchspec);
     read.terminal.set(_terminal);
@@ -1205,7 +1266,9 @@ read_t intersecting_readgen_t::terminal_read(
 
 intersecting_geo_read_t intersecting_readgen_t::next_read_impl(
     const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
     optional<changefeed_stamp_t> stamp,
+#endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
     region_t region = active_ranges
@@ -1216,9 +1279,15 @@ intersecting_geo_read_t intersecting_readgen_t::next_read_impl(
     // up with the traversal ranges of an initial intersecting read (which in turn
     // confuses the splice_stream_t).
     // By reading everything in a single batch, we avoid this issue.
+#if RDB_CF
     batchspec_t actual_batchspec = stamp ? batchspec.all() : batchspec;
+#else
+    batchspec_t actual_batchspec = batchspec;
+#endif
     return intersecting_geo_read_t(
+#if RDB_CF
         std::move(stamp),
+#endif
         serializable_env,
         table_name,
         actual_batchspec,
@@ -1248,6 +1317,7 @@ optional<std::string> intersecting_readgen_t::sindex_name() const {
     return make_optional(sindex);
 }
 
+#if RDB_CF
 changefeed::keyspec_t::range_t intersecting_readgen_t::get_range_spec(
         std::vector<transform_variant_t> transforms) const {
     return changefeed::keyspec_t::range_t{
@@ -1266,6 +1336,7 @@ bool datum_stream_t::add_stamp(changefeed_stamp_t) {
 optional<active_state_t> datum_stream_t::get_active_state() {
     return r_nullopt;
 }
+#endif  // RDB_CF
 
 scoped_ptr_t<val_t> datum_stream_t::run_terminal(
     env_t *env, const terminal_variant_t &tv) {
@@ -1596,6 +1667,7 @@ slice_datum_stream_t::slice_datum_stream_t(
     uint64_t _left, uint64_t _right, counted_t<datum_stream_t> _src)
     : wrapper_datum_stream_t(_src), index(0), left(_left), right(_right) { }
 
+#if RDB_CF
 std::vector<changespec_t> slice_datum_stream_t::get_changespecs() {
     for (auto transform : transforms) {
         filter_wire_func_t *filter = boost::get<filter_wire_func_t>(&transform);
@@ -1634,6 +1706,7 @@ std::vector<changespec_t> slice_datum_stream_t::get_changespecs() {
     }
     return wrapper_datum_stream_t::get_changespecs();
 }
+#endif  // RDB_CF
 
 std::vector<datum_t>
 slice_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &batchspec) {
@@ -2085,6 +2158,7 @@ bool union_datum_stream_t::is_infinite() const {
     return is_infinite_union;
 }
 
+#if RDB_CF
 std::vector<changespec_t> union_datum_stream_t::get_changespecs() {
     std::vector<changespec_t> specs;
     for (auto &&coro_stream : coro_streams) {
@@ -2093,6 +2167,7 @@ std::vector<changespec_t> union_datum_stream_t::get_changespecs() {
     }
     return specs;
 }
+#endif  // RDB_CF
 
 // RANGE_DATUM_STREAM_T
 range_datum_stream_t::range_datum_stream_t(bool _is_infinite_range,
@@ -2446,12 +2521,18 @@ bool fold_datum_stream_t::is_exhausted() const {
 
 vector_datum_stream_t::vector_datum_stream_t(
         backtrace_id_t _bt,
-        std::vector<datum_t> &&_rows,
-        optional<ql::changefeed::keyspec_t> &&_changespec) :
+        std::vector<datum_t> &&_rows
+#if RDB_CF
+        , optional<ql::changefeed::keyspec_t> &&_changespec
+#endif
+) :
     eager_datum_stream_t(_bt),
     rows(std::move(_rows)),
-    index(0),
-    changespec(std::move(_changespec)) { }
+    index(0)
+#if RDB_CF
+    , changespec(std::move(_changespec))
+#endif
+{ }
 
 datum_t vector_datum_stream_t::next(
         env_t *env, const batchspec_t &bs) {
@@ -2486,11 +2567,13 @@ std::vector<datum_t> vector_datum_stream_t::next_raw_batch(
 
 void vector_datum_stream_t::add_transformation(
     transform_variant_t &&tv, backtrace_id_t _bt) {
+#if RDB_CF
     if (changespec) {
         if (auto *rng = boost::get<changefeed::keyspec_t::range_t>(&changespec->spec)) {
             rng->transforms.push_back(tv);
         }
     }
+#endif  // RDB_CF
     eager_datum_stream_t::add_transformation(std::move(tv), _bt);
 }
 
@@ -2510,6 +2593,7 @@ bool vector_datum_stream_t::is_infinite() const {
     return false;
 }
 
+#if RDB_CF
 std::vector<changespec_t> vector_datum_stream_t::get_changespecs() {
     if (changespec) {
         return std::vector<changespec_t>{
@@ -2518,5 +2602,6 @@ std::vector<changespec_t> vector_datum_stream_t::get_changespecs() {
         rfail(base_exc_t::LOGIC, "%s", "Cannot call `changes` on this stream.");
     }
 }
+#endif  // RDB_CF
 
 } // namespace ql

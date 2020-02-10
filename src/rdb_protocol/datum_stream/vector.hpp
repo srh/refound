@@ -9,8 +9,11 @@ class vector_datum_stream_t : public eager_datum_stream_t {
 public:
     vector_datum_stream_t(
             backtrace_id_t bt,
-            std::vector<datum_t> &&_rows,
-            optional<changefeed::keyspec_t> &&_changespec);
+            std::vector<datum_t> &&_rows
+#if RDB_CF
+            , optional<changefeed::keyspec_t> &&_changespec
+#endif
+);
 private:
     datum_t next(env_t *env, const batchspec_t &bs);
     datum_t next_impl(env_t *);
@@ -24,11 +27,15 @@ private:
     bool is_array() const;
     bool is_infinite() const;
 
+#if RDB_CF
     std::vector<changespec_t> get_changespecs();
+#endif
 
     std::vector<datum_t> rows;
     size_t index;
+#if RDB_CF
     optional<changefeed::keyspec_t> changespec;
+#endif
 };
 
 }  // namespace ql

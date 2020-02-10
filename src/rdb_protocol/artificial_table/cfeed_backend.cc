@@ -6,6 +6,8 @@
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/env.hpp"
 
+#if RDB_CF
+
 /* We destroy the machinery if there have been no changefeeds for this many seconds */
 static const int machinery_expiration_secs = 60;
 
@@ -179,3 +181,4 @@ void cfeed_artificial_table_backend_t::maybe_remove_machinery() {
     }
 }
 
+#endif  // RDB_CF

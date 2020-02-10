@@ -21,7 +21,11 @@ ql::datum_t convert_db_or_table_config_and_name_to_datum(
 class real_reql_cluster_interface_t;
 
 class db_config_artificial_table_backend_t :
+#if RDB_CF
     public caching_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     db_config_artificial_table_backend_t(
@@ -59,7 +63,9 @@ private:
     rdb_context_t *rdb_context;
     std::shared_ptr<semilattice_readwrite_view_t<
         databases_semilattice_metadata_t> > database_sl_view;
+#if RDB_CF
     semilattice_read_view_t<databases_semilattice_metadata_t>::subscription_t subs;
+#endif
     real_reql_cluster_interface_t *reql_cluster_interface;
 };
 

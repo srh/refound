@@ -4,6 +4,8 @@
 
 #include "rdb_protocol/artificial_table/cfeed_backend.hpp"
 
+#if RDB_CF
+
 /* `caching_cfeed_artificial_table_backend_t` is a mixin for artificial table backends
 that implements change-feeds by storing a copy of all the rows in the table. It relies on
 its subclass to notify it when a row has changed; then it fetches the new value of the
@@ -121,6 +123,8 @@ private:
     void set_notifications(bool);
     scoped_ptr_t<repeating_timer_t> timer;
 };
+
+#endif  // RDB_CF
 
 #endif /* RDB_PROTOCOL_ARTIFICIAL_TABLE_CACHING_CFEED_BACKEND_HPP_ */
 

@@ -15,7 +15,11 @@ class cluster_semilattice_metadata_t;
 class table_meta_client_t;
 
 class stats_artificial_table_backend_t :
+#if RDB_CF
     public timer_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     stats_artificial_table_backend_t(

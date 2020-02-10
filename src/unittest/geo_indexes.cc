@@ -327,7 +327,9 @@ std::vector<datum_t> perform_get_intersecting(
     std::string idx_name = "geo";
     read_t read(
         intersecting_geo_read_t(
+#if RDB_CF
             optional<changefeed_stamp_t>(),
+#endif
             serializable_env_t{
                 ql::global_optargs_t(),
                 auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),

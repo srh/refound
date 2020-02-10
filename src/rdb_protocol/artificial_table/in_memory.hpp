@@ -17,19 +17,31 @@ table. It accepts all reads and writes, storing the results in a `std::map`. It'
 for testing `artificial_table_t`. */
 
 class in_memory_artificial_table_backend_t :
+#if RDB_CF
     public caching_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     in_memory_artificial_table_backend_t(
             name_string_t const &table_name,
             rdb_context_t *rdb_context,
-            lifetime_t<name_resolver_t const &> name_resolver)
+            RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver)
+#if RDB_CF
         : caching_cfeed_artificial_table_backend_t(
-            table_name, rdb_context, name_resolver) {
+            table_name, rdb_context, name_resolver)
+#else
+        : artificial_table_backend_t(
+            table_name, rdb_context)
+#endif
+    {
     }
 
     ~in_memory_artificial_table_backend_t() {
+#if RDB_CF
         begin_changefeed_destruction();
+#endif
     }
 
     std::string get_primary_key_name() {
@@ -114,7 +126,9 @@ public:
         } else {
             data.erase(primary_key.print_primary());
         }
+#if RDB_CF
         notify_row(primary_key);
+#endif
         return true;
     }
 

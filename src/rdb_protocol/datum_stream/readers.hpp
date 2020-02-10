@@ -12,8 +12,10 @@ class reader_t {
 public:
     virtual ~reader_t() { }
     virtual void add_transformation(transform_variant_t &&tv) = 0;
+#if RDB_CF
     virtual bool add_stamp(changefeed_stamp_t stamp) = 0;
     virtual optional<active_state_t> get_active_state() = 0;
+#endif
     virtual void accumulate(env_t *env, eager_acc_t *acc,
                             const terminal_variant_t &tv) = 0;
     virtual void accumulate_all(env_t *env, eager_acc_t *acc) = 0;
@@ -23,7 +25,9 @@ public:
         env_t *, const batchspec_t &) { unreachable(); }
     virtual bool is_finished() const = 0;
 
+#if RDB_CF
     virtual changefeed::keyspec_t get_changespec() const = 0;
+#endif
 };
 
 // To handle empty range on getAll
@@ -33,12 +37,14 @@ public:
       : table(std::move(_table)), table_name(std::move(_table_name)) {}
     virtual ~empty_reader_t() {}
     virtual void add_transformation(transform_variant_t &&) {}
+#if RDB_CF
     virtual bool add_stamp(changefeed_stamp_t) {
         r_sanity_fail();
     }
     virtual optional<active_state_t> get_active_state() {
         r_sanity_fail();
     }
+#endif  // RDB_CF
     virtual void accumulate(env_t *, eager_acc_t *, const terminal_variant_t &) {}
     virtual void accumulate_all(env_t *, eager_acc_t *) {}
     virtual std::vector<datum_t> next_batch(env_t *, const batchspec_t &) {
@@ -51,7 +57,9 @@ public:
     virtual bool is_finished() const {
         return true;
     }
+#if RDB_CF
     virtual changefeed::keyspec_t get_changespec() const;
+#endif
 
 private:
     counted_t<real_table_t> table;
@@ -68,12 +76,14 @@ public:
     virtual void add_transformation(transform_variant_t &&) {
         r_sanity_fail();
     }
+#if RDB_CF
     virtual bool add_stamp(changefeed_stamp_t) {
         r_sanity_fail();
     }
     virtual optional<active_state_t> get_active_state() {
         r_sanity_fail();
     }
+#endif  // RDB_CF
     virtual void accumulate(env_t *, eager_acc_t *, const terminal_variant_t &) {
         r_sanity_fail();
     }
@@ -101,9 +111,11 @@ public:
     virtual bool is_finished() const {
         return finished;
     }
+#if RDB_CF
     virtual changefeed::keyspec_t get_changespec() const {
         r_sanity_fail();
     }
+#endif
 
 private:
     bool finished;
@@ -117,8 +129,10 @@ public:
         const counted_t<real_table_t> &table,
         scoped_ptr_t<readgen_t> &&readgen);
     virtual void add_transformation(transform_variant_t &&tv);
+#if RDB_CF
     virtual bool add_stamp(changefeed_stamp_t stamp);
     virtual optional<active_state_t> get_active_state();
+#endif  // RDB_CF
     virtual void accumulate(env_t *env, eager_acc_t *acc, const terminal_variant_t &tv);
     virtual void accumulate_all(env_t *env, eager_acc_t *acc) = 0;
     virtual std::vector<datum_t> next_batch(env_t *env, const batchspec_t &batchspec);
@@ -126,12 +140,14 @@ public:
                                                     const batchspec_t &batchspec);
     virtual bool is_finished() const;
 
+#if RDB_CF
     virtual changefeed::keyspec_t get_changespec() const {
         return changefeed::keyspec_t(
             readgen->get_range_spec(transforms),
             table,
             readgen->get_table_name());
     }
+#endif
 
 protected:
     raw_stream_t unshard(sorting_t sorting, rget_read_response_t &&res);
@@ -150,12 +166,16 @@ protected:
 
     counted_t<real_table_t> table;
     std::vector<transform_variant_t> transforms;
+#if RDB_CF
     optional<changefeed_stamp_t> stamp;
+#endif
 
     bool started;
     const scoped_ptr_t<const readgen_t> readgen;
     optional<active_ranges_t> active_ranges;
+#if RDB_CF
     std::map<uuid_u, shard_stamp_info_t> shard_stamp_infos;
+#endif
 
     // We need this to handle the SINDEX_CONSTANT case.
     std::vector<rget_item_t> items;

@@ -17,7 +17,11 @@
 class namespace_repo_t;
 
 class issues_artificial_table_backend_t :
+#if RDB_CF
     public timer_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     issues_artificial_table_backend_t(

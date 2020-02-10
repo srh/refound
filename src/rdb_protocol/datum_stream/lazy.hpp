@@ -21,18 +21,22 @@ public:
     virtual feed_type_t cfeed_type() const;
     virtual bool is_infinite() const;
 
+#if RDB_CF
     virtual bool add_stamp(changefeed_stamp_t stamp) {
         return reader->add_stamp(std::move(stamp));
     }
     virtual optional<active_state_t> get_active_state() {
         return reader->get_active_state();
     }
+#endif  // RDB_CF
 
 private:
+#if RDB_CF
     virtual std::vector<changespec_t> get_changespecs() {
         return std::vector<changespec_t>{changespec_t(
                 reader->get_changespec(), counted_from_this())};
     }
+#endif
 
     std::vector<datum_t >
     next_batch_impl(env_t *env, const batchspec_t &batchspec);

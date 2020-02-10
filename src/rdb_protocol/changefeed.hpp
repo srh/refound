@@ -59,6 +59,8 @@ class env_t;
 class table_t;
 
 namespace changefeed {
+struct stamped_msg_t;
+typedef mailbox_addr_t<stamped_msg_t> client_addr_t;
 
 // The pairs contain `<Id, <Key, Val> >` where `Id` uniquely identifies an entry
 // (basically a primary key + a tag in the case of a multi-index), `Key` is the
@@ -66,8 +68,10 @@ namespace changefeed {
 typedef std::pair<std::string, std::pair<datum_t, datum_t> > item_t;
 typedef std::pair<const std::string, std::pair<datum_t, datum_t> > const_item_t;
 
+#if RDB_CF
 std::vector<item_t> mangle_sort_truncate_stream(
     raw_stream_t &&stream, is_primary_t is_primary, sorting_t sorting, size_t n);
+#endif
 
 optional<datum_t> apply_ops(
     const datum_t &val,
@@ -75,6 +79,7 @@ optional<datum_t> apply_ops(
     env_t *env,
     const datum_t &key) THROWS_NOTHING;
 
+#if RDB_CF
 struct msg_t {
     struct limit_start_t {
         uuid_u sub;
@@ -130,9 +135,6 @@ struct msg_t {
 RDB_DECLARE_SERIALIZABLE(msg_t);
 
 class real_feed_t;
-struct stamped_msg_t;
-
-typedef mailbox_addr_t<stamped_msg_t> client_addr_t;
 
 struct keyspec_t {
     struct range_t {
@@ -615,6 +617,7 @@ private:
     const scoped_ptr_t<artificial_feed_t> feed;
 };
 
+#endif  // RDB_CF
 } // namespace changefeed
 } // namespace ql
 

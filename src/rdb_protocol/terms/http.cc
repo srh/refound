@@ -154,9 +154,11 @@ public:
     bool is_infinite() const { return false; }
 
 private:
+#if RDB_CF
     virtual std::vector<changefeed::keyspec_t> get_change_specs() {
         rfail(base_exc_t::LOGIC, "%s", "Cannot call `changes` on an HTTP stream.");
     }
+#endif  // RDB_CF
     std::vector<datum_t> next_page(env_t *env);
     std::vector<datum_t> next_raw_batch(env_t *env, const batchspec_t &batchspec);
 

@@ -98,6 +98,7 @@ bool artificial_table_backend_t::read_all_rows_filtered_as_stream(
         return false;
     }
 
+#if RDB_CF
     ql::changefeed::keyspec_t::range_t range_keyspec = {
         std::vector<ql::transform_variant_t>(),
         r_nullopt,
@@ -112,9 +113,15 @@ bool artificial_table_backend_t::read_all_rows_filtered_as_stream(
                 m_rdb_context, artificial_reql_cluster_interface_t::database_id, this)),
         m_table_name.str()));
     guarantee(keyspec->table.has());
+#endif  // RDB_CF
 
+#if RDB_CF
     *rows_out = make_counted<ql::vector_datum_stream_t>(
         bt, std::move(rows), std::move(keyspec));
+#else
+    *rows_out = make_counted<ql::vector_datum_stream_t>(
+        bt, std::move(rows));
+#endif
     return true;
 }
 

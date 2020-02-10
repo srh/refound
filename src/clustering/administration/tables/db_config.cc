@@ -57,17 +57,25 @@ bool convert_db_config_and_name_from_datum(
 
 db_config_artificial_table_backend_t::db_config_artificial_table_backend_t(
         rdb_context_t *_rdb_context,
-        lifetime_t<name_resolver_t const &> name_resolver,
+        RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
         std::shared_ptr< semilattice_readwrite_view_t<
         databases_semilattice_metadata_t> > _database_sl_view,
         real_reql_cluster_interface_t *_reql_cluster_interface) :
+#if RDB_CF
     caching_cfeed_artificial_table_backend_t(
         name_string_t::guarantee_valid("db_config"),
         _rdb_context,
         name_resolver),
+#else
+    artificial_table_backend_t(
+        name_string_t::guarantee_valid("db_config"),
+        _rdb_context),
+#endif
     rdb_context(_rdb_context),
     database_sl_view(_database_sl_view),
+#if RDB_CF
     subs([this]() { notify_all(); }, database_sl_view),
+#endif
     reql_cluster_interface(_reql_cluster_interface)
     { }
 

@@ -38,7 +38,7 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         watchable_map_t<
             std::pair<peer_id_t, std::pair<namespace_id_t, branch_id_t> >,
             table_query_bcard_t> *table_query_directory,
-        lifetime_t<name_resolver_t const &> name_resolver) :
+        RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver) :
     m_fdb(fdb),
     m_mailbox_manager(mailbox_manager),
     m_auth_semilattice_view(auth_semilattice_view),
@@ -52,12 +52,14 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         multi_table_manager,
         m_rdb_context,
         m_table_meta_client),
+#if RDB_CF
     m_changefeed_client(
         m_mailbox_manager,
         [this](const namespace_id_t &id, const signal_t *interruptor) {
             return this->m_namespace_repo.get_namespace_interface(id, interruptor);
         },
         name_resolver),
+#endif
     m_server_config_client(server_config_client)
 {
     guarantee(m_auth_semilattice_view->home_thread() == home_thread());
@@ -230,7 +232,9 @@ bool real_reql_cluster_interface_t::table_find(
             table_id,
             m_namespace_repo.get_namespace_interface(table_id, interruptor_on_caller),
             primary_key,
+#if RDB_CF
             &m_changefeed_client,
+#endif
             m_table_meta_client));
 
         return true;

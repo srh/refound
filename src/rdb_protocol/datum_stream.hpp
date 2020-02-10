@@ -41,11 +41,14 @@ inline feed_type_t union_of(feed_type_t a, feed_type_t b) {
     unreachable();
 }
 
+#if RDB_CF
 struct active_state_t {
     std::map<uuid_u, std::pair<key_range_t, uint64_t> > shard_last_read_stamps;
     DEBUG_ONLY(optional<std::string> sindex;)
 };
+#endif  // RDB_CF
 
+#if RDB_CF
 struct changespec_t {
     changespec_t(changefeed::keyspec_t _keyspec,
                  counted_t<datum_stream_t> _stream)
@@ -54,6 +57,7 @@ struct changespec_t {
     changefeed::keyspec_t keyspec;
     counted_t<datum_stream_t> stream;
 };
+#endif  // RDB_CF
 
 class datum_stream_t : public single_threaded_countable_t<datum_stream_t>,
                        public bt_rcheckable_t {
@@ -61,10 +65,14 @@ public:
     virtual ~datum_stream_t() { }
     virtual void set_notes(response_t *) const { }
 
+#if RDB_CF
     virtual std::vector<changespec_t> get_changespecs() = 0;
+#endif
     virtual void add_transformation(transform_variant_t &&tv, backtrace_id_t bt) = 0;
+#if RDB_CF
     virtual bool add_stamp(changefeed_stamp_t stamp);
     virtual optional<active_state_t> get_active_state();
+#endif  // RDB_CF
     void add_grouping(transform_variant_t &&tv,
                       backtrace_id_t bt);
 
@@ -119,9 +127,11 @@ protected:
     bool ops_to_do() { return ops.size() != 0; }
 
 protected:
+#if RDB_CF
     virtual std::vector<changespec_t> get_changespecs() {
         rfail(base_exc_t::LOGIC, "%s", "Cannot call `changes` on an eager stream.");
     }
+#endif  // RDB_CF
     std::vector<transform_variant_t> transforms;
 
     virtual void add_transformation(transform_variant_t &&tv,

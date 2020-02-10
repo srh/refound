@@ -7,9 +7,15 @@
 
 cluster_config_artificial_table_backend_t::cluster_config_artificial_table_backend_t(
         rdb_context_t *rdb_context,
-        lifetime_t<name_resolver_t const &> name_resolver)
+        RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver)
+#if RDB_CF
     : caching_cfeed_artificial_table_backend_t(
-        name_string_t::guarantee_valid("cluster_config"), rdb_context, name_resolver) {
+        name_string_t::guarantee_valid("cluster_config"), rdb_context, name_resolver)
+#else
+    : artificial_table_backend_t(
+        name_string_t::guarantee_valid("cluster_config"), rdb_context)
+#endif
+{
 }
 
 cluster_config_artificial_table_backend_t::~cluster_config_artificial_table_backend_t() {
@@ -82,7 +88,8 @@ bool cluster_config_artificial_table_backend_t::write_row(
     return it->second->write(interruptor, new_value_inout, error_out);
 }
 
-void cluster_config_artificial_table_backend_t::set_notifications(bool should_notify) {
+void cluster_config_artificial_table_backend_t::set_notifications(RDB_CF_UNUSED bool should_notify) {
+#if RDB_CF
     /* Note that we aren't actually modifying the `docs` map itself, just the objects
     that it points at. So this could have been `const auto &pair`, but that might be
     misleading. */
@@ -97,4 +104,5 @@ void cluster_config_artificial_table_backend_t::set_notifications(bool should_no
             pair.second->set_notification_callback(nullptr);
         }
     }
+#endif
 }

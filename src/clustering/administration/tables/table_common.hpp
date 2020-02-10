@@ -18,7 +18,11 @@ class cluster_semilattice_metadata_t;
 pseudo-tables. Subclasses should implement `format_row()` and `write_row()`. */
 
 class common_table_artificial_table_backend_t :
+#if RDB_CF
     public timer_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     common_table_artificial_table_backend_t(

@@ -40,10 +40,12 @@ public:
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         read_mode_t read_mode);
+#if RDB_CF
     counted_t<ql::datum_stream_t> read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
         ql::backtrace_id_t bt);
+#endif  // RDB_CF
     counted_t<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,

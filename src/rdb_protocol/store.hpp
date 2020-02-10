@@ -331,6 +331,7 @@ private:
     rdb_context_t *ctx;
     // In the future we may use these `region_t`s instead of the `uuid_u`s in
     // the changefeed server.
+#if RDB_CF
     scoped_ptr_t<ql::changefeed::server_t> the_changefeed_server;  // Possibly null.
     rwlock_t the_changefeed_server_lock;
 
@@ -352,6 +353,7 @@ public:
     // Like `changefeed_server()`, but creates the server if it doesn't exist.
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t>
             get_or_make_changefeed_server();
+#endif  // RDB_CF
 
 private:
     namespace_id_t table_id;

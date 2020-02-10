@@ -406,6 +406,7 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
         return region_t::universe();
     }
 
+#if RDB_CF
     region_t operator()(const changefeed_subscribe_t &) const {
         return region_t::universe();
     }
@@ -421,6 +422,7 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
     region_t operator()(const changefeed_point_stamp_t &t) const {
         return rdb_protocol::monokey_region(t.key);
     }
+#endif  // RDB_CF
 
     region_t operator()(const dummy_read_t &d) const {
         return d.region;
@@ -431,13 +433,14 @@ region_t read_t::get_region() const THROWS_NOTHING {
     return boost::apply_visitor(rdb_r_get_region_visitor(), read);
 }
 
+#if RDB_CF
 struct route_to_primary_visitor_t : public boost::static_visitor<bool> {
     // `include_initial` changefeed reads must be routed to the primary, since
     // that's where changefeeds are managed.
-    bool operator()(const rget_read_t &rget) const {
+    bool operator()(RDB_CF_UNUSED const rget_read_t &rget) const {
         return rget.stamp.has_value();
     }
-    bool operator()(const intersecting_geo_read_t &geo_read) const {
+    bool operator()(RDB_CF_UNUSED const intersecting_geo_read_t &geo_read) const {
         return geo_read.stamp.has_value();
     }
 
@@ -454,6 +457,7 @@ struct route_to_primary_visitor_t : public boost::static_visitor<bool> {
 bool read_t::route_to_primary() const THROWS_NOTHING {
     return boost::apply_visitor(route_to_primary_visitor_t(), read);
 }
+#endif  // RDB_CF
 
 /* write_t::get_region() implementation */
 
@@ -580,9 +584,16 @@ int write_t::expected_document_changes() const {
 }
 
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(point_read_response_t, data);
+#if RDB_CF
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     rget_read_response_t, stamp_response, result);
+#else
+RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(
+    rget_read_response_t, result);
+#endif
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(nearest_geo_read_response_t, results_or_error);
+
+#if RDB_CF
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     changefeed_subscribe_response_t, server_uuids, addrs);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
@@ -595,6 +606,7 @@ RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     changefeed_point_stamp_response_t::valid_response_t, stamp, initial_val);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(
     changefeed_point_stamp_response_t, resp);
+#endif  // RDB_CF
 
 RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(read_response_t, response, event_log, n_shards);
 RDB_IMPL_SERIALIZABLE_0_FOR_CLUSTER(dummy_read_response_t);
@@ -613,6 +625,7 @@ RDB_IMPL_SERIALIZABLE_4_FOR_CLUSTER(sindex_rangespec_t,
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
         sorting_t, int8_t,
         sorting_t::UNORDERED, sorting_t::DESCENDING);
+#if RDB_CF
 RDB_IMPL_SERIALIZABLE_10_FOR_CLUSTER(
     rget_read_t,
     stamp,
@@ -625,6 +638,20 @@ RDB_IMPL_SERIALIZABLE_10_FOR_CLUSTER(
     terminal,
     sindex,
     sorting);
+#else
+RDB_IMPL_SERIALIZABLE_9_FOR_CLUSTER(
+    rget_read_t,
+    region,
+    primary_keys,
+    serializable_env,
+    table_name,
+    batchspec,
+    transforms,
+    terminal,
+    sindex,
+    sorting);
+#endif  // RDB_CF
+#if RDB_CF
 RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(
     intersecting_geo_read_t,
     stamp,
@@ -635,6 +662,17 @@ RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(
     terminal,
     sindex,
     query_geometry);
+#else
+RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
+    intersecting_geo_read_t,
+    serializable_env,
+    table_name,
+    batchspec,
+    transforms,
+    terminal,
+    sindex,
+    query_geometry);
+#endif  // RDB_CF
 RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
     nearest_geo_read_t,
     serializable_env,
@@ -645,6 +683,7 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
     table_name,
     sindex_id);
 
+#if RDB_CF
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_subscribe_t, addr);
 RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
     changefeed_limit_subscribe_t,
@@ -656,6 +695,7 @@ RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
     region);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_stamp_t, addr);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_point_stamp_t, addr, key);
+#endif  // RDB_CF
 
 RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(read_t, read, profile, read_mode);
 

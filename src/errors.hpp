@@ -271,5 +271,10 @@ vestigial. */
 // Used to comment out old changefeed code
 // TODO: Remove this, eventually.
 #define RDB_CF 0
+#if !RDB_CF
+#define RDB_CF_UNUSED UNUSED
+#else
+#define RDB_CF_UNUSED
+#endif  // RDB_CF
 
 #endif /* ERRORS_HPP_ */

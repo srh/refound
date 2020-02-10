@@ -70,13 +70,18 @@ ql::datum_t convert_log_message_to_datum(
 
 logs_artificial_table_backend_t::logs_artificial_table_backend_t(
         rdb_context_t *rdb_context,
-        lifetime_t<name_resolver_t const &> name_resolver,
+        RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
         mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *_directory,
         server_config_client_t *_server_config_client,
         admin_identifier_format_t _identifier_format) :
+#if RDB_CF
     cfeed_artificial_table_backend_t(
         name_string_t::guarantee_valid("logs"), rdb_context, name_resolver),
+#else
+    artificial_table_backend_t(
+        name_string_t::guarantee_valid("logs"), rdb_context),
+#endif
     mailbox_manager(_mailbox_manager),
     directory(_directory),
     server_config_client(_server_config_client),
@@ -216,6 +221,7 @@ bool logs_artificial_table_backend_t::write_row(
 }
 
 namespace logs_backend {
+#if RDB_CF
 class cfeed_machinery_t : public cfeed_artificial_table_backend_t::machinery_t {
 public:
     cfeed_machinery_t(
@@ -509,7 +515,7 @@ bool cfeed_machinery_t::get_initial_values(
         interruptor,
         &dummy_error);
 }
-
+#endif // RDB_CF
 } // namespace logs_backend
 
 bool logs_artificial_table_backend_t::read_all_rows_raw(
@@ -587,6 +593,7 @@ bool logs_artificial_table_backend_t::read_all_rows_raw(
     return true;
 }
 
+#if RDB_CF
 scoped_ptr_t<cfeed_artificial_table_backend_t::machinery_t>
 logs_artificial_table_backend_t::construct_changefeed_machinery(
         lifetime_t<name_resolver_t const &> name_resolver,
@@ -598,4 +605,4 @@ logs_artificial_table_backend_t::construct_changefeed_machinery(
     return scoped_ptr_t<cfeed_artificial_table_backend_t::machinery_t>(
         machinery.release());
 }
-
+#endif  // RDB_CF

@@ -29,7 +29,9 @@ public:
 
     virtual read_t next_read(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif  // RDB_CF
         std::vector<transform_variant_t> transform,
         const batchspec_t &batchspec) const = 0;
 
@@ -38,8 +40,10 @@ public:
         sorting_t sorting, active_ranges_t *ranges_inout) const = 0;
     virtual optional<std::string> sindex_name() const = 0;
 
+#if RDB_CF
     virtual changefeed::keyspec_t::range_t get_range_spec(
         std::vector<transform_variant_t>) const = 0;
+#endif  // RDB_CF
 
     const std::string &get_table_name() const { return table_name; }
     read_mode_t get_read_mode() const { return read_mode; }
@@ -71,14 +75,18 @@ public:
 
     read_t next_read(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif
         std::vector<transform_variant_t> transform,
         const batchspec_t &batchspec) const final;
 
 private:
     virtual rget_read_t next_read_impl(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif
         std::vector<transform_variant_t> transforms,
         const batchspec_t &batchspec) const = 0;
 
@@ -105,7 +113,9 @@ private:
                       sorting_t sorting);
     rget_read_t next_read_impl(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif
         std::vector<transform_variant_t> transform,
         const batchspec_t &batchspec) const final;
     void sindex_sort(std::vector<rget_item_t> *vec,
@@ -115,8 +125,10 @@ private:
     void restrict_active_ranges(
         sorting_t sorting, active_ranges_t *active_ranges_inout) const final;
 
+#if RDB_CF
     changefeed::keyspec_t::range_t get_range_spec(
             std::vector<transform_variant_t> transforms) const final;
+#endif
 
     optional<std::map<store_key_t, uint64_t> > store_keys;
 };
@@ -149,12 +161,16 @@ private:
         require_sindexes_t require_sindex_val);
     rget_read_t next_read_impl(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif
         std::vector<transform_variant_t> transform,
         const batchspec_t &batchspec) const final;
 
+#if RDB_CF
     changefeed::keyspec_t::range_t get_range_spec(
         std::vector<transform_variant_t> transforms) const final;
+#endif
 
     const std::string sindex;
     bool sent_first_read;
@@ -177,7 +193,9 @@ public:
 
     read_t next_read(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif
         std::vector<transform_variant_t> transform,
         const batchspec_t &batchspec) const final;
 
@@ -187,8 +205,10 @@ public:
     optional<std::string> sindex_name() const final;
     void restrict_active_ranges(sorting_t, active_ranges_t *) const final { }
 
+#if RDB_CF
     changefeed::keyspec_t::range_t get_range_spec(
         std::vector<transform_variant_t>) const final;
+#endif
 
 private:
     intersecting_readgen_t(
@@ -203,7 +223,9 @@ private:
     // geo read.
     intersecting_geo_read_t next_read_impl(
         const optional<active_ranges_t> &active_ranges,
+#if RDB_CF
         optional<changefeed_stamp_t> stamp,
+#endif
         std::vector<transform_variant_t> transforms,
         const batchspec_t &batchspec) const;
 

@@ -150,6 +150,7 @@ scoped_ptr_t<ql::reader_t> artificial_table_t::read_all_with_sindexes(
     return make_scoped<ql::vector_reader_t>(std::move(items_vector));
 }
 
+#if RDB_CF
 counted_t<ql::datum_stream_t> artificial_table_t::read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
@@ -171,6 +172,7 @@ counted_t<ql::datum_stream_t> artificial_table_t::read_changes(
 
     return stream;
 }
+#endif  // RDB_CF
 
 counted_t<ql::datum_stream_t> artificial_table_t::read_intersecting(
         ql::env_t *env,

@@ -47,10 +47,12 @@ class datumspec_t;
 class env_t;
 class query_cache_t;
 
+#if RDB_CF
 namespace changefeed {
 class streamspec_t;
 class client_t;
 }
+#endif
 }
 
 struct admin_err_t;
@@ -184,10 +186,12 @@ public:
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         read_mode_t read_mode) = 0;
+#if RDB_CF
     virtual counted_t<ql::datum_stream_t> read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
         ql::backtrace_id_t bt) = 0;
+#endif
     virtual counted_t<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
@@ -287,7 +291,9 @@ public:
             admin_err_t *error_out) = 0;
 
     virtual namespace_repo_t *get_namespace_repo() = 0;
+#if RDB_CF
     virtual ql::changefeed::client_t *get_changefeed_client() = 0;
+#endif
     virtual table_meta_client_t *get_table_meta_client() = 0;
 
 protected:

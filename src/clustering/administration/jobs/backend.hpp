@@ -22,7 +22,11 @@ template <class T> class semilattice_readwrite_view_t;
 template <class key_type, class inner_type> class change_tracking_map_t;
 
 class jobs_artificial_table_backend_t :
+#if RDB_CF
     public timer_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     jobs_artificial_table_backend_t(

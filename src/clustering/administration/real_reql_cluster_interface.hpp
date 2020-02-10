@@ -92,9 +92,11 @@ public:
     table_meta_client_t *get_table_meta_client() override {
         return m_table_meta_client;
     }
+#if RDB_CF
     ql::changefeed::client_t *get_changefeed_client() override {
         return &m_changefeed_client;
     }
+#endif  // RDB_CF
     namespace_repo_t *get_namespace_repo() override {
         return &m_namespace_repo;
     }
@@ -116,7 +118,9 @@ private:
     rdb_context_t *m_rdb_context;
 
     namespace_repo_t m_namespace_repo;
+#if RDB_CF
     ql::changefeed::client_t m_changefeed_client;
+#endif
     server_config_client_t *m_server_config_client;
 
     void wait_for_cluster_metadata_to_propagate(

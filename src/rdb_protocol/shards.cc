@@ -267,6 +267,7 @@ private:
             substream.substreams.insert(
                 std::make_pair(stream->substreams.begin()->first, keyed_stream_t()));
             ret = append_t::accumulate(env, el, &substream, key, lazy_sindex_val);
+            // OOO: Is apply_ops actually not changefeed logic?  ops is now unused...
             for (auto &&item : substream.substreams.begin()->second.stream) {
                 if (optional<datum_t> d
                     = ql::changefeed::apply_ops(item.data, *ops, env, item.sindex_key)) {

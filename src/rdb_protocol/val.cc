@@ -48,9 +48,11 @@ public:
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
     backtrace_id_t get_bt() const final { return bt; }
+#if RDB_CF
     changefeed::keyspec_t::spec_t get_spec() const final {
         return changefeed::keyspec_t::point_t{key};
     }
+#endif
     const counted_t<table_t> &get_tbl() final { return tbl; }
 private:
     backtrace_id_t bt;
@@ -93,9 +95,11 @@ public:
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
     backtrace_id_t get_bt() const final { return bt; }
+#if RDB_CF
     changefeed::keyspec_t::spec_t get_spec() const final {
         return ql::changefeed::keyspec_t::limit_t{slice->get_range_spec(), 1};
     }
+#endif  // RDB_CF
     const counted_t<table_t> &get_tbl() final { return slice->get_tbl(); }
 private:
     backtrace_id_t bt;
@@ -165,6 +169,7 @@ table_slice_t::with_bounds(std::string _idx, datum_range_t _bounds) {
         tbl, make_optional(std::move(_idx)), sorting, std::move(_bounds));
 }
 
+#if RDB_CF
 ql::changefeed::keyspec_t::range_t table_slice_t::get_range_spec() {
     return ql::changefeed::keyspec_t::range_t{
         std::vector<transform_variant_t>(),
@@ -173,6 +178,7 @@ ql::changefeed::keyspec_t::range_t table_slice_t::get_range_spec() {
         datumspec_t(bounds),
         r_nullopt};
 }
+#endif  // RDB_CF
 
 counted_t<datum_stream_t> table_t::as_seq(
     env_t *env,

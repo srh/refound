@@ -506,6 +506,7 @@ struct rcheck_transform_visitor_t : public bt_rcheckable_t,
     }
 };
 
+#if RDB_CF
 struct rcheck_spec_visitor_t : public bt_rcheckable_t,
                                public boost::static_visitor<void> {
     explicit rcheck_spec_visitor_t(env_t *_env, backtrace_id_t bt)
@@ -527,6 +528,7 @@ struct rcheck_spec_visitor_t : public bt_rcheckable_t,
     void operator()(const changefeed::keyspec_t::empty_t &) const { }
     env_t *env;
 };
+#endif  // RDB_CF
 
 class changes_term_t : public op_term_t {
 public:
@@ -575,7 +577,7 @@ private:
         }
 
         scoped_ptr_t<val_t> v = args->arg(env, 0);
-        configured_limits_t limits = env->env->limits_with_changefeed_queue_size(
+        RDB_CF_UNUSED configured_limits_t limits = env->env->limits_with_changefeed_queue_size(
                 args->optarg(env, "changefeed_queue_size"));
 
         // TODO: Check new rfail "not supported in reqlfdb" code to ensure they use base_exc_t::LOGIC.

@@ -71,13 +71,16 @@ private:
     std::map<store_key_t, ql::datum_t> data;
     ql::env_t *env;
 
+    // TODO: Move to .cc file, thx.
     struct read_visitor_t : public boost::static_visitor<void> {
         void operator()(const point_read_t &get);
         void operator()(const dummy_read_t &d);
+#if RDB_CF
         void NORETURN operator()(const changefeed_subscribe_t &);
         void NORETURN operator()(const changefeed_limit_subscribe_t &);
         void NORETURN operator()(const changefeed_stamp_t &);
         void NORETURN operator()(const changefeed_point_stamp_t &);
+#endif  // RDB_CF
         void NORETURN operator()(UNUSED const rget_read_t &rget);
         void NORETURN operator()(UNUSED const intersecting_geo_read_t &gr);
         void NORETURN operator()(UNUSED const nearest_geo_read_t &gr);
@@ -88,6 +91,7 @@ private:
         read_response_t *response;
     };
 
+    // TODO: Move to .cc file, thx.
     struct write_visitor_t : public boost::static_visitor<void> {
         void operator()(const batched_replace_t &br);
         void operator()(const batched_insert_t &br);
@@ -190,9 +194,11 @@ public:
         table_meta_client_t *get_table_meta_client() override {
             crash("unimplemented");
         }
+#if RDB_CF
         ql::changefeed::client_t *get_changefeed_client() override {
             crash("unimplemented");
         }
+#endif  // RDB_CF
         namespace_repo_t *get_namespace_repo() override {
             crash("unimplemented");
         }

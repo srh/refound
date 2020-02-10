@@ -34,7 +34,11 @@ class cfeed_machinery_t;
 }
 
 class logs_artificial_table_backend_t :
+#if RDB_CF
     public cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     logs_artificial_table_backend_t(
@@ -81,11 +85,13 @@ private:
         const signal_t *interruptor,
         admin_err_t *error_out);
 
+#if RDB_CF
     scoped_ptr_t<cfeed_artificial_table_backend_t::machinery_t>
         construct_changefeed_machinery(
             lifetime_t<name_resolver_t const &> name_resolver,
             auth::user_context_t const &user_context,
             const signal_t *interruptor);
+#endif
 
     mailbox_manager_t *mailbox_manager;
     watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory;

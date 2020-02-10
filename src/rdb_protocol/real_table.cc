@@ -104,12 +104,14 @@ counted_t<ql::datum_stream_t> real_table_t::read_all(
     }
 }
 
+#if RDB_CF
 counted_t<ql::datum_stream_t> real_table_t::read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
         ql::backtrace_id_t bt) {
     return changefeed_client->new_stream(env, ss, uuid, bt);
 }
+#endif
 
 counted_t<ql::datum_stream_t> real_table_t::read_intersecting(
         ql::env_t *env,

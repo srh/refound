@@ -15,6 +15,7 @@
 #include "rdb_protocol/table_common.hpp"
 
 void store_t::note_reshard() {
+#if RDB_CF
     // This is no longer for resharding, it just shuts off changefeeds for
     // local_replicator_t.  Maybe this is unnecessary; maybe we could let the destructor
     // do its work.
@@ -36,6 +37,7 @@ void store_t::note_reshard() {
     }
     // The changefeed server is actually getting destructed here. This might
     // block.
+#endif
 }
 
 
@@ -308,6 +310,7 @@ void do_read_for_changefeed(rockshard rocksh,
 
 // TODO: get rid of this extra response_t copy on the stack
 struct rdb_read_visitor_t : public boost::static_visitor<void> {
+#if RDB_CF
     void operator()(const changefeed_subscribe_t &s) {
         auto cserver = store->get_or_make_changefeed_server();
         guarantee(cserver.first != nullptr);
@@ -458,6 +461,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             res->resp.reset();
         }
     }
+#endif  // RDB_CF
 
     void operator()(const point_read_t &get) {
         response->response = point_read_response_t();
@@ -479,6 +483,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
         rget_read_response_t *res =
             boost::get<rget_read_response_t>(&response->response);
 
+#if RDB_CF
         if (geo_read.stamp.has_value()) {
             res->stamp_response.set(changefeed_stamp_response_t());
 
@@ -499,6 +504,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
                 return;
             }
         }
+#endif  // RDB_CF
         // TODO: Verify that snapshotting (below) in the case of a stamped query is
         // okay (by examing source code).  I think there was a mistake of implementation.
 
@@ -545,7 +551,11 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             geo_read.transforms,
             geo_read.terminal,
             sindex_info,
+#if RDB_CF
             geo_read.stamp ? is_stamp_read_t::YES : is_stamp_read_t::NO,
+#else
+            is_stamp_read_t::NO,
+#endif
             res);
     }
 
@@ -609,6 +619,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
         response->response = rget_read_response_t();
         auto *res = boost::get<rget_read_response_t>(&response->response);
 
+#if RDB_CF
         if (rget.stamp) {
             res->stamp_response.set(changefeed_stamp_response_t());
             r_sanity_check(rget.sorting == sorting_t::UNORDERED);
@@ -645,6 +656,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             // this changefeed stamp business that needs to happen before
             // subsequent writes.)
         }
+#endif  // RDB_CF
 
         if (rget.transforms.size() != 0 || rget.terminal) {
             // This asserts that the optargs have been initialized.  (There is always
@@ -1032,7 +1044,7 @@ store_t::sindex_context_map_t *store_t::get_sindex_context_map() {
 }
 
 // TODO: Cleanup this fluff.
-
+#if RDB_CF
 std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> store_t::changefeed_server(
         const rwlock_acq_t *acq) {
     acq->guarantee_is_holding(&the_changefeed_server_lock);
@@ -1080,3 +1092,4 @@ std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t>
             make_scoped<ql::changefeed::server_t>(ctx->manager, this);
     return std::make_pair(the_changefeed_server.get(), the_changefeed_server->get_keepalive());
 }
+#endif  // RDB_CF

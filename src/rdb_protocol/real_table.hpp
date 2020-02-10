@@ -34,12 +34,16 @@ public:
             namespace_id_t _uuid,
             namespace_interface_access_t _namespace_access,
             const std::string &_pkey,
+#if RDB_CF
             ql::changefeed::client_t *_changefeed_client,
+#endif
             table_meta_client_t *table_meta_client) :
         uuid(_uuid),
         namespace_access(_namespace_access),
         pkey(_pkey),
+#if RDB_CF
         changefeed_client(_changefeed_client),
+#endif
         m_table_meta_client(table_meta_client) { }
 
     namespace_id_t get_id() const;
@@ -54,10 +58,12 @@ public:
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         read_mode_t read_mode);
+#if RDB_CF
     counted_t<ql::datum_stream_t> read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
         ql::backtrace_id_t bt);
+#endif
     counted_t<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
@@ -126,7 +132,9 @@ private:
     namespace_id_t uuid;
     namespace_interface_access_t namespace_access;
     std::string pkey;
+#if RDB_CF
     ql::changefeed::client_t *changefeed_client;
+#endif
     table_meta_client_t *m_table_meta_client;
 };
 

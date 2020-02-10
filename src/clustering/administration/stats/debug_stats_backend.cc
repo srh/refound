@@ -23,7 +23,9 @@ debug_stats_artificial_table_backend_t::debug_stats_artificial_table_backend_t(
 }
 
 debug_stats_artificial_table_backend_t::~debug_stats_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 bool debug_stats_artificial_table_backend_t::write_row(

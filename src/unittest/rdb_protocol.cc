@@ -817,6 +817,7 @@ TEST(RDBProtocol, OvershardedMissingAttr) {
     run_in_thread_pool_with_namespace_interface(&run_sindex_missing_attr_test, true);
 }
 
+#if RDB_CF
 TPTEST(RDBProtocol, ArtificialChangefeeds) {
     using ql::changefeed::artificial_t;
     using ql::changefeed::keyspec_t;
@@ -945,5 +946,6 @@ TPTEST(RDBProtocol, ArtificialChangefeeds) {
         }
     }
 }
+#endif  // RDB_CF
 
 }   /* namespace unittest */

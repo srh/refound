@@ -9,7 +9,9 @@ class slice_datum_stream_t : public wrapper_datum_stream_t {
 public:
     slice_datum_stream_t(uint64_t left, uint64_t right, counted_t<datum_stream_t> src);
 private:
+#if RDB_CF
     virtual std::vector<changespec_t> get_changespecs();
+#endif
     virtual std::vector<datum_t>
     next_raw_batch(env_t *env, const batchspec_t &batchspec);
     virtual bool is_exhausted() const;

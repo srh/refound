@@ -36,7 +36,9 @@ struct make_sindex_read_t {
         ql::datum_range_t rng(key, key_range_t::closed, key, key_range_t::closed);
         return read_t(
             rget_read_t(
+#if RDB_CF
                 optional<changefeed_stamp_t>(),
+#endif
                 region_t::universe(),
                 r_nullopt,
                 serializable_env_t{

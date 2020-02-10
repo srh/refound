@@ -27,7 +27,7 @@
 namespace ql {
 
 namespace changefeed {
-
+#if RDB_CF
 struct indexed_datum_t {
     indexed_datum_t(
             datum_t _val,
@@ -284,6 +284,7 @@ private:
              std::pair<change_val_t, std::list<store_key_t>::iterator> > queue;
     std::list<store_key_t> queue_order;
 };
+#endif  // RDB_CF
 
 optional<datum_t> apply_ops(
     const datum_t &val,
@@ -317,6 +318,7 @@ optional<datum_t> apply_ops(
     }
 }
 
+#if RDB_CF
 server_t::client_info_t::client_info_t()
     : limit_clients(),
       limit_clients_lock(new rwlock_t()) { }
@@ -4055,5 +4057,6 @@ bool artificial_t::can_be_removed() {
     return feed->can_be_removed();
 }
 
+#endif  // RDB_CF
 } // namespace changefeed
 } // namespace ql

@@ -100,10 +100,12 @@ public:
         guarantee(m_next != nullptr);
         return m_next->get_table_meta_client();
     }
+#if RDB_CF
     ql::changefeed::client_t *get_changefeed_client() override {
         guarantee(m_next != nullptr);
         return m_next->get_changefeed_client();
     }
+#endif  // RDB_CF
     namespace_repo_t *get_namespace_repo() override {
         guarantee(m_next != nullptr);
         return m_next->get_namespace_repo();

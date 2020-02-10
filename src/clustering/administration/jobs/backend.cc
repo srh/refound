@@ -14,7 +14,7 @@
 
 jobs_artificial_table_backend_t::jobs_artificial_table_backend_t(
         rdb_context_t *rdb_context,
-        lifetime_t<name_resolver_t const &> name_resolver,
+        RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
         mailbox_manager_t *_mailbox_manager,
         std::shared_ptr< semilattice_readwrite_view_t<
             cluster_semilattice_metadata_t> > _semilattice_view,
@@ -23,8 +23,13 @@ jobs_artificial_table_backend_t::jobs_artificial_table_backend_t(
         server_config_client_t *_server_config_client,
         table_meta_client_t *_table_meta_client,
         admin_identifier_format_t _identifier_format)
+#if RDB_CF
     : timer_cfeed_artificial_table_backend_t(
         name_string_t::guarantee_valid("jobs"), rdb_context, name_resolver),
+#else
+    : artificial_table_backend_t(
+        name_string_t::guarantee_valid("jobs"), rdb_context),
+#endif
       mailbox_manager(_mailbox_manager),
       semilattice_view(_semilattice_view),
       directory_view(_directory_view),

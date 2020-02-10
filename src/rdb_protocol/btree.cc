@@ -362,7 +362,11 @@ batched_replace_response_t rdb_batched_replace(
         // We release the superblock either before or after draining on all the
         // write operations depending on the presence of limit changefeeds.
         // TODO: Okay, continue
+#if RDB_CF
         bool update_pkey_cfeeds = sindex_cb->has_pkey_cfeeds(keys);
+#else
+        bool update_pkey_cfeeds = false;
+#endif
         {
             auto_drainer_t drainer;
             for (size_t i = 0; i < keys.size(); ++i) {
@@ -1507,6 +1511,7 @@ rdb_modification_report_cb_t::rdb_modification_report_cb_t(
 
 rdb_modification_report_cb_t::~rdb_modification_report_cb_t() { }
 
+#if RDB_CF
 bool rdb_modification_report_cb_t::has_pkey_cfeeds(
     const std::vector<store_key_t> &keys) {
     const store_key_t *min = nullptr, *max = nullptr;
@@ -1525,9 +1530,11 @@ bool rdb_modification_report_cb_t::has_pkey_cfeeds(
     }
     return false;
 }
+#endif  // RDB_CF
 
 void rdb_modification_report_cb_t::finish(
-    btree_slice_t *btree, real_superblock_lock *superblock) {
+    RDB_CF_UNUSED btree_slice_t *btree, RDB_CF_UNUSED real_superblock_lock *superblock) {
+#if RDB_CF
     auto cservers = store_->access_the_changefeed_server();
     if ((*cservers.first).has()) {
         (*cservers.first)->foreach_limit(
@@ -1547,6 +1554,7 @@ void rdb_modification_report_cb_t::finish(
                 }
             }, (*cservers.first)->get_keepalive());
     }
+#endif
 }
 
 new_mutex_in_line_t rdb_modification_report_cb_t::get_in_line_for_sindex() {
@@ -1559,9 +1567,9 @@ rwlock_in_line_t rdb_modification_report_cb_t::get_in_line_for_cfeed_stamp() {
 void rdb_modification_report_cb_t::on_mod_report(
     rockshard rocksh,
     const rdb_modification_report_t &report,
-    bool update_pkey_cfeeds,
+    RDB_CF_UNUSED bool update_pkey_cfeeds,
     new_mutex_in_line_t *sindex_spot,
-    rwlock_in_line_t *cfeed_stamp_spot) {
+    RDB_CF_UNUSED rwlock_in_line_t *cfeed_stamp_spot) {
     if (report.info.deleted.first.has() || report.info.added.first.has()) {
         // We spawn the sindex update in its own coroutine because we don't want to
         // hold the sindex update for the changefeed update or vice-versa.
@@ -1578,6 +1586,7 @@ void rdb_modification_report_cb_t::on_mod_report(
                       &sindexes_updated_cond,
                       &old_cfeed_keys,
                       &new_cfeed_keys));
+#if RDB_CF
         auto cserver = store_->changefeed_server(report.primary_key);
         if (update_pkey_cfeeds && cserver.first != nullptr) {
             cserver.first->foreach_limit(
@@ -1604,7 +1613,9 @@ void rdb_modification_report_cb_t::on_mod_report(
                     }
                 }, cserver.second);
         }
+#endif  // RDB_CF
         keys_available_cond.wait_lazily_unordered();
+#if RDB_CF
         if (cserver.first != nullptr) {
             cserver.first->send_all(
                 ql::changefeed::msg_t(
@@ -1618,6 +1629,7 @@ void rdb_modification_report_cb_t::on_mod_report(
                 cfeed_stamp_spot,
                 cserver.second);
         }
+#endif
         sindexes_updated_cond.wait_lazily_unordered();
     }
 }
@@ -1778,7 +1790,7 @@ void compute_keys(const store_key_t &primary_key,
 /* Used below by rdb_update_sindexes. */
 void rdb_update_single_sindex(
         rockshard rocksh,
-        store_t *store,
+        RDB_CF_UNUSED store_t *store,
         real_superblock_lock *superblock,
         const store_t::sindex_access_t *sindex,
         const rdb_modification_report_t *modification,
@@ -1803,7 +1815,9 @@ void rdb_update_single_sindex(
     // secondary index updates.
     UNUSED profile::trace_t *const trace = nullptr;
 
+#if RDB_CF
     auto cserver = store->changefeed_server(modification->primary_key);
+#endif
 
     if (modification->info.deleted.first.has()) {
         try {
@@ -1813,6 +1827,7 @@ void rdb_update_single_sindex(
             compute_keys(
                 modification->primary_key, deleted, sindex_info,
                 &keys, cfeed_old_keys_out);
+#if RDB_CF
             if (cserver.first != nullptr) {
                 cserver.first->foreach_limit(
                     make_optional(sindex->name.name),
@@ -1829,6 +1844,7 @@ void rdb_update_single_sindex(
                         }
                     }, cserver.second);
             }
+#endif
             for (auto it = keys.begin(); it != keys.end(); ++it) {
                 std::string rocks_secondary_kv_location
                     = rockstore::table_secondary_key(
@@ -1870,6 +1886,7 @@ void rdb_update_single_sindex(
                     keys_available_cond->pulse();
                 }
             }
+#if RDB_CF
             if (cserver.first != nullptr) {
                 cserver.first->foreach_limit(
                     make_optional(sindex->name.name),
@@ -1887,6 +1904,7 @@ void rdb_update_single_sindex(
                         }
                     }, cserver.second);
             }
+#endif
             for (auto it = keys.begin(); it != keys.end(); ++it) {
                 std::string rocks_secondary_kv_location
                     = rockstore::table_secondary_key(
@@ -1933,6 +1951,7 @@ void rdb_update_single_sindex(
         }
     }
 
+#if RDB_CF
     if (cserver.first != nullptr) {
         cserver.first->foreach_limit(
             make_optional(sindex->name.name),
@@ -1948,6 +1967,7 @@ void rdb_update_single_sindex(
                         sindex->btree, superblock, &sindex_info, sindex->sindex.id});
             }, cserver.second);
     }
+#endif
 }
 
 void rdb_update_sindexes(

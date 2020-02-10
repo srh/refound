@@ -77,6 +77,7 @@ void mock_namespace_interface_t::read_visitor_t::operator()(const dummy_read_t &
     response->response = dummy_read_response_t();
 }
 
+#if RDB_CF
 void NORETURN mock_namespace_interface_t::read_visitor_t::operator()(
         const changefeed_subscribe_t &) {
     throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
@@ -93,12 +94,13 @@ void NORETURN mock_namespace_interface_t::read_visitor_t::operator()(
 }
 
 void NORETURN mock_namespace_interface_t::read_visitor_t::operator()(
-        UNUSED const rget_read_t &rget) {
+        const changefeed_point_stamp_t &) {
     throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
 }
+#endif  // RDB_CF
 
 void NORETURN mock_namespace_interface_t::read_visitor_t::operator()(
-        const changefeed_point_stamp_t &) {
+        UNUSED const rget_read_t &rget) {
     throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
 }
 
@@ -395,7 +397,9 @@ bool test_rdb_env_t::instance_t::table_find(const name_string_t &name,
                 namespace_id_t{nil_uuid()},
                 table_access,
                 it->second->get_primary_key(),
+#if RDB_CF
                 nullptr,
+#endif
                 nullptr));
         return true;
     }

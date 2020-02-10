@@ -32,7 +32,9 @@ public:
 private:
     friend class coro_stream_t;
 
+#if RDB_CF
     virtual std::vector<changespec_t> get_changespecs();
+#endif
     std::vector<datum_t >
     next_batch_impl(env_t *env, const batchspec_t &batchspec);
 

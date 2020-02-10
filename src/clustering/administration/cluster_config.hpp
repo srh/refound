@@ -19,7 +19,11 @@ Right now the only row is `heartbeat`, with the format
 `{"id": "heartbeat", "heartbeat_timeout_secs": ...}`. */
 
 class cluster_config_artificial_table_backend_t :
+#if RDB_CF
     public caching_cfeed_artificial_table_backend_t
+#else
+    public artificial_table_backend_t
+#endif
 {
 public:
     cluster_config_artificial_table_backend_t(

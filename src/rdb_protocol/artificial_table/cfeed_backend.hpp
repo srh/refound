@@ -9,6 +9,7 @@
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/changefeed.hpp"
 
+#if RDB_CF
 /* `cfeed_artificial_table_backend_t` is a mixin for artificial table backends that want
 to support changefeeds. Because it's often expensive to generate change notifications,
 backends will want to only start generating notifications when a client requests a
@@ -105,6 +106,8 @@ private:
     auto_drainer_t drainer;
     repeating_timer_t remove_machinery_timer;
 };
+
+#endif  // RDB_CF
 
 #endif /* RDB_PROTOCOL_ARTIFICIAL_TABLE_CFEED_BACKEND_HPP_ */
 

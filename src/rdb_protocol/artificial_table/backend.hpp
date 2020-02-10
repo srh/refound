@@ -100,6 +100,7 @@ public:
         const signal_t *interruptor,
         admin_err_t *error_out) = 0;
 
+#if RDB_CF
     virtual bool read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
@@ -107,10 +108,16 @@ public:
         const signal_t *interruptor,
         counted_t<ql::datum_stream_t> *cfeed_out,
         admin_err_t *error_out) = 0;
+#endif
 
     cross_thread_mutex_t::acq_t aquire_transaction_mutex() {
         return cross_thread_mutex_t::acq_t(&transaction_mutex);
     }
+
+#if !RDB_CF
+    // Declared here so we don't have to comment out every call from a destructor.
+    void begin_changefeed_destruction() {}
+#endif
 
     static const uuid_u base_table_id;
 

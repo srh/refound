@@ -130,7 +130,9 @@ public:
     counted_t<table_slice_t> with_bounds(std::string idx, datum_range_t bounds);
     const counted_t<table_t> &get_tbl() const { return tbl; }
     const optional<std::string> &get_idx() const { return idx; }
+#if RDB_CF
     ql::changefeed::keyspec_t::range_t get_range_spec();
+#endif
 private:
     friend class info_term_t;
     friend class distinct_term_t;
@@ -168,7 +170,9 @@ public:
         durability_requirement_t dur_req, return_changes_t return_changes,
         ignore_write_hook_t ignore_write_hook) = 0;
     virtual backtrace_id_t get_bt() const = 0;
+#if RDB_CF
     virtual changefeed::keyspec_t::spec_t get_spec() const = 0;
+#endif
     virtual const counted_t<table_t> &get_tbl() = 0;
 protected:
     single_selection_t() = default;

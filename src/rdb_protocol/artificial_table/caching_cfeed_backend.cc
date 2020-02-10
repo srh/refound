@@ -4,6 +4,8 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "rdb_protocol/env.hpp"
 
+#if RDB_CF
+
 caching_cfeed_artificial_table_backend_t::caching_cfeed_artificial_table_backend_t(
         name_string_t const &table_name,
         rdb_context_t *rdb_context,
@@ -305,3 +307,5 @@ void timer_cfeed_artificial_table_backend_t::set_notifications(bool notify) {
         timer.reset();
     }
 }
+
+#endif // RDB_CF

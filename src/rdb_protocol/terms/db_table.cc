@@ -1121,7 +1121,9 @@ private:
                 cached->ci_value,
                 rci->get_namespace_repo()->get_namespace_interface(cached->ci_value, env->env->interruptor),
                 primary_key,
+#if RDB_CF
                 rci->get_changefeed_client(),
+#endif
                 rci->get_table_meta_client()));
             table->cv.set(cached->ci_cv);
         } else {
@@ -1144,7 +1146,9 @@ private:
                     table_id,
                     rci->get_namespace_repo()->get_namespace_interface(table_id, env->env->interruptor),
                     result.ci_value->second.basic.primary_key,
+#if RDB_CF
                     rci->get_changefeed_client(),
+#endif
                     rci->get_table_meta_client()));
                 table->cv.set(result.ci_cv);
             } else {

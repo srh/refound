@@ -1092,7 +1092,9 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         rget_read_response_t *res =
             boost::get<rget_read_response_t>(&response->response);
 
+#if RDB_CF
         guarantee(!geo_read.stamp.has_value());  // TODO: Changefeeds not supported.
+#endif
 
         sindex_disk_info_t sindex_info;
         sindex_id_t sindex_id;
@@ -1132,7 +1134,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             geo_read.transforms,
             geo_read.terminal,
             sindex_info,
+#if RDB_CF
             geo_read.stamp ? is_stamp_read_t::YES : is_stamp_read_t::NO,
+#else
+            is_stamp_read_t::NO,
+#endif
             res);
 
         // TODO: Check the cv after the first request.
@@ -1198,10 +1204,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         response->response = rget_read_response_t();
         auto *res = boost::get<rget_read_response_t>(&response->response);
 
+#if RDB_CF
         if (rget.stamp) {
             // QQQ: Remove rget stamp field
             crash("rgets with stamp not supported");
         }
+#endif  // RDB_CF
 
         if (rget.transforms.size() != 0 || rget.terminal) {
             // This asserts that the optargs have been initialized.  (There is always
@@ -1228,11 +1236,13 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         response->response = dummy_read_response_t();
     }
 
+#if RDB_CF
     // OOO: Remove this.
     template <class T>
     void operator()(const T&) {
         crash("Unimplemented read op for fdb");
     }
+#endif
 
     fdb_read_visitor(FDBTransaction *_txn,
             reqlfdb_config_version _expected_cv,

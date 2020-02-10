@@ -45,7 +45,9 @@ server_status_artificial_table_backend_t::server_status_artificial_table_backend
 }
 
 server_status_artificial_table_backend_t::~server_status_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 bool server_status_artificial_table_backend_t::format_row(
