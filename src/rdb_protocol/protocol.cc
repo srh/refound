@@ -414,8 +414,8 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
         return s.region;
     }
 
-    region_t operator()(const changefeed_stamp_t &t) const {
-        return t.region;
+    region_t operator()(const changefeed_stamp_t &) const {
+        return region_t::universe();
     }
 
     region_t operator()(const changefeed_point_stamp_t &t) const {
@@ -654,7 +654,7 @@ RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
     table,
     serializable_env,
     region);
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_stamp_t, addr, region);
+RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_stamp_t, addr);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(changefeed_point_stamp_t, addr, key);
 
 RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(read_t, read, profile, read_mode);

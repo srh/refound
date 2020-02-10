@@ -336,7 +336,9 @@ private:
 
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> changefeed_server(
             const rwlock_acq_t *acq);
+#endif  // RDB_CF
 public:
+#if RDB_CF
     // Returns a pointer to `changefeed_servers` together with a read acquisition
     // on `changefeed_servers_lock`.
     std::pair<const scoped_ptr_t<ql::changefeed::server_t> *,

@@ -410,11 +410,10 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
     }
 
     changefeed_stamp_response_t do_stamp(const changefeed_stamp_t &s,
-                                         const region_t &current_shard,
                                          const store_key_t &read_start) {
         superblock->read_acq_signal()->wait_lazily_ordered();
 
-        auto cserver = store->changefeed_server(s.region);
+        auto cserver = store->changefeed_server(region_t::universe());
         if (cserver.first != nullptr) {
             if (optional<uint64_t> stamp
                     = cserver.first->get_stamp(s.addr, cserver.second)) {
@@ -422,7 +421,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
                 out.stamp_infos.set(std::map<uuid_u, shard_stamp_info_t>());
                 (*out.stamp_infos)[cserver.first->get_uuid()] = shard_stamp_info_t{
                     *stamp,
-                    current_shard,
+                    region_t::universe(),
                     read_start};
                 return out;
             }
@@ -431,7 +430,7 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
     }
 
     void operator()(const changefeed_stamp_t &s) {
-        response->response = do_stamp(s, s.region, s.region.left);
+        response->response = do_stamp(s, region_t::universe().left);
     }
 
     void operator()(const changefeed_point_stamp_t &s) {
@@ -490,7 +489,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
 
             changefeed_stamp_response_t r = do_stamp(
                 *geo_read.stamp,
-                region_t::universe(),
                 read_left);
             if (r.stamp_infos) {
                 res->stamp_response.set(r);
@@ -628,7 +626,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             }
             changefeed_stamp_response_t r = do_stamp(
                 *rget.stamp,
-                region_t::universe(),  // TODO: current_shard
                 read_left);
             if (r.stamp_infos) {
                 res->stamp_response.set(r);
