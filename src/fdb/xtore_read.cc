@@ -892,6 +892,47 @@ void rdb_fdb_get_nearest_slice(
     } while (state.proceed_to_next_batch() == continue_bool_t::CONTINUE);
 }
 
+void rdb_fdb_get_intersecting_slice(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const sindex_id_t &sindex_id,
+        const ql::datum_t &query_geometry,
+        const key_range_t &sindex_range,
+        ql::env_t *ql_env,
+        const ql::batchspec_t &batchspec,
+        const std::vector<ql::transform_variant_t> &transforms,
+        const optional<ql::terminal_variant_t> &terminal,
+        const sindex_disk_info_t &sindex_info,
+        is_stamp_read_t is_stamp_read,
+        rget_read_response_t *response) {
+    guarantee(query_geometry.has());
+
+    guarantee(sindex_info.geo == sindex_geo_bool_t::GEO);
+    PROFILE_STARTER_IF_ENABLED(
+        ql_env->profile() == profile_bool_t::PROFILE,
+        "Do intersection scan on geospatial index.",
+        ql_env->trace);
+
+    const reql_version_t sindex_func_reql_version =
+        sindex_info.mapping_version_info.latest_compatible_reql_version;
+    collect_all_geo_intersecting_cb_t callback(
+        geo_job_data_t(ql_env,
+                       // The sorting is never `DESCENDING`, so this is always right.
+                       ql::limit_read_last_key(sindex_range.left),
+                       batchspec,
+                       transforms,
+                       terminal,
+                       is_stamp_read),
+        geo_sindex_data_t(sindex_info.mapping,
+                          sindex_func_reql_version, sindex_info.multi),
+        query_geometry,
+        response);
+
+    continue_bool_t cont = geo_fdb_traversal(
+        txn, table_id, sindex_id, sindex_range, &callback);
+    callback.finish(cont);
+}
+
 
 struct fdb_read_visitor : public boost::static_visitor<void> {
 // OOO: Make sure there is no #if 0 left
@@ -1038,11 +1079,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         check_cv(expected_cv_, cv);
     }
 
-#if 0
     void operator()(const intersecting_geo_read_t &geo_read) {
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
-            ctx,
+            nullptr,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             geo_read.serializable_env,
@@ -1052,39 +1092,17 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         rget_read_response_t *res =
             boost::get<rget_read_response_t>(&response->response);
 
-        if (geo_read.stamp.has_value()) {
-            res->stamp_response.set(changefeed_stamp_response_t());
-
-            store_key_t read_left = geo_read.sindex.region
-                ? geo_read.sindex.region->left
-                : store_key_t::min();
-
-            changefeed_stamp_response_t r = do_stamp(
-                *geo_read.stamp,
-                region_t::universe(),
-                read_left);
-            if (r.stamp_infos) {
-                res->stamp_response.set(r);
-            } else {
-                res->result = ql::exc_t(
-                    ql::base_exc_t::OP_FAILED,
-                    "Feed aborted before initial values were read.",
-                    ql::backtrace_id_t::empty());
-                return;
-            }
-        }
-        // TODO: Verify that snapshotting (below) in the case of a stamped query is
-        // okay (by examing source code).  I think there was a mistake of implementation.
+        guarantee(!geo_read.stamp.has_value());  // TODO: Changefeeds not supported.
 
         sindex_disk_info_t sindex_info;
-        uuid_u sindex_uuid;
+        sindex_id_t sindex_id;
         try {
-            acquire_sindex_for_read(
-                    store,
-                    superblock.get(),
+            acquire_fdb_sindex_for_read(
+                    *table_config_,
                     geo_read.table_name,
                     geo_read.sindex.id,
-                    &sindex_info, &sindex_uuid);
+                    &sindex_info,
+                    &sindex_id);
         } catch (const ql::exc_t &e) {
             res->result = e;
             return;
@@ -1101,17 +1119,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             return;
         }
 
-        superblock->read_acq_signal()->wait_lazily_ordered();
-        rockshard rocksh = store->rocksh();
-        rockstore::snapshot snap = make_snapshot(rocksh.rocks);
-        superblock.reset();
-
+        // QQQ: Do we have sindex_rangespec with region?  It mentions sharding.  Maybe it only got initialized with a shard operation?  Look at what initializes it.
         guarantee(geo_read.sindex.region);
-        rdb_get_intersecting_slice(
-            snap.snap,
-            store->rocksh(),
-            sindex_uuid,
-            store->get_sindex_slice(sindex_uuid),
+        rdb_fdb_get_intersecting_slice(
+            txn_,
+            table_id_,
+            sindex_id,
             geo_read.query_geometry,
             *geo_read.sindex.region,
             &ql_env,
@@ -1121,8 +1134,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             sindex_info,
             geo_read.stamp ? is_stamp_read_t::YES : is_stamp_read_t::NO,
             res);
+
+        // TODO: Check the cv after the first request.
+        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
+        check_cv(expected_cv_, cv);
     }
-#endif  // 0
 
     void operator()(const nearest_geo_read_t &geo_read) {
         ql::env_t ql_env(
