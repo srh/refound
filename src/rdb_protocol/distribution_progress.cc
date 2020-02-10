@@ -5,27 +5,11 @@
 #include "store_view.hpp"
 
 distribution_progress_estimator_t::distribution_progress_estimator_t(
-        store_view_t *store,
-        const signal_t *interruptor) {
-    static const int max_depth = 2;
-    static const size_t result_limit = 128;
+        store_view_t *,
+        const signal_t *) {
 
-#ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(
-        region_t::universe(),
-        [](const region_t &, const version_t &) { });
-#endif
-
-    distribution_read_t distribution_read(max_depth, result_limit);
-    read_t read(
-        distribution_read, profile_bool_t::DONT_PROFILE, read_mode_t::OUTDATED);
-    read_response_t read_response;
-    read_token_t read_token;
-    store->read(
-        DEBUG_ONLY(metainfo_checker, )
-        read, &read_response, &read_token, interruptor);
-    distribution_counts = std::move(
-        boost::get<distribution_read_response_t>(read_response.response).key_counts);
+    // TODO: distribution_counts is fake.
+    distribution_counts.emplace(store_key_t::min(), 1);
 
     /* For the progress calculation we need partial sums for each key thus we
     calculate those from the results that the distribution query returns. */

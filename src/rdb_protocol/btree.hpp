@@ -198,9 +198,6 @@ void rdb_get_nearest_slice(
     const sindex_disk_info_t &sindex_info,
     nearest_geo_read_response_t *response);
 
-void rdb_distribution_get(rockshard rocksh, int keys_limit,
-                          distribution_read_response_t *response);
-
 /* Secondary Indexes */
 
 struct rdb_modification_info_t {

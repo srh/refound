@@ -146,21 +146,6 @@ struct nearest_geo_read_response_t {
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_response_t);
 
-void scale_down_distribution(size_t result_limit, std::map<store_key_t, int64_t> *key_counts);
-
-struct distribution_read_response_t {
-    // Supposing the map has keys:
-    // k1, k2 ... kn
-    // with k1 < k2 < .. < kn
-    // Then k1 == left_key
-    // and key_counts[ki] = the number of keys in [ki, ki+1) if i < n
-    // key_counts[kn] = the number of keys in [kn, +infinity)
-    // Note: The region field is removed, so left_key might always be "".
-    // TODO: Update comment above.  These are approx disk usage in bytes.
-    std::map<store_key_t, int64_t> key_counts;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(distribution_read_response_t);
-
 struct changefeed_subscribe_response_t {
     changefeed_subscribe_response_t() { }
     std::set<uuid_u> server_uuids;
@@ -224,7 +209,6 @@ struct read_response_t {
                            changefeed_limit_subscribe_response_t,
                            changefeed_stamp_response_t,
                            changefeed_point_stamp_response_t,
-                           distribution_read_response_t,
                            dummy_read_response_t> variant_t;
     variant_t response;
     profile::event_log_t event_log;
@@ -411,20 +395,6 @@ public:
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_t);
 
-class distribution_read_t {
-public:
-    distribution_read_t()
-        : max_depth(0), result_limit(0)
-    { }
-    distribution_read_t(int _max_depth, size_t _result_limit)
-        : max_depth(_max_depth), result_limit(_result_limit)
-    { }
-
-    int max_depth;
-    size_t result_limit;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(distribution_read_t);
-
 struct changefeed_subscribe_t {
     changefeed_subscribe_t() { }
     explicit changefeed_subscribe_t(ql::changefeed::client_t::addr_t _addr)
@@ -473,7 +443,6 @@ struct read_t {
                            changefeed_stamp_t,
                            changefeed_limit_subscribe_t,
                            changefeed_point_stamp_t,
-                           distribution_read_t,
                            dummy_read_t> variant_t;
 
     variant_t read;

@@ -1224,28 +1224,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         check_cv(expected_cv_, cv);
     }
 
-#if 0
-    void operator()(const distribution_read_t &dg) {
-        superblock->read_acq_signal()->wait_lazily_ordered();
-        // We reset the buf lock early, because rocksdb doesn't offer consistent
-        // access to key range statistics? Or at least we don't really need it.
-        superblock.reset();
-        response->response = distribution_read_response_t();
-        distribution_read_response_t *res = boost::get<distribution_read_response_t>(&response->response);
-        // TODO: Replace max_depth option of distribution_read_t (when we break
-        // the clustering protocol).  And make result_limit forced nonzero.
-        // TODO: Reuse the scale_down_distribution function in rdb_distribution_get code.
-        int keys_limit = dg.result_limit > 0 ? dg.result_limit : 1 << (4 * dg.max_depth);
-        rdb_distribution_get(store->rocksh(), keys_limit, res);
-
-        // If the result is larger than the requested limit, scale it down
-        if (dg.result_limit > 0 && res->key_counts.size() > dg.result_limit) {
-            scale_down_distribution(dg.result_limit, &res->key_counts);
-        }
-    }
-
-#endif  // 0
-
     void operator()(const dummy_read_t &) {
         response->response = dummy_read_response_t();
     }

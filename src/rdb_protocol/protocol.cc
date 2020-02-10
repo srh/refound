@@ -406,10 +406,6 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
         return region_t::universe();
     }
 
-    region_t operator()(const distribution_read_t &) const {
-        return region_t::universe();
-    }
-
     region_t operator()(const changefeed_subscribe_t &) const {
         return region_t::universe();
     }
@@ -435,25 +431,6 @@ region_t read_t::get_region() const THROWS_NOTHING {
     return boost::apply_visitor(rdb_r_get_region_visitor(), read);
 }
 
-// Scale the distribution down by combining ranges to fit it within the limit of
-// the query
-void scale_down_distribution(size_t result_limit, std::map<store_key_t, int64_t> *key_counts) {
-    guarantee(result_limit > 0);
-    const size_t combine = (key_counts->size() / result_limit); // Combine this many other ranges into the previous range
-    for (std::map<store_key_t, int64_t>::iterator it = key_counts->begin(); it != key_counts->end(); ) {
-        std::map<store_key_t, int64_t>::iterator next = it;
-        ++next;
-        for (size_t i = 0; i < combine && next != key_counts->end(); ++i) {
-            it->second += next->second;
-            std::map<store_key_t, int64_t>::iterator tmp = next;
-            ++next;
-            key_counts->erase(tmp);
-        }
-        it = next;
-    }
-}
-
-
 struct route_to_primary_visitor_t : public boost::static_visitor<bool> {
     // `include_initial` changefeed reads must be routed to the primary, since
     // that's where changefeeds are managed.
@@ -471,7 +448,6 @@ struct route_to_primary_visitor_t : public boost::static_visitor<bool> {
     bool operator()(const changefeed_limit_subscribe_t &) const { return true;  }
     bool operator()(const changefeed_stamp_t &) const {           return true;  }
     bool operator()(const changefeed_point_stamp_t &) const {     return true;  }
-    bool operator()(const distribution_read_t &) const {          return false; }
 };
 
 // Route changefeed reads to the primary replica. For other reads we don't care.
@@ -607,7 +583,6 @@ RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(point_read_response_t, data);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     rget_read_response_t, stamp_response, result);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(nearest_geo_read_response_t, results_or_error);
-RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(distribution_read_response_t, key_counts);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     changefeed_subscribe_response_t, server_uuids, addrs);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
@@ -669,9 +644,6 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
     geo_system,
     table_name,
     sindex_id);
-
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
-        distribution_read_t, max_depth, result_limit);
 
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_subscribe_t, addr);
 RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(

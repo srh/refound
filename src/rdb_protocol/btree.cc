@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "btree/concurrent_traversal.hpp"
-#include "btree/get_distribution.hpp"
 #include "btree/operations.hpp"
 #include "btree/reql_specific.hpp"
 #include "btree/operations.hpp"
@@ -1449,24 +1448,6 @@ void rdb_get_nearest_slice(
                       std::back_inserter(*full_res));
         }
     } while (state.proceed_to_next_batch() == continue_bool_t::CONTINUE);
-}
-
-// TODO: Make sure that distribution gets (with new rockstore stuff) get tested.
-void rdb_distribution_get(rockshard rocksh, int keys_limit,
-                          distribution_read_response_t *response) {
-    std::vector<store_key_t> key_lowerbounds;
-    std::vector<uint64_t> interval_disk_sizes;
-    get_distribution(rocksh, keys_limit,
-                    &key_lowerbounds, &interval_disk_sizes);
-    // TODO: Return a vec of pairs in get_distribution.
-    guarantee(key_lowerbounds.size() == interval_disk_sizes.size());
-
-    // TODO: We're changing from key counts to disk size.  This means a rocksdb
-    // shard is not compatible with the cluster.
-
-    for (size_t i = 0; i < key_lowerbounds.size(); ++i) {
-        response->key_counts[key_lowerbounds[i]] = interval_disk_sizes[i];
-    }
 }
 
 static const int8_t HAS_VALUE = 0;
