@@ -421,7 +421,6 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
                 out.stamp_infos.set(std::map<uuid_u, shard_stamp_info_t>());
                 (*out.stamp_infos)[cserver.first->get_uuid()] = shard_stamp_info_t{
                     *stamp,
-                    region_t::universe(),
                     read_start};
                 return out;
             }

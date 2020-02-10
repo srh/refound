@@ -587,8 +587,8 @@ RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     changefeed_subscribe_response_t, server_uuids, addrs);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     changefeed_limit_subscribe_response_t, shards, limit_addrs);
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
-    shard_stamp_info_t, stamp, shard_region, last_read_start);
+RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
+    shard_stamp_info_t, stamp, last_read_start);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_stamp_response_t, stamp_infos);
 
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(

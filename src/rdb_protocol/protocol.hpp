@@ -103,7 +103,6 @@ RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_read_response_t);
 
 struct shard_stamp_info_t {
     uint64_t stamp;
-    region_t shard_region;
     // The starting points of the reads (assuming left to right traversal)
     store_key_t last_read_start;
 };

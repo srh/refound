@@ -327,7 +327,7 @@ raw_stream_t rget_response_reader_t::unshard(
             opt_shard_ids.set(std::map<region_t, uuid_u>());
             for (const auto &pair : *res.stamp_response->stamp_infos) {
                 opt_shard_ids->insert(
-                    std::make_pair(pair.second.shard_region, pair.first));
+                    std::make_pair(region_t::universe(), pair.first));
             }
         }
         active_ranges.set(new_active_ranges(
