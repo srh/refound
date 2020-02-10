@@ -542,7 +542,6 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-
         scoped_ptr_t<val_t> sval = args->optarg(env, "squash");
         datum_t squash = sval.has() ? sval->as_datum(env) : datum_t::boolean(false);
         if (squash.get_type() == datum_t::type_t::R_NUM) {
@@ -578,6 +577,11 @@ private:
         scoped_ptr_t<val_t> v = args->arg(env, 0);
         configured_limits_t limits = env->env->limits_with_changefeed_queue_size(
                 args->optarg(env, "changefeed_queue_size"));
+
+        // TODO: Check new rfail "not supported in reqlfdb" code to ensure they use base_exc_t::LOGIC.
+        rfail(base_exc_t::LOGIC, ".changes() are not supported in reqlfdb");  // TODO: Product name
+
+#if RDB_CF
         if (v->get_type().is_convertible(val_t::type_t::SEQUENCE)) {
             counted_t<datum_stream_t> seq = v->as_seq(env->env);
             std::vector<counted_t<datum_stream_t> > streams;
@@ -642,6 +646,7 @@ private:
         auto selection = v->as_selection(env->env);
         rfail(base_exc_t::LOGIC,
               ".changes() not yet supported on range selections");
+#endif  // RFDB_CF
     }
     virtual const char *name() const { return "changes"; }
 };

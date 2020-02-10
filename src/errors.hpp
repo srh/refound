@@ -268,4 +268,8 @@ vestigial. */
     #define final
 #endif
 
+// Used to comment out old changefeed code
+// TODO: Remove this, eventually.
+#define RDB_CF 0
+
 #endif /* ERRORS_HPP_ */
