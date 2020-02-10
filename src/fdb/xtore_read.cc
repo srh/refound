@@ -1236,24 +1236,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         // the clustering protocol).  And make result_limit forced nonzero.
         // TODO: Reuse the scale_down_distribution function in rdb_distribution_get code.
         int keys_limit = dg.result_limit > 0 ? dg.result_limit : 1 << (4 * dg.max_depth);
-        rdb_distribution_get(store->rocksh(), keys_limit, dg.region, res);
-        // TODO: This filtering by region is now unnecessary.
-        for (std::map<store_key_t, int64_t>::iterator it = res->key_counts.begin(); it != res->key_counts.end(); ) {
-            if (!dg.region.contains_key(store_key_t(it->first))) {
-                std::map<store_key_t, int64_t>::iterator tmp = it;
-                ++it;
-                res->key_counts.erase(tmp);
-            } else {
-                ++it;
-            }
-        }
+        rdb_distribution_get(store->rocksh(), keys_limit, res);
 
         // If the result is larger than the requested limit, scale it down
         if (dg.result_limit > 0 && res->key_counts.size() > dg.result_limit) {
             scale_down_distribution(dg.result_limit, &res->key_counts);
         }
-
-        res->region = dg.region;
     }
 
 #endif  // 0

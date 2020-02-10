@@ -406,8 +406,8 @@ struct rdb_r_get_region_visitor : public boost::static_visitor<region_t> {
         return region_t::universe();
     }
 
-    region_t operator()(const distribution_read_t &dg) const {
-        return dg.region;
+    region_t operator()(const distribution_read_t &) const {
+        return region_t::universe();
     }
 
     region_t operator()(const changefeed_subscribe_t &) const {
@@ -607,7 +607,7 @@ RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(point_read_response_t, data);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     rget_read_response_t, stamp_response, result);
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(nearest_geo_read_response_t, results_or_error);
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(distribution_read_response_t, region, key_counts);
+RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(distribution_read_response_t, key_counts);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
     changefeed_subscribe_response_t, server_uuids, addrs);
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
@@ -670,8 +670,8 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
     table_name,
     sindex_id);
 
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
-        distribution_read_t, max_depth, result_limit, region);
+RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(
+        distribution_read_t, max_depth, result_limit);
 
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(changefeed_subscribe_t, addr);
 RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(

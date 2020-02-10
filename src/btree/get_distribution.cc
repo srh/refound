@@ -13,8 +13,9 @@
 // Outputs a set of "split keys", i.e. keys within key_range (exclusive) that
 // break up the region into equal parts.
 void get_distribution(
-        rockshard rocksh, key_range_t key_range, int keys_limit,
+        rockshard rocksh, int keys_limit,
         std::vector<store_key_t> *keys_out, std::vector<uint64_t> *counts_out) {
+    key_range_t key_range = key_range_t::universe();
     keys_out->clear();
     rocksdb::OptimisticTransactionDB *db = rocksh.rocks->db();
 

@@ -156,7 +156,6 @@ void mock_store_t::read(
             for (auto const &pair : table_) {
                 res->key_counts.insert(std::make_pair(pair.first, 1));
             }
-            res->region = _read.get_region();
         } else {
             response->n_shards = 1;
             response->response = point_read_response_t();

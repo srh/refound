@@ -154,8 +154,8 @@ struct distribution_read_response_t {
     // with k1 < k2 < .. < kn
     // Then k1 == left_key
     // and key_counts[ki] = the number of keys in [ki, ki+1) if i < n
-    // key_counts[kn] = the number of keys in [kn, right_key)
-    region_t region;
+    // key_counts[kn] = the number of keys in [kn, +infinity)
+    // Note: The region field is removed, so left_key might always be "".
     // TODO: Update comment above.  These are approx disk usage in bytes.
     std::map<store_key_t, int64_t> key_counts;
 };
@@ -413,18 +413,15 @@ RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_t);
 
 class distribution_read_t {
 public:
-    // TODO: Is region ever not universe?
     distribution_read_t()
-        : max_depth(0), result_limit(0), region(region_t::universe())
+        : max_depth(0), result_limit(0)
     { }
     distribution_read_t(int _max_depth, size_t _result_limit)
-        : max_depth(_max_depth), result_limit(_result_limit),
-          region(region_t::universe())
+        : max_depth(_max_depth), result_limit(_result_limit)
     { }
 
     int max_depth;
     size_t result_limit;
-    region_t region;
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(distribution_read_t);
 
