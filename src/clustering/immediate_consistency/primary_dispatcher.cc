@@ -110,9 +110,6 @@ void primary_dispatcher_t::read(
             if (!d->is_ready) {
                 continue;
             }
-            if (_read.route_to_primary() && !d->dispatchee->is_primary()) {
-                continue;
-            }
             if (dispatchee == nullptr ||
                     std::make_pair(d->latest_acked_write, d->priority) > best) {
                 dispatchee = d;

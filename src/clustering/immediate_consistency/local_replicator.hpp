@@ -29,10 +29,6 @@ public:
     /* This destructor can block */
     ~local_replicator_t();
 
-    bool is_primary() const {
-        return true;
-    }
-
     void do_read(
         const read_t &read,
         state_timestamp_t min_timestamp,
