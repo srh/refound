@@ -13,8 +13,6 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 
-// OOO: check cv in every function necessary -- don't just check db id existence or something like that, because db/table lookups might have been renamed -- the id valid, but the name lookup out of date.
-
 struct db_config_by_id {
     using ukey_type = database_id_t;
     using value_type = name_string_t;
@@ -426,7 +424,9 @@ bool help_remove_table_if_exists(
 
 
 optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
-        FDBTransaction *txn, const auth::user_context_t &user_context,
+        FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
+        const auth::user_context_t &user_context,
         const database_id_t &db_id, const name_string_t &table_name,
         const signal_t *interruptor) {
 
@@ -438,11 +438,12 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
     fdb_future db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(
         txn, db_id);
 
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+
     {
         fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
-        if (!db_by_id_value.present) {
-            throw config_version_exc_t();
-        }
+        guarantee(db_by_id_value.present, "db missing, fdb state invalid");  // TODO: Fdb, error message, etc.
     }
 
     fdb_value table_by_name_value
@@ -472,8 +473,6 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
 
     help_remove_table(txn, table_id, config, interruptor);
 
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-
     cv.value++;
     transaction_set_config_version(txn, cv);
     return make_optional(std::make_pair(table_id, std::move(config)));
@@ -481,6 +480,7 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
 
 bool config_cache_table_create(
         FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
         const auth::user_context_t &user_context,
         const namespace_id_t &new_table_id,
         const table_config_t &config,
@@ -503,6 +503,9 @@ bool config_cache_table_create(
     fdb_future db_by_id_fut
         = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    check_cv(expected_cv, cv);
+
     auth_fut.block_and_check(interruptor);
     fdb_value table_by_name_value
         = future_block_on_value(table_by_name_fut.fut, interruptor);
@@ -514,13 +517,8 @@ bool config_cache_table_create(
 
     {
         fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);
-        if (!db_by_id_value.present) {
-            // TODO: We can throw this from within a retry loop, right?
-            throw config_version_exc_t();
-        }
+        guarantee(db_by_id_value.present, "Db by id missing, invalid fdb state");  // TODO: fdb, msg, etc.
     }
-
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     ASSERT_NO_CORO_WAITING;
 

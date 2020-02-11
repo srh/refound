@@ -309,9 +309,9 @@ private:
         bool fdb_result;
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-                // TODO: Handle user auth permissions.
                 bool success = config_cache_table_create(
-                    txn, env->env->get_user_context(), new_table_id, config,
+                    txn, db->cv.get(),
+                    env->env->get_user_context(), new_table_id, config,
                     env->env->interruptor);
                 if (success) {
                     commit(txn, env->env->interruptor);
@@ -440,7 +440,9 @@ private:
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 optional<std::pair<namespace_id_t, table_config_t>> success
-                    = config_cache_table_drop(txn, env->env->get_user_context(),
+                    = config_cache_table_drop(txn,
+                        db->cv.get(),
+                        env->env->get_user_context(),
                         db->id, tbl_name,
                         env->env->interruptor);
                 if (success.has_value()) {

@@ -40,6 +40,7 @@ MUST_USE bool config_cache_db_create(
 
 MUST_USE bool config_cache_table_create(
     FDBTransaction *txn,
+    reqlfdb_config_version expected_cv,
     const auth::user_context_t &user_context,
     const namespace_id_t &new_table_id,
     const table_config_t &config,
@@ -60,7 +61,9 @@ MUST_USE bool help_remove_table_if_exists(
     const signal_t *interruptor);
 
 MUST_USE optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
-        FDBTransaction *txn, const auth::user_context_t &user_context,
+        FDBTransaction *txn,
+        reqlfdb_config_version expected_cv,
+        const auth::user_context_t &user_context,
         const database_id_t &db_id, const name_string_t &table_name,
         const signal_t *interruptor);
 
