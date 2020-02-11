@@ -16,7 +16,6 @@
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 
-
 namespace_id_t real_table_t::get_id() const {
     return uuid;
 }
@@ -24,6 +23,10 @@ namespace_id_t real_table_t::get_id() const {
 const std::string &real_table_t::get_pkey() const {
     return pkey;
 }
+
+// QQQ: Verify that these functions are called in a context that handles config_version_exc_t.
+
+// OOO: Fdb-ize the functions below.
 
 ql::datum_t real_table_t::read_row(
     ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) {
@@ -345,6 +348,8 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
     profile::splitter_t splitter(env->trace);
     /* propagate whether or not we're doing profiles */
     r_sanity_check(read.profile == env->profile());
+
+    // OOO: We'll need to handle config_version_exc_t coming out of this.
 
     /* Do the actual read. */
     try {
