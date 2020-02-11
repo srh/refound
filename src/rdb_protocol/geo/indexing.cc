@@ -603,14 +603,6 @@ continue_bool_t geo_fdb_traversal(
 
     // TODO: Medium, streaming batch size backoff logic etc, is partial iteration even allowable at all?
 
-    // TODO: We may be more in "seek" mode here, and fdb_transaction_get_key might be
-    // the tool to use.
-    /*
-    rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(txn, fdb_kv_prefix,
-        sindex_range.left, sindex_range.right.unbounded ? nullptr : &sindex_range.right.key(),
-        0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
-    */
-
     // There are two modes of iteration:  Stepping forward to cells and cell
     // ancestors, and stepping through the contents of a cover cell or ancestor cell.
 
@@ -629,7 +621,7 @@ continue_bool_t geo_fdb_traversal(
         }
 
         rfdb::datum_range_fut rfut = rfdb::kv_prefix_get_range_str(txn, fdb_kv_prefix,
-            pos, sindex_range_right_ptr,
+            pos, rfdb::lower_bound::closed, sindex_range_right_ptr,
             0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
 
         const FDBKeyValue *kvs = valgrind_undefined(nullptr);
@@ -699,10 +691,12 @@ continue_bool_t geo_fdb_traversal(
                     break;
                 }
 
-                // OOO: leftopen_range_str is hideous
                 // It's important that we reassign to rfut for kvs lifetime to be correct.
-                rfut = rfdb::kv_prefix_get_leftopen_range_str(txn, fdb_kv_prefix, std::string(as_char(key_slice.data), size_t(key_slice.length)),
-                     sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+                rfut = rfdb::kv_prefix_get_range_str(
+                    txn, fdb_kv_prefix,
+                    std::string(as_char(key_slice.data), size_t(key_slice.length)),
+                    rfdb::lower_bound::open,
+                    sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
                 kv_count = 0;
                 while (more && kv_count == 0) {
                     fdb_error_t err = fdb_future_get_keyvalue_array(rfut.fut, &kvs, &kv_count, &more);

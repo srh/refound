@@ -206,8 +206,11 @@ continue_bool_t fdb_traversal(
     // TODO: Check if we use switches for this type direction_t in other code.
     fdb_bool_t reverse = direction != direction_t::forward;
     // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
-    rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(txn, fdb_kv_prefix, range.left,
-        range.right.unbounded ? nullptr : &range.right.key(), 0, 0, FDB_STREAMING_MODE_MEDIUM,
+    rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
+        txn, fdb_kv_prefix, range.left,
+        rfdb::lower_bound::closed,
+        range.right.unbounded ? nullptr : &range.right.internal_key,
+        0, 0, FDB_STREAMING_MODE_MEDIUM,
         0, false, reverse);
 
     const FDBKeyValue *kvs;

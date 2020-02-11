@@ -35,7 +35,6 @@ struct jobstate_futs {
     optional<std::unordered_map<std::string, fdb_index_jobstate>> jobstates;
 
     // You must check_cv before calling this.
-    //   (OOO: See that we do.)
     const std::unordered_map<std::string, fdb_index_jobstate> &
     block_on_jobstates(const signal_t *interruptor) {
         if (!jobstates.has_value()) {
@@ -154,7 +153,7 @@ void update_fdb_sindexes(
         }
 
         for (const store_key_t &key : addition_keys) {
-            // OOO: Dedup sindex writing/deletion logic.
+            // QQQ: Dedup sindex writing/deletion logic.
             rdbtable_sindex_fdb_key_onto(&fdb_key, key);
             uint8_t value[1];
             fdb_transaction_set(txn,
@@ -215,7 +214,7 @@ void rdb_fdb_delete(
         point_delete_response_t *response,
         rdb_modification_info_t *mod_info,
         const signal_t *interruptor) {
-    // OOO: Create these perfmons.
+    // QQQ: Create these perfmons.
     // slice->stats.pm_keys_set.record();
     // slice->stats.pm_total_keys_set += 1;
 

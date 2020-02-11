@@ -104,7 +104,7 @@ optional<fdb_job_info> execute_index_create_job(
     store_key_t js_upper_bound(jobstate.unindexed_upper_bound.ukey);
 
     rfdb::datum_range_fut data_fut = rfdb::kv_prefix_get_range(txn, pkey_prefix,
-        js_lower_bound, &js_upper_bound,
+        js_lower_bound, rfdb::lower_bound::closed, &js_upper_bound,
         0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
 
     // TODO: Apply a workaround for write contention problems mentioned above.

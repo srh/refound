@@ -32,7 +32,8 @@ rfdb::datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_locat
 }
 
 datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_prefix,
-        const store_key_t &lower, const store_key_t *upper_or_null,
+        const store_key_t &lower, lower_bound lower_bound_closed,
+        const store_key_t *upper_or_null,
         int limit, int target_bytes, FDBStreamingMode mode, int iteration,
         fdb_bool_t snapshot, fdb_bool_t reverse) {
     std::string lower_key = index_key_concat(kv_prefix, lower);
@@ -40,7 +41,7 @@ datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_p
         : prefix_end(kv_prefix);
 
     return datum_range_fut{fdb_transaction_get_range(txn,
-        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower_key.data()), int(lower_key.size())),
+        as_uint8(lower_key.data()), int(lower_key.size()), lower_bound_closed == lower_bound::open, 1,
         FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper_key.data()), int(upper_key.size())),
         limit,
         target_bytes,
@@ -53,7 +54,8 @@ datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_p
 // TODO: Remove.
 datum_range_fut kv_prefix_get_range_str(FDBTransaction *txn,
         const std::string &kv_prefix,
-        const std::string &lower, const std::string *upper_or_null,
+        const std::string &lower, lower_bound lower_bound_closed,
+        const std::string *upper_or_null,
         int limit, int target_bytes, FDBStreamingMode mode, int iteration,
         fdb_bool_t snapshot, fdb_bool_t reverse) {
     std::string lower_key = index_key_concat_str(kv_prefix, lower);
@@ -61,7 +63,7 @@ datum_range_fut kv_prefix_get_range_str(FDBTransaction *txn,
         : prefix_end(kv_prefix);
 
     return datum_range_fut{fdb_transaction_get_range(txn,
-        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower_key.data()), int(lower_key.size())),
+        as_uint8(lower_key.data()), int(lower_key.size()), lower_bound_closed == lower_bound::open, 1,
         FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper_key.data()), int(upper_key.size())),
         limit,
         target_bytes,
@@ -69,28 +71,6 @@ datum_range_fut kv_prefix_get_range_str(FDBTransaction *txn,
         iteration,
         snapshot,
         reverse)};
-}
-
-datum_range_fut kv_prefix_get_leftopen_range_str(FDBTransaction *txn,
-        const std::string &kv_prefix,
-        const std::string &lower_open, const std::string *upper_or_null,
-        int limit, int target_bytes, FDBStreamingMode mode, int iteration,
-        fdb_bool_t snapshot, fdb_bool_t reverse) {
-    std::string lower_open_key = index_key_concat_str(kv_prefix, lower_open);
-    std::string upper_key = upper_or_null ? index_key_concat_str(kv_prefix, *upper_or_null)
-        : prefix_end(kv_prefix);
-
-    return datum_range_fut{fdb_transaction_get_range(txn,
-        FDB_KEYSEL_FIRST_GREATER_THAN(as_uint8(lower_open_key.data()), int(lower_open_key.size())),
-        FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper_key.data()), int(upper_key.size())),
-        limit,
-        target_bytes,
-        mode,
-        iteration,
-        snapshot,
-        reverse)};
-
-
 }
 
 }  // namespace rfdb
