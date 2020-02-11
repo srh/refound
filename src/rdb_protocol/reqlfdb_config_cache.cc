@@ -144,7 +144,7 @@ optional<config_info<namespace_id_t>> try_lookup_cached_table(
     optional<config_info<namespace_id_t>> ret;
     ASSERT_NO_CORO_WAITING;  // mutex assertion
     auto it = cache->table_name_index.find(table_name);
-    if (it == cache->table_name_index.end()) {
+    if (it != cache->table_name_index.end()) {
         ret.emplace();
         ret->ci_value = it->second;
         ret->ci_cv = cache->config_version;
@@ -152,6 +152,19 @@ optional<config_info<namespace_id_t>> try_lookup_cached_table(
     return ret;
 }
 
+optional<config_info<auth::user_t>>
+try_lookup_cached_user(
+        const reqlfdb_config_cache *cache, const auth::username_t &username) {
+    optional<config_info<auth::user_t>> ret;
+    ASSERT_NO_CORO_WAITING;  // mutex assertion
+    auto it = cache->auth_index.find(username);
+    if (it != cache->auth_index.end()) {
+        ret.emplace();
+        ret->ci_value = it->second;
+        ret->ci_cv = cache->config_version;
+    }
+    return ret;
+}
 
 
 config_info<optional<database_id_t>>
@@ -185,6 +198,7 @@ config_cache_retrieve_db_by_name(
     return ret;
 }
 
+// OOO: Caller of these three fns need to check cv and wipe/refresh config cache.
 config_info<optional<std::pair<namespace_id_t, table_config_t>>>
 config_cache_retrieve_table_by_name(
         const reqlfdb_config_cache *cc, FDBTransaction *txn,
@@ -197,22 +211,21 @@ config_cache_retrieve_table_by_name(
         txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
-    // Block here (1st round-trip; for simplicity we always check config version)
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
     if (cv.value < cc->config_version.value) {
         // Throw a retryable exception.
         throw fdb_transaction_exception(REQLFDB_not_committed);
     }
+    // TODO: Examine this, the db function, and the user function for some config_version exception?
 
-    // Block here (still 1st round-trip)
     fdb_value table_id_value = future_block_on_value(table_id_fut.fut, interruptor);
 
     namespace_id_t table_id;
     bool present = deserialize_off_fdb_value(table_id_value, &table_id);
 
     config_info<optional<std::pair<namespace_id_t, table_config_t>>> ret;
-    ret.ci_cv = cc->config_version;
+    ret.ci_cv = cv;
     if (!present) {
         return ret;
     }
@@ -234,6 +247,28 @@ config_cache_retrieve_table_by_name(
     return ret;
 }
 
+config_info<optional<auth::user_t>>
+config_cache_retrieve_user_by_name(
+        const reqlfdb_config_cache *cc, FDBTransaction *txn,
+        const auth::username_t &username, const signal_t *interruptor) {
+    fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, username);
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    if (cv.value < cc->config_version.value) {
+        // Throw a retryable exception.
+        throw fdb_transaction_exception(REQLFDB_not_committed);
+    }
+
+    config_info<optional<auth::user_t>> ret;
+    ret.ci_cv = cv;
+
+    auth::user_t user;
+    if (user_fut.block_and_deserialize(interruptor, &user)) {
+        ret.ci_value.set(std::move(user));
+    }
+    return ret;
+}
 
 bool config_cache_db_create(
         FDBTransaction *txn,

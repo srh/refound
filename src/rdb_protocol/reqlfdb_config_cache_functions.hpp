@@ -31,6 +31,11 @@ config_cache_retrieve_table_by_name(
     const std::pair<database_id_t, name_string_t> &db_table_name,
     const signal_t *interruptor);
 
+config_info<optional<auth::user_t>>
+config_cache_retrieve_user_by_name(
+    const reqlfdb_config_cache *cc, FDBTransaction *txn,
+    const auth::username_t &username, const signal_t *interruptor);
+
 MUST_USE bool config_cache_db_create(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,

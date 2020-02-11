@@ -88,4 +88,7 @@ optional<config_info<namespace_id_t>>
 try_lookup_cached_table(const reqlfdb_config_cache *cache,
     const std::pair<database_id_t, name_string_t> &table_name);
 
+optional<config_info<auth::user_t>>
+try_lookup_cached_user(const reqlfdb_config_cache *cache, const auth::username_t &username);
+
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_

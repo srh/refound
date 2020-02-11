@@ -68,6 +68,7 @@ public:
     RDB_DECLARE_ME_SERIALIZABLE(user_t);
 
 private:
+    // TODO: unordered_map.
     password_t m_password;
     permissions_t m_global_permissions;
     std::map<database_id_t, permissions_t> m_database_permissions;
