@@ -372,7 +372,6 @@ private:
     }
 
     datum_t val_info(env_t *env, scoped_ptr_t<val_t> v, bool cv_check_done = false) const {
-        // OOO: Fdb-ize this.
         datum_object_builder_t info;
         int type = val_type(env, v);
         bool b = info.add("type", typename_of(env, v));
