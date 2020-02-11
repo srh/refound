@@ -938,7 +938,7 @@ void rdb_fdb_get_intersecting_slice(
 
 
 struct fdb_read_visitor : public boost::static_visitor<void> {
-// OOO: Make sure there is no #if 0 left
+// TODO: Make sure there is no #if 0 left
 #if 0
     void operator()(const changefeed_subscribe_t &s) {
         auto cserver = store->get_or_make_changefeed_server();
@@ -1240,7 +1240,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
 #if RDB_CF
-    // OOO: Remove this.
+    // TODO: Remove this.
     template <class T>
     void operator()(const T&) {
         crash("Unimplemented read op for fdb");

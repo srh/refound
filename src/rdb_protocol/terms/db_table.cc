@@ -940,7 +940,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        // OOO: Fdb-ize?  Fdb already syncs.  Maybe there's a mode which controls this.
+        // OOO: We need to check cv, check for write permission.
         counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
         bool success = t->sync(env->env);
         r_sanity_check(success);
