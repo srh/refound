@@ -145,7 +145,6 @@ void mock_store_t::read(
         guarantee(!(point_read == nullptr));
 
         {
-            response->n_shards = 1;
             response->response = point_read_response_t();
             point_read_response_t *res = boost::get<point_read_response_t>(&response->response);
 
@@ -194,7 +193,6 @@ void mock_store_t::write(
         // originally was a port of the dummy protocol, so we didn't need to support
         // deletes at first.
         if (const point_write_t *point_write = boost::get<point_write_t>(&_write.write)) {
-            response->n_shards = 1;
             response->response = point_write_response_t();
             point_write_response_t *res =
                 boost::get<point_write_response_t>(&response->response);
@@ -210,7 +208,6 @@ void mock_store_t::write(
                 ? point_write_result_t::DUPLICATE
                 : point_write_result_t::STORED;
         } else if (boost::get<sync_t>(&_write.write) != nullptr) {
-            response->n_shards = 1;
             response->response = sync_response_t();
         } else {
             crash("mock_store_t only supports point writes and syncs");

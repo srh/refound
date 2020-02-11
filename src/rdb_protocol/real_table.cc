@@ -345,6 +345,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
          (read.read_mode == read_mode_t::SINGLE ? "Perform read." :
                                                   "Perform majority read."))),
         env->trace);
+    // TODO: Remove splitter.
     profile::splitter_t splitter(env->trace);
     /* propagate whether or not we're doing profiles */
     r_sanity_check(read.profile == env->profile());
@@ -366,13 +367,14 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
     }
 
     /* Append the results of the profile to the current task */
-    splitter.give_splits(response->n_shards, response->event_log);
+    splitter.give_splits(1, response->event_log);
 }
 
 void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
         write_response_t *response) {
     PROFILE_STARTER_IF_ENABLED(
         env->profile() == profile_bool_t::PROFILE, "Perform write", env->trace);
+    // TODO: Remove splitter.
     profile::splitter_t splitter(env->trace);
     /* propagate whether or not we're doing profiles */
     write->profile = env->profile();
@@ -402,6 +404,6 @@ void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
     }
 
     /* Append the results of the profile to the current task */
-    splitter.give_splits(response->n_shards, response->event_log);
+    splitter.give_splits(1, response->event_log);
 }
 

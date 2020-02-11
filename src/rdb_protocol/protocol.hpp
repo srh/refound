@@ -219,7 +219,6 @@ struct read_response_t {
                            dummy_read_response_t> variant_t;
     variant_t response;
     profile::event_log_t event_log;
-    size_t n_shards;
 
     read_response_t() { }
     explicit read_response_t(const variant_t &r)
@@ -532,7 +531,6 @@ struct write_response_t {
                    dummy_write_response_t> response;
 
     profile::event_log_t event_log;
-    size_t n_shards;
 
     write_response_t() { }
     template<class T>

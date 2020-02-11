@@ -26,7 +26,6 @@ void replica_t::do_read(
     if (boost::get<dummy_read_t>(&read.read) != nullptr) {
         read_response_t response;
         response.response = dummy_read_response_t();
-        response.n_shards = 1;
         *response_out = std::move(response);
         return;
     }

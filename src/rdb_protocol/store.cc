@@ -720,7 +720,6 @@ void store_t::protocol_read(const read_t &_read,
         boost::apply_visitor(v, _read.read);
     }
 
-    response->n_shards = 1;
     if (trace.has()) {
         response->event_log = std::move(*trace).extract_event_log();
     }
@@ -1006,7 +1005,6 @@ void store_t::protocol_write(scoped_ptr_t<txn_t> txn,
         boost::apply_visitor(v, _write.write);
     }
 
-    response->n_shards = 1;
     if (trace.has()) {
         response->event_log = std::move(*trace).extract_event_log();
     }

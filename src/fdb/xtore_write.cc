@@ -668,8 +668,6 @@ write_response_t apply_write(FDBTransaction *txn,
         boost::apply_visitor(v, write.write);
     }
 
-    // TODO: Remove n_shards.
-    response.n_shards = 1;
     if (trace.has()) {
         response.event_log = std::move(*trace).extract_event_log();
     }

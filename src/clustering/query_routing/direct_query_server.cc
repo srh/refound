@@ -28,7 +28,6 @@ void direct_query_server_t::on_read(
     if (boost::get<dummy_read_t>(&read.read) != nullptr) {
         read_response_t response;
         response.response = dummy_read_response_t();
-        response.n_shards = 1;
         send(mailbox_manager, cont, response);
         return;
     }
