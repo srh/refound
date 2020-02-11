@@ -9,6 +9,7 @@
 
 #include "containers/name_string.hpp"
 #include "containers/uuid.hpp"
+#include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/context.hpp"
 
 /* `artificial_table_t` is the subclass of `base_table_t` that represents a table in the

@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/configured_limits.hpp"
 #include "rdb_protocol/context.hpp"
 #include "rdb_protocol/protocol.hpp"

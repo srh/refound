@@ -22,6 +22,7 @@
 #include "containers/lifetime.hpp"
 #include "containers/scoped.hpp"
 #include "protocol_api.hpp"
+#include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/context.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/datumspec.hpp"

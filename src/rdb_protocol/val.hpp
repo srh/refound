@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "containers/counted.hpp"
+#include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/datum_string.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/geo/distances.hpp"

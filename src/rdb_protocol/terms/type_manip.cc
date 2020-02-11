@@ -11,6 +11,7 @@
 #include "fdb/retry_loop.hpp"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
+#include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
