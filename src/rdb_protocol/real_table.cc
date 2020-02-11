@@ -333,16 +333,6 @@ ql::datum_t real_table_t::write_batched_insert(
     return std::move(result).to_datum();
 }
 
-bool real_table_t::write_sync_depending_on_durability(ql::env_t *env,
-        durability_requirement_t durability) {
-    write_t write(sync_t(), durability, env->profile(), env->limits());
-    write_response_t res;
-    write_with_profile(env, &write, &res);
-    sync_response_t *response = boost::get<sync_response_t>(&res.response);
-    r_sanity_check(response);
-    return true; // With our current implementation, a sync can never fail.
-}
-
 void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
         read_response_t *response) {
     PROFILE_STARTER_IF_ENABLED(

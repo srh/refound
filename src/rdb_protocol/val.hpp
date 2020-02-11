@@ -85,8 +85,6 @@ public:
         return_changes_t return_changes,
         ignore_write_hook_t ignore_write_hook);
 
-    MUST_USE bool sync(env_t *env);
-
     /* `db` and `name` are mostly for display purposes, but some things like the
     `reconfigure()` logic use them. */
     counted_t<const db_t> db;
@@ -111,9 +109,6 @@ private:
         const std::vector<datum_t> &insert_datums,
         conflict_behavior_t conflict_behavior,
         durability_requirement_t durability_requirement);
-
-    MUST_USE bool sync_depending_on_durability(
-        env_t *env, durability_requirement_t durability_requirement);
 
     read_mode_t read_mode;
 };

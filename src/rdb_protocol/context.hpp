@@ -227,9 +227,6 @@ public:
         return_changes_t return_changes,
         durability_requirement_t durability,
         ignore_write_hook_t ignore_write_hook) = 0;
-    virtual bool write_sync_depending_on_durability(
-        ql::env_t *env,
-        durability_requirement_t durability) = 0;
 
     /* This must be public */
     virtual ~base_table_t() { }

@@ -467,18 +467,6 @@ datum_t table_t::batched_insert(
     }
 }
 
-MUST_USE bool table_t::sync(env_t *env) {
-    // In order to get the guarantees that we expect from a user-facing command,
-    // we always have to use hard durability in combination with sync.
-    return sync_depending_on_durability(env, DURABILITY_REQUIREMENT_HARD);
-}
-
-MUST_USE bool table_t::sync_depending_on_durability(env_t *env,
-                durability_requirement_t durability_requirement) {
-    return tbl->write_sync_depending_on_durability(
-        env, durability_requirement);
-}
-
 namespace_id_t table_t::get_id() const {
     return tbl->get_id();
 }

@@ -99,8 +99,6 @@ public:
         return_changes_t return_changes,
         durability_requirement_t durability,
         ignore_write_hook_t ignore_write_hook);
-    bool write_sync_depending_on_durability(ql::env_t *env,
-        durability_requirement_t durability);
 
     scoped_ptr_t<ql::reader_t> read_all_with_sindexes(
         ql::env_t *env,

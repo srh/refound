@@ -8,6 +8,8 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/grant.hpp"
 #include "clustering/administration/auth/permissions.hpp"
+#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/namespace_interface_repository.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
@@ -941,10 +943,26 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const {
-        // OOO: We need to check cv, check for write permission.
+        // We now succeed on system tables, unlike pre-fdb sync_term_t.  This is
+        // desirable.
+
         counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
-        bool success = t->sync(env->env);
-        r_sanity_check(success);
+        reqlfdb_config_version expected_cv = t->tbl->cv.get();
+        try {
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Read-only txn
+                auth::fdb_user_fut<auth::write_permission> auth_fut
+                    = env->env->get_user_context().transaction_require_write_permission(
+                        txn, t->db->id, t->get_id());
+                config_cache_cv_check(txn, expected_cv, env->env->interruptor);
+                auth_fut.block_and_check(env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "sync_term_t retry loop");
+        } catch (auth::permission_error_t const &permission_error) {
+            // Taken from artificial_table.cc
+            rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+        }
+
         ql::datum_object_builder_t result;
         result.overwrite("synced", ql::datum_t(1.0));
         return new_val(std::move(result).to_datum());

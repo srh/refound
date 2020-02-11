@@ -339,23 +339,6 @@ ql::datum_t artificial_table_t::write_batched_insert(
     return std::move(obj_builder).to_datum();
 }
 
-bool artificial_table_t::write_sync_depending_on_durability(
-        ql::env_t *env,
-        UNUSED durability_requirement_t durability) {
-    try {
-        env->get_user_context().require_write_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
-    } catch (auth::permission_error_t const &permission_error) {
-        rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-    }
-
-    /* Calling `sync()` on an artificial table is a meaningful operation; it would mean
-    to flush the metadata to disk. But it would be a lot of trouble to implement in
-    practice, so we don't. */
-    rfail_datum(ql::base_exc_t::OP_FAILED,
-        "Artificial tables don't support `sync()`.");
-}
-
 void artificial_table_t::do_single_update(
         ql::env_t *env,
         ql::datum_t pval,
