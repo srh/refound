@@ -169,7 +169,7 @@ try_lookup_cached_user(
 
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(
-        const reqlfdb_config_cache *cache,
+        const reqlfdb_config_version config_cache_cv,
         FDBTransaction *txn,
         const name_string_t &db_name, const signal_t *interruptor) {
     fdb_future fut = transaction_lookup_unique_index(
@@ -179,8 +179,9 @@ config_cache_retrieve_db_by_name(
     // Block here (1st round-trip)
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
-    if (cv.value < cache->config_version.value) {
+    if (cv.value < config_cache_cv.value) {
         // Throw a retryable exception.
+        // TODO: Should be impossible, just a guarantee failure.
         throw fdb_transaction_exception(REQLFDB_not_committed);
     }
 
@@ -201,7 +202,7 @@ config_cache_retrieve_db_by_name(
 // OOO: Caller of these three fns need to check cv and wipe/refresh config cache.
 config_info<optional<std::pair<namespace_id_t, table_config_t>>>
 config_cache_retrieve_table_by_name(
-        const reqlfdb_config_cache *cc, FDBTransaction *txn,
+        const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
         const std::pair<database_id_t, name_string_t> &db_table_name,
         const signal_t *interruptor) {
     const ukey_string table_index_key = table_by_name_key(
@@ -213,8 +214,9 @@ config_cache_retrieve_table_by_name(
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
 
-    if (cv.value < cc->config_version.value) {
+    if (cv.value < config_cache_cv.value) {
         // Throw a retryable exception.
+        // TODO: Should be impossible, just a guarantee failure.
         throw fdb_transaction_exception(REQLFDB_not_committed);
     }
     // TODO: Examine this, the db function, and the user function for some config_version exception?
@@ -249,13 +251,13 @@ config_cache_retrieve_table_by_name(
 
 config_info<optional<auth::user_t>>
 config_cache_retrieve_user_by_name(
-        const reqlfdb_config_cache *cc, FDBTransaction *txn,
+        const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
         const auth::username_t &username, const signal_t *interruptor) {
     fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, username);
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-    if (cv.value < cc->config_version.value) {
+    if (cv.value < config_cache_cv.value) {
         // Throw a retryable exception.
         throw fdb_transaction_exception(REQLFDB_not_committed);
     }

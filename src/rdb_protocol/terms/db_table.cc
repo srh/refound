@@ -156,11 +156,12 @@ private:
         }
 
         config_info<optional<database_id_t>> result;
+        reqlfdb_config_version prior_cv = cc->config_version;
         // TODO: Read-only txn.
         fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
                 [&](FDBTransaction *txn) {
             result = config_cache_retrieve_db_by_name(
-                cc, txn, db_name, env->env->interruptor);
+                prior_cv, txn, db_name, env->env->interruptor);
         });
         guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_by_name loop");
 
@@ -1129,12 +1130,13 @@ private:
                 rci->get_table_meta_client()));
             table->cv.set(cached->ci_cv);
         } else {
+            reqlfdb_config_version prior_cv = cc->config_version;
             config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
             // TODO: Read-only txn.
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
                     [&](FDBTransaction *txn) {
                 result = config_cache_retrieve_table_by_name(
-                    cc, txn, db_table_name, env->env->interruptor);
+                    prior_cv, txn, db_table_name, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
             cc->note_version(result.ci_cv);

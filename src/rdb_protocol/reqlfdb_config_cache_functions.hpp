@@ -22,18 +22,18 @@ class db_t;
 
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(
-    const reqlfdb_config_cache *cc, FDBTransaction *txn,
+    const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);
 
 config_info<optional<std::pair<namespace_id_t, table_config_t>>>
 config_cache_retrieve_table_by_name(
-    const reqlfdb_config_cache *cc, FDBTransaction *txn,
+    const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
     const std::pair<database_id_t, name_string_t> &db_table_name,
     const signal_t *interruptor);
 
 config_info<optional<auth::user_t>>
 config_cache_retrieve_user_by_name(
-    const reqlfdb_config_cache *cc, FDBTransaction *txn,
+    const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
     const auth::username_t &username, const signal_t *interruptor);
 
 MUST_USE bool config_cache_db_create(
