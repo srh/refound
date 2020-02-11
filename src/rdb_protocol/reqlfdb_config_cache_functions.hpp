@@ -9,6 +9,11 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 
+namespace auth {
+class username_t;
+class user_t;
+}
+
 namespace ql {
 class db_t;
 }

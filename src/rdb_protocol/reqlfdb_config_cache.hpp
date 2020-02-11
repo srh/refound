@@ -1,20 +1,17 @@
 #ifndef RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_
 #define RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_
 
+#include <limits.h>
+
 #include <map>
 
-#include "clustering/administration/auth/username.hpp"
-#include "clustering/administration/auth/user.hpp"
+// TODO: Uncomment or remove.
+// #include "clustering/administration/auth/username.hpp"
+// #include "clustering/administration/auth/user.hpp"
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"
 #include "rdb_protocol/context.hpp"
 
-namespace auth {
-class username_t;
-class user_t;
-}
-
-// TODO: Make use of this.
 // TODO: Handle this exception.
 class config_version_exc_t : public std::exception {
 public:
@@ -22,6 +19,20 @@ public:
 
     const char *what() const noexcept override {
         return "Config version out of date";
+    }
+};
+
+// TODO: Make use of this.
+class config_version_checker {
+public:
+    uint64_t older;
+    void check_cv(reqlfdb_config_version newer) {
+        if (older != UINT64_MAX && older != newer.value) {
+            throw config_version_exc_t();
+        }
+    }
+    static config_version_checker empty() {
+        return { UINT64_MAX };
     }
 };
 
@@ -62,7 +73,16 @@ public:
     std::map<std::pair<database_id_t, name_string_t>, namespace_id_t> table_name_index;
     std::map<namespace_id_t, table_config_t> table_id_index;
 
-    std::map<auth::username_t, auth::user_t> auth_index;
+    // TODO: Uncomment auth_index or remove.
+    //
+    // The table and db indexes are useful for implementing r.db() and r.table() terms
+    // efficiently.  The user auth checks, ultimately, cannot succeed or fail without a
+    // round-trip to the db, and the only purpose in caching is to avoid a key/value
+    // request from fdb.  This is something that may be worth implementing later, when
+    // we add the ability to recover from check_cv failures when it doesn't affect the
+    // config key in question.
+    //
+    // std::map<auth::username_t, auth::user_t> auth_index;
 
     void wipe();
 
@@ -88,7 +108,10 @@ optional<config_info<namespace_id_t>>
 try_lookup_cached_table(const reqlfdb_config_cache *cache,
     const std::pair<database_id_t, name_string_t> &table_name);
 
+// TODO: Uncomment or remove
+#if 0
 optional<config_info<auth::user_t>>
 try_lookup_cached_user(const reqlfdb_config_cache *cache, const auth::username_t &username);
+#endif
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_

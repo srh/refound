@@ -47,11 +47,6 @@ void reqlfdb_config_cache::add_table(
         table_id);
 }
 
-// TODO: Remove.
-void config_cache_wipe(reqlfdb_config_cache *cache) {
-    cache->wipe();
-}
-
 ukey_string db_by_name_key(const name_string_t &db_name) {
     return ukey_string{db_name.str()};
 }
@@ -152,6 +147,8 @@ optional<config_info<namespace_id_t>> try_lookup_cached_table(
     return ret;
 }
 
+// TODO: Uncomment or remove.
+#if 0
 optional<config_info<auth::user_t>>
 try_lookup_cached_user(
         const reqlfdb_config_cache *cache, const auth::username_t &username) {
@@ -165,6 +162,7 @@ try_lookup_cached_user(
     }
     return ret;
 }
+#endif  // 0
 
 
 config_info<optional<database_id_t>>
