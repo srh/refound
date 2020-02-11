@@ -8,6 +8,7 @@
 // TODO: Uncomment or remove.
 // #include "clustering/administration/auth/username.hpp"
 // #include "clustering/administration/auth/user.hpp"
+#include "containers/counted.hpp"
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"
 #include "rdb_protocol/context.hpp"
@@ -71,7 +72,7 @@ public:
 
     // These two maps are kept in sync.
     std::map<std::pair<database_id_t, name_string_t>, namespace_id_t> table_name_index;
-    std::map<namespace_id_t, table_config_t> table_id_index;
+    std::map<namespace_id_t, counted_t<const rc_wrapper<table_config_t>>> table_id_index;
 
     // TODO: Uncomment auth_index or remove.
     //
@@ -95,7 +96,7 @@ public:
     }
 
     void add_db(const database_id_t &db_id, const name_string_t &db_name);
-    void add_table(const namespace_id_t &table_id, const table_config_t &config);
+    void add_table(const namespace_id_t &table_id, counted_t<const rc_wrapper<table_config_t>> config);
 
     MOVABLE_BUT_NOT_COPYABLE(reqlfdb_config_cache);
 };

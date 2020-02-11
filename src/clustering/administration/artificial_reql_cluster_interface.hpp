@@ -94,10 +94,6 @@ public:
     table_backends_map_t *get_table_backends_map_mutable();
     table_backends_map_t const &get_table_backends_map() const;
 
-    table_meta_client_t *get_table_meta_client() override {
-        guarantee(m_next != nullptr);
-        return m_next->get_table_meta_client();
-    }
 #if RDB_CF
     ql::changefeed::client_t *get_changefeed_client() override {
         guarantee(m_next != nullptr);

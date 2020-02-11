@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "clustering/administration/tables/table_metadata.hpp"
 #include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/configured_limits.hpp"
 #include "rdb_protocol/context.hpp"
@@ -18,7 +19,6 @@ namespace changefeed {
 class client_t;
 }
 }
-class table_meta_client_t;
 
 /* `real_table_t` is a concrete subclass of `base_table_t` that routes its queries across
 the network via the clustering logic to a B-tree. The administration logic is responsible
@@ -33,19 +33,23 @@ public:
     /* This doesn't automatically wait for readiness. */
     real_table_t(
             namespace_id_t _uuid,
-            namespace_interface_access_t _namespace_access,
-            const std::string &_pkey,
+            reqlfdb_config_version _cv,
+            counted<const rc_wrapper<table_config_t>> _table_config,
+            namespace_interface_access_t _namespace_access
 #if RDB_CF
-            ql::changefeed::client_t *_changefeed_client,
+            , ql::changefeed::client_t *_changefeed_client
 #endif
-            table_meta_client_t *table_meta_client) :
+            ) :
         uuid(_uuid),
-        namespace_access(_namespace_access),
-        pkey(_pkey),
+        table_config(std::move(_table_config)),
+        namespace_access(_namespace_access)
 #if RDB_CF
-        changefeed_client(_changefeed_client),
+        , changefeed_client(_changefeed_client)
 #endif
-        m_table_meta_client(table_meta_client) { }
+        {
+        // TODO: Make base_table_t ctor take cv (or optional)
+        cv.set(_cv);
+    }
 
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
@@ -125,16 +129,14 @@ public:
 
 private:
     optional<ql::deterministic_func> get_write_hook(
-        ql::env_t *env,
         ignore_write_hook_t ignore_write_hook);
 
     namespace_id_t uuid;
+    counted<const rc_wrapper<table_config_t>> table_config;
     namespace_interface_access_t namespace_access;
-    std::string pkey;
 #if RDB_CF
     ql::changefeed::client_t *changefeed_client;
 #endif
-    table_meta_client_t *m_table_meta_client;
 };
 
 #endif /* RDB_PROTOCOL_REAL_TABLE_HPP_ */

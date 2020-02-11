@@ -1127,25 +1127,25 @@ private:
         if (cached.has_value()) {
             check_cv(db->cv.get(), cached->ci_cv);
 
-            std::string primary_key;
+            counted<const rc_wrapper<table_config_t>> table_config;
             {
                 ASSERT_NO_CORO_WAITING;  // cc mutex assertion
                 auto it = cc->table_id_index.find(cached->ci_value);
                 r_sanity_check(it != cc->table_id_index.end());
-                primary_key = it->second.basic.primary_key;
+                table_config = it->second;
             }
 
             reql_cluster_interface_t *rci = env->env->reql_cluster_interface();
             // TODO: remove the get_namespace_interface param from real_table_t, no interruptor.
             table.reset(new real_table_t(
                 cached->ci_value,
-                rci->get_namespace_repo()->get_namespace_interface(cached->ci_value, env->env->interruptor),
-                primary_key,
+                cached->ci_cv,
+                std::move(table_config),
+                rci->get_namespace_repo()->get_namespace_interface(cached->ci_value, env->env->interruptor)
 #if RDB_CF
-                rci->get_changefeed_client(),
+                , rci->get_changefeed_client()
 #endif
-                rci->get_table_meta_client()));
-            table->cv.set(cached->ci_cv);
+                ));
         } else {
             reqlfdb_config_version prior_cv = cc->config_version;
             config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
@@ -1161,17 +1161,19 @@ private:
 
             if (result.ci_value.has_value()) {
                 const namespace_id_t &table_id = result.ci_value->first;
-                cc->add_table(table_id, result.ci_value->second);
+                auto table_config = make_counted<rc_wrapper<table_config_t>>(result.ci_value->second);
+                // TODO: Return counted<const rc_wrapper<table_config_t>> from config_cache_retrieve_table_by_name, to avoid this copy.
+                cc->add_table(table_id, table_config);
                 reql_cluster_interface_t *rci = env->env->reql_cluster_interface();
                 table.reset(new real_table_t(
                     table_id,
-                    rci->get_namespace_repo()->get_namespace_interface(table_id, env->env->interruptor),
-                    result.ci_value->second.basic.primary_key,
+                    result.ci_cv,
+                    std::move(table_config),
+                    rci->get_namespace_repo()->get_namespace_interface(table_id, env->env->interruptor)
 #if RDB_CF
-                    rci->get_changefeed_client(),
+                    , rci->get_changefeed_client()
 #endif
-                    rci->get_table_meta_client()));
-                table->cv.set(result.ci_cv);
+                    ));
             } else {
                 admin_err_t error = table_not_found_error(db->name, db_table_name.second);
                 REQL_RETHROW(error);

@@ -40,11 +40,11 @@ void reqlfdb_config_cache::add_db(
 }
 
 void reqlfdb_config_cache::add_table(
-        const namespace_id_t &table_id, const table_config_t &config) {
-    table_id_index.emplace(table_id, config);
+        const namespace_id_t &table_id, counted_t<const rc_wrapper<table_config_t>> config) {
     table_name_index.emplace(
-        std::make_pair(config.basic.database, config.basic.name),
+        std::make_pair(config->basic.database, config->basic.name),
         table_id);
+    table_id_index.emplace(table_id, std::move(config));
 }
 
 ukey_string db_by_name_key(const name_string_t &db_name) {

@@ -39,7 +39,6 @@ class artificial_reql_cluster_interface_t;
 class base_table_t;
 class namespace_repo_t;
 class reqlfdb_config_cache;
-class table_meta_client_t;
 enum class return_changes_t;
 
 namespace ql {
@@ -206,7 +205,6 @@ public:
 #if RDB_CF
     virtual ql::changefeed::client_t *get_changefeed_client() = 0;
 #endif
-    virtual table_meta_client_t *get_table_meta_client() = 0;
 
 protected:
     virtual ~reql_cluster_interface_t() { }   // silence compiler warnings

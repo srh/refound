@@ -3,7 +3,6 @@
 
 #include "clustering/administration/auth/permission_error.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 #include "math.hpp"
 #include "rdb_protocol/geo/ellipsoid.hpp"
 #include "rdb_protocol/geo/distances.hpp"
@@ -21,7 +20,7 @@ namespace_id_t real_table_t::get_id() const {
 }
 
 const std::string &real_table_t::get_pkey() const {
-    return pkey;
+    return table_config->basic.primary_key;
 }
 
 // QQQ: Verify that these functions are called in a context that handles config_version_exc_t.
@@ -224,19 +223,13 @@ std::vector<std::vector<T> > split(std::vector<T> &&v) {
 }
 
 optional<ql::deterministic_func> real_table_t::get_write_hook(
-    ql::env_t *env,
-    ignore_write_hook_t ignore_write_hook) {
+        ignore_write_hook_t ignore_write_hook) {
     optional<ql::deterministic_func> write_hook;
-    table_config_and_shards_t config;
-    if (ignore_write_hook == ignore_write_hook_t::YES) {
-        return write_hook;
+    if (ignore_write_hook != ignore_write_hook_t::YES &&
+            table_config->write_hook.has_value()) {
+        write_hook.set(table_config->write_hook->func);
     }
 
-    m_table_meta_client->get_config(uuid, env->interruptor, &config);
-
-    if (config.config.write_hook) {
-        write_hook.set(config.config.write_hook->func);
-    }
     return write_hook;
 }
 
@@ -250,7 +243,7 @@ ql::datum_t real_table_t::write_batched_replace(
 
     // Get write_hook function
     optional<ql::deterministic_func> write_hook =
-        get_write_hook(env, ignore_write_hook);
+        get_write_hook(ignore_write_hook);
 
     std::vector<store_key_t> store_keys;
     store_keys.reserve(keys.size());
@@ -264,9 +257,10 @@ ql::datum_t real_table_t::write_batched_replace(
     bool batch_succeeded = false;
     for (auto &&batch : batches) {
         try {
+            // TODO: Does this really need a pkey field?
             batched_replace_t write(
                 std::move(batch),
-                pkey,
+                get_pkey(),
                 func,
                 write_hook,
                 env->get_serializable_env(),
@@ -308,15 +302,16 @@ ql::datum_t real_table_t::write_batched_insert(
 
     // Get write_hook function
     optional<ql::deterministic_func> write_hook =
-        get_write_hook(env, ignore_write_hook);
+        get_write_hook(ignore_write_hook);
 
     ql::datum_t stats((std::map<datum_string_t, ql::datum_t>()));
     std::set<std::string> conditions;
     std::vector<std::vector<ql::datum_t> > batches = split(std::move(inserts));
     for (auto &&batch : batches) {
+        // TODO: Does this really need a pkey field?
         batched_insert_t write(
             std::move(batch),
-            pkey,
+            get_pkey(),
             write_hook,
             conflict_behavior,
             conflict_func,

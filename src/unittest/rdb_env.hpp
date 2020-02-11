@@ -184,9 +184,6 @@ public:
                 admin_err_t *error_out) override;
 
         // QQQ: This isn't going to work.
-        table_meta_client_t *get_table_meta_client() override {
-            crash("unimplemented");
-        }
 #if RDB_CF
         ql::changefeed::client_t *get_changefeed_client() override {
             crash("unimplemented");

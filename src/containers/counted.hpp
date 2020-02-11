@@ -128,9 +128,12 @@ private:
     T *p_;
 };
 
+template <class T>
+using counted = counted_t<T>;
+
 template <class T, class... Args>
-counted_t<T> make_counted(Args &&... args) {
-    return counted_t<T>(new T(std::forward<Args>(args)...));
+counted<T> make_counted(Args &&... args) {
+    return counted<T>(new T(std::forward<Args>(args)...));
 }
 
 template <class> class single_threaded_countable_t;
@@ -282,6 +285,18 @@ private:
     counted_t<T> ptr_;
     DISABLE_COPYING(movable_t);
 };
+
+
+// Extends an arbitrary object with a single_threaded_countable_t
+template<class T>
+class rc_wrapper : public T,
+                   public single_threaded_countable_t<rc_wrapper<T> > {
+public:
+    template <class... Args>
+    explicit rc_wrapper(Args &&... args)
+        : T(std::forward<Args>(args)...) { }
+};
+
 
 // Extends an arbitrary object with a slow_atomic_countable_t
 template<class T>
