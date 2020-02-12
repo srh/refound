@@ -52,52 +52,42 @@ bool artificial_reql_cluster_interface_t::db_config(
         user_context, db, bt, env, selection_out, error_out);
 }
 
-bool artificial_reql_cluster_interface_t::table_list(counted_t<const ql::db_t> db,
-        const signal_t *interruptor,
-        std::set<name_string_t> *names_out, admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        for (auto it = m_table_backends.begin(); it != m_table_backends.end(); ++it) {
-            if (it->first.str()[0] == '_') {
-                /* If a table's name starts with `_`, don't show it to the user unless
-                they explicitly request it. */
-                continue;
-            }
-            names_out->insert(it->first);
+std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorted() {
+    std::vector<name_string_t> ret;
+    for (auto it = m_table_backends.begin(); it != m_table_backends.end(); ++it) {
+        if (it->first.str()[0] == '_') {
+            /* If a table's name starts with `_`, don't show it to the user unless
+            they explicitly request it. */
+            continue;
         }
-        return true;
+        ret.push_back(it->first);
     }
-    return next_or_error(error_out) && m_next->table_list(
-        db, interruptor, names_out, error_out);
+    std::sort(ret.begin(), ret.end());
+    return ret;
 }
 
 bool artificial_reql_cluster_interface_t::table_find(
         const name_string_t &name,
-        counted_t<const ql::db_t> db,
         optional<admin_identifier_format_t> identifier_format,
-        const signal_t *interruptor,
         counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        auto it = m_table_backends.find(name);
-        if (it != m_table_backends.end()) {
-            artificial_table_backend_t *backend;
-            if (!identifier_format.has_value() ||
-                    *identifier_format == admin_identifier_format_t::name) {
-                backend = it->second.first;
-            } else {
-                backend = it->second.second;
-            }
-            table_out->reset(
-                new artificial_table_t(m_rdb_context, artificial_reql_cluster_interface_t::database_id, backend));
-            return true;
+    auto it = m_table_backends.find(name);
+    if (it != m_table_backends.end()) {
+        artificial_table_backend_t *backend;
+        if (!identifier_format.has_value() ||
+                *identifier_format == admin_identifier_format_t::name) {
+            backend = it->second.first;
         } else {
-            *error_out = table_not_found_error(
-                          artificial_reql_cluster_interface_t::database_name, name);
-            return false;
+            backend = it->second.second;
         }
+        table_out->reset(
+            new artificial_table_t(m_rdb_context, artificial_reql_cluster_interface_t::database_id, backend));
+        return true;
+    } else {
+        *error_out = table_not_found_error(
+                      artificial_reql_cluster_interface_t::database_name, name);
+        return false;
     }
-    return next_or_error(error_out) && m_next->table_find(
-        name, db, identifier_format, interruptor, table_out, error_out);
 }
 
 bool artificial_reql_cluster_interface_t::table_config(

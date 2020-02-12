@@ -88,7 +88,7 @@ std::vector<counted_t<const ql::db_t>> config_cache_db_list(
     const signal_t *interruptor);
 
 
-std::vector<name_string_t> config_cache_table_list(
+std::vector<name_string_t> config_cache_table_list_sorted(
     FDBTransaction *txn,
     reqlfdb_config_version expected_cv,
     const database_id_t &db_id,

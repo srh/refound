@@ -354,56 +354,10 @@ bool test_rdb_env_t::instance_t::db_config(
     return false;
 }
 
-bool test_rdb_env_t::instance_t::table_list(counted_t<const ql::db_t> db,
-        UNUSED const signal_t *local_interruptor, std::set<name_string_t> *names_out,
-        UNUSED admin_err_t *error_out) {
-    for (auto it = tables.begin(); it != tables.end(); it++) {
-        if (it->first.first == db->id) {
-            names_out->insert(it->first.second);
-        }
-    }
-    return true;
-}
-
 class fake_ref_tracker_t : public namespace_interface_access_t::ref_tracker_t {
     void add_ref() { }
     void release() { }
 };
-
-bool test_rdb_env_t::instance_t::table_find(const name_string_t &name,
-        counted_t<const ql::db_t> db,
-        optional<admin_identifier_format_t> identifier_format,
-        UNUSED const signal_t *local_interruptor, counted_t<base_table_t> *table_out,
-        admin_err_t *error_out) {
-    auto it = tables.find(std::make_pair(db->id, name));
-    if (it == tables.end()) {
-        *error_out = admin_err_t{
-            "No table with that name",
-            query_state_t::FAILED};
-        return false;
-    } else {
-        if (identifier_format.has_value()) {
-            *error_out = admin_err_t{
-                "identifier_format doesn't make sense for "
-                "test_rdb_env_t::instance_t",
-                query_state_t::FAILED};
-            return false;
-        }
-        static fake_ref_tracker_t fake_ref_tracker;
-        namespace_interface_access_t table_access(
-            it->second.get(), &fake_ref_tracker, get_thread_id());
-        table_out->reset(
-            new real_table_t(
-                namespace_id_t{nil_uuid()},
-                table_access,
-                it->second->get_primary_key(),
-#if RDB_CF
-                nullptr,
-#endif
-                nullptr));
-        return true;
-    }
-}
 
 bool test_rdb_env_t::instance_t::table_config(
         UNUSED auth::user_context_t const &user_context,

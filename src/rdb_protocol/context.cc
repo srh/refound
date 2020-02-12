@@ -1,6 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "rdb_protocol/context.hpp"
 
+#include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "concurrency/cross_thread_watchable.hpp"
 #include "containers/archive/vector_stream.hpp"
@@ -67,6 +68,7 @@ rdb_context_t::rdb_context_t()
     : fdb(nullptr),
       extproc_pool(nullptr),
       cluster_interface(nullptr),
+      artificial_interface_or_null(nullptr),
       manager(nullptr),
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) { }
@@ -80,6 +82,7 @@ rdb_context_t::rdb_context_t(
     : fdb(_fdb),
       extproc_pool(_extproc_pool),
       cluster_interface(_cluster_interface),
+      artificial_interface_or_null(nullptr),
       manager(nullptr),
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) {
@@ -90,7 +93,7 @@ rdb_context_t::rdb_context_t(
         FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool,
         mailbox_manager_t *_mailbox_manager,
-        reql_cluster_interface_t *_cluster_interface,
+        artificial_reql_cluster_interface_t *_cluster_interface,
         std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         perfmon_collection_t *global_stats,
@@ -98,6 +101,7 @@ rdb_context_t::rdb_context_t(
     : fdb(_fdb),
       extproc_pool(_extproc_pool),
       cluster_interface(_cluster_interface),
+      artificial_interface_or_null(_cluster_interface),
       manager(_mailbox_manager),
       reql_http_proxy(_reql_http_proxy),
       stats(global_stats) {

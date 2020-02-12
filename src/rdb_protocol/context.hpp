@@ -35,6 +35,7 @@ class permissions_t;
 
 }  // namespace auth
 
+class artificial_reql_cluster_interface_t;
 class base_table_t;
 class namespace_repo_t;
 class reqlfdb_config_cache;
@@ -185,15 +186,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) = 0;
 
-    // Only used for system db.
-    virtual bool table_list(counted_t<const ql::db_t> db,
-            const signal_t *interruptor, std::set<name_string_t> *names_out,
-            admin_err_t *error_out) = 0;
-    // Only used for system db.
-    virtual bool table_find(const name_string_t &name, counted_t<const ql::db_t> db,
-            optional<admin_identifier_format_t> identifier_format,
-            const signal_t *interruptor, counted_t<base_table_t> *table_out,
-            admin_err_t *error_out) = 0;
     virtual bool table_config(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
@@ -238,7 +230,7 @@ public:
         FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool,
         mailbox_manager_t *_mailbox_manager,
-        reql_cluster_interface_t *_cluster_interface,
+        artificial_reql_cluster_interface_t *_cluster_interface,
         std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         perfmon_collection_t *global_stats,
@@ -249,7 +241,10 @@ public:
     FDBDatabase *fdb = nullptr;
     one_per_thread_t<reqlfdb_config_cache> config_caches;
     extproc_pool_t *extproc_pool;
+    // TODO: Clean this stuff up someday.
     reql_cluster_interface_t *cluster_interface;
+    // This is null in unit tests.
+    artificial_reql_cluster_interface_t *artificial_interface_or_null = nullptr;
 
     mailbox_manager_t *manager;
 

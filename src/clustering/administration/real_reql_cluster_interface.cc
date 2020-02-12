@@ -185,61 +185,6 @@ admin_err_t table_already_exists_error(
 }
 
 // TODO: Remove sharding UI.
-// TODO: What does m_table_meta_client do?  Is it bloat?  (In context of table_create, calling ->create() on it.)
-
-
-bool real_reql_cluster_interface_t::table_list(
-        counted_t<const ql::db_t> db,
-        UNUSED const signal_t *interruptor_on_caller,
-        std::set<name_string_t> *names_out,
-        UNUSED admin_err_t *error_out) {
-    // TODO: fdb-ize this function.
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-    std::map<namespace_id_t, table_basic_config_t> tables;
-    m_table_meta_client->list_names(&tables);
-    for (const auto &pair : tables) {
-        if (pair.second.database == db->id) {
-            names_out->insert(pair.second.name);
-        }
-    }
-    return true;
-}
-
-bool real_reql_cluster_interface_t::table_find(
-        const name_string_t &name,
-        counted_t<const ql::db_t> db,
-        UNUSED optional<admin_identifier_format_t> identifier_format,
-        const signal_t *interruptor_on_caller,
-        counted_t<base_table_t> *table_out,
-        admin_err_t *error_out) {
-    // TODO: fdb-ize this function.
-    guarantee(db->name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-    namespace_id_t table_id;
-    std::string primary_key;
-    try {
-        m_table_meta_client->find(db->id, name, &table_id, &primary_key);
-
-        /* Note that we completely ignore `identifier_format`. `identifier_format` is
-        meaningless for real tables, so it might seem like we should produce an error.
-        The reason we don't is that the user might write a query that access both a
-        system table and a real table, and they might specify `identifier_format` as a
-        global optarg. So then they would get a spurious error for the real table. This
-        behavior is also consistent with that of system tables that aren't affected by
-        `identifier_format`. */
-        table_out->reset(new real_table_t(
-            table_id,
-            m_namespace_repo.get_namespace_interface(table_id, interruptor_on_caller),
-            primary_key,
-#if RDB_CF
-            &m_changefeed_client,
-#endif
-            m_table_meta_client));
-
-        return true;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-}
 
 bool real_reql_cluster_interface_t::table_config(
         auth::user_context_t const &user_context,

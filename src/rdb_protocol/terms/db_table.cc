@@ -529,18 +529,15 @@ private:
 
         std::vector<name_string_t> table_list;
         if (db->name == artificial_reql_cluster_interface_t::database_name) {
-            // TODO: Handle special case.
-            std::set<name_string_t> tables;
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->table_list(db,
-                    env->env->interruptor, &tables, &error)) {
-                REQL_RETHROW(error);
-            }
-            table_list.insert(table_list.end(), tables.begin(), tables.end());
+            artificial_reql_cluster_interface_t *art_or_null
+                = env->env->get_rdb_ctx()->artificial_interface_or_null;
+            r_sanity_check(art_or_null != nullptr);
+
+            table_list = art_or_null->table_list_sorted();
         } else {
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
-                table_list = config_cache_table_list(txn, db->cv.get(), db->id, env->env->interruptor);
+                table_list = config_cache_table_list_sorted(txn, db->cv.get(), db->id, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "db_list txn failed");
         }
@@ -781,7 +778,7 @@ private:
                 std::vector<name_string_t> table_list;
                 fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                     // TODO: Use a snapshot read for this?  Config txn appropriately?
-                    table_list = config_cache_table_list(txn, db->cv.get(), db->id, env->env->interruptor);
+                    table_list = config_cache_table_list_sorted(txn, db->cv.get(), db->id, env->env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
 
@@ -1111,9 +1108,11 @@ private:
 
         if (db->name == artificial_reql_cluster_interface_t::database_name) {
             // TODO: Don't need interruptor (because artificial interface won't chain to m_next)
+            artificial_reql_cluster_interface_t *art_or_null = env->env->get_rdb_ctx()->artificial_interface_or_null;
+            r_sanity_check(art_or_null != nullptr);
             admin_err_t error;
             counted_t<base_table_t> table;
-            if (!env->env->reql_cluster_interface()->table_find(db_table_name.second, db, identifier_format, env->env->interruptor, &table, &error)) {
+            if (!art_or_null->table_find(db_table_name.second, identifier_format, &table, &error)) {
                 REQL_RETHROW(error);
             }
             return new_val(make_counted<table_t>(
