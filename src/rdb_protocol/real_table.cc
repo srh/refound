@@ -19,6 +19,70 @@
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 
+// Named such because it replicates the functionality and responsibilities of
+// table_query_client_t::read.
+read_response_t table_query_client_read(
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const read_t &r,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            config_version_exc_t) {
+    // TODO: This ignores r.read_mode (as it must).
+    // TODO: Read-only txn
+    read_response_t ret;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&](FDBTransaction *txn) {
+        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+        // we check_cv?), not after entire read op.
+        auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
+        read_response_t resp = apply_read(txn, prior_cv, table_id, table_config,
+            r, interruptor);
+        auth_fut.block_and_check(interruptor);
+
+        ret = std::move(resp);
+    });
+    guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
+    return ret;
+}
+
+// Named such because it replicates the functionality and responsibilities of
+// table_query_client_t::read.
+write_response_t table_query_client_write(
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const write_t &w,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            config_version_exc_t) {
+    write_response_t ret;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&](FDBTransaction *txn) {
+        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+        // we check_cv?), not after entire write op.
+        auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
+        write_response_t resp = apply_write(txn, prior_cv, table_id, table_config,
+            w, interruptor);
+        auth_fut.block_and_check(interruptor);
+
+        // OOO: Return a crystal clear response code from apply_write about whether we
+        // should commit the write.
+        commit(txn, interruptor);
+
+        ret = std::move(resp);
+    });
+    guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
+    return ret;
+}
+
 namespace_id_t real_table_t::get_id() const {
     return uuid;
 }
@@ -158,8 +222,11 @@ ql::datum_t real_table_t::read_nearest(
     read_t read(geo_read, env->profile(), read_mode);
     read_response_t res;
     try {
-        namespace_access.get()->read(
-            env->get_user_context(), read, &res, order_token_t::ignore, env->interruptor);
+        res = table_query_client_read(
+            env->get_rdb_ctx()->fdb, cv.get(), uuid, *table_config,
+            env->get_user_context(),
+            read,
+            env->interruptor);
     } catch (const cannot_perform_query_exc_t &ex) {
         rfail_datum(ql::base_exc_t::OP_FAILED, "Cannot perform read: %s", ex.what());
     } catch (auth::permission_error_t const &error) {
@@ -335,37 +402,6 @@ ql::datum_t real_table_t::write_batched_insert(
     return std::move(result).to_datum();
 }
 
-// Named such because it replicates the functionality and responsibilities of
-// table_query_client_t::read.
-read_response_t table_query_client_read(
-        FDBDatabase *fdb,
-        reqlfdb_config_version prior_cv,
-        const namespace_id_t &table_id,
-        const table_config_t &table_config,
-        const auth::user_context_t &user_context,
-        const read_t &r,
-        const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
-            config_version_exc_t) {
-    // TODO: This ignores r.read_mode (as it must).
-    // TODO: Read-only txn
-    read_response_t ret;
-    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&](FDBTransaction *txn) {
-        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-        // we check_cv?), not after entire read op.
-        auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
-        read_response_t resp = apply_read(txn, prior_cv, table_id, table_config,
-            r, interruptor);
-        auth_fut.block_and_check(interruptor);
-
-        ret = std::move(resp);
-    });
-    guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
-    return ret;
-}
-
 // TODO: Remove order_token_t, which we won't use anymore?
 
 void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
@@ -390,7 +426,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
             env->get_rdb_ctx()->fdb,
             cv.get(),
             uuid,
-            *table_config.get(),
+            *table_config,
             env->get_user_context(),
             read,
             env->interruptor);
@@ -402,39 +438,6 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
 
     /* Append the results of the profile to the current task */
     splitter.give_splits(1, response->event_log);
-}
-
-// Named such because it replicates the functionality and responsibilities of
-// table_query_client_t::read.
-write_response_t table_query_client_write(
-        FDBDatabase *fdb,
-        reqlfdb_config_version prior_cv,
-        const namespace_id_t &table_id,
-        const table_config_t &table_config,
-        const auth::user_context_t &user_context,
-        const write_t &w,
-        const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
-            config_version_exc_t) {
-    write_response_t ret;
-    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&](FDBTransaction *txn) {
-        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-        // we check_cv?), not after entire write op.
-        auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
-        write_response_t resp = apply_write(txn, prior_cv, table_id, table_config,
-            w, interruptor);
-        auth_fut.block_and_check(interruptor);
-
-        // OOO: Return a crystal clear response code from apply_write about whether we
-        // should commit the write.
-        commit(txn, interruptor);
-
-        ret = std::move(resp);
-    });
-    guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
-    return ret;
 }
 
 void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
@@ -453,7 +456,7 @@ void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
             env->get_rdb_ctx()->fdb,
             cv.get(),
             uuid,
-            *table_config.get(),
+            *table_config,
             env->get_user_context(),
             *write,
             env->interruptor);
