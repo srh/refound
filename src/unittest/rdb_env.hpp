@@ -189,9 +189,6 @@ public:
             crash("unimplemented");
         }
 #endif  // RDB_CF
-        namespace_repo_t *get_namespace_repo() override {
-            crash("unimplemented");
-        }
 
     private:
         extproc_pool_t extproc_pool;

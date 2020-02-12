@@ -100,10 +100,6 @@ public:
         return m_next->get_changefeed_client();
     }
 #endif  // RDB_CF
-    namespace_repo_t *get_namespace_repo() override {
-        guarantee(m_next != nullptr);
-        return m_next->get_namespace_repo();
-    }
 
 private:
     bool next_or_error(admin_err_t *error_out) const;

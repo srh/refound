@@ -82,7 +82,7 @@ public:
     }
 #endif  // RDB_CF
     // TODO: Remove this, presumably.
-    namespace_repo_t *get_namespace_repo() override {
+    namespace_repo_t *get_namespace_repo() {
         return &m_namespace_repo;
     }
 
