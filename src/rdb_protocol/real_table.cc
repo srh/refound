@@ -2,7 +2,11 @@
 #include "rdb_protocol/real_table.hpp"
 
 #include "clustering/administration/auth/permission_error.hpp"
+#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
+#include "fdb/xtore.hpp"
+#include "fdb/retry_loop.hpp"
 #include "math.hpp"
 #include "rdb_protocol/geo/ellipsoid.hpp"
 #include "rdb_protocol/geo/distances.hpp"
@@ -25,8 +29,6 @@ const std::string &real_table_t::get_pkey() const {
 
 // QQQ: Verify that these functions are called in a context that handles config_version_exc_t.
 
-// OOO: Fdb-ize the functions below.
-
 ql::datum_t real_table_t::read_row(
     ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) {
     read_t read(point_read_t(store_key_t(pval.print_primary())),
@@ -37,6 +39,8 @@ ql::datum_t real_table_t::read_row(
     r_sanity_check(p_res);
     return p_res->data;
 }
+
+// OOO: Fdb-ize the functions below.
 
 scoped_ptr_t<ql::reader_t> real_table_t::read_all_with_sindexes(
         ql::env_t *env,
@@ -331,6 +335,39 @@ ql::datum_t real_table_t::write_batched_insert(
     return std::move(result).to_datum();
 }
 
+// Named such because it replicates the functionality and responsibilities of
+// table_query_client_t::read.
+read_response_t table_query_client_read(
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const read_t &r,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            config_version_exc_t) {
+    // TODO: This ignores r.read_mode (as it must).
+    // TODO: Read-only txn
+    read_response_t ret;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&](FDBTransaction *txn) {
+        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+        // we check_cv?), not after entire read op.
+        auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
+        read_response_t resp = apply_read(txn, prior_cv, table_id, table_config,
+            r, interruptor);
+        auth_fut.block_and_check(interruptor);
+
+        ret = std::move(resp);
+    });
+    guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
+    return ret;
+}
+
+// TODO: Remove order_token_t, which we won't use anymore?
+
 void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
         read_response_t *response) {
     PROFILE_STARTER_IF_ENABLED(
@@ -349,11 +386,13 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
 
     /* Do the actual read. */
     try {
-        namespace_access.get()->read(
+        *response = table_query_client_read(
+            env->get_rdb_ctx()->fdb,
+            cv.get(),
+            uuid,
+            *table_config.get(),
             env->get_user_context(),
             read,
-            response,
-            order_token_t::ignore,
             env->interruptor);
     } catch (const cannot_perform_query_exc_t &e) {
         rfail_datum(ql::base_exc_t::OP_FAILED, "Cannot perform read: %s", e.what());
