@@ -34,15 +34,13 @@ public:
     real_table_t(
             namespace_id_t _uuid,
             reqlfdb_config_version _cv,
-            counted<const rc_wrapper<table_config_t>> _table_config,
-            namespace_interface_access_t _namespace_access
+            counted<const rc_wrapper<table_config_t>> _table_config
 #if RDB_CF
             , ql::changefeed::client_t *_changefeed_client
 #endif
             ) :
         uuid(_uuid),
-        table_config(std::move(_table_config)),
-        namespace_access(_namespace_access)
+        table_config(std::move(_table_config))
 #if RDB_CF
         , changefeed_client(_changefeed_client)
 #endif
@@ -133,7 +131,6 @@ private:
 
     namespace_id_t uuid;
     counted<const rc_wrapper<table_config_t>> table_config;
-    namespace_interface_access_t namespace_access;
 #if RDB_CF
     ql::changefeed::client_t *changefeed_client;
 #endif

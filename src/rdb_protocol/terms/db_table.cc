@@ -1135,15 +1135,13 @@ private:
                 table_config = it->second;
             }
 
-            reql_cluster_interface_t *rci = env->env->reql_cluster_interface();
             // TODO: remove the get_namespace_interface param from real_table_t, no interruptor.
             table.reset(new real_table_t(
                 cached->ci_value,
                 cached->ci_cv,
-                std::move(table_config),
-                rci->get_namespace_repo()->get_namespace_interface(cached->ci_value, env->env->interruptor)
+                std::move(table_config)
 #if RDB_CF
-                , rci->get_changefeed_client()
+                , env->env->reql_cluster_interface()->get_changefeed_client()
 #endif
                 ));
         } else {
@@ -1164,14 +1162,12 @@ private:
                 auto table_config = make_counted<rc_wrapper<table_config_t>>(result.ci_value->second);
                 // TODO: Return counted<const rc_wrapper<table_config_t>> from config_cache_retrieve_table_by_name, to avoid this copy.
                 cc->add_table(table_id, table_config);
-                reql_cluster_interface_t *rci = env->env->reql_cluster_interface();
                 table.reset(new real_table_t(
                     table_id,
                     result.ci_cv,
-                    std::move(table_config),
-                    rci->get_namespace_repo()->get_namespace_interface(table_id, env->env->interruptor)
+                    std::move(table_config)
 #if RDB_CF
-                    , rci->get_changefeed_client()
+                    , env->env->reql_cluster_interface()->get_changefeed_client()
 #endif
                     ));
             } else {

@@ -104,7 +104,7 @@ ql::datum_t real_table_t::read_row(
     return p_res->data;
 }
 
-// OOO: Fdb-ize the functions below.
+// OOO: Fdb-ize the readers/datum stream stuff some of these functions use.
 
 scoped_ptr_t<ql::reader_t> real_table_t::read_all_with_sindexes(
         ql::env_t *env,
