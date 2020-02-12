@@ -8,6 +8,8 @@
 #include "clustering/administration/servers/config_client.hpp"
 #include "concurrency/watchable_map.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 static const int entries_per_server = 1000;
 

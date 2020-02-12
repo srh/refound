@@ -6,6 +6,8 @@
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/servers/config_client.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 ql::datum_t convert_ip_to_datum(const ip_address_t &ip) {
     return ql::datum_t(datum_string_t(ip.to_string()));

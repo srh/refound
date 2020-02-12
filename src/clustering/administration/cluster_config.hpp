@@ -10,6 +10,8 @@
 #include "rpc/semilattice/view.hpp"
 
 class heartbeat_semilattice_metadata_t;
+template <typename T> class lifetime_t;
+class name_resolver_t;
 
 /* The `rethinkdb.cluster_config` table is a catch-all for settings that don't fit
 elsewhere but aren't complicated enough to deserve their own table. It has a fixed set of

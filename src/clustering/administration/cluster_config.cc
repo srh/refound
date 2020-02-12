@@ -4,6 +4,8 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/metadata.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 cluster_config_artificial_table_backend_t::cluster_config_artificial_table_backend_t(
         rdb_context_t *rdb_context,

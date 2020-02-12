@@ -2,6 +2,7 @@
 #define RDB_PROTOCOL_DATUM_STREAM_EQ_JOIN_HPP_
 
 #include "rdb_protocol/datum_stream.hpp"
+#include "rdb_protocol/val.hpp"
 
 namespace ql {
 

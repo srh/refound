@@ -4,7 +4,8 @@
 
 #include "concurrency/fifo_enforcer.hpp"
 #include "concurrency/watchable_map.hpp"
-#include "containers/archive/boost_types.hpp"
+#include "containers/archive/optional.hpp"
+#include "containers/archive/stl_types.hpp"
 #include "rpc/connectivity/cluster.hpp"
 #include "rpc/mailbox/typed.hpp"
 

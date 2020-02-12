@@ -3,8 +3,10 @@
 
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/metadata.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
 #include "clustering/administration/servers/config_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
+#include "containers/lifetime.hpp"
 
 common_server_artificial_table_backend_t::common_server_artificial_table_backend_t(
         name_string_t const &table_name,

@@ -12,6 +12,9 @@
 #include "rdb_protocol/datum.hpp"
 #include "rpc/semilattice/view.hpp"
 
+template <typename T> class lifetime_t;
+class name_resolver_t;
+
 /* This is a base class for the `rethinkdb.server_config` and `rethinkdb.server_status`
 pseudo-tables. Subclasses should implement `format_row()` and `write_row()`, in terms of
 `lookup()`. */

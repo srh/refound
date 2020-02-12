@@ -1,6 +1,7 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/table_contract/contract_metadata.hpp"
 
+#include "containers/archive/boost_types.hpp"
 #include "stl_utils.hpp"
 
 #ifndef NDEBUG

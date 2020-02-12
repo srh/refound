@@ -16,6 +16,7 @@
 
 class artificial_reql_cluster_interface_t;
 class artificial_table_backend_t;
+template <class T> class lifetime_t;
 class name_resolver_t;
 class server_config_client_t;
 

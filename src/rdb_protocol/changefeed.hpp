@@ -11,8 +11,11 @@
 #include <utility>
 
 #include "errors.hpp"
+#if RDB_CF
 #include <boost/variant.hpp>
+#endif  // RDB_CF
 
+#if RDB_CF
 #include "btree/keys.hpp"
 #include "concurrency/new_mutex.hpp"
 #include "concurrency/promise.hpp"
@@ -24,17 +27,22 @@
 #include "protocol_api.hpp"
 #include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/context.hpp"
+#endif  // RDB_CF
+
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/datumspec.hpp"
 #include "rdb_protocol/shards.hpp"
+
+#if RDB_CF
 #include "region/region.hpp"
 #include "repli_timestamp.hpp"
 #include "rockstore/rockshard.hpp"
 #include "rpc/connectivity/peer_id.hpp"
 #include "rpc/mailbox/typed.hpp"
 #include "rpc/serialize_macros.hpp"
-#include "containers/archive/boost_types.hpp"
+#endif  // RDB_CF
 
+#if RDB_CF
 class artificial_table_backend_t;
 class auto_drainer_t;
 class base_table_t;
@@ -46,6 +54,7 @@ class real_superblock_lock;
 struct rdb_modification_report_t;
 struct serializable_env_t;
 struct sindex_disk_info_t;
+#endif  // RDB_CF
 
 // The string is the btree index key
 typedef std::pair<ql::datum_t, std::string> index_pair_t;
@@ -53,13 +62,16 @@ typedef std::map<std::string, std::vector<index_pair_t> > index_vals_t;
 
 namespace ql {
 
+#if RDB_CF
 class base_exc_t;
 class batcher_t;
 class datum_stream_t;
 class env_t;
 class table_t;
+#endif  // RDB_CF
 
 namespace changefeed {
+#if RDB_CF
 struct stamped_msg_t;
 typedef mailbox_addr_t<stamped_msg_t> client_addr_t;
 
@@ -69,10 +81,9 @@ typedef mailbox_addr_t<stamped_msg_t> client_addr_t;
 typedef std::pair<std::string, std::pair<datum_t, datum_t> > item_t;
 typedef std::pair<const std::string, std::pair<datum_t, datum_t> > const_item_t;
 
-#if RDB_CF
 std::vector<item_t> mangle_sort_truncate_stream(
     raw_stream_t &&stream, is_primary_t is_primary, sorting_t sorting, size_t n);
-#endif
+#endif  // RDB_CF
 
 optional<datum_t> apply_ops(
     const datum_t &val,

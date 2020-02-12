@@ -6,14 +6,16 @@
 #include <string>
 #include <vector>
 
-#include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
-#include "concurrency/watchable.hpp"
 #include "clustering/administration/issues/local.hpp"
 #include "clustering/administration/issues/name_collision.hpp"
 #include "clustering/administration/issues/non_transitive.hpp"
 #include "clustering/administration/issues/outdated_index.hpp"
 #include "clustering/administration/issues/table.hpp"
+#include "concurrency/watchable.hpp"
+#include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 
+template <typename T> class lifetime_t;
+class name_resolver_t;
 class namespace_repo_t;
 
 class issues_artificial_table_backend_t :

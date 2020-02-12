@@ -11,6 +11,9 @@
 #include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 #include "rpc/semilattice/view.hpp"
 
+template <typename T> class lifetime_t;
+class name_resolver_t;
+
 /* This is public because it's used by `real_reql_cluster_interface_t`. It's kind of a
 trivial function right now, but it will become non-trivial if we ever add more
 configuration to databases. */

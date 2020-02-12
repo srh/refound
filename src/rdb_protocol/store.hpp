@@ -30,6 +30,8 @@
 
 class real_superblock_lock;
 class real_superblock_lock;
+class sindex_config_t;
+class sindex_status_t;
 class store_t;
 class store_metainfo_manager_t;
 class btree_slice_t;

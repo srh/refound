@@ -9,6 +9,7 @@
 #include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 #include "rdb_protocol/context.hpp"
 #include "concurrency/watchable.hpp"
+#include "rpc/connectivity/peer_id.hpp"
 
 namespace auth {
 class user_context_t;
@@ -20,6 +21,8 @@ class server_config_client_t;
 class table_meta_client_t;
 template <class T> class semilattice_readwrite_view_t;
 template <class key_type, class inner_type> class change_tracking_map_t;
+template <class T> class lifetime_t;
+class name_resolver_t;
 
 class jobs_artificial_table_backend_t :
 #if RDB_CF

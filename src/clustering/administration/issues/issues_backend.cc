@@ -6,6 +6,7 @@
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "concurrency/cross_thread_signal.hpp"
+#include "containers/lifetime.hpp"
 
 issues_artificial_table_backend_t::issues_artificial_table_backend_t(
         rdb_context_t *rdb_context,

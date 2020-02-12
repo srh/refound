@@ -5,6 +5,7 @@
 
 #include "rdb_protocol/datum_stream.hpp"
 #include "concurrency/coro_pool.hpp"
+#include "concurrency/promise.hpp"
 #include "concurrency/queue/unlimited_fifo.hpp"
 
 namespace ql {

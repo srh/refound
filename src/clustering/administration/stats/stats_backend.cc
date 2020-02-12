@@ -4,6 +4,8 @@
 #include "clustering/administration/stats/request.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 stats_artificial_table_backend_t::stats_artificial_table_backend_t(
         rdb_context_t *rdb_context,

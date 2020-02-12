@@ -10,6 +10,8 @@
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rpc/semilattice/view.hpp"
 
+template <typename T> class lifetime_t;
+class name_resolver_t;
 class server_config_client_t;
 
 class server_status_artificial_table_backend_t :

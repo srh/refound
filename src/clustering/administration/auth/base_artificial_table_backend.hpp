@@ -13,6 +13,8 @@
 
 class cluster_semilattice_metadata_t;
 class auth_semilattice_metadata_t;
+template <class T> class lifetime_t;
+class name_resolver_t;
 
 namespace auth {
 

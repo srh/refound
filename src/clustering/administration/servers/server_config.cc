@@ -5,6 +5,8 @@
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/servers/config_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 bool convert_server_config_from_datum(
         ql::datum_t datum,

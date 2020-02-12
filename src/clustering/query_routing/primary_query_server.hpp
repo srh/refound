@@ -10,6 +10,8 @@
 #include "clustering/generic/multi_client_server.hpp"
 #include "clustering/query_routing/metadata.hpp"
 
+struct admin_err_t;
+
 /* Each shard has a `primary_query_server_t` on its primary replica server. The
 `primary_query_server_t` is responsible for receiving queries from the servers that the
 clients connect to and forwarding those queries to the `query_callback_t`. Specifically,

@@ -11,6 +11,8 @@
 #include "clustering/administration/metadata.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "rpc/mailbox/disconnect_watcher.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 jobs_artificial_table_backend_t::jobs_artificial_table_backend_t(
         rdb_context_t *rdb_context,

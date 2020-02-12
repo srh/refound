@@ -53,7 +53,7 @@ class streamspec_t;
 class client_t;
 }
 #endif
-}
+}  // namespace ql
 
 struct admin_err_t;
 

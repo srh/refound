@@ -8,6 +8,7 @@
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/tables/name_resolver.hpp"
+#include "containers/lifetime.hpp"
 
 namespace auth {
 

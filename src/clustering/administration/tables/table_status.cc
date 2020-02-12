@@ -4,8 +4,9 @@
 #include <algorithm>
 
 #include "clustering/administration/datum_adapter.hpp"
-#include "clustering/administration/servers/config_client.hpp"
 #include "clustering/administration/metadata.hpp"
+#include "clustering/administration/servers/config_client.hpp"
+#include "clustering/administration/tables/name_resolver.hpp"
 #include "clustering/table_contract/executor/exec_primary.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 

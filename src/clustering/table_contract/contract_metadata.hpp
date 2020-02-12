@@ -6,11 +6,17 @@
 #include <set>
 #include <utility>
 
+#include "errors.hpp"
+#include <boost/variant.hpp>
+
 #include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/table_contract/contract_metadata.hpp"
 #include "clustering/generic/raft_core.hpp"
 #include "clustering/id_types.hpp"
 #include "clustering/immediate_consistency/history.hpp"
+#include "containers/archive/boost_types.hpp"
 #include "containers/optional.hpp"
+#include "region/region.hpp"
 #include "region/region_map.hpp"
 #include "rpc/semilattice/joins/macros.hpp"   /* for EQUALITY_COMPARABLE macros */
 

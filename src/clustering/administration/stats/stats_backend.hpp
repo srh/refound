@@ -11,6 +11,8 @@
 #include "clustering/administration/servers/config_client.hpp"
 #include "concurrency/watchable.hpp"
 
+template <typename T> class lifetime_t;
+class name_resolver_t;
 class cluster_semilattice_metadata_t;
 class table_meta_client_t;
 
