@@ -27,6 +27,7 @@ ownership. */
 
 // This is for code that should be refactored to handle the error (later).
 // TODO: Remove this, of course.
+// QQQ: Hook the indeterminate case up to fail with base_exc_t::OP_INDETERMINATE.
 #define guarantee_fdb_TODO(err, msg) guarantee_fdb((err), (msg))
 
 // These are a bit safer than naked reinterpret_casts.

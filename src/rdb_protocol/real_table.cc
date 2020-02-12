@@ -362,7 +362,7 @@ read_response_t table_query_client_read(
 
         ret = std::move(resp);
     });
-    guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
+    guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
     return ret;
 }
 
@@ -404,6 +404,39 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
     splitter.give_splits(1, response->event_log);
 }
 
+// Named such because it replicates the functionality and responsibilities of
+// table_query_client_t::read.
+write_response_t table_query_client_write(
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const write_t &w,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            config_version_exc_t) {
+    write_response_t ret;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&](FDBTransaction *txn) {
+        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+        // we check_cv?), not after entire write op.
+        auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
+        write_response_t resp = apply_write(txn, prior_cv, table_id, table_config,
+            w, interruptor);
+        auth_fut.block_and_check(interruptor);
+
+        // OOO: Return a crystal clear response code from apply_write about whether we
+        // should commit the write.
+        commit(txn, interruptor);
+
+        ret = std::move(resp);
+    });
+    guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
+    return ret;
+}
+
 void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
         write_response_t *response) {
     PROFILE_STARTER_IF_ENABLED(
@@ -411,18 +444,22 @@ void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
     // TODO: Remove splitter.
     profile::splitter_t splitter(env->trace);
     /* propagate whether or not we're doing profiles */
+    // TODO: What is up with this write->profile assignment?  What about reads?
     write->profile = env->profile();
 
     /* Do the actual write. */
     try {
-        namespace_access.get()->write(
+        *response = table_query_client_write(
+            env->get_rdb_ctx()->fdb,
+            cv.get(),
+            uuid,
+            *table_config.get(),
             env->get_user_context(),
             *write,
-            response,
-            order_token_t::ignore,
             env->interruptor);
     } catch (const cannot_perform_query_exc_t &e) {
         ql::base_exc_t::type_t type;
+        // QQQ: Is INDETERMINATE possible?  Only when txn commit fails indeterminately.  Make guarantee_fdb_TODO hook up indeterminate case with OP_INDETERMINATE.
         switch (e.get_query_state()) {
         case query_state_t::FAILED:
             type = ql::base_exc_t::OP_FAILED;
