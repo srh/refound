@@ -329,6 +329,7 @@ ql::datum_t real_table_t::write_batched_replace(
     for (auto &&batch : batches) {
         try {
             // TODO: Does this really need a pkey field?
+            // QQQ: Given an out of date table config, performing computations on the documents with the pkey before we've done check_cv is wrong.
             batched_replace_t write(
                 std::move(batch),
                 get_pkey(),
