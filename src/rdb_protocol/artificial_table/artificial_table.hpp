@@ -25,9 +25,7 @@ class artificial_table_fdb_backend_t;
 // QQQ: Remove this.
 class artificial_table_t : public base_table_t {
 public:
-    artificial_table_t(
-        database_id_t const &database_id,
-        artificial_table_backend_t *backend);
+    explicit artificial_table_t(artificial_table_backend_t *backend);
 
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
@@ -110,7 +108,6 @@ private:
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout);
 
-    const database_id_t m_database_id;
     artificial_table_backend_t *const m_backend;
     const std::string m_primary_key_name;
     DISABLE_COPYING(artificial_table_t);
@@ -118,9 +115,7 @@ private:
 
 class artificial_table_fdb_t : public base_table_t {
 public:
-    artificial_table_fdb_t(
-        database_id_t const &database_id,
-        artificial_table_fdb_backend_t *backend);
+    explicit artificial_table_fdb_t(artificial_table_fdb_backend_t *backend);
 
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
@@ -203,7 +198,6 @@ private:
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout);
 
-    const database_id_t m_database_id;
     artificial_table_fdb_backend_t *const m_backend;
     const std::string m_primary_key_name;
     DISABLE_COPYING(artificial_table_fdb_t);

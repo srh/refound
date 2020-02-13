@@ -72,7 +72,7 @@ bool artificial_reql_cluster_interface_t::table_find(
     artificial_table_backend_t *backend = get_table_backend(name, identifier_format);
     if (backend != nullptr) {
         table_out->reset(
-            new artificial_table_t(artificial_reql_cluster_interface_t::database_id, backend));
+            new artificial_table_t(backend));
         return true;
     } else {
         *error_out = table_not_found_error(
