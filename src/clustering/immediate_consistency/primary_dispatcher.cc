@@ -8,12 +8,10 @@ primary_dispatcher_t::dispatchee_registration_t::dispatchee_registration_t(
         primary_dispatcher_t *_parent,
         dispatchee_t *_dispatchee,
         const server_id_t &_server_id,
-        double _priority,
         state_timestamp_t *first_timestamp_out) :
     parent(_parent),
     dispatchee(_dispatchee),
     server_id(_server_id),
-    priority(_priority),
     is_ready(false),
     queue_count(get_num_threads()),
     queue_count_membership(
@@ -79,68 +77,6 @@ primary_dispatcher_t::primary_dispatcher_t(
     branch_id = branch_id_t{generate_uuid()};
     branch_bc.origin = base_version;
     branch_bc.initial_timestamp = current_timestamp;
-}
-
-void primary_dispatcher_t::read(
-        const read_t &_read,
-        fifo_enforcer_sink_t::exit_read_t *lock,
-        order_token_t order_token,
-        const signal_t *interruptor,
-        read_response_t *response_out)
-        THROWS_ONLY(cannot_perform_query_exc_t, interrupted_exc_t) {
-    assert_thread();
-    rassert(region_is_superset(branch_bc.get_region(), _read.get_region()));
-    order_token.assert_read_mode();
-
-    dispatchee_registration_t *dispatchee = nullptr;
-    auto_drainer_t::lock_t dispatchee_lock;
-    state_timestamp_t min_timestamp;
-
-    {
-        wait_interruptible(lock, interruptor);
-        mutex_assertion_t::acq_t mutex_acq(&mutex);
-        lock->end();
-
-        /* Prefer the dispatchee with the highest acknowledged write version
-        (to reduce the risk that the read has to wait for a write). If multiple
-        ones are equal, use priority as a tie-breaker. */
-        std::pair<state_timestamp_t, double> best;
-        for (const auto &pair : dispatchees) {
-            dispatchee_registration_t *d = pair.first;
-            if (!d->is_ready) {
-                continue;
-            }
-            if (dispatchee == nullptr ||
-                    std::make_pair(d->latest_acked_write, d->priority) > best) {
-                dispatchee = d;
-                dispatchee_lock = pair.second;
-                best = std::make_pair(d->latest_acked_write, d->priority);
-            }
-        }
-
-        rassert(dispatchee != nullptr, "Primary replica should always be ready");
-        if (dispatchee == nullptr) {
-            throw cannot_perform_query_exc_t(
-                "No replicas are ready for reading.",
-                query_state_t::FAILED);
-        }
-
-        order_checkpoint.check_through(order_token);
-        min_timestamp = most_recent_acked_write_timestamp;
-    }
-
-    try {
-        wait_any_t interruptor2(dispatchee_lock.get_drain_signal(), interruptor);
-        dispatchee->dispatchee->do_read(_read, min_timestamp, &interruptor2, response_out);
-    } catch (const interrupted_exc_t &) {
-        if (interruptor->is_pulsed()) {
-            throw;
-        } else {
-            throw cannot_perform_query_exc_t(
-                "Lost contact with replica during read.",
-                query_state_t::INDETERMINATE);
-        }
-    }
 }
 
 void primary_dispatcher_t::spawn_write(

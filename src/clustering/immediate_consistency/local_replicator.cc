@@ -57,7 +57,7 @@ local_replicator_t::local_replicator_t(
 
     state_timestamp_t first_timestamp;
     registration = make_scoped<primary_dispatcher_t::dispatchee_registration_t>(
-        primary, this, server_id, 2.0, &first_timestamp);
+        primary, this, server_id, &first_timestamp);
     guarantee(first_timestamp ==
         primary->get_branch_birth_certificate().initial_timestamp);
     registration->mark_ready();

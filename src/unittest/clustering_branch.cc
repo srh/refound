@@ -11,6 +11,7 @@
 #include "unittest/simple_mailbox_cluster.hpp"
 #include "unittest/unittest_utils.hpp"
 
+#if RDB_FDB_UNITTEST
 namespace unittest {
 
 namespace {
@@ -96,3 +97,4 @@ TPTEST(ClusteringBranch, ReadWrite) {
 
 
 }   /* namespace unittest */
+#endif  // RDB_FDB_UNITTEST

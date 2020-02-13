@@ -71,10 +71,6 @@ public:
             dispatchee_t *dispatchee,
             /* `server_id` is used for reporting acks to the `write_callback_t`. */
             const server_id_t &server_id,
-            /* `priority` is used for deciding which of several dispatchees should handle
-            a read. The local dispatchee has priority 2.0 and remote dispatchees have
-            priority 1.0. */
-            double priority,
             /* `*first_timestamp_out` will be set to whatever was the latest timestamp
             value when the `dispatchee_registration_t` was constructed. */
             state_timestamp_t *first_timestamp_out);
@@ -94,7 +90,6 @@ public:
         primary_dispatcher_t *const parent;
         dispatchee_t *const dispatchee;
         server_id_t const server_id;
-        double const priority;
 
         bool is_ready;
 
@@ -151,15 +146,6 @@ public:
     branch_birth_certificate_t get_branch_birth_certificate() {
         return branch_bc;
     }
-
-    /* `read()` performs the given read, blocking until the read is complete. */
-    void read(
-        const read_t &r,
-        fifo_enforcer_sink_t::exit_read_t *lock,
-        order_token_t tok,
-        const signal_t *interruptor,
-        read_response_t *response_out)
-        THROWS_ONLY(cannot_perform_query_exc_t, interrupted_exc_t);
 
     /* Unlike `read()`, `spawn_write()` returns as soon as the write has begun and
     replies asynchronously via a callback. It will not block. If the `write_callback_t`
