@@ -17,7 +17,6 @@ table_status_artificial_table_backend_t::table_status_artificial_table_backend_t
             cluster_semilattice_metadata_t> > _semilattice_view,
         server_config_client_t *_server_config_client,
         table_meta_client_t *_table_meta_client,
-        namespace_repo_t *_namespace_repo,
         admin_identifier_format_t _identifier_format)
     : common_table_artificial_table_backend_t(
         name_string_t::guarantee_valid("table_status"),
@@ -26,8 +25,7 @@ table_status_artificial_table_backend_t::table_status_artificial_table_backend_t
         _semilattice_view,
         _table_meta_client,
         _identifier_format),
-      server_config_client(_server_config_client),
-      namespace_repo(_namespace_repo) {
+      server_config_client(_server_config_client) {
 }
 
 table_status_artificial_table_backend_t::~table_status_artificial_table_backend_t() {
@@ -166,7 +164,7 @@ void table_status_artificial_table_backend_t::format_row(
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
     assert_thread();
     table_status_t status;
-    get_table_status(table_id, config, namespace_repo, table_meta_client,
+    get_table_status(table_id, config, table_meta_client,
         server_config_client, interruptor_on_home, &status);
     ql::datum_t status_datum = convert_table_status_to_datum(status, identifier_format);
     ql::datum_object_builder_t builder(status_datum);

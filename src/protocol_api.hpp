@@ -3,6 +3,7 @@
 #define PROTOCOL_API_HPP_
 
 #include <algorithm>
+#include <memory> // for std::shared_ptr, remove.
 #include <set>
 #include <string>
 #include <utility>
@@ -63,36 +64,30 @@ enum class table_readiness_t {
     finished
 };
 
+#if RDB_CF
 /* `namespace_interface_t` is the interface that the protocol-agnostic database
 logic for query routing exposes to the protocol-specific query parser. */
 
 class namespace_interface_t {
 public:
-    virtual void read(auth::user_context_t const &user_context,
-                      const read_t &,
-                      read_response_t *response,
-                      order_token_t tok,
-                      const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) = 0;
-
-    virtual void write(auth::user_context_t const &user_context,
-                       const write_t &,
-                       write_response_t *response,
-                       order_token_t tok,
-                       const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) = 0;
-
     virtual signal_t *get_initial_ready_signal() { return nullptr; }
 
-    virtual bool check_readiness(table_readiness_t readiness,
-                                 const signal_t *interruptor) = 0;
+    // QQQ: Look at callers, see if we should check if fdb is ready.
+    bool check_readiness(DEBUG_VAR table_readiness_t readiness,
+                         UNUSED const signal_t *interruptor) {
+        rassert(readiness != table_readiness_t::finished,
+            "Cannot check for the 'finished' state with namespace_interface_t.");
+        return true;
+    }
+
+    // TODO: changefeed code won't compile, because it calls read( and write(.
 
 protected:
     virtual ~namespace_interface_t() { }
 };
+#endif  // RDB_CF
 
+#if RDB_CF
 /* `namespace_interface_access_t` is like a smart pointer to a `namespace_interface_t`.
 This is the format in which `real_table_t` expects to receive its
 `namespace_interface_t *`. This allows the thing that is constructing the `real_table_t`
@@ -100,26 +95,17 @@ to control the lifetime of the `namespace_interface_t`, but also allows the
 `real_table_t` to block it from being destroyed while in use. */
 class namespace_interface_access_t {
 public:
-    class ref_tracker_t {
-    public:
-        virtual void add_ref() = 0;
-        virtual void release() = 0;
-    protected:
-        virtual ~ref_tracker_t() { }
-    };
+    // TODO: Remove this type, it's fake.
     namespace_interface_access_t();
-    namespace_interface_access_t(namespace_interface_t *, ref_tracker_t *, threadnum_t);
-    namespace_interface_access_t(const namespace_interface_access_t &access);
-    namespace_interface_access_t &operator=(const namespace_interface_access_t &access);
+    explicit namespace_interface_access_t(const namespace_id_t &table_id);
     ~namespace_interface_access_t();
 
-    namespace_interface_t *get();
+    namespace_interface_t *get() { return nsi_.get(); }
 
 private:
-    namespace_interface_t *nif;
-    ref_tracker_t *ref_tracker;
-    threadnum_t thread;
+    std::shared_ptr<namespace_interface_t> nsi_;
 };
+#endif  // RDB_CF
 
 // Specifies the desired behavior for insert operations, upon discovering a
 // conflict.

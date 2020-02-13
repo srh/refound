@@ -6,71 +6,28 @@
 #include "concurrency/exponential_backoff.hpp"
 
 bool wait_for_table_readiness(
-        const namespace_id_t &table_id,
-        table_readiness_t readiness,
-        namespace_repo_t *namespace_repo,
-        table_meta_client_t *table_meta_client,
-        const signal_t *interruptor)
+        UNUSED const namespace_id_t &table_id,
+        UNUSED table_readiness_t readiness,
+        UNUSED table_meta_client_t *table_meta_client,
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t) {
-    namespace_interface_access_t ns_if =
-        namespace_repo->get_namespace_interface(table_id, interruptor);
-    exponential_backoff_t backoff(100, 5000);
-    bool immediate = true;
-    while (true) {
-        if (!table_meta_client->exists(table_id)) {
-            throw no_such_table_exc_t();
-        }
-        bool ok = ns_if.get()->check_readiness(
-            std::min(readiness, table_readiness_t::writes),
-            interruptor);
-        if (ok && readiness == table_readiness_t::finished) {
-            try {
-                table_meta_client->get_shard_status(
-                    table_id, all_replicas_ready_mode_t::INCLUDE_RAFT_TEST, interruptor,
-                    nullptr, &ok);
-            } catch (const failed_table_op_exc_t &) {
-                ok = false;
-            }
-        }
-        if (ok) {
-            return immediate;
-        }
-        immediate = false;
-        backoff.failure(interruptor);
-    }
+    // QQQ: we used to, say, wait for tables' readiness.
+    return true;
 }
 
 size_t wait_for_many_tables_readiness(
-        const std::set<namespace_id_t> &original_tables,
-        table_readiness_t readiness,
-        namespace_repo_t *namespace_repo,
-        table_meta_client_t *table_meta_client,
-        const signal_t *interruptor)
+        UNUSED const std::set<namespace_id_t> &original_tables,
+        UNUSED table_readiness_t readiness,
+        UNUSED table_meta_client_t *table_meta_client,
+        UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
-    std::set<namespace_id_t> tables = original_tables;
-    while (true) {
-        bool all_immediate = true;
-        for (auto it = tables.begin(); it != tables.end();) {
-            try {
-                all_immediate &= wait_for_table_readiness(
-                    *it, readiness, namespace_repo, table_meta_client, interruptor);
-            } catch (const no_such_table_exc_t &) {
-                tables.erase(it++);
-                continue;
-            }
-            ++it;
-        }
-        if (all_immediate) {
-            break;
-        }
-    }
-    return tables.size();
+    // QQQ: we used to do something here.
+    return true;
 }
 
 void get_table_status(
         const namespace_id_t &table_id,
         const table_config_and_shards_t &config,
-        namespace_repo_t *namespace_repo,
         table_meta_client_t *table_meta_client,
         server_config_client_t *server_config_client,
         const signal_t *interruptor,
@@ -130,21 +87,7 @@ void get_table_status(
     }
 
     /* Compute the overall level of table readiness by sending probe queries. */
-    if (all_replicas_ready) {
-        status_out->readiness = table_readiness_t::finished;
-    } else {
-        namespace_interface_access_t ns_if =
-            namespace_repo->get_namespace_interface(table_id, interruptor);
-        if (ns_if.get()->check_readiness(table_readiness_t::writes, interruptor)) {
-            status_out->readiness = table_readiness_t::writes;
-        } else if (ns_if.get()->check_readiness(table_readiness_t::reads, interruptor)) {
-            status_out->readiness = table_readiness_t::reads;
-        } else if (ns_if.get()->check_readiness(
-                table_readiness_t::outdated_reads, interruptor)) {
-            status_out->readiness = table_readiness_t::outdated_reads;
-        } else {
-            status_out->readiness = table_readiness_t::unavailable;
-        }
-    }
+    // QQQ: We used to use all_replicas_ready or call namespace_interface_t::check_readiness here.
+    status_out->readiness = table_readiness_t::finished;
 }
 

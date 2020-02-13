@@ -8,7 +8,6 @@
 #include "clustering/administration/tables/calculate_status.hpp"
 #include "clustering/administration/tables/table_common.hpp"
 
-class namespace_repo_t;
 class server_config_client_t;
 
 ql::datum_t convert_table_status_to_datum(
@@ -26,7 +25,6 @@ public:
                 cluster_semilattice_metadata_t> > _semilattice_view,
             server_config_client_t *server_config_client,
             table_meta_client_t *_table_meta_client,
-            namespace_repo_t *_namespace_repo,
             admin_identifier_format_t _identifier_format);
     ~table_status_artificial_table_backend_t();
 
@@ -56,7 +54,6 @@ private:
             ql::datum_t *row_out);
 
     server_config_client_t *server_config_client;
-    namespace_repo_t *namespace_repo;
 };
 
 #endif /* CLUSTERING_ADMINISTRATION_TABLES_TABLE_STATUS_HPP_ */

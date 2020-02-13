@@ -174,6 +174,7 @@ bool do_serve(FDBDatabase *fdb,
         directory_map_read_manager_t<namespace_id_t, table_manager_bcard_t>
             table_directory_read_manager(&connectivity_cluster, 'T');
 
+        // OOO: This is unused.
         /* The `table_query_bcard_t`s contain mailboxes that execute `read_t`s or
         `write_t`s. The `table_query_client_t` reads this directory to know how to route
         queries. */
@@ -305,8 +306,6 @@ bool do_serve(FDBDatabase *fdb,
                 &rdb_ctx,
                 &server_config_client,
                 &table_meta_client,
-                multi_table_manager.get(),
-                table_query_directory_read_manager.get_root_view(),
                 make_lifetime(name_resolver));
 
             artificial_reql_cluster_interface.set_next_reql_cluster_interface(

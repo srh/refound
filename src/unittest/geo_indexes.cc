@@ -32,6 +32,8 @@ using ql::datum_t;
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
+
 datum_t generate_point(rng_t *rng) {
     double lat = rng->randdouble() * 180.0 - 90.0;
     double lon = rng->randdouble() * 360.0 - 180.0;
@@ -471,6 +473,8 @@ TPTEST(GeoIndexes, GetNearest) {
 TPTEST(GeoIndexes, GetIntersecting) {
     run_with_namespace_interface(&run_get_intersecting_test);
 }
+
+#endif  // RDB_FDB_UNITTEST
 
 } /* namespace unittest */
 

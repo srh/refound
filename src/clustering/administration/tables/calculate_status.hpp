@@ -7,7 +7,6 @@
 #include "rpc/connectivity/server_id.hpp"
 #include "protocol_api.hpp"
 
-class namespace_repo_t;
 class signal_t;
 
 /* There's a slight difference between `wait_for_*_readiness()` and `get_table_status()`
@@ -25,7 +24,6 @@ was ready immediately, or `false` if it was necessary to wait.*/
 bool wait_for_table_readiness(
     const namespace_id_t &table_id,
     table_readiness_t readiness,
-    namespace_repo_t *namespace_repo,
     table_meta_client_t *table_meta_client,
     const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t);
@@ -36,7 +34,6 @@ deleted.) */
 size_t wait_for_many_tables_readiness(
     const std::set<namespace_id_t> &tables,
     table_readiness_t readiness,
-    namespace_repo_t *namespace_repo,
     table_meta_client_t *table_meta_client,
     const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t);
@@ -66,7 +63,6 @@ public:
 void get_table_status(
     const namespace_id_t &table_id,
     const table_config_and_shards_t &config,
-    namespace_repo_t *namespace_repo,
     table_meta_client_t *table_meta_client,
     server_config_client_t *server_config_client,
     const signal_t *interruptor,

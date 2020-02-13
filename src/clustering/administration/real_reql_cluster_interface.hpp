@@ -40,10 +40,6 @@ public:
             rdb_context_t *rdb_context,
             server_config_client_t *server_config_client,
             table_meta_client_t *table_meta_client,
-            multi_table_manager_t *multi_table_manager,
-            watchable_map_t<
-                std::pair<peer_id_t, std::pair<namespace_id_t, branch_id_t> >,
-                table_query_bcard_t> *table_query_directory,
             lifetime_t<name_resolver_t const &> name_resolver);
 
     bool db_drop_uuid(
@@ -82,10 +78,6 @@ public:
         return &m_changefeed_client;
     }
 #endif  // RDB_CF
-    // TODO: Remove this, presumably.
-    namespace_repo_t *get_namespace_repo() {
-        return &m_namespace_repo;
-    }
 
     /* This is public because it needs to be set after we're created to solve a certain
     chicken-and-egg problem */
@@ -103,7 +95,6 @@ private:
         databases_semilattice_metadata_t > > > m_cross_thread_database_watchables;
     rdb_context_t *m_rdb_context;
 
-    namespace_repo_t m_namespace_repo;
 #if RDB_CF
     ql::changefeed::client_t m_changefeed_client;
 #endif

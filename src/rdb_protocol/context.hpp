@@ -37,7 +37,6 @@ class permissions_t;
 
 class artificial_reql_cluster_interface_t;
 class base_table_t;
-class namespace_repo_t;
 class reqlfdb_config_cache;
 enum class return_changes_t;
 

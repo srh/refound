@@ -15,6 +15,11 @@
 #include "rockstore/store.hpp"
 #include "rpc/serialize_macros.hpp"
 
+// QQQ: Refactor non-compiling unit tests for fdb.
+// Used to comment out unittests that use broken non-fdb interfaces -- until the code
+// stabilizes (and has a remote chance of passing).
+#define RDB_FDB_UNITTEST 0
+
 class rng_t;
 
 namespace unittest {

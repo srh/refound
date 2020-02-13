@@ -29,6 +29,7 @@
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
 // These classes are used to provide a mock environment for running reql queries
 
 // The mock namespace interface handles all read and write calls, using a simple in-
@@ -107,6 +108,8 @@ private:
     };
 };
 
+#endif // RDB_FDB_UNITTEST
+
 class invalid_name_exc_t : public std::exception {
 public:
     explicit invalid_name_exc_t(const std::string& name) :
@@ -118,6 +121,8 @@ public:
 private:
     const std::string error_string;
 };
+
+#if RDB_FDB_UNITTEST
 
 /* Because of how internal objects are meant to be instantiated, the proper order of
 instantiation is to create a test_rdb_env_t at the top-level of the test (before entering
@@ -217,6 +222,8 @@ private:
     //  which point, it is moved into a mock_namespace_interface_t, and this is cleared.
     std::map<std::pair<name_string_t, name_string_t>, table_data_t> tables;
 };
+
+#endif  // RDB_FDB_UNITTEST
 
 }  // namespace unittest
 

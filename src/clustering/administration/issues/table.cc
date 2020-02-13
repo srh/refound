@@ -108,11 +108,9 @@ const uuid_u table_availability_issue_t::base_issue_id =
 
 table_issue_tracker_t::table_issue_tracker_t(
         server_config_client_t *_server_config_client,
-        table_meta_client_t *_table_meta_client,
-        namespace_repo_t *_namespace_repo) :
+        table_meta_client_t *_table_meta_client) :
     server_config_client(_server_config_client),
-    table_meta_client(_table_meta_client),
-    namespace_repo(_namespace_repo) { }
+    table_meta_client(_table_meta_client) { }
 
 table_issue_tracker_t::~table_issue_tracker_t() { }
 
@@ -146,7 +144,7 @@ void table_issue_tracker_t::check_table(const namespace_id_t &table_id,
     try {
         table_config_and_shards_t config;
         table_meta_client->get_config(table_id, interruptor, &config);
-        get_table_status(table_id, config, namespace_repo, table_meta_client,
+        get_table_status(table_id, config, table_meta_client,
             server_config_client, interruptor, &status);
     } catch (const interrupted_exc_t &) {
         // Ignore interruption - can't be passed through pmap

@@ -7,6 +7,8 @@
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
+
 mock_namespace_interface_t::mock_namespace_interface_t(
             datum_string_t _primary_key,
             std::map<store_key_t, ql::datum_t> &&_data,
@@ -354,11 +356,6 @@ bool test_rdb_env_t::instance_t::db_config(
     return false;
 }
 
-class fake_ref_tracker_t : public namespace_interface_access_t::ref_tracker_t {
-    void add_ref() { }
-    void release() { }
-};
-
 bool test_rdb_env_t::instance_t::table_config(
         UNUSED auth::user_context_t const &user_context,
         UNUSED counted_t<const ql::db_t> db,
@@ -385,5 +382,7 @@ bool test_rdb_env_t::instance_t::table_status(
         query_state_t::FAILED};
     return false;
 }
+
+#endif  // RDB_FDB_UNITTEST
 
 }  // namespace unittest

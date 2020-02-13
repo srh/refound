@@ -26,6 +26,8 @@
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
+
 void run_with_namespace_interface(
         std::function<void(
             namespace_interface_t *,
@@ -944,5 +946,7 @@ TPTEST(RDBProtocol, ArtificialChangefeeds) {
     }
 }
 #endif  // RDB_CF
+
+#endif  // RDB_FDB_UNITTEST
 
 }   /* namespace unittest */

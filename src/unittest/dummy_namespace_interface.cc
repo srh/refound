@@ -120,6 +120,8 @@ void dummy_sharder_t::write(const write_t &_write,
     the_shard.timestamper->write(_write, response, tok);
 }
 
+#if RDB_FDB_UNITTEST
+
 dummy_namespace_interface_t::
 dummy_namespace_interface_t(store_view_t *the_store, order_source_t
                             *order_source,
@@ -165,6 +167,7 @@ dummy_namespace_interface_t(store_view_t *the_store, order_source_t
     sharder.init(new dummy_sharder_t(std::move(shards_of_this_db)));
 }
 
+#endif  // RDB_FDB_UNITTEST
 
 
 }  // namespace unittest

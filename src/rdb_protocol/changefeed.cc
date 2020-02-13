@@ -3743,14 +3743,8 @@ feed_t::~feed_t() {
 
 client_t::client_t(
         mailbox_manager_t *_manager,
-        const std::function<
-            namespace_interface_access_t(
-                const namespace_id_t &,
-                const signal_t *)
-            > &_namespace_source,
         lifetime_t<name_resolver_t const &> _name_resolver) :
     manager(_manager),
-    namespace_source(_namespace_source),
     name_resolver(_name_resolver)
 {
     guarantee(manager != NULL);
@@ -3884,8 +3878,7 @@ counted_t<datum_stream_t> client_t::new_stream(
 
                 if (feed_it == feeds.end()) {
                     spot.write_signal()->wait_lazily_unordered();
-                    namespace_interface_access_t access =
-                        namespace_source(table_id, &interruptor);
+                    namespace_interface_access_t access{table_id};
                     // Even though we have the user's feed here, multiple
                     // users may share a feed_t, and this code path will
                     // only be run for the first one.  Rather than mess
@@ -3914,8 +3907,7 @@ counted_t<datum_stream_t> client_t::new_stream(
                 on_thread_t th2(old_thread);
                 sub = new_sub(env, feed, ss);
             }
-            namespace_interface_access_t access =
-                namespace_source(table_id, env->interruptor);
+            namespace_interface_access_t access{table_id};
             return sub->to_stream(env, ss.table_name, access.get(),
                                   addr, ss.maybe_src, std::move(sub), bt);
         } catch (const cannot_perform_query_exc_t &e) {

@@ -13,7 +13,6 @@
 
 // TODO: Trim down these decls.
 
-class namespace_repo_t;
 class reqlfdb_config_cache;
 enum class return_changes_t;
 

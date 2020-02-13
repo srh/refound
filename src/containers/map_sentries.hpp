@@ -129,36 +129,4 @@ private:
     typename std::multimap<key_t, value_t>::iterator it;
 };
 
-/* `set_insertion_sentry_t` inserts a value into a `std::set` on construction, and
-removes it in the destructor. */
-template<class obj_t>
-class set_insertion_sentry_t {
-public:
-    set_insertion_sentry_t() : set(NULL) { }
-    set_insertion_sentry_t(std::set<obj_t> *s, const obj_t &obj) : set(nullptr) {
-        reset(s, obj);
-    }
-    ~set_insertion_sentry_t() {
-        reset();
-    }
-    set_insertion_sentry_t(const set_insertion_sentry_t &) = delete;
-    set_insertion_sentry_t &operator=(const set_insertion_sentry_t &) = delete;
-    void reset() {
-        if (set) {
-            set->erase(it);
-            set = nullptr;
-        }
-    }
-    void reset(std::set<obj_t> *s, const obj_t &obj) {
-        reset();
-        set = s;
-        auto pair = set->insert(obj);
-        guarantee(pair.second, "value to be inserted already exists");
-        it = pair.first;
-    }
-private:
-    std::set<obj_t> *set;
-    typename std::set<obj_t>::iterator it;
-};
-
 #endif  // CONTAINERS_MAP_SENTRIES_HPP_

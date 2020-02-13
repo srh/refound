@@ -8,6 +8,7 @@
 #include "containers/scoped.hpp"
 #include "protocol_api.hpp"
 #include "timestamps.hpp"
+#include "unittest/unittest_utils.hpp"  // TODO: Included only for RDB_FDB_UNITTEST
 
 class rdb_context_t;
 
@@ -74,6 +75,8 @@ private:
     shard_t the_shard;
 };
 
+#if RDB_FDB_UNITTEST
+
 class dummy_namespace_interface_t : public namespace_interface_t {
 public:
     dummy_namespace_interface_t(store_view_t *stores, order_source_t
@@ -112,6 +115,8 @@ private:
     scoped_ptr_t<dummy_timestamper_t> the_timestamper;
     scoped_ptr_t<dummy_sharder_t> sharder;
 };
+
+#endif  // RDB_FDB_UNITTEST
 
 }   /* namespace unittest */
 

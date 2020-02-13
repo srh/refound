@@ -8,6 +8,7 @@
 #include "clustering/generic/raft_core.tcc"
 #include "clustering/generic/raft_network.hpp"
 #include "clustering/generic/raft_network.tcc"
+#include "rpc/mailbox/mailbox.hpp"
 #include "unittest/clustering_utils.hpp"
 #include "unittest/dummy_metadata_controller.hpp"
 #include "unittest/unittest_utils.hpp"

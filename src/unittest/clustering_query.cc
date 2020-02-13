@@ -2,7 +2,6 @@
 #include "unittest/gtest.hpp"
 
 #include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/query_routing/primary_query_client.hpp"
 #include "clustering/query_routing/primary_query_server.hpp"
 #include "unittest/branch_history_manager.hpp"
 #include "rdb_protocol/protocol.hpp"
@@ -11,6 +10,9 @@
 #include "unittest/unittest_utils.hpp"
 
 namespace unittest {
+
+// Probably these tests are simply obsolete.
+#if RDB_FDB_UNITTEST
 
 class query_counter_t : public primary_query_server_t::query_callback_t {
 public:
@@ -169,6 +171,8 @@ TPTEST(ClusteringQuery, Failure) {
         EXPECT_EQ(1, query_counter.num_reads);
     }
 }
+
+#endif  // RDB_FDB_UNITTEST
 
 }   /* namespace unittest */
 

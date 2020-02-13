@@ -32,6 +32,8 @@ private:
     uint32_t *count_out;
 };
 
+#if RDB_FDB_UNITTEST
+
 class interrupt_callback_t : public ql::env_t::eval_callback_t {
 public:
     interrupt_callback_t(uint32_t _delay,
@@ -626,5 +628,7 @@ TEST(RDBInterrupt, HttpInterrupt) {
             }));
     }
 }
+
+#endif  // RDB_FDB_UNITTEST
 
 }  // namespace unittest

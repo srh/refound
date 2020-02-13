@@ -239,7 +239,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
                 directory_map_view,
                 server_config_client,
                 table_meta_client,
-                real_reql_cluster_interface->get_namespace_repo(),
                 static_cast<admin_identifier_format_t>(format)));
     }
     issues_sentry = backend_sentry_t(
@@ -327,7 +326,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
                 cluster_semilattice_view,
                 server_config_client,
                 table_meta_client,
-                real_reql_cluster_interface->get_namespace_repo(),
                 static_cast<admin_identifier_format_t>(format)));
     }
     table_status_sentry = backend_sentry_t(

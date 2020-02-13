@@ -1135,7 +1135,6 @@ private:
                 table_config = it->second;
             }
 
-            // TODO: remove the get_namespace_interface param from real_table_t, no interruptor.
             table.reset(new real_table_t(
                 cached->ci_value,
                 cached->ci_cv,
