@@ -3,6 +3,7 @@
 
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/datum_adapter.hpp"
+#include "clustering/table_manager/table_meta_client.hpp"
 #include "rdb_protocol/configured_limits.hpp"
 
 const datum_string_t outdated_index_issue_t::outdated_index_issue_type =

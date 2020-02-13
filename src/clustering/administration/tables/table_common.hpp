@@ -14,6 +14,7 @@
 
 class cluster_semilattice_metadata_t;
 class name_resolver_t;
+class table_config_and_shards_t;
 
 /* This is a base class for the `rethinkdb.table_config` and `rethinkdb.table_status`
 pseudo-tables. Subclasses should implement `format_row()` and `write_row()`. */

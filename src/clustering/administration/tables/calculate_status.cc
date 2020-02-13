@@ -3,6 +3,7 @@
 
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/administration/servers/config_client.hpp"
+#include "clustering/table_manager/table_meta_client.hpp"
 #include "clustering/table_manager/table_metadata.hpp"
 #include "concurrency/exponential_backoff.hpp"
 

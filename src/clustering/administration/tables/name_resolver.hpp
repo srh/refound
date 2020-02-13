@@ -4,9 +4,10 @@
 
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/metadata.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 #include "containers/lifetime.hpp"
 #include "containers/name_string.hpp"
+
+class table_meta_client_t;
 
 template <typename T>
 class resolved_id_optional_t {

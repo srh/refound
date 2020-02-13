@@ -3,11 +3,14 @@
 #define CLUSTERING_ADMINISTRATION_TABLES_CALCULATE_STATUS_HPP_
 
 #include "clustering/administration/servers/server_metadata.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
+#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/table_contract/contract_metadata.hpp"
 #include "rpc/connectivity/server_id.hpp"
 #include "protocol_api.hpp"
 
+class server_config_client_t;
 class signal_t;
+class table_meta_client_t;
 
 /* There's a slight difference between `wait_for_*_readiness()` and `get_table_status()`
 in how they react when the table's leader reports that all replicas are ready.
