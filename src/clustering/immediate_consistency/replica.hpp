@@ -27,12 +27,6 @@ public:
         const branch_id_t &branch_id,
         state_timestamp_t timestamp);
 
-    void do_read(
-        const read_t &read,
-        state_timestamp_t token,
-        const signal_t *interruptor,
-        read_response_t *response_out);
-
     /* Warning: If you interrupt `do_write()`, the `replica_t` will be left in an
     undefined state, and you should destroy the `replica_t` soon after. */
     void do_write(

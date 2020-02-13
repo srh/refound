@@ -72,14 +72,6 @@ local_replicator_t::~local_replicator_t() {
     store->note_reshard();
 }
 
-void local_replicator_t::do_read(
-        const read_t &read,
-        state_timestamp_t min_timestamp,
-        const signal_t *interruptor,
-        read_response_t *response_out) {
-    replica.do_read(read, min_timestamp, interruptor, response_out);
-}
-
 void local_replicator_t::do_write_sync(
         const write_t &write,
         state_timestamp_t timestamp,

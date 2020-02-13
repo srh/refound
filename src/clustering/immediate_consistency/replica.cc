@@ -15,41 +15,6 @@ replica_t::replica_t(
     end_enforcer(_timestamp)
     { }
 
-void replica_t::do_read(
-        const read_t &read,
-        state_timestamp_t min_timestamp,
-        const signal_t *interruptor,
-        read_response_t *response_out) {
-    assert_thread();
-    rassert(!read.get_region().is_empty());
-
-    if (boost::get<dummy_read_t>(&read.read) != nullptr) {
-        read_response_t response;
-        response.response = dummy_read_response_t();
-        *response_out = std::move(response);
-        return;
-    }
-
-    // Wait until all writes that the read needs to see have completed.
-    end_enforcer.wait_all_before(min_timestamp, interruptor);
-
-    // Leave the token empty. We're enforcing ordering ourselves through `end_enforcer`.
-    read_token_t read_token;
-
-#ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(region_t::universe(),
-        [](const region_t &, const version_t &) { });
-#endif
-
-    // Perform the operation
-    store->read(
-        DEBUG_ONLY(metainfo_checker, )
-        read,
-        response_out,
-        &read_token,
-        interruptor);
-}
-
 void replica_t::do_write(
         const write_t &write,
         state_timestamp_t timestamp,

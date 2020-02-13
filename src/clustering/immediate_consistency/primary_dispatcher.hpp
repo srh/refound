@@ -32,12 +32,6 @@ public:
     over the network to a different server. */
     class dispatchee_t {
     public:
-        virtual void do_read(
-            const read_t &read,
-            state_timestamp_t min_timestamp,
-            const signal_t *interruptor,
-            read_response_t *response_out) = 0;
-
         /* `do_write_sync()` blocks until the write has been performed with the given
         durability level, and it produces a `write_response_t`. `do_write_async()` makes
         no promises about when it returns and it does not return a response. However,

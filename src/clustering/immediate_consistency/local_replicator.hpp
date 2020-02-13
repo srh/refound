@@ -29,12 +29,6 @@ public:
     /* This destructor can block */
     ~local_replicator_t();
 
-    void do_read(
-        const read_t &read,
-        state_timestamp_t min_timestamp,
-        const signal_t *interruptor,
-        read_response_t *response_out);
-
     void do_write_sync(
         const write_t &write,
         state_timestamp_t timestamp,
