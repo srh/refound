@@ -20,7 +20,9 @@ cluster_config_artificial_table_backend_t::cluster_config_artificial_table_backe
 }
 
 cluster_config_artificial_table_backend_t::~cluster_config_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 std::string cluster_config_artificial_table_backend_t::get_primary_key_name() {

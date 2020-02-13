@@ -33,7 +33,9 @@ debug_table_status_artificial_table_backend_t::
 
 debug_table_status_artificial_table_backend_t::
         ~debug_table_status_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 bool debug_table_status_artificial_table_backend_t::write_row(

@@ -42,7 +42,9 @@ issues_artificial_table_backend_t::issues_artificial_table_backend_t(
 }
 
 issues_artificial_table_backend_t::~issues_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 std::string issues_artificial_table_backend_t::get_primary_key_name() {

@@ -27,7 +27,9 @@ table_status_artificial_table_backend_t::table_status_artificial_table_backend_t
 }
 
 table_status_artificial_table_backend_t::~table_status_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 ql::datum_t convert_replica_status_to_datum(

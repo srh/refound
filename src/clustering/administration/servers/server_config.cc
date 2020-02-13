@@ -102,7 +102,9 @@ server_config_artificial_table_backend_t::server_config_artificial_table_backend
 }
 
 server_config_artificial_table_backend_t::~server_config_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 bool server_config_artificial_table_backend_t::format_row(

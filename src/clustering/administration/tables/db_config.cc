@@ -78,7 +78,9 @@ db_config_artificial_table_backend_t::db_config_artificial_table_backend_t(
     { }
 
 db_config_artificial_table_backend_t::~db_config_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 std::string db_config_artificial_table_backend_t::get_primary_key_name() {

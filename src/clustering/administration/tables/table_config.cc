@@ -29,7 +29,9 @@ table_config_artificial_table_backend_t::table_config_artificial_table_backend_t
 }
 
 table_config_artificial_table_backend_t::~table_config_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 bool convert_server_id_from_datum(

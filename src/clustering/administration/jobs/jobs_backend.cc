@@ -40,7 +40,9 @@ jobs_artificial_table_backend_t::jobs_artificial_table_backend_t(
 }
 
 jobs_artificial_table_backend_t::~jobs_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 std::string jobs_artificial_table_backend_t::get_primary_key_name() {

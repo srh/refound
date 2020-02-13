@@ -90,7 +90,9 @@ logs_artificial_table_backend_t::logs_artificial_table_backend_t(
 }
 
 logs_artificial_table_backend_t::~logs_artificial_table_backend_t() {
+#if RDB_CF
     begin_changefeed_destruction();
+#endif
 }
 
 std::string logs_artificial_table_backend_t::get_primary_key_name() {

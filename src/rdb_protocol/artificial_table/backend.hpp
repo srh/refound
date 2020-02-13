@@ -112,11 +112,6 @@ public:
         return cross_thread_mutex_t::acq_t(&transaction_mutex);
     }
 
-#if !RDB_CF
-    // Declared here so we don't have to comment out every call from a destructor.
-    void begin_changefeed_destruction() {}
-#endif
-
     static const uuid_u base_table_id;
 
 private:
