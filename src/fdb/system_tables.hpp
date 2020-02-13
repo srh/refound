@@ -21,5 +21,33 @@ struct table_config_by_id {
     }
 };
 
+struct db_config_by_id {
+    using ukey_type = database_id_t;
+    using value_type = name_string_t;
+    static constexpr const char *prefix = REQLFDB_DB_CONFIG_BY_ID;
+
+    static ukey_string ukey_str(const ukey_type &k) {
+        // We make an aesthetic key.
+        return ukey_string{uuid_to_str(k.value)};
+    }
+};
+
+struct db_config_by_name {
+    using ukey_type = name_string_t;
+    using value_type = database_id_t;
+    static constexpr const char *prefix = REQLFDB_DB_CONFIG_BY_NAME;
+
+    static ukey_string ukey_str(const ukey_type &k) {
+        return ukey_string{k.str()};
+    }
+
+    static ukey_type unparse_ukey(key_view k) {
+        name_string_t str;
+        bool success = str.assign_value(std::string(as_char(k.data), size_t(k.length)));
+        guarantee(success, "db_config_by_name::unparse_ukey got bad name_string_t");
+        return str;
+    }
+};
+
 
 #endif  // RETHINKDB_FDB_SYSTEM_TABLES_HPP_

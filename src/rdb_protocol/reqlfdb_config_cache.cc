@@ -13,17 +13,6 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 
-struct db_config_by_id {
-    using ukey_type = database_id_t;
-    using value_type = name_string_t;
-    static constexpr const char *prefix = REQLFDB_DB_CONFIG_BY_ID;
-
-    static ukey_string ukey_str(const ukey_type &k) {
-        // We make an aesthetic key.
-        return ukey_string{uuid_to_str(k)};
-    }
-};
-
 reqlfdb_config_cache::reqlfdb_config_cache()
     : config_version{0} {}
 reqlfdb_config_cache::~reqlfdb_config_cache() {}
@@ -46,18 +35,6 @@ void reqlfdb_config_cache::add_table(
         table_id);
     table_id_index.emplace(table_id, std::move(config));
 }
-
-ukey_string db_by_name_key(const name_string_t &db_name) {
-    return ukey_string{db_name.str()};
-}
-
-name_string_t unparse_db_by_name_key(key_view k) {
-    name_string_t str;
-    bool success = str.assign_value(std::string(as_char(k.data), size_t(k.length)));
-    guarantee(success, "unparse_db_by_name_key got bad name_string_t");
-    return str;
-}
-
 
 constexpr const char *table_by_name_separator = ".";
 
@@ -170,8 +147,8 @@ config_cache_retrieve_db_by_name(
         const reqlfdb_config_version config_cache_cv,
         FDBTransaction *txn,
         const name_string_t &db_name, const signal_t *interruptor) {
-    fdb_future fut = transaction_lookup_unique_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
+    fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(
+        txn, db_name);
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     // Block here (1st round-trip)
@@ -184,10 +161,8 @@ config_cache_retrieve_db_by_name(
     }
 
     // Block here (1st round-trip)
-    fdb_value value = future_block_on_value(fut.fut, interruptor);
-
     database_id_t id;
-    bool present = deserialize_off_fdb_value(value, &id);
+    bool present = fut.block_and_deserialize(interruptor, &id);
 
     config_info<optional<database_id_t>> ret;
     ret.ci_cv = cv;
@@ -284,8 +259,8 @@ bool config_cache_db_create(
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     auth::fdb_user_fut<auth::config_permission> auth_fut
         = user_context.transaction_require_config_permission(txn);
-    fdb_future fut = transaction_lookup_unique_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_by_name_key(db_name));
+    fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(
+        txn, db_name);
 
     auth_fut.block_and_check(interruptor);
 
@@ -298,27 +273,22 @@ bool config_cache_db_create(
 
     ASSERT_NO_CORO_WAITING;
 
-    // TODO: Use uniform reql datum primary key serialization, how about that idea?
-    std::string db_id_value = serialize_for_cluster_to_string(new_db_id);
-
     transaction_set_uq_index<db_config_by_id>(txn, new_db_id, db_name);
-    transaction_set_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME,
-        db_by_name_key(db_name), db_id_value);
+    transaction_set_uq_index<db_config_by_name>(txn, db_name, new_db_id);
 
     cv.value++;
     transaction_set_config_version(txn, cv);
     return true;
 }
 
+// TODO: Use uniform reql datum primary key serialization, how about that idea?
 
 optional<database_id_t> config_cache_db_drop(
         FDBTransaction *txn, const auth::user_context_t &user_context,
         const name_string_t &db_name, const signal_t *interruptor) {
-    ukey_string db_name_key = db_by_name_key(db_name);
-
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-    fdb_future fut = transaction_lookup_unique_index(
-        txn, REQLFDB_DB_CONFIG_BY_NAME, db_name_key);
+    fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(
+        txn, db_name);
 
     fdb_value value = future_block_on_value(fut.fut, interruptor);
     database_id_t db_id;
@@ -369,7 +339,7 @@ optional<database_id_t> config_cache_db_drop(
     auth_fut.block_and_check(interruptor);
 
     transaction_erase_uq_index<db_config_by_id>(txn, db_id);
-    transaction_erase_unique_index(txn, REQLFDB_DB_CONFIG_BY_NAME, db_name_key);
+    transaction_erase_uq_index<db_config_by_name>(txn, db_name);
 
     cv.value++;
     transaction_set_config_version(txn, cv);
@@ -575,13 +545,10 @@ bool config_cache_table_create(
     return true;
 }
 
-// TODO (out of context): ql::db_t should do nothing but hold info about whether it
-// was by name or by value, don't actually do the lookup right away.
-
 std::vector<name_string_t> config_cache_db_list_sorted(
         FDBTransaction *txn,
         const signal_t *interruptor) {
-    std::string db_by_name_prefix = REQLFDB_DB_CONFIG_BY_NAME;
+    std::string db_by_name_prefix = db_config_by_name::prefix;
     std::string db_by_name_end = prefix_end(db_by_name_prefix);
     std::vector<name_string_t> db_names;
     transaction_read_whole_range_coro(txn,
@@ -589,10 +556,10 @@ std::vector<name_string_t> config_cache_db_list_sorted(
         [&db_names, &db_by_name_prefix](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view key = whole_key.guarantee_without_prefix(db_by_name_prefix);
-            name_string_t name = unparse_db_by_name_key(key);
-            // We invoke str_to_uuid just as a sanity test.
-            // NNN: Wait, values typically get deserialized, not parsed.  Look at all uses of REQLFDB_DB_CONFIG_BY_NAME.
-            UNUSED database_id_t db_id = database_id_t{str_to_uuid(void_as_char(kv.value), size_t(kv.value_length))};
+            name_string_t name = db_config_by_name::unparse_ukey(key);
+            // We deserialize the value (but don't use it) just as a sanity test.
+            db_config_by_name::value_type db_id;
+            deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &db_id);
             db_names.push_back(std::move(name));
             return true;
         });
