@@ -16,7 +16,7 @@ the `primary_dispatcher_t`.
 There is one `local_replicator_t` on the primary replica server of each shard.
 `primary_execution_t` constructs it. */
 
-// NNN: Remove the whole type, no?
+// OOO: Remove the whole type, no?
 class local_replicator_t {
 public:
     local_replicator_t(
