@@ -5,39 +5,6 @@
 
 namespace unittest {
 
-void dummy_performer_t::read(const read_t &_read,
-                             read_response_t *response,
-                             DEBUG_VAR state_timestamp_t expected_timestamp,
-                             const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
-    read_token_t token;
-    store->new_read_token(&token);
-
-#ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(region_t::universe(),
-        [&](const region_t &, const version_t &bb) {
-            rassert(bb.timestamp == expected_timestamp);
-        });
-#endif
-
-    return store->read(DEBUG_ONLY(metainfo_checker, ) _read, response, &token, interruptor);
-}
-
-void dummy_performer_t::read_outdated(const read_t &_read,
-                                      read_response_t *response,
-                                      const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
-    read_token_t token;
-    store->new_read_token(&token);
-
-#ifndef NDEBUG
-    metainfo_checker_t metainfo_checker(region_t::universe(),
-        [](const region_t &, const version_t &) { });
-#endif
-
-    return store->read(DEBUG_ONLY(metainfo_checker, ) _read, response,
-                       &token,
-                       interruptor);
-}
-
 void dummy_performer_t::write(const write_t &_write,
                               write_response_t *response,
                               state_timestamp_t timestamp,
@@ -81,34 +48,12 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
         });
 }
 
-void dummy_timestamper_t::read(const read_t &_read,
-                               read_response_t *response,
-                               order_token_t otok,
-                               const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) {
-    order_sink.check_out(otok);
-    next->read(_read, response, current_timestamp, interruptor);
-}
-
 void dummy_timestamper_t::write(const write_t &_write,
                                 write_response_t *response,
                                 order_token_t otok) THROWS_NOTHING {
     order_sink.check_out(otok);
     current_timestamp = current_timestamp.next();
     next->write(_write, response, current_timestamp, otok);
-}
-
-void dummy_sharder_t::read(const read_t &_read,
-                           read_response_t *response,
-                           order_token_t tok,
-                           const signal_t *interruptor) {
-    if (interruptor->is_pulsed()) { throw interrupted_exc_t(); }
-
-    if (_read.read_mode == read_mode_t::OUTDATED ||
-        _read.read_mode == read_mode_t::DEBUG_DIRECT) {
-        the_shard.performer->read_outdated(_read, response, interruptor);
-    } else {
-        the_shard.timestamper->read(_read, response, tok, interruptor);
-    }
 }
 
 void dummy_sharder_t::write(const write_t &_write,

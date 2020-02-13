@@ -8,6 +8,7 @@
 #include "clustering/immediate_consistency/version.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "store_view.hpp"
+#include "unittest/unittest_utils.hpp"
 
 namespace unittest {
 
@@ -17,7 +18,9 @@ read_t mock_read(std::string key);
 
 std::string mock_parse_read_response(const read_response_t &rr);
 
+#if RDB_FDB_UNITTEST
 std::string mock_lookup(store_view_t *store, std::string key);
+#endif  // RDB_FDB_UNITTEST
 
 class mock_store_t : public store_view_t {
 public:

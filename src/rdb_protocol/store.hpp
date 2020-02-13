@@ -97,15 +97,6 @@ public:
             const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
-    // TODO implement rocks reading below.
-    void read(
-            DEBUG_ONLY(const metainfo_checker_t& metainfo_checker, )
-            const read_t &read,
-            read_response_t *response,
-            read_token_t *token,
-            const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-
     void write(
             DEBUG_ONLY(const metainfo_checker_t& metainfo_checker, )
             const region_map_t<version_t>& new_metainfo,
@@ -228,11 +219,6 @@ public:
     btree_slice_t *get_sindex_slice(const uuid_u &id) {
         return secondary_index_slices.at(id).get();
     }
-
-    void protocol_read(const read_t &read,
-                       read_response_t *response,
-                       scoped_ptr_t<real_superblock_lock> superblock,
-                       const signal_t *interruptor);
 
     void protocol_write(scoped_ptr_t<txn_t> txn,
                         const write_t &write,

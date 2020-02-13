@@ -26,11 +26,13 @@ struct rdb_modification_info_t;
 struct rdb_modification_report_t;
 class rdb_modification_report_cb_t;
 
+#if RDB_CF
 void rdb_get(
     rockshard rocksh,
     const store_key_t &store_key,
     real_superblock_lock *superblock,
     point_read_response_t *response);
+#endif  // RDB_CF
 
 struct btree_info_t {
     btree_info_t(btree_slice_t *_slice,
@@ -106,19 +108,7 @@ void rdb_delete(rockshard rocksh,
                 profile::trace_t *trace,
                 promise_t<real_superblock_lock *> *pass_back_superblock);
 
-void rdb_rget_snapshot_slice(
-    const rocksdb::Snapshot *snap,
-    rockshard rocksh,
-    btree_slice_t *slice,
-    const key_range_t &range,
-    const optional<std::map<store_key_t, uint64_t> > &primary_keys,
-    ql::env_t *ql_env,
-    const ql::batchspec_t &batchspec,
-    const std::vector<ql::transform_variant_t> &transforms,
-    const optional<ql::terminal_variant_t> &terminal,
-    sorting_t sorting,
-    rget_read_response_t *response);
-
+#if RDB_CF
 // TODO: So much duplication, remove this?
 void rdb_rget_slice(
     rockshard rocksh,
@@ -133,23 +123,6 @@ void rdb_rget_slice(
     sorting_t sorting,
     rget_read_response_t *response,
     release_superblock_t release_superblock);
-
-void rdb_rget_secondary_snapshot_slice(
-    const rocksdb::Snapshot *snap,
-    rockshard rocksh,
-    uuid_u sindex_uuid,
-    btree_slice_t *slice,
-    const ql::datumspec_t &datumspec,
-    const key_range_t &sindex_range,
-    ql::env_t *ql_env,
-    const ql::batchspec_t &batchspec,
-    const std::vector<ql::transform_variant_t> &transforms,
-    const optional<ql::terminal_variant_t> &terminal,
-    const key_range_t &pk_range,
-    sorting_t sorting,
-    require_sindexes_t require_sindex_val,
-    const sindex_disk_info_t &sindex_info,
-    rget_read_response_t *response);
 
 // TODO: So much duplication, remove this?
 void rdb_rget_secondary_slice(
@@ -169,34 +142,7 @@ void rdb_rget_secondary_slice(
     const sindex_disk_info_t &sindex_info,
     rget_read_response_t *response,
     release_superblock_t release_superblock);
-
-void rdb_get_intersecting_slice(
-        const rocksdb::Snapshot *snap,
-        rockshard rocksh,
-        uuid_u sindex_uuid,
-        btree_slice_t *slice,
-        const ql::datum_t &query_geometry,
-        const key_range_t &sindex_range,
-        ql::env_t *ql_env,
-        const ql::batchspec_t &batchspec,
-        const std::vector<ql::transform_variant_t> &transforms,
-        const optional<ql::terminal_variant_t> &terminal,
-        const sindex_disk_info_t &sindex_info,
-        is_stamp_read_t is_stamp_read,
-        rget_read_response_t *response);
-
-void rdb_get_nearest_slice(
-    const rocksdb::Snapshot *snap,
-    rockshard rocksh,
-    uuid_u sindex_uuid,
-    btree_slice_t *slice,
-    const lon_lat_point_t &center,
-    double max_dist,
-    uint64_t max_results,
-    const ellipsoid_spec_t &geo_system,
-    ql::env_t *ql_env,
-    const sindex_disk_info_t &sindex_info,
-    nearest_geo_read_response_t *response);
+#endif// RDB_CF
 
 /* Secondary Indexes */
 

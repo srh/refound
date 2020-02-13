@@ -22,6 +22,8 @@
 #include "unittest/gtest.hpp"
 #include "unittest/unittest_utils.hpp"
 
+#if RDB_FDB_UNITTEST
+
 #define TOTAL_KEYS_TO_INSERT 1000
 #define MAX_RETRIES_FOR_SINDEX_POSTCONSTRUCT 50
 
@@ -314,3 +316,5 @@ TPTEST(RDBBtree, SindexInterruptionViaStoreDelete) {
 }
 
 } //namespace unittest
+
+#endif  // RDB_FDB_UNITTEST

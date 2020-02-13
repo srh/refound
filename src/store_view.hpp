@@ -66,15 +66,6 @@ public:
             write_durability_t durability,
             const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) = 0;
 
-    /* Performs a read. The read's region must be a subset of the store's region. */
-    virtual void read(
-            DEBUG_ONLY(const metainfo_checker_t& metainfo_expecter, )
-            const read_t &read,
-            read_response_t *response,
-            read_token_t *token,
-            const signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) = 0;
-
     /* Performs a write. `new_metainfo`'s region must be a subset of the store's region,
     and the write's region must be a subset of `new_metainfo`'s region. */
     virtual void write(

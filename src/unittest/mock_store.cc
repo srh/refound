@@ -39,6 +39,7 @@ std::string mock_parse_read_response(const read_response_t &rr) {
     return prr->data.get_field("value").as_str().to_std();
 }
 
+#if RDB_FDB_UNITTEST
 std::string mock_lookup(store_view_t *store, std::string key) {
 #ifndef NDEBUG
     metainfo_checker_t checker(region_t::universe(),
@@ -57,7 +58,7 @@ std::string mock_lookup(store_view_t *store, std::string key) {
                 &dummy_cond);
     return mock_parse_read_response(rr);
 }
-
+#endif  // RDB_FDB_UNITTEST
 
 mock_store_t::mock_store_t(version_t universe_metainfo)
     : store_view_t(),

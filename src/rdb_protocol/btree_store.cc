@@ -179,24 +179,6 @@ store_t::~store_t() {
     drainer.drain();
 }
 
-void store_t::read(
-        DEBUG_ONLY(const metainfo_checker_t& metainfo_checker, )
-        const read_t &_read,
-        read_response_t *response,
-        read_token_t *token,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t) {
-    assert_thread();
-    scoped_ptr_t<txn_t> txn;
-    scoped_ptr_t<real_superblock_lock> superblock;
-
-    acquire_superblock_for_read(token, &txn, &superblock,
-                                interruptor);
-    DEBUG_ONLY_CODE(metainfo->visit(
-        superblock.get(), metainfo_checker.region, metainfo_checker.callback));
-    protocol_read(_read, response, std::move(superblock), interruptor);
-}
-
 void store_t::write(
         DEBUG_ONLY(const metainfo_checker_t& metainfo_checker, )
         const region_map_t<version_t>& new_metainfo,
