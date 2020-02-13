@@ -278,8 +278,7 @@ bool do_serve(FDBDatabase *fdb,
                 &mailbox_manager,
                 multi_table_manager.get(),
                 &multi_table_manager_directory,
-                table_directory_read_manager.get_root_view(),
-                &server_config_client);
+                table_directory_read_manager.get_root_view());
 
             name_resolver_t name_resolver(
                 semilattice_manager_cluster.get_root_view(),

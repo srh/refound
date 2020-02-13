@@ -16,7 +16,6 @@ class multi_table_manager_timestamp_epoch_t;
 class name_string_t;
 class peer_id_t;
 template <class edge_t, class value_t> class range_map_t;
-class server_config_client_t;
 class server_id_t;
 class sindex_config_t;
 class sindex_status_t;
@@ -97,8 +96,7 @@ public:
         watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
             *_multi_table_manager_directory,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
-            *_table_manager_directory,
-        server_config_client_t *_server_config_client);
+            *_table_manager_directory);
     ~table_meta_client_t();
 
     /* All of these functions can be called from any thread. */
@@ -265,7 +263,6 @@ private:
         *const multi_table_manager_directory;
     watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
         *const table_manager_directory;
-    server_config_client_t *const server_config_client;
 
     /* `table_basic_configs` distributes the `table_basic_config_t`s from the
     `multi_table_manager_t` to each thread, so that `find()`, `get_name()`, and

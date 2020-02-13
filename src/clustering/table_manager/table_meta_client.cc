@@ -14,13 +14,11 @@ table_meta_client_t::table_meta_client_t(
         watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
             *_multi_table_manager_directory,
         watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
-            *_table_manager_directory,
-        server_config_client_t *_server_config_client) :
+            *_table_manager_directory) :
     mailbox_manager(_mailbox_manager),
     multi_table_manager(_multi_table_manager),
     multi_table_manager_directory(_multi_table_manager_directory),
     table_manager_directory(_table_manager_directory),
-    server_config_client(_server_config_client),
     table_basic_configs(multi_table_manager->get_table_basic_configs())
     { }
 
