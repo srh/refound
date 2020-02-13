@@ -139,18 +139,15 @@ void jobs_artificial_table_backend_t::get_all_job_reports(
 
 bool jobs_artificial_table_backend_t::read_all_rows_as_vector(
         auth::user_context_t const &user_context,
-        const signal_t *interruptor_on_caller,
+        const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     rows_out->clear();
 
-    cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
-    on_thread_t rethreader(home_thread());
-
     std::map<uuid_u, ql::datum_t> job_reports;
     get_all_job_reports(
         user_context,
-        &interruptor_on_home,
+        interruptor,
         &job_reports);
 
     rows_out->reserve(job_reports.size());
@@ -198,8 +195,6 @@ bool jobs_artificial_table_backend_t::write_row(
         ql::datum_t *new_value_inout,
         UNUSED const signal_t *interruptor_on_caller,
         admin_err_t *error_out) {
-    on_thread_t rethreader(home_thread());
-
     if (new_value_inout->has()) {
         *error_out = admin_err_t{
             "The `rethinkdb.jobs` system table only allows deletions, "

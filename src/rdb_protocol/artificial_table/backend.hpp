@@ -131,7 +131,7 @@ private:
 the actual data or configuration. There is one subclass for each table like
 `rethinkdb.table_config`, `rethinkdb.table_status`, and so on. */
 
-class artificial_table_fdb_backend_t : public home_thread_mixin_t {
+class artificial_table_fdb_backend_t {
 public:
     static namespace_id_t compute_artificial_table_id(const name_string_t &name);
 
@@ -211,10 +211,6 @@ public:
         admin_err_t *error_out) = 0;
 #endif
 
-    cross_thread_mutex_t::acq_t acquire_transaction_mutex() {
-        return cross_thread_mutex_t::acq_t(&transaction_mutex);
-    }
-
 #if !RDB_CF
     // Declared here so we don't have to comment out every call from a destructor.
     void begin_changefeed_destruction() {}
@@ -229,9 +225,8 @@ private:
         std::vector<ql::datum_t> *rows_out,
         admin_err_t *error_out) = 0;
 
-    name_string_t m_table_name;
-    namespace_id_t m_table_id;
-    cross_thread_mutex_t transaction_mutex;
+    const name_string_t m_table_name;
+    const namespace_id_t m_table_id;
 };
 
 #endif /* RDB_PROTOCOL_ARTIFICIAL_TABLE_BACKEND_HPP_ */
