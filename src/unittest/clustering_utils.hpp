@@ -20,24 +20,6 @@
 
 namespace unittest {
 
-class simple_write_callback_t :
-    public primary_dispatcher_t::write_callback_t, public cond_t
-{
-public:
-    simple_write_callback_t() : acks(0) { }
-    write_durability_t get_default_write_durability() {
-        return write_durability_t::HARD;
-    }
-    void on_ack(const server_id_t &, write_response_t &&) {
-        ++acks;
-    }
-    void on_end() {
-        EXPECT_GE(acks, 1);
-        pulse();
-    }
-    int acks;
-};
-
 class test_store_t {
 public:
     test_store_t(io_backender_t *io_backender, order_source_t *order_source, rdb_context_t *ctx) :

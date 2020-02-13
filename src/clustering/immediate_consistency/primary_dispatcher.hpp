@@ -104,27 +104,6 @@ public:
         auto_drainer_t drainer;
     };
 
-    class write_callback_t {
-    public:
-        write_callback_t();
-        /* `get_default_write_durability()` returns the write durability that this write
-        should use if the write itself didn't specify. */
-        virtual write_durability_t get_default_write_durability() = 0;
-        /* Every time the write is acked, `on_ack()` is called. When no more replicas
-        will ack the write, `on_end()` is called. */
-        virtual void on_ack(const server_id_t &, write_response_t &&) = 0;
-        virtual void on_end() = 0;
-
-    protected:
-        virtual ~write_callback_t();
-
-    private:
-        friend class primary_dispatcher_t;
-        /* This is so that if the write callback is destroyed before `on_end()` is
-        called, it will get deregistered. */
-        incomplete_write_t *write;
-    };
-
     /* There is a 1:1 relationship between `primary_dispatcher_t`s and branches. When the
     `primary_dispatcher_t` is constructed, it constructs a branch using the given region
     map as the origin. You can get the branch's ID and birth certificate via the
@@ -141,39 +120,11 @@ public:
         return branch_bc;
     }
 
-    /* Unlike `read()`, `spawn_write()` returns as soon as the write has begun and
-    replies asynchronously via a callback. It will not block. If the `write_callback_t`
-    is destroyed while the write is still in progress, its destructor will automatically
-    deregister it so that no segfaults will happen. */
-    void spawn_write(
-        const write_t &w,
-        order_token_t tok,
-        write_callback_t *cb);
-
     clone_ptr_t<watchable_t<std::set<server_id_t> > > get_ready_dispatchees() {
         return ready_dispatchees_as_set.get_watchable();
     }
 
 private:
-    /* `incomplete_write_t` bundles all of the information related to a given write into
-    a single struct. When it is destroyed, it calls `on_end()` on the callback. */
-    class incomplete_write_t : public single_threaded_countable_t<incomplete_write_t> {
-    public:
-        incomplete_write_t(
-            const write_t &w, state_timestamp_t ts, order_token_t ot,
-            write_durability_t durability, write_callback_t *cb);
-        ~incomplete_write_t();
-        write_t write;
-        state_timestamp_t timestamp;
-        order_token_t order_token;
-        write_durability_t durability;
-        write_callback_t *callback;
-    };
-
-    void background_write(
-        dispatchee_registration_t *dispatchee,
-        auto_drainer_t::lock_t dispatchee_lock,
-        counted_t<incomplete_write_t> write) THROWS_NOTHING;
 
     void refresh_ready_dispatchees_as_set();
 

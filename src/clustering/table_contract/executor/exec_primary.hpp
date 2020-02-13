@@ -46,7 +46,6 @@ public:
         const table_raft_state_t &raft_state) override;
 
 private:
-    class write_callback_t;
     /* `contract_info_t` stores a contract, its ack callback, and a condition variable
     indicating if it's obsolete. The reason this is in a struct is because we sometimes
     need to reason about old contracts, so we may keep multiple versions around. */
@@ -65,23 +64,6 @@ private:
         counted_t<contract_info_t> contract,
         auto_drainer_t::lock_t keepalive,
         new_mutex_in_line_t *mutex_in_line_ptr);
-
-    /* `sync_contract_with_replicas()` blocks until it's safe to ack `primary_ready` for
-    the given contract. It does this by sending a sync write to all of the replicas and
-    waiting until enough of them respond; this relies on the principle that if a replica
-    acknowledges the sync write, it must have also acknowledged every write initiated
-    before the sync write. If the first sync write fails, it will try repeatedly until it
-    succeeds or is interrupted. */
-    void sync_contract_with_replicas(
-        counted_t<contract_info_t> contract,
-        const signal_t *interruptor);
-
-    /* `is_contract_ackable()` is a helper function for `sync_contract_with_replicas()`
-    that returns `true` if it's safe to ack `primary_ready` for the given contract, given
-    that all the replicas in `servers` have performed the sync write. */
-    static bool is_contract_ackable(
-        counted_t<contract_info_t> contract,
-        const std::set<server_id_t> &servers);
 
     optional<branch_id_t> our_branch_id;
 

@@ -251,51 +251,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
     }
 }
 
-/* `write_callback_t` waits until the query is safe to ack, then pulses `done`. */
-class primary_execution_t::write_callback_t : public primary_dispatcher_t::write_callback_t {
-public:
-    write_callback_t(write_response_t *_r_out,
-                     write_durability_t _default_write_durability,
-                     write_ack_config_t _write_ack_config,
-                     contract_t *contract) :
-        ack_counter(*contract),
-        default_write_durability(_default_write_durability),
-        write_ack_config(_write_ack_config),
-        response_out(_r_out) { }
-
-    promise_t<bool> result;
-private:
-    write_durability_t get_default_write_durability() {
-        /* This only applies to writes that don't specify the durability */
-        return default_write_durability;
-    }
-    void on_ack(const server_id_t &server, write_response_t &&resp) {
-        if (!result.is_pulsed()) {
-            switch (write_ack_config) {
-                case write_ack_config_t::SINGLE:
-                    break;
-                case write_ack_config_t::MAJORITY:
-                    ack_counter.note_ack(server);
-                    if (!ack_counter.is_safe()) {
-                        // We're not ready to safely ack the query yet.
-                        return;
-                    }
-                    break;
-            }
-            *response_out = std::move(resp);
-            result.pulse(true);
-        }
-    }
-    void on_end() {
-        if (!result.is_pulsed()) {
-            result.pulse(false);
-        }
-    }
-    ack_counter_t ack_counter;
-    write_durability_t default_write_durability;
-    write_ack_config_t write_ack_config;
-    write_response_t *response_out;
-};
 
 void primary_execution_t::update_contract_on_store_thread(
         counted_t<contract_info_t> contract,
@@ -353,7 +308,6 @@ void primary_execution_t::update_contract_on_store_thread(
                 wait_any_t combiner(
                     &interruptor_store_thread, keepalive2.get_drain_signal());
                 should_ack = true;
-                sync_contract_with_replicas(contract, &combiner);
             } else {
                 should_ack = false;
             }
@@ -369,77 +323,5 @@ void primary_execution_t::update_contract_on_store_thread(
         /* Either the contract is obsolete or we are being destroyed. In either case,
         stop trying to ack the contract. */
     }
-}
-
-void primary_execution_t::sync_contract_with_replicas(
-        counted_t<contract_info_t> contract,
-        const signal_t *interruptor) {
-    store->assert_thread();
-    guarantee(our_dispatcher != nullptr);
-    while (true) {
-        if (interruptor->is_pulsed()) {
-            throw interrupted_exc_t();
-        }
-
-        /* Wait until it looks like the write could go through */
-        our_dispatcher->get_ready_dispatchees()->run_until_satisfied(
-            [&](const std::set<server_id_t> &servers) {
-                return is_contract_ackable(contract, servers);
-            },
-            interruptor);
-        /* Now try to actually put the write through */
-        class safe_write_callback_t : public primary_dispatcher_t::write_callback_t {
-        public:
-            write_durability_t get_default_write_durability() {
-                return write_durability_t::HARD;
-            }
-            void on_ack(const server_id_t &server, write_response_t &&) {
-                servers.insert(server);
-                if (is_contract_ackable(contract, servers)) {
-                    done.pulse_if_not_already_pulsed();
-                }
-            }
-            void on_end() {
-                done.pulse_if_not_already_pulsed();
-            }
-            counted_t<contract_info_t> contract;
-            std::set<server_id_t> servers;
-            cond_t done;
-        } write_callback;
-        write_callback.contract = contract;
-        our_dispatcher->spawn_write(
-            write_t::make_sync(region_t::universe(), profile_bool_t::DONT_PROFILE),
-            order_token_t::ignore, &write_callback);
-        wait_interruptible(&write_callback.done, interruptor);
-        if (is_contract_ackable(contract, write_callback.servers)) {
-            break;
-        }
-    }
-}
-
-bool primary_execution_t::is_contract_ackable(
-        counted_t<contract_info_t> contract_info, const std::set<server_id_t> &servers) {
-    /* If it's a regular contract, we can ack it as soon as we send a sync to a quorum of
-    replicas. If it's a hand-over contract, we also need to ensure that we performed a
-    sync with the new primary.
-
-    If we return `true` from this function, we are going to send a `primary_ready` ack
-    to the coordinator. The coordinator relies on this status for two things:
-    * if the we are in a configuration with `temp_voters`, the coordinator is going to
-     use the `primary_ready` ack as a confirmation that a majority of `voters` as well as
-     a majority of `temp_voters` have up-to-date data. Thus it will be able to safely
-     turn `temp_voters` into `voters` (this is critical for correctness).
-    * if we currently have a `hand_over` primary set, the coordinator will wait for the
-     `primary_ready` ack before it shuts down the current primary (us).
-     Our stricter criteria for `hand_over` configurations is to make sure that when the
-     time comes to start up a new primary, the `hand_over` primary is up to date and
-     actually eligible to become a primary.
-     (the additional criteria is not critical for correctness, but makes sure that the
-     transition to the new primary goes through smoothly) */
-    ack_counter_t ack_counter(contract_info->contract);
-    for (const server_id_t &s : servers) {
-        ack_counter.note_ack(s);
-    }
-    return ack_counter.is_safe();
 }
 
