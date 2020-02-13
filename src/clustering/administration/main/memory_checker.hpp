@@ -39,7 +39,7 @@ private:
 
     int practice_runs_remaining;
 
-    // Timer must be destructed before drainer, because on_ring aquires a lock on drainer.
+    // Timer must be destructed before drainer, because on_ring acquires a lock on drainer.
     auto_drainer_t drainer;
     repeating_timer_t timer;
 };

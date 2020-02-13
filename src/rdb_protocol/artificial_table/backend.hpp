@@ -109,7 +109,7 @@ public:
         admin_err_t *error_out) = 0;
 #endif
 
-    cross_thread_mutex_t::acq_t aquire_transaction_mutex() {
+    cross_thread_mutex_t::acq_t acquire_transaction_mutex() {
         return cross_thread_mutex_t::acq_t(&transaction_mutex);
     }
 
@@ -218,7 +218,7 @@ public:
         admin_err_t *error_out) = 0;
 #endif
 
-    cross_thread_mutex_t::acq_t aquire_transaction_mutex() {
+    cross_thread_mutex_t::acq_t acquire_transaction_mutex() {
         return cross_thread_mutex_t::acq_t(&transaction_mutex);
     }
 
