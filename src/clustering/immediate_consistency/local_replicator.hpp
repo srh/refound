@@ -4,7 +4,6 @@
 
 #include "clustering/immediate_consistency/version.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/immediate_consistency/replica.hpp"
 #include "store_view.hpp"
 
 /* `local_replicator_t` receives writes from a `primary_dispatcher_t` on the same server

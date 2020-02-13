@@ -154,12 +154,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
             order_source.check_in("primary_t").with_read_mode(),
             &token, region_t::universe(), &interruptor_store_thread);
 
-        perfmon_collection_t perfmon_collection;
-        perfmon_membership_t perfmon_membership(params->get_parent_perfmon_collection(),
-                                                &perfmon_collection,
-                                                params->get_perfmon_name());
-
-        primary_dispatcher_t primary_dispatcher(&perfmon_collection, initial_version);
+        primary_dispatcher_t primary_dispatcher(initial_version);
 
         on_thread_t thread_switcher_2(home_thread());
 

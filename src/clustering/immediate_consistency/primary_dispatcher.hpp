@@ -33,7 +33,6 @@ public:
     `get_branch_id()` and `get_branch_birth_certificate()` methods. */
 
     primary_dispatcher_t(
-        perfmon_collection_t *parent_perfmon_collection,
         const region_map_t<version_t> &base_version);
 
     branch_id_t get_branch_id() {
@@ -43,35 +42,9 @@ public:
         return branch_bc;
     }
 
-    clone_ptr_t<watchable_t<std::set<server_id_t> > > get_ready_dispatchees() {
-        return ready_dispatchees_as_set.get_watchable();
-    }
-
 private:
-
-    void refresh_ready_dispatchees_as_set();
-
     branch_id_t branch_id;
     branch_birth_certificate_t branch_bc;
-
-    perfmon_collection_t perfmon_collection;
-    perfmon_membership_t perfmon_membership;
-
-    mutex_assertion_t mutex;
-
-    state_timestamp_t current_timestamp;
-    order_checkpoint_t order_checkpoint;
-
-    /* Once we ack a write, we must make sure that every read that's initiated after that
-    will see the result of the write. We use this timestamp to keep track of the most
-    recent acked write and produce `min_timestamp_token_t`s from it whenever we send a
-    read to a listener. */
-    state_timestamp_t most_recent_acked_write_timestamp;
-
-    /* This is just a set that contains the peer ID of each dispatchee in `dispatchees`
-    that's readable. We store it separately so we can expose it to code that needs to
-    know which replicas are available. */
-    watchable_variable_t<std::set<server_id_t> > ready_dispatchees_as_set;
 
     DISABLE_COPYING(primary_dispatcher_t);
 };
