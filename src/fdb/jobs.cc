@@ -316,3 +316,28 @@ void remove_fdb_task_and_jobs(FDBTransaction *txn, fdb_shared_task_id task_id,
         remove_fdb_job(txn, job_info);
     }
 }
+
+optional<fdb_job_info> lookup_fdb_job(FDBTransaction *txn, fdb_job_id job_id,
+        const signal_t *interruptor) {
+    optional<fdb_job_info> ret;
+    fdb_value_fut<fdb_job_info> fut = transaction_lookup_uq_index<jobs_by_id>(txn, job_id);
+    ret.emplace();
+    bool present = fut.block_and_deserialize(interruptor, &*ret);
+    if (!present) {
+        ret.reset();
+    }
+    return ret;
+}
+
+std::vector<fdb_job_info> lookup_all_fdb_jobs(FDBTransaction *txn, const signal_t *interruptor) {
+    std::vector<fdb_job_info> ret;
+    transaction_read_whole_range_coro(
+        txn, jobs_by_id::prefix, prefix_end(jobs_by_id::prefix),
+        interruptor, [&ret](const FDBKeyValue &kv) {
+
+        ret.emplace_back();
+        deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &ret.back());
+        return true;
+    });
+    return ret;
+}

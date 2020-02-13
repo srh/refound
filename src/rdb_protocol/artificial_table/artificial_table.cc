@@ -416,6 +416,7 @@ void artificial_table_t::do_single_update(
 /* This is a wrapper around `backend->read_row()` that also performs sanity checking, to
 help catch bugs in the backend. */
 bool checked_read_row_from_backend(
+        FDBTransaction *txn,
         auth::user_context_t const &user_context,
         artificial_table_fdb_backend_t *backend,
         const ql::datum_t &pval,
@@ -424,7 +425,7 @@ bool checked_read_row_from_backend(
         admin_err_t *error_out) {
     // Note that we'll catch the `auth::permission_error_t` that this may throw in the
     // calling function, as that's what we want in `do_single_update` below.
-    if (!backend->read_row(user_context, pval, interruptor, row_out, error_out)) {
+    if (!backend->read_row(txn, user_context, pval, interruptor, row_out, error_out)) {
         return false;
     }
 
@@ -455,16 +456,20 @@ const std::string &artificial_table_fdb_t::get_pkey() const {
     return m_primary_key_name;
 }
 
-ql::datum_t artificial_table_fdb_t::read_row(ql::env_t *env,
+ql::datum_t artificial_table_fdb_t::read_row(
+        ql::env_t *env,
         ql::datum_t pval, UNUSED read_mode_t read_mode) {
     ql::datum_t row;
 
     try {
+// NNN: Fdb-ize
+#if 0
         env->get_user_context().require_read_permission(
             env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
 
         admin_err_t error;
         if (!checked_read_row_from_backend(
+                txn,
                 env->get_user_context(),
                 m_backend,
                 pval,
@@ -473,6 +478,7 @@ ql::datum_t artificial_table_fdb_t::read_row(ql::env_t *env,
                 &error)) {
             REQL_RETHROW_DATUM(error);
         }
+#endif  // 0
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -501,6 +507,7 @@ counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_all(
 
         admin_err_t error;
         if (!m_backend->read_all_rows_filtered_as_stream(
+                env->get_rdb_ctx()->fdb,
                 env->get_user_context(),
                 bt,
                 datumspec,
@@ -753,7 +760,7 @@ void artificial_table_fdb_t::do_single_update(
 
     admin_err_t error;
     ql::datum_t old_row;
-    if (!checked_read_row_from_backend(
+    if (!checked_read_row_from_backend(nullptr,  // NNN: FDBTransaction right here!
             env->get_user_context(), m_backend, pval, interruptor, &old_row, &error)) {
         ql::datum_object_builder_t builder;
         builder.add_error(error.msg.c_str());

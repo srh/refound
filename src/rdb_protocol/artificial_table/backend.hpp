@@ -8,6 +8,7 @@
 #include "concurrency/cross_thread_mutex.hpp"
 #include "containers/name_string.hpp"
 #include "containers/uuid.hpp"
+#include "fdb/fdb.hpp"
 #include "rdb_protocol/datum.hpp"
 
 namespace auth {
@@ -135,6 +136,7 @@ class artificial_table_fdb_backend_t {
 public:
     static namespace_id_t compute_artificial_table_id(const name_string_t &name);
 
+    // TODO: Update this comment for fdb (basically read/write/whatnot just uses fdb txn's).
     /* Notes:
      1. `read_all_rows_as_*()`, `read_row()`, and `write_row()` all return `false` and
         set `*error_out` if an error occurs. Note that if a row is absent in
@@ -152,11 +154,13 @@ public:
 
     /* Returns the name of the primary key for the table. The return value must not
     change. This must not block. */
-    virtual std::string get_primary_key_name() = 0;
+    virtual std::string get_primary_key_name() const = 0;
 
     // Returns the full dataset in a vector (in `rows_out`) after applying the filtering
     // and sorting specified by `datumspec` and `sorting`.
+    // TODO: We could do a range-read on fdb (for some tables, anyway)
     bool read_all_rows_filtered(
+        FDBDatabase *fdb,
         auth::user_context_t const &user_context,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
@@ -168,6 +172,7 @@ public:
        read_all_rows_as_vector) and applies the applicable filtering and sorting (as
        specified in `datumspec` and `sorting`). */
     bool read_all_rows_filtered_as_stream(
+        FDBDatabase *fdb,
         auth::user_context_t const &user_context,
         ql::backtrace_id_t bt,
         const ql::datumspec_t &datumspec,
@@ -179,6 +184,7 @@ public:
     /* Sets `*row_out` to the current value of the row, or an empty `datum_t` if no such
     row exists. */
     virtual bool read_row(
+        FDBTransaction *txn,
         auth::user_context_t const &user_context,
         ql::datum_t primary_key,
         const signal_t *interruptor,
@@ -219,7 +225,10 @@ public:
     static const uuid_u base_table_id;
 
 private:
+    // Takes an FDBDatabase, not txn, because it might need to break range read up into
+    // separate txns.  Hypothetically.
     virtual bool read_all_rows_as_vector(
+        FDBDatabase *fdb,
         auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,

@@ -14,10 +14,10 @@ bool convert_job_type_and_id_from_datum(ql::datum_t primary_key,
            convert_uuid_from_datum(primary_key.get(1), id_out, &error);
 }
 
-ql::datum_t convert_job_type_and_id_to_datum(std::string const &type, uuid_u const &id) {
+ql::datum_t convert_job_type_and_id_to_datum(const std::string &type, const fdb_job_id &id) {
     ql::datum_array_builder_t primary_key_builder(ql::configured_limits_t::unlimited);
     primary_key_builder.add(convert_string_to_datum(type));
-    primary_key_builder.add(convert_uuid_to_datum(id));
+    primary_key_builder.add(convert_uuid_to_datum(id.value));
     return std::move(primary_key_builder).to_datum();
 }
 

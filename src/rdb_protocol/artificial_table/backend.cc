@@ -138,6 +138,7 @@ artificial_table_fdb_backend_t::~artificial_table_fdb_backend_t() {
 }
 
 bool artificial_table_fdb_backend_t::read_all_rows_filtered(
+        FDBDatabase *fdb,
         auth::user_context_t const &user_context,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
@@ -147,7 +148,7 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered(
 
     /* Fetch the rows from the backend */
     std::vector<ql::datum_t> rows;
-    if (!read_all_rows_as_vector(user_context, interruptor, &rows, error_out)) {
+    if (!read_all_rows_as_vector(fdb, user_context, interruptor, &rows, error_out)) {
         return false;
     }
 
@@ -191,6 +192,7 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered(
 }
 
 bool artificial_table_fdb_backend_t::read_all_rows_filtered_as_stream(
+        FDBDatabase *fdb,
         auth::user_context_t const &user_context,
         ql::backtrace_id_t bt,
         const ql::datumspec_t &datumspec,
@@ -199,7 +201,7 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered_as_stream(
         counted_t<ql::datum_stream_t> *rows_out,
         admin_err_t *error_out) {
     std::vector<ql::datum_t> rows;
-    if (!read_all_rows_filtered(user_context, datumspec, sorting, interruptor,
+    if (!read_all_rows_filtered(fdb, user_context, datumspec, sorting, interruptor,
                                 &rows, error_out)) {
         return false;
     }

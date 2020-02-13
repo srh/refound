@@ -314,6 +314,8 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         name_string_t::guarantee_valid("table_status"),
         std::make_pair(table_status_backend[0].get(), table_status_backend[1].get()));
 
+// NNN: Uncomment
+#if 0
     for (int format = 0; format < 2; ++format) {
         jobs_backend[format].init(
             new jobs_artificial_table_backend_t(
@@ -329,6 +331,7 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
         name_string_t::guarantee_valid("jobs"),
         std::make_pair(jobs_backend[0].get(), jobs_backend[1].get()));
+#endif  // 0
 
     debug_scratch_backend.init(
         new in_memory_artificial_table_backend_t(

@@ -19,7 +19,9 @@ bool convert_job_type_and_id_from_datum(ql::datum_t primary_key,
                                         std::string *type_out,
                                         uuid_u *id_out);
 
+// TODO: Drop this.
 ql::datum_t convert_job_type_and_id_to_datum(std::string const &type, uuid_u const &id);
+ql::datum_t convert_job_type_and_id_to_datum(const std::string &type, const fdb_job_id &id);
 
 // `job_report_base_t` is a CRTP base class allowing static polymorphism without virtual
 // functions, see http://en.wikipedia.org/wiki/Curiously_recurring_template_pattern.

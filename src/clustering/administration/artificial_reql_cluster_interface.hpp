@@ -89,6 +89,10 @@ public:
         name_string_t,
         std::pair<artificial_table_backend_t *, artificial_table_backend_t *>>;
 
+    using table_fdb_backends_map_t = std::map<
+        name_string_t,
+        std::pair<artificial_table_fdb_backend_t *, artificial_table_fdb_backend_t *>>;
+
     table_backends_map_t *get_table_backends_map_mutable();
     table_backends_map_t const &get_table_backends_map() const;
 
@@ -131,6 +135,10 @@ private:
         artificial_reql_cluster_interface_t::table_backends_map_t::key_type,
         artificial_reql_cluster_interface_t::table_backends_map_t::mapped_type>;
 
+    using fdb_backend_sentry_t = map_insertion_sentry_t<
+        artificial_reql_cluster_interface_t::table_fdb_backends_map_t::key_type,
+        artificial_reql_cluster_interface_t::table_fdb_backends_map_t::mapped_type>;
+
     scoped_ptr_t<auth::permissions_artificial_table_backend_t>
         permissions_backend[2];
     backend_sentry_t permissions_sentry;
@@ -165,8 +173,11 @@ private:
     scoped_ptr_t<table_status_artificial_table_backend_t> table_status_backend[2];
     backend_sentry_t table_status_sentry;
 
-    scoped_ptr_t<jobs_artificial_table_backend_t> jobs_backend[2];
-    backend_sentry_t jobs_sentry;
+// NNN: Uncomment
+#if 0
+    scoped_ptr_t<jobs_artificial_table_fdb_backend_t> jobs_backend[2];
+    fdb_backend_sentry_t jobs_sentry;
+#endif  // 0
 
     scoped_ptr_t<in_memory_artificial_table_backend_t> debug_scratch_backend;
     backend_sentry_t debug_scratch_sentry;

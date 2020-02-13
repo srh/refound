@@ -2,6 +2,7 @@
 #define RETHINKDB_FDB_JOBS_HPP_
 
 #include "concurrency/auto_drainer.hpp"
+#include "containers/optional.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/id_types.hpp"
 #include "fdb/reql_fdb.hpp"
@@ -23,6 +24,7 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
 struct fdb_job_db_drop {
     database_id_t database_id;
 
+    // TODO: Make this be last_table_name or "", just to make datum logic simpler.
     std::string min_table_name;
 
     static fdb_job_db_drop make(database_id_t db_id) {
@@ -39,6 +41,7 @@ struct fdb_job_index_create {
 };
 
 
+// TODO: Don't forget to turn this into a boost::variant (at some point), but who cares?
 struct fdb_job_description {
     fdb_job_type type;
     fdb_job_db_drop db_drop;
@@ -73,5 +76,11 @@ void try_claim_and_start_job(
     FDBDatabase *fdb, fdb_node_id self_node_id, const auto_drainer_t::lock_t &lock);
 
 skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock);
+
+// (Used by jobs table.)
+optional<fdb_job_info> lookup_fdb_job(FDBTransaction *txn, fdb_job_id job_id,
+    const signal_t *interruptor);
+std::vector<fdb_job_info> lookup_all_fdb_jobs(FDBTransaction *txn,
+    const signal_t *interruptor);
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_
