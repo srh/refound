@@ -129,8 +129,6 @@ multi_table_manager_t::active_table_t::active_table_t(
         perfmon_collection_namespace),
     table_manager_bcard_copier(
         &parent->table_manager_bcards, table_id, manager.get_table_manager_bcard()),
-    table_query_bcard_source(
-        &parent->table_query_bcard_combiner, table_id, manager.get_table_query_bcards()),
     raft_committed_subs(std::bind(&active_table_t::on_raft_commit, this))
 {
     guarantee(!parent->is_proxy_server, "proxy server shouldn't be hosting data");

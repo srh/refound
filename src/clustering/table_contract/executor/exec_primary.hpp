@@ -12,6 +12,7 @@ class contract_t;
 class io_backender_t;
 class primary_dispatcher_t;
 
+// TODO: Remove?
 /* `ack_counter_t` computes whether a write is guaranteed to be preserved
 even after a failover or other reconfiguration. */
 class ack_counter_t {
@@ -30,8 +31,7 @@ private:
 
 class primary_execution_t :
     public execution_t,
-    public home_thread_mixin_t,
-    private primary_query_server_t::query_callback_t {
+    public home_thread_mixin_t {
 public:
     primary_execution_t(
         const execution_t::context_t *context,
@@ -42,7 +42,7 @@ public:
 
     void update_contract_or_raft_state(
         const contract_id_t &cid,
-        const table_raft_state_t &raft_state);
+        const table_raft_state_t &raft_state) override;
 
 private:
     class write_callback_t;
@@ -54,32 +54,6 @@ private:
     /* This is started in a coroutine when the `primary_t` is created. It sets up the
     broadcaster, listener, etc. */
     void run(auto_drainer_t::lock_t keepalive);
-
-    /* These override virtual methods on `master_t::query_callback_t`. They get called
-    when we receive queries over the network. Warning: They are run on the store's home
-    thread, which is not necessarily our home thread. */
-    bool on_write(
-        const write_t &request,
-        fifo_enforcer_sink_t::exit_write_t *exiter,
-        order_token_t order_token,
-        const signal_t *interruptor,
-        write_response_t *response_out,
-        admin_err_t *error_out);
-    bool on_read(
-        const read_t &request,
-        fifo_enforcer_sink_t::exit_read_t *exiter,
-        order_token_t order_token,
-        const signal_t *interruptor,
-        read_response_t *response_out,
-        admin_err_t *error_out);
-
-    /* `sync_majority()` is used after a read in 'majority' mode, and will perform a
-    `sync` operation across a majority of replicas to make sure what has just been read
-    has been committed to disk on a majority of replicas for each shard. */
-    bool sync_committed_read(const read_t &read_request,
-                             order_token_t order_token,
-                             const signal_t *interruptor,
-                             admin_err_t *error_out);
 
     /* `update_contract_or_raft_state()` spawns `update_contract_on_store_thread()`
     to deliver the new contract to `store->home_thread()`. It has two jobs:
@@ -107,12 +81,6 @@ private:
     static bool is_contract_ackable(
         counted_t<contract_info_t> contract,
         const std::set<server_id_t> &servers);
-
-    /* `is_majority_available()` is a helper function to determine whether a majority
-    of the replicas are available to acknowledge a read or write. */
-    static bool is_majority_available(
-        counted_t<contract_info_t> contract,
-        primary_dispatcher_t *dispatcher);
 
     optional<branch_id_t> our_branch_id;
 

@@ -162,10 +162,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         primary_dispatcher_t primary_dispatcher(&perfmon_collection, initial_version);
 
-        direct_query_server_t direct_query_server(
-            context->mailbox_manager,
-            store);
-
         on_thread_t thread_switcher_2(home_thread());
 
         /* Put an entry in the global directory so clients can find us for outdated reads */
@@ -217,10 +213,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
             &our_dispatcher_drainer, &primary_dispatcher_drainer);
         assignment_sentry_t<primary_dispatcher_t *> our_dispatcher_assign(
             &our_dispatcher, &primary_dispatcher);
-
-        primary_query_server_t primary_query_server(
-            context->mailbox_manager,
-            this);
 
         on_thread_t thread_switcher_4(home_thread());
 
@@ -305,157 +297,6 @@ private:
     write_ack_config_t write_ack_config;
     write_response_t *response_out;
 };
-
-bool primary_execution_t::on_write(
-        const write_t &request,
-        fifo_enforcer_sink_t::exit_write_t *exiter,
-        order_token_t order_token,
-        const signal_t *interruptor,
-        write_response_t *response_out,
-        admin_err_t *error_out) {
-    store->assert_thread();
-    guarantee(our_dispatcher != nullptr);
-
-    /* `acq` asserts that `update_contract_on_store_thread()` doesn't run between when we
-    take `contract_snapshot` and when we call `spawn_write()`. This is important because
-    `update_contract_on_store_thread()` needs to be able to make sure that all writes
-    that see the old contract are spawned before it calls
-    `sync_contract_with_replicas()`. */
-    mutex_assertion_t::acq_t begin_write_mutex_acq(&begin_write_mutex_assertion);
-
-    /* The reason that the `begin_write_mutex_acq` holds, is because we don't block in
-    here nor anywhere else where we acquire the mutex assertion. */
-    DEBUG_ONLY(scoped_ptr_t<assert_finite_coro_waiting_t> finite_coro_waiting(
-                   make_scoped<assert_finite_coro_waiting_t>(__FILE__, __LINE__)));
-
-    counted_t<contract_info_t> contract_snapshot = latest_contract_store_thread;
-
-    /* Make sure that we have contact with a majority of replicas. It's bad practice to
-    accept writes if we can't contact a majority of replicas because those writes might
-    be lost during a failover. We do this even if the user set the ack threshold to
-    "single". */
-    if (!is_majority_available(contract_snapshot, our_dispatcher)) {
-        *error_out = admin_err_t{
-            "The primary replica isn't connected to a quorum of replicas. "
-            "The write was not performed.",
-            query_state_t::FAILED};
-        return false;
-    }
-
-    write_callback_t write_callback(response_out,
-                                    contract_snapshot->default_write_durability,
-                                    contract_snapshot->write_ack_config,
-                                    &contract_snapshot->contract);
-    our_dispatcher->spawn_write(request, order_token, &write_callback);
-
-    /* Now that we've called `spawn_write()`, our write is in the queue. So it's safe to
-    release the `begin_write_mutex`; any calls to `update_contract_on_store_thread()`
-    will enter the queue after us. */
-    DEBUG_ONLY(finite_coro_waiting.reset());
-    begin_write_mutex_acq.reset();
-
-    /* This will allow other calls to `on_write()` to happen. */
-    exiter->end();
-
-    wait_interruptible(write_callback.result.get_ready_signal(), interruptor);
-
-    bool res = write_callback.result.assert_get_value();
-    if (!res) {
-        *error_out = admin_err_t{
-            "The primary replica lost contact with the secondary "
-            "replicas. The write may or may not have been performed.",
-            query_state_t::INDETERMINATE};
-    }
-    return res;
-}
-
-bool primary_execution_t::sync_committed_read(const read_t &read_request,
-                                              order_token_t order_token,
-                                              const signal_t *interruptor,
-                                              admin_err_t *error_out) {
-    write_response_t response;
-    write_t request = write_t::make_sync(read_request.get_region(),
-                                         read_request.profile);
-
-    /* See the comments in `on_write` for an explanation about why we're acquiring
-    `begin_write_mutex_assertion` here. */
-    mutex_assertion_t::acq_t begin_write_mutex_acq(&begin_write_mutex_assertion);
-    DEBUG_ONLY(scoped_ptr_t<assert_finite_coro_waiting_t> finite_coro_waiting(
-                   make_scoped<assert_finite_coro_waiting_t>(__FILE__, __LINE__)));
-    counted_t<contract_info_t> contract_snapshot = latest_contract_store_thread;
-
-    write_callback_t write_callback(&response,
-                                    write_durability_t::HARD,
-                                    write_ack_config_t::MAJORITY,
-                                    &contract_snapshot->contract);
-    our_dispatcher->spawn_write(request, order_token, &write_callback);
-
-    DEBUG_ONLY(finite_coro_waiting.reset());
-    begin_write_mutex_acq.reset();
-
-    wait_interruptible(write_callback.result.get_ready_signal(), interruptor);
-
-    bool res = write_callback.result.assert_get_value();
-    if (!res) {
-        *error_out = admin_err_t{
-            "The primary replica lost contact with the secondary "
-            "replicas. The read could not be guaranteed as committed.",
-            query_state_t::FAILED};
-    }
-    return res;
-}
-
-bool primary_execution_t::on_read(
-        const read_t &request,
-        fifo_enforcer_sink_t::exit_read_t *exiter,
-        order_token_t order_token,
-        const signal_t *interruptor,
-        read_response_t *response_out,
-        admin_err_t *error_out) {
-    store->assert_thread();
-    guarantee(our_dispatcher != nullptr);
-
-    counted_t<contract_info_t> contract_snapshot = latest_contract_store_thread;
-
-    switch (request.read_mode) {
-    case read_mode_t::SINGLE:
-    case read_mode_t::MAJORITY: // Fallthrough intentional
-        /* Make sure that we have contact with a majority of replicas, if we've lost
-        this we may no longer be able to do up-to-date reads. */
-        if (!is_majority_available(contract_snapshot, our_dispatcher)) {
-            *error_out = admin_err_t{
-                "The primary replica isn't connected to a quorum of replicas. "
-                "The read was not performed, you can do an outdated read using "
-                "`read_mode=\"outdated\"`.",
-                query_state_t::FAILED};
-            return false;
-        }
-        break;
-    case read_mode_t::OUTDATED: // Fallthrough intentional
-    case read_mode_t::DEBUG_DIRECT:
-    default:
-        // These read modes should not come through the `primary_exection_t`.
-        unreachable();
-    }
-
-    try {
-        our_dispatcher->read(
-            request,
-            exiter,
-            order_token,
-            interruptor,
-            response_out);
-
-        if (request.read_mode == read_mode_t::MAJORITY) {
-            return sync_committed_read(request, order_token, interruptor, error_out);
-        } else {
-            return true;
-        }
-    } catch (const cannot_perform_query_exc_t &e) {
-        *error_out = admin_err_t{e.what(), e.get_query_state()};
-        return false;
-    }
-}
 
 void primary_execution_t::update_contract_on_store_thread(
         counted_t<contract_info_t> contract,
@@ -603,15 +444,3 @@ bool primary_execution_t::is_contract_ackable(
     return ack_counter.is_safe();
 }
 
-bool primary_execution_t::is_majority_available(
-        counted_t<contract_info_t> contract_info,
-        primary_dispatcher_t *dispatcher) {
-    ack_counter_t counter(contract_info->contract);
-    dispatcher->get_ready_dispatchees()->apply_read(
-        [&](const std::set<server_id_t> *servers) {
-            for (const server_id_t &s : *servers) {
-                counter.note_ack(s);
-            }
-        });
-    return counter.is_safe();
-}

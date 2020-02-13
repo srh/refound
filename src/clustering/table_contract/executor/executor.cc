@@ -133,7 +133,6 @@ contract_executor_t::contract_executor_t(
         = _remote_contract_execution_bcards;
     execution_context.local_contract_execution_bcards
         = &local_contract_execution_bcards;
-    execution_context.local_table_query_bcards = &local_table_query_bcards;
 
     multistore->assert_thread();
 

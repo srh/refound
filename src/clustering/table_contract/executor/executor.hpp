@@ -43,10 +43,6 @@ public:
         return &local_contract_execution_bcards;
     }
 
-    watchable_map_t<uuid_u, table_query_bcard_t> *get_local_table_query_bcards() {
-        return &local_table_query_bcards;
-    }
-
     range_map_t<key_range_t::right_bound_t, table_shard_status_t> get_shard_status();
 
 private:
@@ -122,11 +118,6 @@ private:
     backfills from us and connect their `listener_t`s to our `broadcaster_t`s. */
     watchable_map_var_t<std::pair<server_id_t, branch_id_t>, contract_execution_bcard_t>
         local_contract_execution_bcards;
-
-    /* `local_table_query_bcards` contains the `table_query_bcard_t`s for our
-    `primary_execution_t`s. It will be sent over the network to all the servers in the
-    cluster, via the directory, so that they can run queries. */
-    watchable_map_var_t<uuid_u, table_query_bcard_t> local_table_query_bcards;
 
     /* This is just a convenient struct to hold a bunch of objects that the
     `execution_t`s need access to. */

@@ -23,61 +23,6 @@ responsible for managing clients from the different `primary_query_client_t`s.
 We use it in combination with `primary_query_server_t::client_t` to ensure the
 ordering of requests that originate from a given client. */
 
-class primary_query_server_t {
-public:
-    class query_callback_t {
-    public:
-        virtual bool on_write(
-            const write_t &request,
-            fifo_enforcer_sink_t::exit_write_t *exiter,
-            order_token_t order_token,
-            const signal_t *interruptor,
-            write_response_t *response_out,
-            admin_err_t *error_out) = 0;
-        virtual bool on_read(
-            const read_t &request,
-            fifo_enforcer_sink_t::exit_read_t *exiter,
-            order_token_t order_token,
-            const signal_t *interruptor,
-            read_response_t *response_out,
-            admin_err_t *error_out) = 0;
-    protected:
-        virtual ~query_callback_t() { }
-    };
-
-    primary_query_server_t(
-        mailbox_manager_t *mm, query_callback_t *callback);
-    ~primary_query_server_t();
-
-    primary_query_bcard_t get_bcard();
-
-private:
-    class client_t {
-    public:
-        explicit client_t(primary_query_server_t *p) :
-            parent(p) { }
-        void perform_request(
-                const primary_query_bcard_t::request_t &,
-                const signal_t *interruptor)
-                THROWS_ONLY(interrupted_exc_t);
-    private:
-        primary_query_server_t *parent;
-        fifo_enforcer_sink_t fifo_sink;
-    };
-
-    mailbox_manager_t *const mailbox_manager;
-    query_callback_t *const query_callback;
-
-    /* See note in `client_t::perform_request()` for what this is about */
-    cond_t shutdown_cond;
-
-    multi_client_server_t<
-            primary_query_bcard_t::request_t,
-            primary_query_server_t *,
-            client_t
-            > multi_client_server;
-
-    DISABLE_COPYING(primary_query_server_t);
-};
+// NNN: Remove this file.
 
 #endif /* CLUSTERING_QUERY_ROUTING_PRIMARY_QUERY_SERVER_HPP_ */

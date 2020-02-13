@@ -15,7 +15,6 @@ class io_backender_t;
 class mailbox_manager_t;
 class perfmon_collection_t;
 class table_raft_state_t;
-class table_query_bcard_t;
 template <class key_t, class value_t> class watchable_map_t;
 template<class key_t, class value_t> class watchable_map_var_t;
 
@@ -46,7 +45,6 @@ public:
             contract_execution_bcard_t> *remote_contract_execution_bcards;
         watchable_map_var_t<std::pair<server_id_t, branch_id_t>,
             contract_execution_bcard_t> *local_contract_execution_bcards;
-        watchable_map_var_t<uuid_u, table_query_bcard_t> *local_table_query_bcards;
     };
 
     /* There is one `params` for each `execution_t`; it holds information that's specific

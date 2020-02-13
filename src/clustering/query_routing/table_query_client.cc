@@ -19,5 +19,3 @@ table_query_client_t::table_query_client_t(
 }
 #endif  // RDB_CF
 
-
-// TODO: Check (later) if table_query_bcard_t is still used.

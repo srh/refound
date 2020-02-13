@@ -102,11 +102,6 @@ public:
         return &table_manager_bcards;
     }
 
-    watchable_map_t<std::pair<namespace_id_t, uuid_u>, table_query_bcard_t> *
-            get_table_query_bcards() {
-        return &table_query_bcard_combiner;
-    }
-
     watchable_map_t<namespace_id_t,
             std::pair<table_basic_config_t, multi_table_manager_timestamp_t> >
                 *get_table_basic_configs() {
@@ -263,12 +258,6 @@ private:
         watchable_map_entry_copier_t<namespace_id_t, table_manager_bcard_t>
             table_manager_bcard_copier;
 
-        /* The `table_query_bcard_source` receives `table_query_bcard_t`s from the
-        `table_manager_t` and sends them on to `table_query_bcard_combiner`. From there
-        they will be sent to other servers' `namespace_repo_t`s. */
-        watchable_map_combiner_t<namespace_id_t, uuid_u, table_query_bcard_t>::source_t
-            table_query_bcard_source;
-
         watchable_subscription_t<raft_member_t<table_raft_state_t>::state_and_config_t>
             raft_committed_subs;
     };
@@ -390,11 +379,6 @@ private:
     directory. `active_table_t` creates and deletes entries in this map. */
     watchable_map_var_t<namespace_id_t, table_manager_bcard_t>
         table_manager_bcards;
-
-    /* This collects `table_query_bcard_t`s from all of the tables on this server into
-    a single `watchable_map_t`. */
-    watchable_map_combiner_t<namespace_id_t, uuid_u, table_query_bcard_t>
-        table_query_bcard_combiner;
 
     /* Note: `tables` must be destroyed before `table_manager_bcards` or any of the
     earlier member variables. */

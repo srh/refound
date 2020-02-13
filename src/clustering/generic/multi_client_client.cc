@@ -49,9 +49,3 @@ multi_client_client_t<request_type>::extract_registrar_business_card(
     }
     return r_nullopt;
 }
-
-
-#include "clustering/query_routing/metadata.hpp"
-
-#include "rdb_protocol/protocol.hpp"
-template class multi_client_client_t<primary_query_bcard_t::request_t>;

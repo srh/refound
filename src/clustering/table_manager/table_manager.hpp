@@ -42,10 +42,6 @@ public:
         return table_manager_bcard.get_watchable();
     }
 
-    watchable_map_t<uuid_u, table_query_bcard_t> *get_table_query_bcards() {
-        return contract_executor.get_local_table_query_bcards();
-    }
-
     const sindex_manager_t &get_sindex_manager() const {
         return sindex_manager;
     }
