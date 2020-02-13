@@ -99,6 +99,18 @@ transaction_lookup_uq_index(
 }
 
 template <class index_traits>
+fdb_value_fut<typename index_traits::value_type>
+transaction_lookup_uq_index_raw(
+        FDBTransaction *txn,
+        const ukey_string &index_raw_key) {
+    fdb_value_fut<typename index_traits::value_type> ret{
+        transaction_lookup_unique_index(txn, index_traits::prefix,
+            index_raw_key)};
+    return ret;
+}
+
+
+template <class index_traits>
 void transaction_erase_uq_index(
         FDBTransaction *txn,
         const typename index_traits::ukey_type &index_key) {

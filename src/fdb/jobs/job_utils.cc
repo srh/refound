@@ -34,13 +34,12 @@ void replace_fdb_job(FDBTransaction *txn,
     // Sanity check: we don't have to update the task index.
     guarantee(new_info.shared_task_id == old_info.shared_task_id);
 
-    std::string new_job_info_str = serialize_for_cluster_to_string(new_info);
     skey_string old_lease_expiration_key = reqlfdb_clock_sindex_key(old_info.lease_expiration);
     skey_string new_lease_expiration_key = reqlfdb_clock_sindex_key(new_info.lease_expiration);
 
-    ukey_string job_id_key = job_id_pkey(new_info.job_id);
+    ukey_string job_id_key = jobs_by_id::ukey_str(new_info.job_id);
 
-    transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, new_job_info_str);
+    transaction_set_uq_index<jobs_by_id>(txn, new_info.job_id, new_info);
     transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
         old_lease_expiration_key, job_id_key);
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
@@ -50,9 +49,7 @@ void replace_fdb_job(FDBTransaction *txn,
 
 fdb_value_fut<fdb_job_info> transaction_get_real_job_info(
         FDBTransaction *txn, const fdb_job_info &info) {
-    ukey_string job_id_key = job_id_pkey(info.job_id);
-    return fdb_value_fut<fdb_job_info>{
-        transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
+    return transaction_lookup_uq_index<jobs_by_id>(txn, info.job_id);
 }
 
 fdb_job_info update_job_counter(FDBTransaction *txn, reqlfdb_clock current_clock,

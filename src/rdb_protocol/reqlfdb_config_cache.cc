@@ -556,7 +556,7 @@ std::vector<name_string_t> config_cache_db_list_sorted(
         [&db_names, &db_by_name_prefix](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view key = whole_key.guarantee_without_prefix(db_by_name_prefix);
-            name_string_t name = db_config_by_name::unparse_ukey(key);
+            name_string_t name = db_config_by_name::parse_ukey(key);
             // We deserialize the value (but don't use it) just as a sanity test.
             db_config_by_name::value_type db_id;
             deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &db_id);

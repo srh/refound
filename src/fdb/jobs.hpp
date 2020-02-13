@@ -72,7 +72,6 @@ void remove_fdb_task_and_jobs(FDBTransaction *txn, fdb_shared_task_id task_id,
 void try_claim_and_start_job(
     FDBDatabase *fdb, fdb_node_id self_node_id, const auto_drainer_t::lock_t &lock);
 
-ukey_string job_id_pkey(fdb_job_id job_id);
 skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock);
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_

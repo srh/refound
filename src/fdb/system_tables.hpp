@@ -41,10 +41,10 @@ struct db_config_by_name {
         return ukey_string{k.str()};
     }
 
-    static ukey_type unparse_ukey(key_view k) {
+    static ukey_type parse_ukey(key_view k) {
         name_string_t str;
         bool success = str.assign_value(std::string(as_char(k.data), size_t(k.length)));
-        guarantee(success, "db_config_by_name::unparse_ukey got bad name_string_t");
+        guarantee(success, "db_config_by_name::parse_ukey got bad name_string_t");
         return str;
     }
 };

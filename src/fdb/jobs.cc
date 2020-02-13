@@ -69,7 +69,6 @@ rethinkdb/jobs/ => table of fdb_job_info by job id
   indexed by shared task id
   indexed by node?
 
-
 */
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_description, type);
@@ -116,24 +115,16 @@ job_sindex_keys get_sindex_keys(const fdb_job_info &info) {
     return ret;
 }
 
-bool parse_job_id_pkey(key_view pkey, fdb_job_id *out) {
-    return str_to_uuid(as_char(pkey.data), size_t(pkey.length), &out->value);
-}
-
-ukey_string job_id_pkey(fdb_job_id job_id) {
-    return ukey_string{uuid_to_str(job_id.value)};
-}
-
 // TODO: Maybe caller can pass in clock.
 fdb_job_info add_fdb_job(FDBTransaction *txn,
         fdb_shared_task_id shared_task_id, fdb_node_id claiming_node_or_nil,
         fdb_job_description &&desc, const signal_t *interruptor) {
     const fdb_job_id job_id{generate_uuid()};
-    ukey_string job_id_key = job_id_pkey(job_id);
+    ukey_string job_id_key = jobs_by_id::ukey_str(job_id);
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
-    fdb_future job_missing_fut = transaction_lookup_pkey_index(
-        txn, REQLFDB_JOBS_BY_ID, job_id_key);
+    fdb_value_fut<fdb_job_info> job_missing_fut = transaction_lookup_uq_index<jobs_by_id>(
+        txn, job_id);
 
     reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
     fdb_value job_missing_value = future_block_on_value(job_missing_fut.fut, interruptor);
@@ -153,12 +144,10 @@ fdb_job_info add_fdb_job(FDBTransaction *txn,
         std::move(desc),
     };
 
-    std::string job_value = serialize_for_cluster_to_string(info);
-
     job_sindex_keys sindex_keys = get_sindex_keys(info);
 
     // TODO: Now insert the job into the table.  We already confirmed it's an insertion.
-    transaction_set_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key, job_value);
+    transaction_set_uq_index<jobs_by_id>(txn, job_id, info);
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
         sindex_keys.lease_expiration, job_id_key, "");
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_TASK,
@@ -169,10 +158,10 @@ fdb_job_info add_fdb_job(FDBTransaction *txn,
 
 // The caller must know the job is present in the table.
 void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
-    ukey_string job_id_key = job_id_pkey(info.job_id);
+    ukey_string job_id_key = jobs_by_id::ukey_str(info.job_id);
     job_sindex_keys sindex_keys = get_sindex_keys(info);
 
-    transaction_erase_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key);
+    transaction_erase_uq_index<jobs_by_id>(txn, info.job_id);
     transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
         sindex_keys.lease_expiration, job_id_key);
     transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_TASK,
@@ -268,8 +257,8 @@ void try_claim_and_start_job(
         // TODO: validate that sp.second is a uuid?  Or at least the right length.
 
         ukey_string job_id_key{std::string(as_char(sp.second.data), size_t(sp.second.length))};
-        fdb_value_fut<fdb_job_info> job_info_fut{
-            transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)};
+        fdb_value_fut<fdb_job_info> job_info_fut =
+            transaction_lookup_uq_index_raw<jobs_by_id>(txn, job_id_key);
 
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
 
@@ -317,7 +306,7 @@ void remove_fdb_task_and_jobs(FDBTransaction *txn, fdb_shared_task_id task_id,
         // We know the key is a UUID, fwiw; we don't even bother to parse it.
         ukey_string job_id_key{std::string(as_char(key.data), size_t(key.length))};
         job_futs.push_back(fdb_value_fut<fdb_job_info>{
-            transaction_lookup_pkey_index(txn, REQLFDB_JOBS_BY_ID, job_id_key)});
+            transaction_lookup_uq_index_raw<jobs_by_id>(txn, job_id_key)});
 
         return true;
     });
