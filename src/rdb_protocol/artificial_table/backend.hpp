@@ -45,7 +45,7 @@ public:
     explicit artificial_table_backend_t(name_string_t const &table_name);
     virtual ~artificial_table_backend_t();
 
-    namespace_id_t const &get_table_id() const;
+    const namespace_id_t &get_table_id() const { return m_table_id; }
 
     /* Returns the name of the primary key for the table. The return value must not
     change. This must not block. */
@@ -153,7 +153,7 @@ public:
     explicit artificial_table_fdb_backend_t(name_string_t const &table_name);
     virtual ~artificial_table_fdb_backend_t();
 
-    namespace_id_t const &get_table_id() const;
+    namespace_id_t const &get_table_id() const { return m_table_id; }
 
     /* Returns the name of the primary key for the table. The return value must not
     change. This must not block. */

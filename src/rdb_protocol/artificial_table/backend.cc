@@ -24,10 +24,6 @@ artificial_table_backend_t::artificial_table_backend_t(name_string_t const &tabl
 artificial_table_backend_t::~artificial_table_backend_t() {
 }
 
-namespace_id_t const &artificial_table_backend_t::get_table_id() const {
-    return m_table_id;
-}
-
 bool artificial_table_backend_t::read_all_rows_filtered(
         auth::user_context_t const &user_context,
         const ql::datumspec_t &datumspec,
@@ -139,10 +135,6 @@ artificial_table_fdb_backend_t::artificial_table_fdb_backend_t(name_string_t con
 }
 
 artificial_table_fdb_backend_t::~artificial_table_fdb_backend_t() {
-}
-
-namespace_id_t const &artificial_table_fdb_backend_t::get_table_id() const {
-    return m_table_id;
 }
 
 bool artificial_table_fdb_backend_t::read_all_rows_filtered(
