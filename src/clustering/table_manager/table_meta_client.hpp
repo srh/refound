@@ -8,7 +8,6 @@
 #include "containers/uuid.hpp"
 
 enum class all_replicas_ready_mode_t;
-enum class emergency_repair_mode_t;
 class mailbox_manager_t;
 class multi_table_manager_t;
 class multi_table_manager_bcard_t;
@@ -210,24 +209,6 @@ public:
         const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
             maybe_failed_table_op_exc_t, config_change_exc_t);
-
-    /* `emergency_repair()` performs an emergency repair operation on the given table,
-    creating a new table epoch. If all of the replicas for a given shard are missing, it
-    will leave the shard alone if `allow_erase` is `false`, or replace the shard with
-    a new empty shard if `allow_erase` is `true`. If `dry_run` is `true` it will
-    compute the repair operation but not actually apply it. `simple_errors_found_out`
-    and `data_loss_found_out` will indicate whether the two types of errors were
-    detected. */
-    void emergency_repair(
-        const namespace_id_t &table_id,
-        emergency_repair_mode_t mode,
-        bool dry_run,
-        const signal_t *interruptor,
-        table_config_and_shards_t *new_config_out,
-        bool *erase_found_out,
-        bool *rollback_found_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t);
 
 private:
     typedef std::pair<table_basic_config_t, multi_table_manager_timestamp_t>

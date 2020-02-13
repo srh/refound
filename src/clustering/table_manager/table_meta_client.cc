@@ -4,7 +4,6 @@
 #include "clustering/administration/issues/outdated_index.hpp"
 #include "clustering/administration/servers/config_client.hpp"
 #include "clustering/generic/raft_core.tcc"
-#include "clustering/table_contract/emergency_repair.hpp"
 #include "clustering/table_manager/multi_table_manager.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "rpc/mailbox/disconnect_watcher.hpp"
@@ -458,84 +457,6 @@ void table_meta_client_t::set_config(
                 table_config_and_shards_change.name_and_database_equal(value->first);
         },
         &interruptor);
-}
-
-void table_meta_client_t::emergency_repair(
-        const namespace_id_t &table_id,
-        emergency_repair_mode_t mode,
-        bool dry_run,
-        const signal_t *interruptor_on_caller,
-        table_config_and_shards_t *new_config_out,
-        bool *rollback_found_out,
-        bool *erase_found_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t) {
-    cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-
-    table_raft_state_t old_state;
-    table_status_request_t request;
-    request.want_raft_state = true;
-    std::set<namespace_id_t> failures;
-    get_status(
-        make_optional(table_id),
-        request,
-        server_selector_t::BEST_SERVER_ONLY,
-        &interruptor,
-        [&](const server_id_t &, const namespace_id_t &,
-                const table_status_response_t &response) {
-            old_state = *response.raft_state;
-        },
-        &failures);
-    if (!failures.empty()) {
-        throw_appropriate_exception(table_id);
-    }
-
-    std::set<server_id_t> dead_servers;
-    for (const auto &pair : old_state.member_ids) {
-        if (!server_config_client->
-                get_server_to_peer_map()->get_key(pair.first).has_value()) {
-            dead_servers.insert(pair.first);
-        }
-    }
-
-    table_raft_state_t new_state;
-    calculate_emergency_repair(
-        old_state,
-        dead_servers,
-        mode,
-        &new_state,
-        rollback_found_out,
-        erase_found_out);
-
-    *new_config_out = new_state.config;
-
-    if ((*rollback_found_out || *erase_found_out ||
-                mode == emergency_repair_mode_t::DEBUG_RECOMMIT) && !dry_run) {
-        /* In theory, we don't always have to start a new epoch. Sometimes we run an
-        emergency repair where we've lost a quorum of one shard, but still have a quorum
-        of the Raft cluster as a whole. In that case we could run a regular Raft
-        transaction, which could be made slightly safer. But it's simpler to do
-        everything through the same code path. */
-
-        /* Fetch the table's current epoch's timestamp to make sure that the new epoch
-        has a higher timestamp, even if the server's clock is wrong. */
-        multi_table_manager_timestamp_t::epoch_t old_epoch;
-        multi_table_manager->get_table_basic_configs()->read_key(table_id,
-            [&](const std::pair<table_basic_config_t,
-                    multi_table_manager_timestamp_t> *pair) {
-                if (pair == nullptr) {
-                    throw no_such_table_exc_t();
-                }
-                old_epoch = pair->second.epoch;
-            });
-
-        create_or_emergency_repair(
-            table_id,
-            new_state,
-            multi_table_manager_timestamp_t::epoch_t::make(old_epoch),
-            &interruptor);
-    }
 }
 
 void table_meta_client_t::create_or_emergency_repair(
