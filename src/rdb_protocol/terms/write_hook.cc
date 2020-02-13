@@ -107,12 +107,20 @@ public:
         // QQQ: In 2.4.x we didn't call get_write_hook inside of a try catch block for the permission_error_t exception that might get thrown.  What happens if the user doesn't have permission?
 
     config_specified_without_value:
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            admin_err_t error{strprintf("Database `%s` is special; you can't set a "
+                      "write hook on the tables in it.",
+                      artificial_reql_cluster_interface_t::database_name.c_str()),
+                query_state_t::FAILED};
+            REQL_RETHROW(error);
+        }
+
 
         bool existed;
         try {
             database_id_t db_id = table->db->id;
             namespace_id_t table_id = table->get_id();
-            reqlfdb_config_version expected_cv = table->tbl->cv.get();
+            reqlfdb_config_version expected_cv = table->tbl->cv.assert_nonempty();
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 bool old_existed = config_cache_set_write_hook(
                     txn, env->env->get_user_context(),
@@ -162,7 +170,7 @@ public:
                         txn, table->db->id, table->get_id());
 
                 table_config_t cfg = config_cache_get_table_config(txn,
-                    table->tbl->cv.get(),
+                    table->tbl->cv.assert_nonempty(),
                     table->get_id(),
                     env->env->interruptor);
 

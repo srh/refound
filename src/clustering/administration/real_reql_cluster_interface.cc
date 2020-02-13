@@ -298,8 +298,7 @@ void real_reql_cluster_interface_t::make_single_selection(
         throw no_such_table_exc_t();
     }
 
-    // TODO: This doesn't initialize config_version.  (It shouldn't have to!)
-    counted_t<ql::db_t const> db = make_counted<const ql::db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name);
+    counted_t<const ql::db_t> db = make_counted<ql::db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name, config_version_checker::empty());
 
     counted_t<ql::table_t> table = make_counted<ql::table_t>(
         make_counted<artificial_table_t>(db->id, table_backend),

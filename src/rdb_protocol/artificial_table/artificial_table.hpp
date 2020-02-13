@@ -110,9 +110,10 @@ private:
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout);
 
-    database_id_t m_database_id;
-    artificial_table_backend_t *m_backend;
-    std::string m_primary_key_name;
+    const database_id_t m_database_id;
+    artificial_table_backend_t *const m_backend;
+    const std::string m_primary_key_name;
+    DISABLE_COPYING(artificial_table_t);
 };
 
 class artificial_table_fdb_t : public base_table_t {
@@ -202,9 +203,10 @@ private:
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout);
 
-    database_id_t m_database_id;
-    artificial_table_fdb_backend_t *m_backend;
-    std::string m_primary_key_name;
+    const database_id_t m_database_id;
+    artificial_table_fdb_backend_t *const m_backend;
+    const std::string m_primary_key_name;
+    DISABLE_COPYING(artificial_table_fdb_t);
 };
 #endif /* RDB_PROTOCOL_ARTIFICIAL_TABLE_ARTIFICIAL_TABLE_HPP_ */
 

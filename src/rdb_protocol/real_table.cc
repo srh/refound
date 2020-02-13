@@ -223,7 +223,7 @@ ql::datum_t real_table_t::read_nearest(
     read_response_t res;
     try {
         res = table_query_client_read(
-            env->get_rdb_ctx()->fdb, cv.get(), uuid, *table_config,
+            env->get_rdb_ctx()->fdb, cv.assert_nonempty(), uuid, *table_config,
             env->get_user_context(),
             read,
             env->interruptor);
@@ -425,7 +425,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
     try {
         *response = table_query_client_read(
             env->get_rdb_ctx()->fdb,
-            cv.get(),
+            cv.assert_nonempty(),
             uuid,
             *table_config,
             env->get_user_context(),
@@ -455,7 +455,7 @@ void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
     try {
         *response = table_query_client_write(
             env->get_rdb_ctx()->fdb,
-            cv.get(),
+            cv.assert_nonempty(),
             uuid,
             *table_config,
             env->get_user_context(),

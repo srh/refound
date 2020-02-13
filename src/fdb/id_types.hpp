@@ -33,4 +33,19 @@ struct reqlfdb_config_version {
 };
 RDB_MAKE_SERIALIZABLE_1(reqlfdb_config_version, value);
 
+class config_version_checker {
+public:
+    uint64_t value;
+    static config_version_checker empty() {
+        return { UINT64_MAX };
+    }
+    bool is_empty() const {
+        return value == UINT64_MAX;
+    }
+    reqlfdb_config_version assert_nonempty() const {
+        rassert(!is_empty());
+        return {value};
+    }
+};
+
 #endif  // RETHINKDB_FDB_ID_TYPES_HPP_

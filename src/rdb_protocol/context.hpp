@@ -124,12 +124,13 @@ RDB_DECLARE_SERIALIZABLE(sindex_status_t);
 namespace ql {
 class db_t : public single_threaded_countable_t<db_t> {
 public:
-    db_t(database_id_t _id, const name_string_t &_name) : id(_id), name(_name) { }
+    db_t(database_id_t _id, const name_string_t &_name, config_version_checker _cv)
+        : id(_id), name(_name), cv(_cv) { }
     const database_id_t id;
     const name_string_t name;
     // The config version behind the db id lookup, if there is one.
-    // NNN: Force everybody accessing database_id_t to use this value.
-    optional<reqlfdb_config_version> cv;
+    // QQQ: Force everybody accessing database_id_t to use this value.
+    config_version_checker cv;
 };
 } // namespace ql
 

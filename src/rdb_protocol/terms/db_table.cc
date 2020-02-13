@@ -139,7 +139,7 @@ private:
         name_string_t db_name = get_name(env->env, args->arg(env, 0), "Database");
 
         if (db_name == artificial_reql_cluster_interface_t::database_name) {
-            counted_t<const db_t> db = make_counted<db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name);
+            counted_t<const db_t> db = make_counted<db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name, config_version_checker::empty());
             return new_val(std::move(db));
         }
 
@@ -150,9 +150,9 @@ private:
         optional<config_info<database_id_t>> cached = try_lookup_cached_db(
             cc, db_name);
         if (cached.has_value()) {
-            // NNN: Put config_info into db_t (or into val's version of it).
-            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name);
-            db->cv.set(cached->ci_cv);
+            // OOO: Put config_info into db_t (or into val's version of it).
+            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name,
+                config_version_checker{cached->ci_cv.value});
             return new_val(counted_t<const db_t>(std::move(db)));
         }
 
@@ -172,9 +172,9 @@ private:
             database_id_t db_id = *result.ci_value;
             cc->add_db(db_id, db_name);
 
-            // NNN: Put config_info into db_t (or into val's version of it).
-            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name);
-            db->cv.set(result.ci_cv);
+            // OOO: Put config_info into db_t (or into val's version of it).
+            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name,
+                config_version_checker{result.ci_cv.value});
             return new_val(counted_t<const db_t>(std::move(db)));
         } else {
             admin_err_t error = db_not_found_error(db_name);
@@ -312,7 +312,7 @@ private:
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 bool success = config_cache_table_create(
-                    txn, db->cv.get(),
+                    txn, db->cv.assert_nonempty(),
                     env->env->get_user_context(), new_table_id, config,
                     env->env->interruptor);
                 if (success) {
@@ -443,7 +443,7 @@ private:
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 optional<std::pair<namespace_id_t, table_config_t>> success
                     = config_cache_table_drop(txn,
-                        db->cv.get(),
+                        db->cv.assert_nonempty(),
                         env->env->get_user_context(),
                         db->id, tbl_name,
                         env->env->interruptor);
@@ -477,32 +477,30 @@ private:
     const char *name() const override { return "table_drop"; }
 };
 
+template <class T>
+void sorted_vector_insert(std::vector<T> *vec, const T &value) {
+    vec->insert(std::lower_bound(vec->begin(), vec->end(), value), value);
+}
+
 class db_list_term_t : public meta_op_term_t {
 public:
     db_list_term_t(compile_env_t *env, const raw_term_t &term)
         : meta_op_term_t(env, term, argspec_t(0)) { }
 private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *, eval_flags_t) const override {
-        std::vector<counted_t<const ql::db_t>> db_list;
+        std::vector<name_string_t> db_list;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
             // TODO: Use a snapshot read for this?  Config txn appropriately?
-            db_list = config_cache_db_list(txn, env->env->interruptor);
+            db_list = config_cache_db_list_sorted(txn, env->env->interruptor);
         });
-
         guarantee_fdb_TODO(loop_err, "db_list txn failed");
-        // TODO: Use the db_list to write to the config cache?
+        // TODO: Use the db_list (and get the config version) to write to the config cache?
 
-        // TODO: Is db_list already in ascending order?  It can be.
-        std::set<name_string_t> dbs;
-        for (const auto &db : db_list) {
-            dbs.insert(db->name);
-        }
-        guarantee(dbs.count(artificial_reql_cluster_interface_t::database_name) == 0);
-        dbs.insert(artificial_reql_cluster_interface_t::database_name);
+        sorted_vector_insert(&db_list, artificial_reql_cluster_interface_t::database_name);
 
         std::vector<datum_t> arr;
-        arr.reserve(dbs.size());
-        for (const name_string_t &db : dbs) {
+        arr.reserve(db_list.size());
+        for (const name_string_t &db : db_list) {
             arr.push_back(datum_t(datum_string_t(db.str())));
         }
 
@@ -536,7 +534,7 @@ private:
         } else {
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
-                table_list = config_cache_table_list_sorted(txn, db->cv.get(), db->id, env->env->interruptor);
+                table_list = config_cache_table_list_sorted(txn, db->cv.assert_nonempty(), db->id, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "db_list txn failed");
         }
@@ -686,6 +684,8 @@ private:
     }
 };
 
+// TODO: Can we rename db's?  Do we check that we can't rename to the system db name?
+
 class wait_term_t : public table_or_db_meta_term_t {
 public:
     wait_term_t(compile_env_t *env, const raw_term_t &term)
@@ -764,7 +764,7 @@ private:
                 fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                     // TODO: Use a snapshot read for this?  Config txn appropriately?
 
-                    config = config_cache_get_table_config(txn, db->cv.get(), table_or_null->get_id(), env->env->interruptor);
+                    config = config_cache_get_table_config(txn, db->cv.assert_nonempty(), table_or_null->get_id(), env->env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
 
@@ -777,7 +777,7 @@ private:
                 std::vector<name_string_t> table_list;
                 fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                     // TODO: Use a snapshot read for this?  Config txn appropriately?
-                    table_list = config_cache_table_list_sorted(txn, db->cv.get(), db->id, env->env->interruptor);
+                    table_list = config_cache_table_list_sorted(txn, db->cv.assert_nonempty(), db->id, env->env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
 
@@ -943,14 +943,16 @@ private:
         // desirable.
 
         counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
-        reqlfdb_config_version expected_cv = t->tbl->cv.get();
+        config_version_checker expected_cv = t->tbl->cv;
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Read-only txn
                 auth::fdb_user_fut<auth::write_permission> auth_fut
                     = env->env->get_user_context().transaction_require_write_permission(
                         txn, t->db->id, t->get_id());
-                config_cache_cv_check(txn, expected_cv, env->env->interruptor);
+                if (!expected_cv.is_empty()) {
+                    config_cache_cv_check(txn, expected_cv.assert_nonempty(), env->env->interruptor);
+                }
                 auth_fut.block_and_check(env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "sync_term_t retry loop");
@@ -1124,7 +1126,7 @@ private:
 
         counted_t<real_table_t> table;
         if (cached.has_value()) {
-            check_cv(db->cv.get(), cached->ci_cv);
+            check_cv(db->cv.assert_nonempty(), cached->ci_cv);
 
             counted<const rc_wrapper<table_config_t>> table_config;
             {
@@ -1153,7 +1155,7 @@ private:
             });
             guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
             cc->note_version(result.ci_cv);
-            check_cv(db->cv.get(), result.ci_cv);
+            check_cv(db->cv.assert_nonempty(), result.ci_cv);
 
             if (result.ci_value.has_value()) {
                 const namespace_id_t &table_id = result.ci_value->first;

@@ -578,23 +578,26 @@ bool config_cache_table_create(
 // TODO (out of context): ql::db_t should do nothing but hold info about whether it
 // was by name or by value, don't actually do the lookup right away.
 
-std::vector<counted_t<const ql::db_t>> config_cache_db_list(
+std::vector<name_string_t> config_cache_db_list_sorted(
         FDBTransaction *txn,
         const signal_t *interruptor) {
     std::string db_by_name_prefix = REQLFDB_DB_CONFIG_BY_NAME;
     std::string db_by_name_end = prefix_end(db_by_name_prefix);
-    std::vector<counted_t<const ql::db_t>> dbs;
+    std::vector<name_string_t> db_names;
     transaction_read_whole_range_coro(txn,
         db_by_name_prefix, db_by_name_end, interruptor,
-        [&dbs, &db_by_name_prefix](const FDBKeyValue &kv) {
+        [&db_names, &db_by_name_prefix](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view key = whole_key.guarantee_without_prefix(db_by_name_prefix);
             name_string_t name = unparse_db_by_name_key(key);
-            database_id_t db_id = database_id_t{str_to_uuid(void_as_char(kv.value), size_t(kv.value_length))};
-            dbs.push_back(make_counted<ql::db_t>(db_id, name));
+            // We invoke str_to_uuid just as a sanity test.
+            // NNN: Wait, values typically get deserialized, not parsed.  Look at all uses of REQLFDB_DB_CONFIG_BY_NAME.
+            UNUSED database_id_t db_id = database_id_t{str_to_uuid(void_as_char(kv.value), size_t(kv.value_length))};
+            db_names.push_back(std::move(name));
             return true;
         });
-    return dbs;
+    // db_names is in sorted order.
+    return db_names;
 }
 
 // TODO: If we can't iterate the tables in a single txn, we could do a snapshot read

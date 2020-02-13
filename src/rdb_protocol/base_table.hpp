@@ -47,6 +47,7 @@ template <class> class semilattice_read_view_t;
 // TODO: This type's usage in counted_t could be constified.  Do so after fully FDBized.
 class base_table_t : public slow_atomic_countable_t<base_table_t> {
 public:
+    explicit base_table_t(config_version_checker _cv) : cv(_cv) {}
     virtual namespace_id_t get_id() const = 0;
     virtual const std::string &get_pkey() const = 0;
 
@@ -116,9 +117,11 @@ public:
     /* This must be public */
     virtual ~base_table_t() { }
 
-    // NNN: Force everybody accessing the uuid to use this value.
-    // And force everybody to set this value.
-    optional<reqlfdb_config_version> cv;
+    // QQQ: Force everybody accessing the uuid to use this value.
+    // TODO: This is a bit gross -- we just call assert_nonempty() on it -- we statically know when we have a real_table_t and an artificial_table_t by checking artificial_reql_cluster_interface_t::database_name, except for sync_term_t.
+    config_version_checker cv;
+
+    DISABLE_COPYING(base_table_t);
 };
 
 

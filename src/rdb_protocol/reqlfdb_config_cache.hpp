@@ -23,19 +23,11 @@ public:
     }
 };
 
-// TODO: Make use of this.
-class config_version_checker {
-public:
-    uint64_t older;
-    void check_cv(reqlfdb_config_version newer) {
-        if (older != UINT64_MAX && older != newer.value) {
-            throw config_version_exc_t();
-        }
+inline void check_cv(const config_version_checker &older, reqlfdb_config_version newer) {
+    if (older.value != UINT64_MAX && older.value != newer.value) {
+        throw config_version_exc_t();
     }
-    static config_version_checker empty() {
-        return { UINT64_MAX };
-    }
-};
+}
 
 // TODO: Every caller could more gracefully check provenance to see if relevant subset
 // of config is actually different, between older and newer version.

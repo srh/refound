@@ -42,9 +42,12 @@ bool checked_read_row_from_backend(
 artificial_table_t::artificial_table_t(
         database_id_t const &database_id,
         artificial_table_backend_t *backend)
-    : m_database_id(database_id),
+    : base_table_t(config_version_checker::empty()),
+      m_database_id(database_id),
       m_backend(backend),
       m_primary_key_name(backend->get_primary_key_name()) {
+    // Artificial table config is static, so the empty config version checker is passed
+    // to base_table_t.
 }
 
 namespace_id_t artificial_table_t::get_id() const {
@@ -438,7 +441,8 @@ bool checked_read_row_from_backend(
 artificial_table_fdb_t::artificial_table_fdb_t(
         database_id_t const &database_id,
         artificial_table_fdb_backend_t *backend)
-    : m_database_id(database_id),
+    : base_table_t(config_version_checker::empty()),
+      m_database_id(database_id),
       m_backend(backend),
       m_primary_key_name(backend->get_primary_key_name()) {
 }

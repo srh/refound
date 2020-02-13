@@ -82,8 +82,7 @@ MUST_USE optional<database_id_t> config_cache_db_drop(
     const auth::user_context_t &user_context,
     const name_string_t &db_name, const signal_t *interruptor);
 
-// TODO: This could just return name_string_t's.
-std::vector<counted_t<const ql::db_t>> config_cache_db_list(
+std::vector<name_string_t> config_cache_db_list_sorted(
     FDBTransaction *txn,
     const signal_t *interruptor);
 

@@ -384,7 +384,7 @@ private:
             if (!cv_check_done) {
                 fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
                         env->interruptor, [&](FDBTransaction *txn) {
-                    config_cache_cv_check(txn, database->cv.get(), env->interruptor);
+                    config_cache_cv_check(txn, database->cv.assert_nonempty() /* OOO: What if system db? */, env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
             }
@@ -399,7 +399,7 @@ private:
             fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
                     env->interruptor, [&](FDBTransaction *txn) {
                 config = config_cache_get_table_config(
-                    txn, table->tbl->cv.get(), table->get_id(), env->interruptor);
+                    txn, table->tbl->cv.assert_nonempty() /* OOO: what if system table? */, table->get_id(), env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
 

@@ -388,7 +388,7 @@ public:
                 bool success = config_cache_sindex_create(
                     txn,
                     env->env->get_user_context(),
-                    table->tbl->cv.get(),
+                    table->tbl->cv.assert_nonempty(),
                     table->db->id,
                     table->get_id(),
                     index_name,
@@ -448,7 +448,7 @@ public:
                 bool success = config_cache_sindex_drop(
                     txn,
                     env->env->get_user_context(),
-                    table->tbl->cv.get(),
+                    table->tbl->cv.assert_nonempty(),
                     table->db->id,
                     table->get_id(),
                     index_name,
@@ -497,7 +497,7 @@ public:
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
             // TODO: Read-only txn.
             table_config = config_cache_get_table_config(txn,
-                table->tbl->cv.get(),
+                table->tbl->cv.assert_nonempty(),
                 table->get_id(),
                 env->env->interruptor);
         });
@@ -547,7 +547,7 @@ public:
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Read-only txn.
                 table_config = config_cache_get_table_config(txn,
-                    table->tbl->cv.get(),
+                    table->tbl->cv.assert_nonempty(),
                     table->get_id(),
                     env->env->interruptor);
             });
@@ -712,7 +712,7 @@ public:
                 rename_result result = config_cache_sindex_rename(
                     txn,
                     env->env->get_user_context(),
-                    table->tbl->cv.get(),
+                    table->tbl->cv.assert_nonempty(),
                     table->db->id,
                     table->get_id(),
                     old_name,

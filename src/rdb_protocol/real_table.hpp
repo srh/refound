@@ -39,15 +39,13 @@ public:
             , ql::changefeed::client_t *_changefeed_client
 #endif
             ) :
+        base_table_t(config_version_checker{_cv.value}),
         uuid(_uuid),
         table_config(std::move(_table_config))
 #if RDB_CF
         , changefeed_client(_changefeed_client)
 #endif
-        {
-        // TODO: Make base_table_t ctor take cv (or optional)
-        cv.set(_cv);
-    }
+        { }
 
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
