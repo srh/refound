@@ -179,32 +179,6 @@ store_t::~store_t() {
     drainer.drain();
 }
 
-void store_t::write(
-        DEBUG_ONLY(const metainfo_checker_t& metainfo_checker, )
-        const region_map_t<version_t>& new_metainfo,
-        const write_t &_write,
-        write_response_t *response,
-        const write_durability_t durability,
-        state_timestamp_t timestamp,
-        UNUSED order_token_t order_token,  // TODO
-        write_token_t *token,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t) {
-    assert_thread();
-
-    scoped_ptr_t<txn_t> txn;
-    scoped_ptr_t<real_superblock_lock> real_superblock;
-    // We assume one block per document, plus changes to the stats block and superblock.
-    const int expected_change_count = 2 + _write.expected_document_changes();
-    acquire_superblock_for_write(expected_change_count, durability, token,
-                                 &txn, &real_superblock, interruptor);
-    DEBUG_ONLY_CODE(metainfo->visit(
-        real_superblock.get(), metainfo_checker.region, metainfo_checker.callback));
-    metainfo->update(real_superblock.get(), rocksh(), new_metainfo);
-    scoped_ptr_t<real_superblock_lock> real_supe = std::move(real_superblock);
-    protocol_write(std::move(txn), _write, response, timestamp, std::move(real_supe), interruptor);
-}
-
 std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > store_t::sindex_list(
         UNUSED const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {

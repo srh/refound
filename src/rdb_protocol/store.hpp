@@ -99,18 +99,6 @@ public:
             const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t);
 
-    void write(
-            DEBUG_ONLY(const metainfo_checker_t& metainfo_checker, )
-            const region_map_t<version_t>& new_metainfo,
-            const write_t &write,
-            write_response_t *response,
-            write_durability_t durability,
-            state_timestamp_t timestamp,
-            order_token_t order_token,
-            write_token_t *token,
-            const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t);
-
     /* End of `store_view_t` interface */
 
     std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > sindex_list(

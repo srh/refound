@@ -20,11 +20,6 @@ public:
     explicit dummy_performer_t(store_view_t *s) :
         store(s) { }
 
-    void write(const write_t &write,
-               write_response_t *response,
-               state_timestamp_t timestamp,
-               order_token_t order_token) THROWS_NOTHING;
-
     order_source_t bs_outdated_read_source;
 
     store_view_t *store;
@@ -35,7 +30,6 @@ struct dummy_timestamper_t {
 public:
     dummy_timestamper_t(dummy_performer_t *n, order_source_t *order_source);
 
-    void write(const write_t &write, write_response_t *response, order_token_t otok) THROWS_NOTHING;
 private:
     dummy_performer_t *next;
     state_timestamp_t current_timestamp;
@@ -55,8 +49,6 @@ public:
 
     explicit dummy_sharder_t(shard_t &&_the_shard)
         : the_shard(std::move(_the_shard)) { }
-
-    void write(const write_t &write, write_response_t *response, order_token_t tok, const signal_t *interruptor);
 
 private:
     shard_t the_shard;

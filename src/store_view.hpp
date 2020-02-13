@@ -68,20 +68,6 @@ public:
             write_durability_t durability,
             const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) = 0;
 
-    /* Performs a write. `new_metainfo`'s region must be a subset of the store's region,
-    and the write's region must be a subset of `new_metainfo`'s region. */
-    virtual void write(
-            DEBUG_ONLY(const metainfo_checker_t& metainfo_expecter, )
-            const region_map_t<version_t> &new_metainfo,
-            const write_t &write,
-            write_response_t *response,
-            write_durability_t durability,
-            state_timestamp_t timestamp,
-            order_token_t order_token,
-            write_token_t *token,
-            const signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) = 0;
-
 protected:
     store_view_t() { }
 

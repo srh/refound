@@ -34,34 +34,6 @@ void rdb_get(
     point_read_response_t *response);
 #endif  // RDB_CF
 
-struct btree_info_t {
-    btree_info_t(btree_slice_t *_slice,
-                 repli_timestamp_t _timestamp,
-                 const datum_string_t &_primary_key)
-        : slice(_slice), timestamp(_timestamp),
-          primary_key(_primary_key) {
-        guarantee(slice != NULL);
-    }
-    btree_slice_t *const slice;
-    const repli_timestamp_t timestamp;
-    const datum_string_t primary_key;
-};
-
-struct btree_loc_info_t {
-    btree_loc_info_t(const btree_info_t *_btree,
-                     real_superblock_lock *_superblock,
-                     const store_key_t *_key)
-        : btree(_btree), superblock(std::move(_superblock)), key(_key) {
-        guarantee(btree != nullptr);
-        guarantee(superblock != nullptr);
-        guarantee(key != nullptr);
-    }
-    const btree_info_t *const btree;
-    // Holds ownership of superblock pointer (must call delete on superblock).
-    real_superblock_lock *const superblock;
-    const store_key_t *const key;
-};
-
 struct btree_batched_replacer_t {
     virtual ~btree_batched_replacer_t() { }
     virtual ql::datum_t replace(
@@ -75,38 +47,6 @@ struct btree_batched_replacer_t {
         const ql::datum_t &write_timestamp,
         const counted_t<const ql::func_t> &write_hook) const;
 };
-
-batched_replace_response_t rdb_batched_replace(
-    rockshard rocksh,
-    const btree_info_t &info,
-    real_superblock_lock *superblock,
-    const std::vector<store_key_t> &keys,
-    const btree_batched_replacer_t *replacer,
-    rdb_modification_report_cb_t *sindex_cb,
-    ql::configured_limits_t limits,
-    profile::sampler_t *sampler,
-    profile::trace_t *trace);
-
-void rdb_set(rockshard rocksh,
-             const store_key_t &key, ql::datum_t data,
-             bool overwrite,
-             btree_slice_t *slice, repli_timestamp_t timestamp,
-             real_superblock_lock *superblock,
-             point_write_response_t *response,
-             rdb_modification_info_t *mod_info,
-             profile::trace_t *trace,
-             promise_t<real_superblock_lock *> *pass_back_superblock);
-
-void rdb_delete(rockshard rocksh,
-                const store_key_t &key,
-                btree_slice_t *slice,
-                repli_timestamp_t timestamp,
-                real_superblock_lock *superblock,
-                delete_mode_t delete_mode,
-                point_delete_response_t *response,
-                rdb_modification_info_t *mod_info,
-                profile::trace_t *trace,
-                promise_t<real_superblock_lock *> *pass_back_superblock);
 
 #if RDB_CF
 // TODO: So much duplication, remove this?
@@ -166,50 +106,6 @@ struct rdb_modification_report_t {
 };
 
 RDB_DECLARE_SERIALIZABLE(rdb_modification_report_t);
-
-/* An rdb_modification_cb_t is passed to BTree operations and allows them to
- * modify the secondary while they perform an operation. */
-class superblock_queue_t;
-class rdb_modification_report_cb_t final {
-public:
-    rdb_modification_report_cb_t(
-            store_t *store,
-            real_superblock_lock *sindex_block,
-            auto_drainer_t::lock_t lock);
-    ~rdb_modification_report_cb_t();
-
-    new_mutex_in_line_t get_in_line_for_sindex();
-    rwlock_in_line_t get_in_line_for_cfeed_stamp();
-
-    void on_mod_report(rockshard rocksh,
-                       const rdb_modification_report_t &mod_report,
-                       bool update_pkey_cfeeds,
-                       new_mutex_in_line_t *sindex_spot,
-                       rwlock_in_line_t *stamp_spot);
-#if RDB_CF
-    bool has_pkey_cfeeds(const std::vector<store_key_t> &keys);
-#endif
-    void finish(btree_slice_t *btree, real_superblock_lock *superblock);
-
-private:
-    void on_mod_report_sub(
-        rockshard rocksh,
-        const rdb_modification_report_t &mod_report,
-        new_mutex_in_line_t *spot,
-        cond_t *keys_available_cond,
-        cond_t *done_cond,
-        index_vals_t *old_keys_out,
-        index_vals_t *new_keys_out);
-
-    // TODO: Check if we use store_ and sindex_block_ after rocks-only.
-    /* Fields initialized by the constructor. */
-    auto_drainer_t::lock_t lock_;
-    store_t *store_;
-    real_superblock_lock *sindex_block_;
-
-    /* Fields initialized by calls to on_mod_report */
-    store_t::sindex_access_vector_t sindexes_;
-};
 
 void rdb_update_sindexes(
     rockshard rocksh,
