@@ -21,10 +21,8 @@
 
 artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t(
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
-            auth_semilattice_view,
-        rdb_context_t *rdb_context):
+            auth_semilattice_view) :
     m_auth_semilattice_view(auth_semilattice_view),
-    m_rdb_context(rdb_context),
     m_next(nullptr) {
 }
 
@@ -81,7 +79,7 @@ bool artificial_reql_cluster_interface_t::table_find(
             backend = it->second.second;
         }
         table_out->reset(
-            new artificial_table_t(m_rdb_context, artificial_reql_cluster_interface_t::database_id, backend));
+            new artificial_table_t(artificial_reql_cluster_interface_t::database_id, backend));
         return true;
     } else {
         *error_out = table_not_found_error(
@@ -185,7 +183,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         permissions_backend[format].init(
             new auth::permissions_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 auth_semilattice_view,
                 cluster_semilattice_view,
@@ -198,7 +195,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
 
     users_backend.init(
         new auth::users_artificial_table_backend_t(
-            rdb_context,
             name_resolver,
             auth_semilattice_view,
             cluster_semilattice_view));
@@ -208,9 +204,7 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         std::make_pair(users_backend.get(), users_backend.get()));
 
     cluster_config_backend.init(
-        new cluster_config_artificial_table_backend_t(
-            rdb_context,
-            name_resolver));
+        new cluster_config_artificial_table_backend_t(name_resolver));
     cluster_config_sentry = backend_sentry_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
         name_string_t::guarantee_valid("cluster_config"),
@@ -232,7 +226,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         issues_backend[format].init(
             new issues_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 mailbox_manager,
                 cluster_semilattice_view,
@@ -249,7 +242,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         logs_backend[format].init(
             new logs_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 mailbox_manager,
                 directory_map_view,
@@ -263,7 +255,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
 
     server_config_backend.init(
         new server_config_artificial_table_backend_t(
-            rdb_context,
             name_resolver,
             directory_map_view,
             server_config_client));
@@ -275,7 +266,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         server_status_backend[format].init(
             new server_status_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 directory_map_view,
                 server_config_client,
@@ -289,7 +279,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         stats_backend[format].init(
             new stats_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 directory_view,
                 cluster_semilattice_view,
@@ -321,7 +310,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         table_status_backend[format].init(
             new table_status_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 cluster_semilattice_view,
                 server_config_client,
@@ -336,7 +324,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     for (int format = 0; format < 2; ++format) {
         jobs_backend[format].init(
             new jobs_artificial_table_backend_t(
-                rdb_context,
                 name_resolver,
                 mailbox_manager,
                 cluster_semilattice_view,
@@ -353,7 +340,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
     debug_scratch_backend.init(
         new in_memory_artificial_table_backend_t(
             name_string_t::guarantee_valid("_debug_scratch"),
-            rdb_context,
             name_resolver));
     debug_scratch_sentry = backend_sentry_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
@@ -362,7 +348,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
 
     debug_stats_backend.init(
         new debug_stats_artificial_table_backend_t(
-            rdb_context,
             name_resolver,
             directory_map_view,
             server_config_client,
@@ -374,7 +359,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
 
     debug_table_status_backend.init(
         new debug_table_status_artificial_table_backend_t(
-            rdb_context,
             name_resolver,
             cluster_semilattice_view,
             table_meta_client));

@@ -48,8 +48,7 @@ public:
 
     artificial_reql_cluster_interface_t(
             std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
-                auth_semilattice_view,
-            rdb_context_t *rdb_context);
+                auth_semilattice_view);
 
     bool db_config(
             auth::user_context_t const &user_context,
@@ -106,7 +105,6 @@ private:
     table_backends_map_t m_table_backends;
     std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
         m_auth_semilattice_view;
-    rdb_context_t *m_rdb_context;
     reql_cluster_interface_t *m_next;
 };
 

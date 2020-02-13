@@ -16,7 +16,6 @@ class caching_cfeed_artificial_table_backend_t :
 protected:
     caching_cfeed_artificial_table_backend_t(
             name_string_t const &table_name,
-            rdb_context_t *rdb_context,
             lifetime_t<name_resolver_t const &> name_resolver);
 
     /* The `caching_cfeed_artificial_table_backend_t` calls `set_notifications()` to tell
@@ -116,7 +115,6 @@ class timer_cfeed_artificial_table_backend_t :
 public:
     timer_cfeed_artificial_table_backend_t(
             name_string_t const &table_name,
-            rdb_context_t *rdb_context,
             lifetime_t<name_resolver_t const &> name_resolver);
 
 private:

@@ -24,7 +24,6 @@ class artificial_table_backend_t;
 class artificial_table_t : public base_table_t {
 public:
     artificial_table_t(
-        rdb_context_t *rdb_context,
         database_id_t const &database_id,
         artificial_table_backend_t *backend);
 
@@ -109,7 +108,6 @@ private:
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout);
 
-    rdb_context_t *m_rdb_context;
     database_id_t m_database_id;
     artificial_table_backend_t *m_backend;
     std::string m_primary_key_name;

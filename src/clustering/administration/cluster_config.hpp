@@ -29,7 +29,6 @@ class cluster_config_artificial_table_backend_t :
 {
 public:
     cluster_config_artificial_table_backend_t(
-            rdb_context_t *rdb_context,
             lifetime_t<name_resolver_t const &> name_resolver);
     ~cluster_config_artificial_table_backend_t();
 

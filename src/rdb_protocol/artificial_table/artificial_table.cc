@@ -39,11 +39,9 @@ bool checked_read_row_from_backend(
 }
 
 artificial_table_t::artificial_table_t(
-        rdb_context_t *rdb_context,
         database_id_t const &database_id,
         artificial_table_backend_t *backend)
-    : m_rdb_context(rdb_context),
-      m_database_id(database_id),
+    : m_database_id(database_id),
       m_backend(backend),
       m_primary_key_name(backend->get_primary_key_name()) {
 }
@@ -62,7 +60,7 @@ ql::datum_t artificial_table_t::read_row(ql::env_t *env,
 
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
 
         admin_err_t error;
         if (!checked_read_row_from_backend(
@@ -93,7 +91,7 @@ counted_t<ql::datum_stream_t> artificial_table_t::read_all(
 
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
 
         if (get_all_sindex_id != m_primary_key_name) {
             rfail_datum(ql::base_exc_t::OP_FAILED, "%s",
@@ -159,7 +157,7 @@ counted_t<ql::datum_stream_t> artificial_table_t::read_changes(
 
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
 
         admin_err_t error;
         if (!m_backend->read_changes(
@@ -183,7 +181,7 @@ counted_t<ql::datum_stream_t> artificial_table_t::read_intersecting(
         UNUSED const ql::datum_t &query_geometry) {
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -208,7 +206,7 @@ ql::datum_t artificial_table_t::read_nearest(
         UNUSED const ql::configured_limits_t &limits) {
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -229,9 +227,9 @@ ql::datum_t artificial_table_t::write_batched_replace(
         UNUSED ignore_write_hook_t ignore_write_hook) {
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
         env->get_user_context().require_write_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -283,9 +281,9 @@ ql::datum_t artificial_table_t::write_batched_insert(
         UNUSED ignore_write_hook_t ignore_write_hook) {
     try {
         env->get_user_context().require_read_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
         env->get_user_context().require_write_permission(
-            m_rdb_context, m_database_id, m_backend->get_table_id());
+            env->get_rdb_ctx(), m_database_id, m_backend->get_table_id());
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }

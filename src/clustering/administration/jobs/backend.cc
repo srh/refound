@@ -15,7 +15,6 @@
 #include "containers/lifetime.hpp"
 
 jobs_artificial_table_backend_t::jobs_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
         mailbox_manager_t *_mailbox_manager,
         std::shared_ptr< semilattice_readwrite_view_t<
@@ -27,10 +26,10 @@ jobs_artificial_table_backend_t::jobs_artificial_table_backend_t(
         admin_identifier_format_t _identifier_format)
 #if RDB_CF
     : timer_cfeed_artificial_table_backend_t(
-        name_string_t::guarantee_valid("jobs"), rdb_context, name_resolver),
+        name_string_t::guarantee_valid("jobs"), name_resolver),
 #else
     : artificial_table_backend_t(
-        name_string_t::guarantee_valid("jobs"), rdb_context),
+        name_string_t::guarantee_valid("jobs")),
 #endif
       mailbox_manager(_mailbox_manager),
       semilattice_view(_semilattice_view),

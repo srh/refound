@@ -8,14 +8,13 @@
 #include "containers/lifetime.hpp"
 
 cluster_config_artificial_table_backend_t::cluster_config_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver)
 #if RDB_CF
     : caching_cfeed_artificial_table_backend_t(
-        name_string_t::guarantee_valid("cluster_config"), rdb_context, name_resolver)
+        name_string_t::guarantee_valid("cluster_config"), name_resolver)
 #else
     : artificial_table_backend_t(
-        name_string_t::guarantee_valid("cluster_config"), rdb_context)
+        name_string_t::guarantee_valid("cluster_config"))
 #endif
 {
 }

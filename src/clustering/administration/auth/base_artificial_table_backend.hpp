@@ -27,18 +27,15 @@ class base_artificial_table_backend_t :
 public:
     base_artificial_table_backend_t(
             name_string_t const &table_name,
-            rdb_context_t *rdb_context,
             RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
             std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
                 auth_semilattice_view,
             std::shared_ptr<semilattice_read_view_t<cluster_semilattice_metadata_t>>
                 cluster_semilattice_view)
 #if RDB_CF
-        : caching_cfeed_artificial_table_backend_t(
-            table_name, rdb_context, name_resolver),
+        : caching_cfeed_artificial_table_backend_t(table_name, name_resolver),
 #else
-        : artificial_table_backend_t(
-            table_name, rdb_context),
+        : artificial_table_backend_t(table_name),
 #endif
           m_auth_semilattice_view(std::move(auth_semilattice_view)),
 #if RDB_CF

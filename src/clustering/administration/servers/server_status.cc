@@ -21,14 +21,12 @@ ql::datum_t convert_host_and_port_to_datum(const host_and_port_t &x) {
 }
 
 server_status_artificial_table_backend_t::server_status_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *_directory,
         server_config_client_t *_server_config_client,
         admin_identifier_format_t _admin_format)
     : common_server_artificial_table_backend_t(
         name_string_t::guarantee_valid("server_status"),
-        rdb_context,
         name_resolver,
         _server_config_client,
         _directory),

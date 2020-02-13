@@ -8,9 +8,8 @@
 
 caching_cfeed_artificial_table_backend_t::caching_cfeed_artificial_table_backend_t(
         name_string_t const &table_name,
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver)
-    : cfeed_artificial_table_backend_t(table_name, rdb_context, name_resolver) {
+    : cfeed_artificial_table_backend_t(table_name, name_resolver) {
 }
 
 void caching_cfeed_artificial_table_backend_t::notify_row(const ql::datum_t &pkey) {
@@ -279,9 +278,8 @@ bool caching_cfeed_artificial_table_backend_t::caching_machinery_t::get_values(
 
 timer_cfeed_artificial_table_backend_t::timer_cfeed_artificial_table_backend_t(
         name_string_t const &table_name,
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver)
-    : caching_cfeed_artificial_table_backend_t(table_name, rdb_context, name_resolver) {
+    : caching_cfeed_artificial_table_backend_t(table_name, name_resolver) {
 }
 
 scoped_ptr_t<cfeed_artificial_table_backend_t::machinery_t>

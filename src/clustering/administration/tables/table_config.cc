@@ -20,7 +20,6 @@ table_config_artificial_table_backend_t::table_config_artificial_table_backend_t
         table_meta_client_t *_table_meta_client)
     : common_table_artificial_table_backend_t(
         name_string_t::guarantee_valid("table_config"),
-        _rdb_context,
         name_resolver,
         _semilattice_view,
         _table_meta_client,

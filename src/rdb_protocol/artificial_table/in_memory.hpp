@@ -26,14 +26,11 @@ class in_memory_artificial_table_backend_t :
 public:
     in_memory_artificial_table_backend_t(
             name_string_t const &table_name,
-            rdb_context_t *rdb_context,
             RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver)
 #if RDB_CF
-        : caching_cfeed_artificial_table_backend_t(
-            table_name, rdb_context, name_resolver)
+        : caching_cfeed_artificial_table_backend_t(table_name, name_resolver)
 #else
-        : artificial_table_backend_t(
-            table_name, rdb_context)
+        : artificial_table_backend_t(table_name)
 #endif
     {
     }

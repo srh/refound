@@ -8,7 +8,6 @@
 #include "containers/lifetime.hpp"
 
 stats_artificial_table_backend_t::stats_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
         const clone_ptr_t<watchable_t<change_tracking_map_t<peer_id_t,
             cluster_directory_metadata_t> > >
@@ -21,10 +20,10 @@ stats_artificial_table_backend_t::stats_artificial_table_backend_t(
         admin_identifier_format_t _admin_format) :
 #if RDB_CF
     timer_cfeed_artificial_table_backend_t(
-        name_string_t::guarantee_valid("stats"), rdb_context, name_resolver),
+        name_string_t::guarantee_valid("stats"), name_resolver),
 #else
     artificial_table_backend_t(
-        name_string_t::guarantee_valid("stats"), rdb_context),
+        name_string_t::guarantee_valid("stats")),
 #endif
     directory_view(_directory_view),
     cluster_sl_view(_cluster_sl_view),

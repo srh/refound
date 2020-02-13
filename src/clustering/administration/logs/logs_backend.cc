@@ -71,7 +71,6 @@ ql::datum_t convert_log_message_to_datum(
 }
 
 logs_artificial_table_backend_t::logs_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver,
         mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *_directory,
@@ -79,10 +78,10 @@ logs_artificial_table_backend_t::logs_artificial_table_backend_t(
         admin_identifier_format_t _identifier_format) :
 #if RDB_CF
     cfeed_artificial_table_backend_t(
-        name_string_t::guarantee_valid("logs"), rdb_context, name_resolver),
+        name_string_t::guarantee_valid("logs"), name_resolver),
 #else
     artificial_table_backend_t(
-        name_string_t::guarantee_valid("logs"), rdb_context),
+        name_string_t::guarantee_valid("logs")),
 #endif
     mailbox_manager(_mailbox_manager),
     directory(_directory),

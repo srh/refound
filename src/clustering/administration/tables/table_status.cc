@@ -11,7 +11,6 @@
 #include "clustering/table_manager/table_meta_client.hpp"
 
 table_status_artificial_table_backend_t::table_status_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver,
         std::shared_ptr<semilattice_readwrite_view_t<
             cluster_semilattice_metadata_t> > _semilattice_view,
@@ -20,7 +19,6 @@ table_status_artificial_table_backend_t::table_status_artificial_table_backend_t
         admin_identifier_format_t _identifier_format)
     : common_table_artificial_table_backend_t(
         name_string_t::guarantee_valid("table_status"),
-        rdb_context,
         name_resolver,
         _semilattice_view,
         _table_meta_client,

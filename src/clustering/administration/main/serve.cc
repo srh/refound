@@ -269,8 +269,7 @@ bool do_serve(FDBDatabase *fdb,
             }
 
             artificial_reql_cluster_interface_t artificial_reql_cluster_interface(
-                semilattice_manager_auth.get_root_view(),
-                &rdb_ctx);
+                semilattice_manager_auth.get_root_view());
 
             /* The `table_meta_client_t` sends messages to the `multi_table_manager_t`s
             on the other servers in the cluster to create, drop, and reconfigure tables,

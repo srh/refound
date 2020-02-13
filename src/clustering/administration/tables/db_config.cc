@@ -64,12 +64,10 @@ db_config_artificial_table_backend_t::db_config_artificial_table_backend_t(
 #if RDB_CF
     caching_cfeed_artificial_table_backend_t(
         name_string_t::guarantee_valid("db_config"),
-        _rdb_context,
         name_resolver),
 #else
     artificial_table_backend_t(
-        name_string_t::guarantee_valid("db_config"),
-        _rdb_context),
+        name_string_t::guarantee_valid("db_config")),
 #endif
     rdb_context(_rdb_context),
     database_sl_view(_database_sl_view),

@@ -16,12 +16,9 @@ namespace_id_t artificial_table_backend_t::compute_artificial_table_id(
 }
 
 
-artificial_table_backend_t::artificial_table_backend_t(
-        name_string_t const &table_name,
-        rdb_context_t *rdb_context)
+artificial_table_backend_t::artificial_table_backend_t(name_string_t const &table_name)
     : m_table_name(table_name),
-      m_table_id(compute_artificial_table_id(table_name)),
-      m_rdb_context(rdb_context) {
+      m_table_id(compute_artificial_table_id(table_name)) {
 }
 
 artificial_table_backend_t::~artificial_table_backend_t() {
@@ -110,7 +107,7 @@ bool artificial_table_backend_t::read_all_rows_filtered_as_stream(
         std::move(range_keyspec),
         counted_t<base_table_t>(
             new artificial_table_t(
-                m_rdb_context, artificial_reql_cluster_interface_t::database_id, this)),
+                artificial_reql_cluster_interface_t::database_id, this)),
         m_table_name.str()));
     guarantee(keyspec->table.has());
 #endif  // RDB_CF

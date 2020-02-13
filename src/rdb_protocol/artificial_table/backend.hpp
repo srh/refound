@@ -41,9 +41,7 @@ public:
      3. `get_primary_key_name()`, `read_all_rows_as_*()`, `read_row()` and `write_row()`
         can be called on any thread. */
 
-    artificial_table_backend_t(
-            name_string_t const &table_name,
-            rdb_context_t *rdb_context);
+    explicit artificial_table_backend_t(name_string_t const &table_name);
     virtual ~artificial_table_backend_t();
 
     name_string_t const &get_table_name() const;
@@ -130,7 +128,6 @@ private:
 
     name_string_t m_table_name;
     namespace_id_t m_table_id;
-    rdb_context_t *m_rdb_context;
     cross_thread_mutex_t transaction_mutex;
 };
 

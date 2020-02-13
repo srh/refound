@@ -13,7 +13,6 @@
 namespace auth {
 
 permissions_artificial_table_backend_t::permissions_artificial_table_backend_t(
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
@@ -22,7 +21,6 @@ permissions_artificial_table_backend_t::permissions_artificial_table_backend_t(
         admin_identifier_format_t identifier_format)
     : base_artificial_table_backend_t(
         name_string_t::guarantee_valid("permissions"),
-        rdb_context,
         name_resolver,
         auth_semilattice_view,
         cluster_semilattice_view),
