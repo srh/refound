@@ -20,7 +20,7 @@
 #include "clustering/administration/auth/permissions_artificial_table_backend.hpp"
 #include "clustering/administration/auth/users_artificial_table_backend.hpp"
 #include "clustering/administration/logs/logs_backend.hpp"
-#include "clustering/administration/jobs/backend.hpp"
+#include "clustering/administration/jobs/jobs_backend.hpp"
 #include "containers/map_sentries.hpp"
 #include "containers/name_string.hpp"
 #include "containers/scoped.hpp"

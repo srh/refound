@@ -1,6 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 
-#include "clustering/administration/jobs/backend.hpp"
+#include "clustering/administration/jobs/jobs_backend.hpp"
 
 #include <set>
 
