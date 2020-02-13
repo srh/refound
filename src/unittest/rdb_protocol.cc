@@ -19,7 +19,6 @@
 #include "rpc/directory/read_manager.hpp"
 #include "rpc/semilattice/semilattice_manager.hpp"
 #include "stl_utils.hpp"
-#include "store_subview.hpp"
 #include "unittest/dummy_namespace_interface.hpp"
 #include "unittest/dummy_metadata_controller.hpp"
 #include "unittest/gtest.hpp"
@@ -68,12 +67,10 @@ void run_with_namespace_interface(
 
         // These vectors are for shards; there is just one shard now.
         std::vector<store_view_t *> store_ptrs;
-        scoped_ptr_t<store_view_t> the_store
-            = make_scoped<store_subview_t>(underlying_store.get());
 
         /* Set up namespace interface */
         order_source_t order_source;
-        dummy_namespace_interface_t nsi(the_store.get(),
+        dummy_namespace_interface_t nsi(underlying_store.get(),
                                         &order_source,
                                         do_create);
 

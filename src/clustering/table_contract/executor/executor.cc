@@ -4,7 +4,6 @@
 #include "clustering/table_contract/branch_history_gc.hpp"
 #include "clustering/table_contract/executor/exec_primary.hpp"
 #include "clustering/table_contract/store_ptr.hpp"
-#include "store_subview.hpp"
 
 class contract_executor_t::execution_wrapper_t : private execution_t::params_t {
 public:
@@ -14,8 +13,7 @@ public:
             const contract_id_t &_contract_id,
             const table_raft_state_t &state) :
         parent(_parent), contract_id(_contract_id),
-        store_subview(
-            parent->multistore->get_store()),
+        store(parent->multistore->get_store()),
         perfmon_name(strprintf("%s-%d", key.role_name().c_str(), ++parent->perfmon_counter))
     {
         switch (key.role) {
@@ -66,7 +64,7 @@ private:
     }
 
     store_view_t *get_store() {
-        return &store_subview;
+        return store;
     }
 
     void send_ack(const contract_id_t &cid, const contract_ack_t &ack) {
@@ -91,9 +89,7 @@ private:
     change over the course of an execution; see the comment about `execution_key_t`. */
     contract_id_t contract_id;
 
-    /* A `store_subview_t` containing only the sub-region of the store that this
-    execution affects. */
-    store_subview_t store_subview;
+    store_view_t *store;
 
     /* We create a new perfmon category for each execution. This way the executions
     themselves don't have to think about perfmon key collisions. This does not construct

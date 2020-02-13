@@ -6,7 +6,6 @@
 #include "clustering/immediate_consistency/version.hpp"
 #include "clustering/table_contract/executor/exec.hpp"
 #include "concurrency/pump_coro.hpp"
-#include "store_subview.hpp"
 
 class contract_t;
 class store_ptr_t;
