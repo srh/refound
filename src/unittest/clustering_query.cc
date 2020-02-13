@@ -2,7 +2,6 @@
 #include "unittest/gtest.hpp"
 
 #include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/query_routing/primary_query_server.hpp"
 #include "unittest/branch_history_manager.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "unittest/mock_store.hpp"

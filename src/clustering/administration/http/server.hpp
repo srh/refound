@@ -8,7 +8,6 @@
 
 #include "arch/io/openssl.hpp"
 #include "clustering/administration/metadata.hpp"
-#include "clustering/administration/namespace_interface_repository.hpp"
 #include "http/http.hpp"
 #include "rpc/semilattice/view.hpp"
 

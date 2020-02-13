@@ -4,7 +4,6 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/immediate_consistency/local_replicator.hpp"
 #include "clustering/immediate_consistency/primary_dispatcher.hpp"
-#include "clustering/query_routing/direct_query_server.hpp"
 #include "clustering/table_contract/contract_metadata.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "concurrency/promise.hpp"

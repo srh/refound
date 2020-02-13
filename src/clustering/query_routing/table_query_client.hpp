@@ -10,7 +10,6 @@
 #include <set>
 
 #include "clustering/administration/auth/permission_error.hpp"
-#include "clustering/query_routing/metadata.hpp"
 #include "containers/clone_ptr.hpp"
 #include "concurrency/fifo_enforcer.hpp"
 #include "concurrency/watchable_map.hpp"

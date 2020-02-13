@@ -11,20 +11,7 @@ public:
         min_backoff_ms(_mnbm), max_backoff_ms(_mxbm), fail_factor(_ff),
         success_factor(_sf), backoff_ms(0)
         { }
-    void failure(const signal_t *interruptor) {
-        if (backoff_ms == 0) {
-            coro_t::yield();
-            backoff_ms = min_backoff_ms;
-        } else {
-            nap(backoff_ms, interruptor);
-            guarantee(static_cast<uint64_t>(backoff_ms * fail_factor) > backoff_ms,
-                "rounding screwed it up");
-            backoff_ms *= fail_factor;
-            if (backoff_ms > max_backoff_ms) {
-                backoff_ms = max_backoff_ms;
-            }
-        }
-    }
+    void failure(const signal_t *interruptor);
     void success() {
         guarantee(static_cast<uint64_t>(backoff_ms * success_factor) < backoff_ms
             || backoff_ms == 0, "rounding screwed it up");

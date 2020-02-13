@@ -2,10 +2,11 @@
 #ifndef CLUSTERING_TABLE_CONTRACT_EXECUTOR_EXEC_PRIMARY_HPP_
 #define CLUSTERING_TABLE_CONTRACT_EXECUTOR_EXEC_PRIMARY_HPP_
 
-#include "clustering/query_routing/primary_query_server.hpp"
 #include "clustering/table_contract/executor/exec.hpp"
+#include "concurrency/auto_drainer.hpp"
 #include "concurrency/new_mutex.hpp"
 #include "containers/counted.hpp"
+#include "containers/optional.hpp"
 
 struct admin_err_t;
 class contract_t;

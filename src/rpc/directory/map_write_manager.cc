@@ -8,6 +8,6 @@ template class directory_map_write_manager_t<int, int>;
 template class directory_map_write_manager_t<
     namespace_id_t, table_manager_bcard_t>;
 
-#include "clustering/query_routing/metadata.hpp"
+#include "containers/empty_value.hpp"
 template class directory_map_write_manager_t<
     server_id_t, empty_value_t>;

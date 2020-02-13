@@ -1,8 +1,9 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/administration/tables/calculate_status.hpp"
 
-#include "clustering/administration/namespace_interface_repository.hpp"
+#include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/administration/servers/config_client.hpp"
+#include "clustering/table_manager/table_metadata.hpp"
 #include "concurrency/exponential_backoff.hpp"
 
 bool wait_for_table_readiness(
