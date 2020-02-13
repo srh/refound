@@ -252,9 +252,3 @@ void real_table_persistence_interface_t::destroy_multistore(
     batch.DeleteRange(prefix, end_prefix);
     io_backender->rocks()->write_batch(&batch, rockstore::write_options(true));
 }
-
-bool real_table_persistence_interface_t::is_gc_active() const {
-    // TODO: Is there a rocksdb version of this?
-
-    return false;
-}

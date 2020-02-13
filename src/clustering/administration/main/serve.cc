@@ -326,9 +326,6 @@ bool do_serve(FDBDatabase *fdb,
                 &mailbox_manager,
                 server_id,
                 &rdb_ctx,
-                /* A `table_persistence_interface` is only instantiated when
-                `i_am_a_server` is true, and a `nullptr` otherwise. */
-                table_persistence_interface.get_or_null(),
                 multi_table_manager.get());
 
             /* When the user reads the `rethinkdb.stats` table, it sends messages to the

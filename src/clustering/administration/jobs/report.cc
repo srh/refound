@@ -21,31 +21,6 @@ ql::datum_t convert_job_type_and_id_to_datum(std::string const &type, uuid_u con
     return std::move(primary_key_builder).to_datum();
 }
 
-disk_compaction_job_report_t::disk_compaction_job_report_t()
-    : job_report_base_t<disk_compaction_job_report_t>() { }
-
-disk_compaction_job_report_t::disk_compaction_job_report_t(
-        uuid_u const &_id,
-        double _duration,
-        server_id_t const &_server_id)
-    : job_report_base_t<disk_compaction_job_report_t>(
-        "disk_compaction", _id, _duration, _server_id) { }
-
-void disk_compaction_job_report_t::merge_derived(
-        disk_compaction_job_report_t const &) { }
-
-bool disk_compaction_job_report_t::info_derived(
-        UNUSED admin_identifier_format_t identifier_format,
-        UNUSED server_config_client_t *server_config_client,
-        UNUSED table_meta_client_t *table_meta_client,
-        UNUSED cluster_semilattice_metadata_t const &metadata,
-        UNUSED ql::datum_object_builder_t *info_builder_out) const {
-    return true;
-}
-
-RDB_IMPL_SERIALIZABLE_4_FOR_CLUSTER(
-    disk_compaction_job_report_t, type, id, duration, servers);
-
 index_construction_job_report_t::index_construction_job_report_t()
     : job_report_base_t<index_construction_job_report_t>() { }
 

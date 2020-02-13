@@ -28,8 +28,6 @@ public:
     explicit jobs_manager_t(mailbox_manager_t *mailbox_manager,
                             server_id_t const &server_id,
                             rdb_context_t *rdb_context,
-                            real_table_persistence_interface_t
-                                *table_persistence_interface,
                             multi_table_manager_t *multi_table_manager);
 
     typedef jobs_manager_business_card_t business_card_t;
@@ -39,7 +37,6 @@ private:
     static const size_t printed_query_columns;
 
     static const uuid_u base_sindex_id;
-    static const uuid_u base_disk_compaction_id;
 
     void on_get_job_reports(
         UNUSED const signal_t *interruptor,
@@ -54,7 +51,6 @@ private:
     server_id_t server_id;
 
     rdb_context_t *rdb_context;
-    real_table_persistence_interface_t *table_persistence_interface;
     multi_table_manager_t *multi_table_manager;
 
     auto_drainer_t drainer;

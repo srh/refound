@@ -14,19 +14,13 @@ const size_t jobs_manager_t::printed_query_columns = 89;
 const uuid_u jobs_manager_t::base_sindex_id =
     str_to_uuid("74d855a5-0c40-4930-a451-d1ce508ef2d2");
 
-const uuid_u jobs_manager_t::base_disk_compaction_id =
-    str_to_uuid("b8766ece-d15c-4f96-bee5-c0edacf10c9c");
-
 jobs_manager_t::jobs_manager_t(mailbox_manager_t *_mailbox_manager,
                                server_id_t const &_server_id,
                                rdb_context_t *_rdb_context,
-                               real_table_persistence_interface_t
-                                   *_table_persistence_interface,
                                multi_table_manager_t *_multi_table_manager) :
     mailbox_manager(_mailbox_manager),
     server_id(_server_id),
     rdb_context(_rdb_context),
-    table_persistence_interface(_table_persistence_interface),
     multi_table_manager(_multi_table_manager),
     get_job_reports_mailbox(_mailbox_manager,
                             std::bind(&jobs_manager_t::on_get_job_reports,
@@ -47,7 +41,6 @@ void jobs_manager_t::on_get_job_reports(
         const signal_t *interruptor,
         const business_card_t::return_mailbox_t::address_t &reply_address) {
     std::vector<query_job_report_t> query_job_reports;
-    std::vector<disk_compaction_job_report_t> disk_compaction_job_reports;
     std::vector<index_construction_job_report_t> index_construction_job_reports;
 
     if (drainer.is_draining()) {
@@ -57,7 +50,6 @@ void jobs_manager_t::on_get_job_reports(
         send(mailbox_manager,
              reply_address,
              query_job_reports,
-             disk_compaction_job_reports,
              index_construction_job_reports);
         return;
     }
@@ -105,15 +97,6 @@ void jobs_manager_t::on_get_job_reports(
             std::make_move_iterator(query_job_reports_inner.end()));
     });
 
-    if (table_persistence_interface != nullptr &&
-            table_persistence_interface->is_gc_active()) {
-        // Note that "disk_compaction" jobs do not have a duration.
-        disk_compaction_job_reports.emplace_back(
-            uuid_u::from_hash(base_disk_compaction_id, uuid_to_str(server_id.get_uuid())),
-            -1,
-            server_id);
-    }
-
     try {
         multi_table_manager->visit_tables(interruptor, access_t::read,
         [&](const namespace_id_t &table_id,
@@ -146,7 +129,6 @@ void jobs_manager_t::on_get_job_reports(
         send(mailbox_manager,
              reply_address,
              query_job_reports,
-             disk_compaction_job_reports,
              index_construction_job_reports);
     } catch (const interrupted_exc_t &) {
         // Do nothing

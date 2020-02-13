@@ -68,8 +68,6 @@ public:
         const namespace_id_t &table_id,
         scoped_ptr_t<store_ptr_t> *multistore_ptr_in);
 
-    bool is_gc_active() const;
-
 private:
     threadnum_t pick_thread();
 
