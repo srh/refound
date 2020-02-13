@@ -371,6 +371,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
         // TODO: Is one_replace_t fluff?
         one_fdb_replace_t one_replace(replacer, i);
 
+        // QQQ: This is awful -- send them to FDB in parallel.
         ql::datum_t res = rdb_fdb_replace_and_return_superblock(
             txn,
             table_config,
