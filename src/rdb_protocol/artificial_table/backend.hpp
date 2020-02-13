@@ -45,7 +45,6 @@ public:
     explicit artificial_table_backend_t(name_string_t const &table_name);
     virtual ~artificial_table_backend_t();
 
-    name_string_t const &get_table_name() const;
     namespace_id_t const &get_table_id() const;
 
     /* Returns the name of the primary key for the table. The return value must not
@@ -154,7 +153,6 @@ public:
     explicit artificial_table_fdb_backend_t(name_string_t const &table_name);
     virtual ~artificial_table_fdb_backend_t();
 
-    name_string_t const &get_table_name() const;
     namespace_id_t const &get_table_id() const;
 
     /* Returns the name of the primary key for the table. The return value must not
