@@ -66,18 +66,11 @@ std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorte
 
 bool artificial_reql_cluster_interface_t::table_find(
         const name_string_t &name,
-        optional<admin_identifier_format_t> identifier_format,
+        admin_identifier_format_t identifier_format,
         counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
-    auto it = m_table_backends.find(name);
-    if (it != m_table_backends.end()) {
-        artificial_table_backend_t *backend;
-        if (!identifier_format.has_value() ||
-                *identifier_format == admin_identifier_format_t::name) {
-            backend = it->second.first;
-        } else {
-            backend = it->second.second;
-        }
+    artificial_table_backend_t *backend = get_table_backend(name, identifier_format);
+    if (backend != nullptr) {
         table_out->reset(
             new artificial_table_t(artificial_reql_cluster_interface_t::database_id, backend));
         return true;

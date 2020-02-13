@@ -1113,7 +1113,9 @@ private:
             r_sanity_check(art_or_null != nullptr);
             admin_err_t error;
             counted_t<base_table_t> table;
-            if (!art_or_null->table_find(db_table_name.second, identifier_format, &table, &error)) {
+            if (!art_or_null->table_find(db_table_name.second,
+                    identifier_format.value_or(admin_identifier_format_t::name),
+                    &table, &error)) {
                 REQL_RETHROW(error);
             }
             return new_val(make_counted<table_t>(

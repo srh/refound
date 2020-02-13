@@ -59,8 +59,8 @@ public:
             admin_err_t *error_out) override;
 
     std::vector<name_string_t> table_list_sorted();
-    bool table_find(const name_string_t &name,
-            optional<admin_identifier_format_t> identifier_format,
+    MUST_USE bool table_find(const name_string_t &name,
+            admin_identifier_format_t identifier_format,
             counted_t<base_table_t> *table_out,
             admin_err_t *error_out);
     bool table_config(
