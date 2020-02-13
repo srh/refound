@@ -17,10 +17,10 @@ the `primary_dispatcher_t`.
 There is one `local_replicator_t` on the primary replica server of each shard.
 `primary_execution_t` constructs it. */
 
-class local_replicator_t : public primary_dispatcher_t::dispatchee_t {
+// NNN: Remove the whole type, no?
+class local_replicator_t {
 public:
     local_replicator_t(
-        const server_id_t &server_id,
         primary_dispatcher_t *primary,
         store_view_t *store,
         branch_history_manager_t *bhm,
@@ -29,31 +29,9 @@ public:
     /* This destructor can block */
     ~local_replicator_t();
 
-    void do_write_sync(
-        const write_t &write,
-        state_timestamp_t timestamp,
-        order_token_t order_token,
-        write_durability_t durability,
-        const signal_t *interruptor,
-        write_response_t *response_out);
-
-    void do_write_async(
-        const write_t &write,
-        state_timestamp_t timestamp,
-        order_token_t order_token,
-        const signal_t *interruptor);
-
-    void do_dummy_write(
-        const signal_t *interruptor,
-        write_response_t *response_out);
-
 private:
     store_view_t *const store;
     branch_id_t const branch_id;
-
-    replica_t replica;
-
-    scoped_ptr_t<primary_dispatcher_t::dispatchee_registration_t> registration;
 };
 
 #endif /* CLUSTERING_IMMEDIATE_CONSISTENCY_LOCAL_REPLICA_HPP_ */

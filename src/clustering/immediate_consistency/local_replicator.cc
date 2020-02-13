@@ -4,16 +4,11 @@
 #include "concurrency/cross_thread_signal.hpp"
 
 local_replicator_t::local_replicator_t(
-        const server_id_t &server_id,
         primary_dispatcher_t *primary,
         store_view_t *_store,
         branch_history_manager_t *bhm,
         const signal_t *interruptor) :
-    store(_store),
-    replica(
-        store,
-        primary->get_branch_id(),
-        primary->get_branch_birth_certificate().initial_timestamp)
+    store(_store)
 {
     order_source_t order_source;
 
@@ -56,49 +51,16 @@ local_replicator_t::local_replicator_t(
         interruptor);
 
     state_timestamp_t first_timestamp;
-    registration = make_scoped<primary_dispatcher_t::dispatchee_registration_t>(
-        primary, this, server_id, &first_timestamp);
     guarantee(first_timestamp ==
         primary->get_branch_birth_certificate().initial_timestamp);
-    registration->mark_ready();
 }
 
 local_replicator_t::~local_replicator_t() {
-    // This has to happen before `note_reshard` to make sure outstanding reads complete.
-    registration.reset();
+#if RDB_CF
     /* Since `local_replicator_t` is the primary dispatchee, changefeeds are always
     routed here. But when the primary changes we need to shut off the changefeed. This
     destructor is a good place to do it. */
     store->note_reshard();
+#endif  // RDB_CF
 }
-
-void local_replicator_t::do_write_sync(
-        const write_t &write,
-        state_timestamp_t timestamp,
-        order_token_t order_token,
-        write_durability_t durability,
-        const signal_t *interruptor,
-        write_response_t *response_out) {
-    replica.do_write(
-        write, timestamp, order_token, durability,
-        interruptor, response_out);
-}
-
-void local_replicator_t::do_write_async(
-        const write_t &write,
-        state_timestamp_t timestamp,
-        order_token_t order_token,
-        const signal_t *interruptor) {
-    write_response_t dummy;
-    replica.do_write(
-        write, timestamp, order_token, write_durability_t::SOFT,
-        interruptor, &dummy);
-}
-
-void local_replicator_t::do_dummy_write(
-        const signal_t *interruptor,
-        write_response_t *response_out) {
-    replica.do_dummy_write(interruptor, response_out);
-}
-
 

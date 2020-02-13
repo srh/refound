@@ -45,7 +45,9 @@ public:
         home_thread_mixin_t::assert_thread();
     }
 
+#if RDB_CF
     virtual void note_reshard() = 0;
+#endif
 
     virtual void new_read_token(read_token_t *token_out) = 0;
     virtual void new_write_token(write_token_t *token_out) = 0;

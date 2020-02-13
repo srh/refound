@@ -14,8 +14,8 @@
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/table_common.hpp"
 
-void store_t::note_reshard() {
 #if RDB_CF
+void store_t::note_reshard() {
     // This is no longer for resharding, it just shuts off changefeeds for
     // local_replicator_t.  Maybe this is unnecessary; maybe we could let the destructor
     // do its work.
@@ -37,8 +37,8 @@ void store_t::note_reshard() {
     }
     // The changefeed server is actually getting destructed here. This might
     // block.
-#endif
 }
+#endif
 
 
 void store_t::help_construct_bring_sindexes_up_to_date() {

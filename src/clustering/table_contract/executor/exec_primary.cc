@@ -201,7 +201,6 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
         on_thread_t thread_switcher_3(store->home_thread());
 
         local_replicator_t local_replicator(
-            context->server_id,
             &primary_dispatcher,
             store,
             context->branch_history_manager,

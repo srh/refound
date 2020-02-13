@@ -27,83 +27,6 @@ private:
     class incomplete_write_t;
 
 public:
-    /* `dispatchee_t` represents a replica from the `primary_dispatcher_t`'s point of
-    view. The subclass might run the reads and writes directly, or it might send them
-    over the network to a different server. */
-    class dispatchee_t {
-    public:
-        /* `do_write_sync()` blocks until the write has been performed with the given
-        durability level, and it produces a `write_response_t`. `do_write_async()` makes
-        no promises about when it returns and it does not return a response. However,
-        `do_write_async()` may block in order to limit the rate at which the
-        `primary_dispatcher_t` sends writes. */
-        virtual void do_write_sync(
-            const write_t &write,
-            state_timestamp_t timestamp,
-            order_token_t order_token,
-            write_durability_t durability,
-            const signal_t *interruptor,
-            write_response_t *response_out) = 0;
-        virtual void do_write_async(
-            const write_t &write,
-            state_timestamp_t timestamp,
-            order_token_t order_token,
-            const signal_t *interruptor) = 0;
-        virtual void do_dummy_write(
-            const signal_t *interruptor,
-            write_response_t *response_out) = 0;
-    protected:
-        virtual ~dispatchee_t() { }
-    };
-
-    /* `dispatchee_registration_t` is a sentry object that signs the dispatchee up for
-    reads and writes. */
-    class dispatchee_registration_t {
-    public:
-        dispatchee_registration_t(
-            primary_dispatcher_t *parent,
-            dispatchee_t *dispatchee,
-            /* `server_id` is used for reporting acks to the `write_callback_t`. */
-            const server_id_t &server_id,
-            /* `*first_timestamp_out` will be set to whatever was the latest timestamp
-            value when the `dispatchee_registration_t` was constructed. */
-            state_timestamp_t *first_timestamp_out);
-
-        /* Destroying the `dispatchee_registration_t` will interrupt any running read or
-        write operations on this dispatchee. */
-        ~dispatchee_registration_t();
-
-        /* Initially, dispatchees will only receive `do_write_async()` calls. But after
-        `mark_ready()` is called, the `primary_dispatcher_t` may also send them reads,
-        `do_write_sync()`, and `do_dummy_write()` calls. */
-        void mark_ready();
-
-    private:
-        friend class primary_dispatcher_t;
-
-        primary_dispatcher_t *const parent;
-        dispatchee_t *const dispatchee;
-        server_id_t const server_id;
-
-        bool is_ready;
-
-        perfmon_counter_t queue_count;
-        perfmon_membership_t queue_count_membership;
-
-        /* TODO: Maybe this should be a queue of `incomplete_write_t`s instead of a queue
-        of `std::function`s. */
-        unlimited_fifo_queue_t<std::function<void()> > background_write_queue;
-        calling_callback_t background_write_caller;
-        coro_pool_t<std::function<void()> > background_write_workers;
-
-        /* This is the timestamp of the latest write for which a `do_write_sync()` call
-        has completed. We use this to pick the most up-to-date dispatchee to send reads
-        to. */
-        state_timestamp_t latest_acked_write;
-
-        auto_drainer_t drainer;
-    };
-
     /* There is a 1:1 relationship between `primary_dispatcher_t`s and branches. When the
     `primary_dispatcher_t` is constructed, it constructs a branch using the given region
     map as the origin. You can get the branch's ID and birth certificate via the
@@ -144,8 +67,6 @@ private:
     recent acked write and produce `min_timestamp_token_t`s from it whenever we send a
     read to a listener. */
     state_timestamp_t most_recent_acked_write_timestamp;
-
-    std::map<dispatchee_registration_t *, auto_drainer_t::lock_t> dispatchees;
 
     /* This is just a set that contains the peer ID of each dispatchee in `dispatchees`
     that's readable. We store it separately so we can expose it to code that needs to

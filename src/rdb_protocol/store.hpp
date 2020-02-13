@@ -75,7 +75,9 @@ public:
             update_sindexes_t update_sindexes);
     ~store_t();
 
+#if RDB_CF
     void note_reshard();
+#endif
 
     /* store_view_t interface */
 
