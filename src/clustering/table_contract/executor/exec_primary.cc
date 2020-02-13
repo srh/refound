@@ -168,13 +168,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         on_thread_t thread_switcher_2(home_thread());
 
-        /* Put an entry in the global directory so clients can find us for outdated reads
-        */
-        table_query_bcard_t tq_bcard_direct;
-        tq_bcard_direct.primary = r_nullopt;
-        tq_bcard_direct.direct = make_optional(direct_query_server.get_bcard());
-        watchable_map_var_t<uuid_u, table_query_bcard_t>::entry_t directory_entry_direct(
-            context->local_table_query_bcards, generate_uuid(), tq_bcard_direct);
+        /* Put an entry in the global directory so clients can find us for outdated reads */
 
         /* Send a request for the coordinator to register our branch */
         {
@@ -256,13 +250,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         /* Put an entry in the global directory so clients can find us for up-to-date
         writes and reads */
-        table_query_bcard_t tq_bcard_primary;
-        tq_bcard_primary.primary =
-            make_optional(primary_query_server.get_bcard());
-        tq_bcard_primary.direct = r_nullopt;
-        watchable_map_var_t<uuid_u, table_query_bcard_t>::entry_t
-            directory_entry_primary(
-                context->local_table_query_bcards, generate_uuid(), tq_bcard_primary);
+        // TODO: Nope.  Not anymore
 
         /* Wait until we are no longer the primary, or it's time to shut down */
         keepalive.get_drain_signal()->wait_lazily_unordered();
