@@ -50,13 +50,11 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
         type_str = "db_drop";
         ql::datum_object_builder_t info_builder;
         info_builder.overwrite("db", ql::datum_t(uuid_to_str(info.job_description.db_drop.database_id.value)));
-        // TODO: A complete hack around the string incrementing thing.  That's OK, but... meh.
-        std::string progress = info.job_description.db_drop.min_table_name;
-        if (!progress.empty() && progress.back() == '\0') {
-            progress.pop_back();
-        }
+        const optional<std::string> &last_table_name
+            = info.job_description.db_drop.last_table_name;
         info_builder.overwrite("progress",
-            ql::datum_t(datum_string_t(progress)));
+            last_table_name.has_value() ?
+                ql::datum_t(*last_table_name) : ql::datum_t::null());
         info_datum = std::move(info_builder).to_datum();
     } break;
     case fdb_job_type::index_create_job: {

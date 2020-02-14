@@ -14,10 +14,19 @@ MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const f
     fdb_value_fut<fdb_job_info> real_info_fut
         = transaction_get_real_job_info(txn, info);
 
+    std::string min_table_name;
+    if (db_drop_info.last_table_name.has_value()) {
+        min_table_name = *db_drop_info.last_table_name;
+        // *holds hands away from body* avada kedavra
+        min_table_name.push_back('\0');
+    } else {
+        min_table_name = "";
+    }
+
     // We always make it a closed interval, because we deleted the last-used table name
     // anyway.
     fdb_future range_fut = transaction_get_table_range(
-        txn, db_drop_info.database_id, db_drop_info.min_table_name, true,
+        txn, db_drop_info.database_id, min_table_name, true,
         FDB_STREAMING_MODE_SMALL);
 
     if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {

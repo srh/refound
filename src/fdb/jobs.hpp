@@ -24,11 +24,10 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
 struct fdb_job_db_drop {
     database_id_t database_id;
 
-    // TODO: Make this be last_table_name or "", just to make datum logic simpler.
-    std::string min_table_name;
+    optional<std::string> last_table_name;
 
     static fdb_job_db_drop make(database_id_t db_id) {
-        return fdb_job_db_drop{db_id, ""};
+        return fdb_job_db_drop{db_id, r_nullopt};
     }
 };
 
