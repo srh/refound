@@ -1,6 +1,7 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/administration/auth/users_artificial_table_backend.hpp"
 
+#include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/user.hpp"
 #include "clustering/administration/metadata.hpp"
 

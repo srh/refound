@@ -11,6 +11,7 @@
 #include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/auth/username.hpp"
+#include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
 // For utility function; maybe move convert_db_or_table_config_and_name_to_datum out.
 #include "clustering/administration/tables/db_config.hpp"

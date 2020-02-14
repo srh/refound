@@ -12,7 +12,6 @@
 #include "clustering/administration/auth/user.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/issues/local.hpp"
-#include "clustering/administration/jobs/report.hpp"
 #include "clustering/administration/logs/log_transfer.hpp"
 #include "clustering/administration/servers/server_metadata.hpp"
 #include "clustering/administration/stats/stat_manager.hpp"
@@ -112,7 +111,6 @@ public:
             const proc_directory_metadata_t &_proc,
             uint64_t _actual_cache_size_bytes,
             const multi_table_manager_bcard_t &mtmbc,
-            const jobs_manager_business_card_t& _jobs_mailbox,
             const get_stats_mailbox_address_t& _stats_mailbox,
             const log_server_business_card_t &lmb,
             const local_issue_bcard_t &lib,
@@ -124,7 +122,6 @@ public:
         proc(_proc),
         actual_cache_size_bytes(_actual_cache_size_bytes),
         multi_table_manager_bcard(mtmbc),
-        jobs_mailbox(_jobs_mailbox),
         get_stats_mailbox_address(_stats_mailbox),
         log_mailbox(lmb),
         local_issue_bcard(lib),
@@ -146,7 +143,6 @@ public:
     uint64_t actual_cache_size_bytes;   /* might be user-set or automatically picked */
 
     multi_table_manager_bcard_t multi_table_manager_bcard;
-    jobs_manager_business_card_t jobs_mailbox;
     get_stats_mailbox_address_t get_stats_mailbox_address;
     log_server_business_card_t log_mailbox;
     local_issue_bcard_t local_issue_bcard;

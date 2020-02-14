@@ -2,20 +2,12 @@
 
 #include "clustering/administration/jobs/jobs_backend.hpp"
 
-#include <set>
+#include <string>
 
-// OOO: Remove needless includes
+#include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/datum_adapter.hpp"
-#include "clustering/administration/jobs/manager.hpp"
-#include "clustering/administration/jobs/report.hpp"
-#include "clustering/administration/main/watchable_fields.hpp"
-#include "clustering/administration/metadata.hpp"
-#include "clustering/administration/tables/name_resolver.hpp"
-#include "concurrency/cross_thread_signal.hpp"
-#include "containers/lifetime.hpp"
 #include "fdb/jobs.hpp"
 #include "fdb/retry_loop.hpp"
-#include "rpc/mailbox/disconnect_watcher.hpp"
 
 jobs_artificial_table_fdb_backend_t::jobs_artificial_table_fdb_backend_t(
         admin_identifier_format_t _identifier_format)

@@ -8,7 +8,6 @@
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/http/server.hpp"
 #include "clustering/administration/issues/local.hpp"
-#include "clustering/administration/jobs/manager.hpp"
 #include "clustering/administration/logs/log_writer.hpp"
 #include "clustering/administration/main/initial_join.hpp"
 #include "clustering/administration/main/ports.hpp"
@@ -319,15 +318,6 @@ bool do_serve(FDBDatabase *fdb,
                 semilattice_manager_cluster.get_root_view()->get(),
                 stop_cond);
 
-            /* `jobs_manager_t` keeps track of all of the running jobs on this server.
-            When the user reads the `rethinkdb.jobs` table, it sends messages to the
-            `jobs_manager_t` on each server to get information about running jobs. */
-            jobs_manager_t jobs_manager(
-                &mailbox_manager,
-                server_id,
-                &rdb_ctx,
-                multi_table_manager.get());
-
             /* When the user reads the `rethinkdb.stats` table, it sends messages to the
             `stat_manager_t` on each server to get the stats information. */
             stat_manager_t stat_manager(&mailbox_manager, server_id);
@@ -385,7 +375,6 @@ bool do_serve(FDBDatabase *fdb,
                 initial_proc_directory,
                 0,   /* we'll fill `actual_cache_size_bytes` in later */
                 multi_table_manager->get_multi_table_manager_bcard(),
-                jobs_manager.get_business_card(),
                 stat_manager.get_address(),
                 log_server.get_business_card(),
                 i_am_a_server
