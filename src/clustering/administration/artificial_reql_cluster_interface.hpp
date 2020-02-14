@@ -81,7 +81,10 @@ public:
 
     void set_next_reql_cluster_interface(reql_cluster_interface_t *next);
 
-    artificial_table_backend_t *get_table_backend(
+    // This is a variant, but i'm paranoid about includes, so at most one of these is non-null.
+    // TODO: Obviously, once artificial_table_backend_t is gone, we'll fix this.
+    std::pair<artificial_table_backend_t *, artificial_table_fdb_backend_t *>
+    get_table_backend(
             name_string_t const &,
             admin_identifier_format_t) const;
 
@@ -95,6 +98,8 @@ public:
 
     table_backends_map_t *get_table_backends_map_mutable();
     table_backends_map_t const &get_table_backends_map() const;
+    table_fdb_backends_map_t *get_table_fdb_backends_map_mutable();
+    table_fdb_backends_map_t const &get_table_fdb_backends_map() const;
 
 #if RDB_CF
     ql::changefeed::client_t *get_changefeed_client() override {
@@ -107,6 +112,7 @@ private:
     bool next_or_error(admin_err_t *error_out) const;
 
     table_backends_map_t m_table_backends;
+    table_fdb_backends_map_t m_table_fdb_backends;
     std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
         m_auth_semilattice_view;
     reql_cluster_interface_t *m_next;
@@ -173,11 +179,8 @@ private:
     scoped_ptr_t<table_status_artificial_table_backend_t> table_status_backend[2];
     backend_sentry_t table_status_sentry;
 
-// NNN: Uncomment
-#if 0
     scoped_ptr_t<jobs_artificial_table_fdb_backend_t> jobs_backend[2];
     fdb_backend_sentry_t jobs_sentry;
-#endif  // 0
 
     scoped_ptr_t<in_memory_artificial_table_backend_t> debug_scratch_backend;
     backend_sentry_t debug_scratch_sentry;
