@@ -3,6 +3,8 @@
 
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
+#include "clustering/administration/auth/user_fut.hpp"
+#include "fdb/retry_loop.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"
@@ -459,31 +461,39 @@ const std::string &artificial_table_fdb_t::get_pkey() const {
 ql::datum_t artificial_table_fdb_t::read_row(
         ql::env_t *env,
         ql::datum_t pval, UNUSED read_mode_t read_mode) {
-    ql::datum_t row;
+    ql::datum_t row_result;
 
     try {
-// NNN: Fdb-ize
-#if 0
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-
-        admin_err_t error;
-        if (!checked_read_row_from_backend(
-                txn,
-                env->get_user_context(),
-                m_backend,
-                pval,
-                env->interruptor,
-                &row,
-                &error)) {
-            REQL_RETHROW_DATUM(error);
-        }
-#endif  // 0
+        const auth::user_context_t &user_context = env->get_user_context();
+        fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
+                [&](FDBTransaction *txn) {
+            auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn,
+                artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
+            // It's an artificial table; just block and check the auth fut up-front,
+            // before doing a huge read, other logic like that, possibly failing with
+            // its own auth fut.
+            auth_fut.block_and_check(env->interruptor);
+            admin_err_t error;
+            ql::datum_t row;
+            if (!checked_read_row_from_backend(
+                    txn,
+                    user_context,
+                    m_backend,
+                    pval,
+                    env->interruptor,
+                    &row,
+                    &error)) {
+                REQL_RETHROW_DATUM(error);
+            }
+            row_result = std::move(row);
+        });
+        guarantee_fdb_TODO(loop_err, "artificial_table_fdb_t::read_row retry loop");
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
 
-    return row.has() ? row : ql::datum_t::null();
+    guarantee(row_result.has(), "fdb backends never output uninitialized row upon success");
+    return row_result;
 }
 
 counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_all(
