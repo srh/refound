@@ -85,6 +85,7 @@ bool artificial_reql_cluster_interface_t::table_find(
     } else if (backend.second != nullptr) {
         table_out->reset(
             new artificial_table_fdb_t(backend.second));
+        return true;
     } else {
         *error_out = table_not_found_error(
                       artificial_reql_cluster_interface_t::database_name, name);
