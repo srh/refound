@@ -26,25 +26,17 @@ class primary_execution_t::contract_info_t
     : public slow_atomic_countable_t<primary_execution_t::contract_info_t> {
 public:
     contract_info_t(const contract_id_t &_contract_id,
-                    const contract_t &_contract,
-                    write_durability_t _default_write_durability,
-                    write_ack_config_t _write_ack_config) :
+                    const contract_t &_contract) :
             contract_id(_contract_id),
-            contract(_contract),
-            default_write_durability(_default_write_durability),
-            write_ack_config(_write_ack_config) {
+            contract(_contract) {
     }
     bool equivalent(const contract_info_t &other) const {
         /* This method is called `equivalent` rather than `operator==` to avoid
         confusion, because it doesn't actually compare every member */
-        return contract_id == other.contract_id &&
-            default_write_durability == other.default_write_durability &&
-            write_ack_config == other.write_ack_config;
+        return contract_id == other.contract_id;
     }
     contract_id_t contract_id;
     contract_t contract;
-    write_durability_t default_write_durability;
-    write_ack_config_t write_ack_config;
     cond_t obsolete;
 };
 
@@ -58,8 +50,7 @@ primary_execution_t::primary_execution_t(
     const contract_t &contract = raft_state.contracts.at(contract_id);
     guarantee(contract.the_server == context->server_id);
     latest_contract_home_thread = make_counted<contract_info_t>(
-        contract_id, contract, raft_state.config.config.durability,
-        raft_state.config.config.write_ack_config);
+        contract_id, contract);
     latest_contract_store_thread = latest_contract_home_thread;
     begin_write_mutex_assertion.rethread(store->home_thread());
     coro_t::spawn_sometime(std::bind(&primary_execution_t::run, this, drainer.lock()));
@@ -102,9 +93,7 @@ void primary_execution_t::update_contract_or_raft_state(
 
     counted_t<contract_info_t> new_contract = make_counted<contract_info_t>(
         contract_id,
-        contract,
-        raft_state.config.config.durability,
-        raft_state.config.config.write_ack_config);
+        contract);
 
     /* Exit early if there aren't actually any changes. This is for performance reasons.
     */

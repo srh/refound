@@ -20,8 +20,6 @@ table_config_and_shards_t make_table_config_and_shards() {
     table_config_t::shard_t shard;
     shard.primary_replica = server_id_t::generate_server_id();
     table_config_and_shards.config.the_shard = shard;
-    table_config_and_shards.config.write_ack_config = write_ack_config_t::MAJORITY;
-    table_config_and_shards.config.durability = write_durability_t::HARD;
     table_config_and_shards.config.user_data = default_user_data();
 
     return table_config_and_shards;

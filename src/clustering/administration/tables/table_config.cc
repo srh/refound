@@ -375,10 +375,11 @@ ql::datum_t convert_table_config_to_datum(
             ql::datum_t(std::vector<ql::datum_t>(1, convert_table_config_shard_to_datum(
                           config.the_shard, identifier_format)),
                         ql::configured_limits_t::unlimited));
+    // TODO: Could we remove this from the table config datum?
     builder.overwrite("write_acks",
-        convert_write_ack_config_to_datum(config.write_ack_config));
+        convert_write_ack_config_to_datum(write_ack_config_t::MAJORITY));
     builder.overwrite("durability",
-        convert_durability_to_datum(config.durability));
+        convert_durability_to_datum(write_durability_t::HARD));
     builder.overwrite("data", config.user_data.datum);
     return std::move(builder).to_datum();
 }
@@ -550,13 +551,13 @@ bool convert_table_config_and_name_from_datum(
         if (!converter.get("write_acks", &write_acks_datum, error_out)) {
             return false;
         }
+        write_ack_config_t write_ack_config;
         if (!convert_write_ack_config_from_datum(write_acks_datum,
-                &config_out->write_ack_config, error_out)) {
+                &write_ack_config, error_out)) {
             error_out->msg = "In `write_acks`: " + error_out->msg;
             return false;
         }
-    } else {
-        config_out->write_ack_config = write_ack_config_t::MAJORITY;
+        // TODO: Should we error if write_acks wasn't MAJORITY?
     }
 
     if (existed_before || converter.has("durability")) {
@@ -564,13 +565,13 @@ bool convert_table_config_and_name_from_datum(
         if (!converter.get("durability", &durability_datum, error_out)) {
             return false;
         }
-        if (!convert_durability_from_datum(durability_datum, &config_out->durability,
+        write_durability_t durability;
+        if (!convert_durability_from_datum(durability_datum, &durability,
                                            error_out)) {
             error_out->msg = "In `durability`: " + error_out->msg;
             return false;
         }
-    } else {
-        config_out->durability = write_durability_t::HARD;
+        // TODO: Should we error if durability wasn't HARD?
     }
 
     if (converter.has("write_hook")) {

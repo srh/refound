@@ -271,10 +271,11 @@ private:
             primary_key = v->as_str(env).to_std();
         }
 
-        write_durability_t durability =
+        UNUSED write_durability_t durability =
             parse_durability_optarg(env->env, args->optarg(env, "durability")) ==
                 DURABILITY_REQUIREMENT_SOFT ?
                     write_durability_t::SOFT : write_durability_t::HARD;
+        // TODO: Can we emit a warning somehow if durability wasn't HARD?
 
         counted_t<const db_t> db;
         name_string_t tbl_name;
@@ -303,9 +304,7 @@ private:
         config.basic.database = db->id;
         config.basic.primary_key = primary_key;
         // TODO: Remove sharding UI.
-        // TODO: Remove table_config_t::shards, ::write_ack_config, ::durability
-        config.write_ack_config = write_ack_config_t::MAJORITY;
-        config.durability = durability;
+        // TODO: Remove table_config_t::shards
         config.user_data = default_user_data();
         namespace_id_t new_table_id{generate_uuid()};
 

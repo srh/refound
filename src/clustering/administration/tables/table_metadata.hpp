@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "buffer_cache/types.hpp"   // for `write_durability_t`
 #include "clustering/administration/servers/server_metadata.hpp"
 #include "clustering/generic/nonoverlapping_regions.hpp"
 #include "containers/name_string.hpp"
@@ -36,6 +35,7 @@ public:
 RDB_DECLARE_SERIALIZABLE(table_basic_config_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_basic_config_t);
 
+// TODO: Do we ever use write_ack_config_t::SINGLE?
 enum class write_ack_config_t {
     SINGLE,
     MAJORITY
@@ -81,8 +81,6 @@ public:
     std::map<std::string, sindex_config_t> sindexes;
     std::map<std::string, sindex_metaconfig_t> fdb_sindexes;
     optional<write_hook_config_t> write_hook;
-    write_ack_config_t write_ack_config;
-    write_durability_t durability;
     user_data_t user_data;  // has user-exposed name "data"
 };
 
