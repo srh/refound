@@ -6,7 +6,6 @@
 #include <set>
 #include <string>
 
-#include "clustering/administration/cluster_config.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/servers/server_config.hpp"
 #include "clustering/administration/servers/server_status.hpp"
@@ -151,9 +150,6 @@ private:
 
     scoped_ptr_t<auth::users_artificial_table_backend_t> users_backend;
     backend_sentry_t users_sentry;
-
-    scoped_ptr_t<cluster_config_artificial_table_backend_t> cluster_config_backend;
-    backend_sentry_t cluster_config_sentry;
 
     scoped_ptr_t<db_config_artificial_table_backend_t> db_config_backend;
     backend_sentry_t db_config_sentry;

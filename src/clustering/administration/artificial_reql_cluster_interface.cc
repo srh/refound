@@ -231,13 +231,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         name_string_t::guarantee_valid("users"),
         std::make_pair(users_backend.get(), users_backend.get()));
 
-    cluster_config_backend.init(
-        new cluster_config_artificial_table_backend_t(name_resolver));
-    cluster_config_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("cluster_config"),
-        std::make_pair(cluster_config_backend.get(), cluster_config_backend.get()));
-
     db_config_backend.init(
         new db_config_artificial_table_backend_t(
             rdb_context,
