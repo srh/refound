@@ -107,7 +107,7 @@ RDB_IMPL_SERIALIZABLE_3_SINCE_v2_1(table_basic_config_t,
 RDB_IMPL_EQUALITY_COMPARABLE_3(table_basic_config_t,
     name, database, primary_key);
 
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_1(table_config_t::shard_t, primary_replica);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(table_config_t::shard_t, primary_replica);
 RDB_IMPL_EQUALITY_COMPARABLE_1(table_config_t::shard_t, primary_replica);
 
 RDB_IMPL_SERIALIZABLE_5_SINCE_v2_5(table_config_t,

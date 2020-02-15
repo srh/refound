@@ -19,7 +19,7 @@ struct simple_mailbox_cluster_t::simple_mailbox_cluster_state {
     connectivity_cluster_t::run_t connectivity_cluster_run;
 
     simple_mailbox_cluster_state() :
-        server_id(server_id_t::generate_server_id()),
+        server_id(server_id_t()),
         mailbox_manager(&connectivity_cluster, 'M'),
         auth_manager(auth_semilattice_metadata),
         connectivity_cluster_run(&connectivity_cluster,

@@ -201,7 +201,7 @@ contract_executor_t::execution_key_t contract_executor_t::get_contract_key(
     guarantee(contract.the_server == server_id);
     // TODO: Maybe remove this fluff at all (of course).
     key.role = execution_key_t::role_t::primary;
-    key.primary = server_id_t::from_server_uuid(nil_uuid());
+    key.primary = server_id_t();
     key.branch = branch_id_t{nil_uuid()};
     return key;
 }

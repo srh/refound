@@ -197,7 +197,7 @@ peer_address_t get_cluster_local_address(connectivity_cluster_t *cm);
 class test_cluster_run_t {
 public:
     explicit test_cluster_run_t(connectivity_cluster_t *c)
-        : run(c, server_id_t::generate_server_id()) { }
+        : run(c, server_id_t()) { }
 
     operator connectivity_cluster_t::run_t&() {
         return run;
