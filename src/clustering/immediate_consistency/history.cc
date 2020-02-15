@@ -27,13 +27,13 @@ void branch_history_reader_t::export_branch_history(
             try {
                 auto res = out->branches.insert(std::make_pair(next, get_branch(next)));
                 guarantee(res.second);
-                res.first->second.origin.visit(res.first->second.origin.get_domain(),
-                [&](const region_t &, const version_t &vers) {
+                {
+                    version_t vers = res.first->second.origin;
                     if (!vers.branch.is_nil() && out->branches.count(vers.branch) == 0 &&
                             done.count(vers.branch) == 0) {
                         to_process.insert(vers.branch);
                     }
-                });
+                }
             } catch (const missing_branch_exc_t &) {
                 crash("get_branch() failed even after is_branch_known() returned true");
             }
@@ -91,10 +91,7 @@ bool version_is_ancestor(
             branch_birth_certificate_t birth_certificate;
             try {
                 birth_certificate = bh->get_branch(vers.branch);
-                birth_certificate.origin.visit(reg,
-                    [&](const region_t &subreg, const version_t &subvers) {
-                        stack.push(std::make_pair(subreg, subvers));
-                    });
+                stack.push(std::make_pair(region_t::universe(), birth_certificate.origin));
             } catch (const missing_branch_exc_t &) {
                 /* We don't want to throw `missing_branch_exc_t` yet because we might
                 later encounter some part that definitely isn't a descendent of
@@ -204,11 +201,11 @@ region_map_t<version_t> version_find_common(
             }
 
             /* OK, now recurse to `b1`'s parents. */
-            guarantee(region_is_superset(b1.origin.get_domain(), x.r));
-            b1.origin.visit(x.r,
-            [&](const region_t &reg, const version_t &vers) {
+            {
+                region_t reg = region_t::universe();
+                version_t vers = b1.origin;
                 stack.push({reg, vers, x.v2, v1_equiv, x.v2_equiv});
-            });
+            }
         }
     }
     return region_map_t<version_t>::from_unordered_fragments(

@@ -34,14 +34,14 @@ void copy_branch_history_for_branch(
         }
         const branch_birth_certificate_t &bc = bc_it->second;
         add_branches_out->branches.insert(std::make_pair(b, bc));
-        bc.origin.visit(bc.origin.get_domain(),
-        [&](const region_t &, const version_t &version) {
+        {
+            version_t version = bc.origin;
             if (version != version_t::zero() &&
                     existing.branches.count(version.branch) == 0 &&
                     add_branches_out->branches.count(version.branch) == 0) {
                 todo.insert(version.branch);
             }
-        });
+        }
     }
 }
 
@@ -59,14 +59,15 @@ void mark_all_ancestors_live(
         todo.erase(todo.begin());
         done.insert(next.first);
         remove_branches_out->erase(next.first);
-        branch_reader->get_branch(next.first).origin.visit(next.second,
-        [&](const region_t &subregion, const version_t &version) {
+        {
+            const region_t subregion = region_t::universe();
+            const version_t version = branch_reader->get_branch(next.first).origin;
             if (version != version_t::zero() &&
                     branch_reader->is_branch_known(version.branch) &&
                     done.count(version.branch) == 0) {
                 todo.insert(std::make_pair(version.branch, subregion));
             }
-        });
+        }
     }
 }
 
@@ -85,8 +86,9 @@ void mark_ancestors_since_base_live(
         done.insert(next.first);
         remove_branches_out->erase(next.first);
         bool next_in_base = base->is_branch_known(next.first);
-        branch_reader->get_branch(next.first).origin.visit(next.second,
-        [&](const region_t &subregion, const version_t &version) {
+        {
+            region_t subregion = region_t::universe();
+            version_t version = branch_reader->get_branch(next.first).origin;
             if (version != version_t::zero() &&
                     branch_reader->is_branch_known(version.branch) &&
                     done.count(version.branch) == 0) {
@@ -95,7 +97,7 @@ void mark_ancestors_since_base_live(
                     todo.insert(std::make_pair(version.branch, subregion));
                 }
             }
-        });
+        }
     }
 }
 

@@ -6,6 +6,6 @@ primary_dispatcher_t::primary_dispatcher_t(
         const version_t &base_version)
 {
     branch_id = branch_id_t{generate_uuid()};
-    branch_bc.origin = region_map_t<version_t>(region_t::universe(), base_version);
+    branch_bc.origin = base_version;
     branch_bc.initial_timestamp = base_version.timestamp;
 }

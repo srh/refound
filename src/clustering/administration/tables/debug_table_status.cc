@@ -162,7 +162,7 @@ ql::datum_t convert_debug_branch_birth_certificate_to_datum(
     builder.overwrite("initial_timestamp", ql::datum_t(static_cast<double>(
         birth_certificate.initial_timestamp.to_repli_timestamp().longtime)));
     builder.overwrite(
-        "origin", convert_debug_version_map_to_datum(birth_certificate.origin));
+        "origin", convert_debug_version_to_datum(birth_certificate.origin));
     return std::move(builder).to_datum();
 }
 

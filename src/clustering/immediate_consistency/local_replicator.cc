@@ -20,7 +20,7 @@ local_replicator_t::local_replicator_t(
     version_t origin = store->get_metainfo(
         order_source.check_in("local_replica_t(read)").with_read_mode(),
         &read_token, interruptor);
-    guarantee(region_map_t<version_t>(region_t::universe(), origin) == primary->get_branch_birth_certificate().origin);
+    guarantee(origin == primary->get_branch_birth_certificate().origin);
     guarantee(region_t::universe() ==
         primary->get_branch_birth_certificate().get_region());
 #endif

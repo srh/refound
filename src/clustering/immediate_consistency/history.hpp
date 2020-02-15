@@ -34,7 +34,7 @@ public:
     `broadcaster_t` that corresponds to the branch. Every write to the branch must affect
     only some (non-proper) subset of this region. */
     region_t get_region() const {
-        return origin.get_domain();
+        return region_t::universe();
     }
 
     /* The timestamp of the first state on the branch. `version_t(branch_id,
@@ -44,7 +44,7 @@ public:
 
     /* The state of the meta-info of the B-tree when the `broadcaster_t` was
     constructed. */
-    region_map_t<version_t> origin;
+    version_t origin;
 };
 
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(branch_birth_certificate_t);
