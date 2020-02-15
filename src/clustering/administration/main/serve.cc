@@ -290,7 +290,6 @@ bool do_serve(FDBDatabase *fdb,
                 &table_meta_client,
                 &server_config_client,
                 &mailbox_manager,
-                &rdb_ctx,
                 make_lifetime(name_resolver));
 
             /* Kick off a coroutine to log any outdated indexes. */

@@ -84,6 +84,13 @@ inline ukey_string uuid_primary_key(const uuid_u &u) {
     return ukey_string{uuid_to_str(u)};
 }
 
+inline uuid_u parse_uuid_primary_key(key_view k) {
+    uuid_u ret;
+    bool success = str_to_uuid(as_char(k.data), size_t(k.length), &ret);
+    guarantee(success, "Bad uuid primary key");  // TODO: fdb, msg, etc.
+    return ret;
+}
+
 // TODO: Any of these typed functions performing serialization could do less string
 // concatenation/allocation by serializing onto instead of serialize-then-concat.
 

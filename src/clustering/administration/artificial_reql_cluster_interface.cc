@@ -205,7 +205,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         table_meta_client_t *table_meta_client,
         server_config_client_t *server_config_client,
         mailbox_manager_t *mailbox_manager,
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver) {
     for (int format = 0; format < 2; ++format) {
         permissions_backend[format].init(
@@ -308,15 +307,11 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
 
     for (int format = 0; format < 2; ++format) {
         table_config_backend[format].init(
-            new table_config_artificial_table_backend_t(
-                rdb_context,
-                name_resolver,
-                cluster_semilattice_view,
-                static_cast<admin_identifier_format_t>(format),
-                table_meta_client));
+            new table_config_artificial_table_fdb_backend_t(
+                static_cast<admin_identifier_format_t>(format)));
     }
-    table_config_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
+    table_config_sentry = fdb_backend_sentry_t(
+        artificial_reql_cluster_interface->get_table_fdb_backends_map_mutable(),
         name_string_t::guarantee_valid("table_config"),
         std::make_pair(table_config_backend[0].get(), table_config_backend[1].get()));
 

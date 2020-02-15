@@ -1,34 +1,25 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/tables/table_config.hpp"
 
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
-#include "clustering/administration/metadata.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
-#include "concurrency/cross_thread_signal.hpp"
+#include "clustering/administration/real_reql_cluster_interface.hpp"  // for table_already_exists_error
 #include "containers/archive/string_stream.hpp"
 #include "containers/uuid.hpp"
+#include "fdb/index.hpp"
+#include "fdb/system_tables.hpp"
+#include "fdb/typed.hpp"
 #include "rdb_protocol/terms/write_hook.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
-table_config_artificial_table_backend_t::table_config_artificial_table_backend_t(
-        rdb_context_t *_rdb_context,
-        lifetime_t<name_resolver_t const &> name_resolver,
-        std::shared_ptr< semilattice_readwrite_view_t<
-            cluster_semilattice_metadata_t> > _semilattice_view,
-        admin_identifier_format_t _identifier_format,
-        table_meta_client_t *_table_meta_client)
-    : common_table_artificial_table_backend_t(
+table_config_artificial_table_fdb_backend_t::table_config_artificial_table_fdb_backend_t(
+        admin_identifier_format_t _identifier_format)
+    : common_table_artificial_table_fdb_backend_t(
         name_string_t::guarantee_valid("table_config"),
-        name_resolver,
-        _semilattice_view,
-        _table_meta_client,
-        _identifier_format),
-      rdb_context(_rdb_context) {
+        _identifier_format) {
 }
 
-table_config_artificial_table_backend_t::~table_config_artificial_table_backend_t() {
-#if RDB_CF
-    begin_changefeed_destruction();
-#endif
+table_config_artificial_table_fdb_backend_t::~table_config_artificial_table_fdb_backend_t() {
 }
 
 ql::datum_t convert_write_ack_config_to_datum(
@@ -166,33 +157,25 @@ ql::datum_t convert_table_config_to_datum(
     return std::move(builder).to_datum();
 }
 
-void table_config_artificial_table_backend_t::format_row(
-        UNUSED auth::user_context_t const &user_context,
+ql::datum_t table_config_artificial_table_fdb_backend_t::format_row(
         const namespace_id_t &table_id,
-        const table_config_and_shards_t &config,
-        const ql::datum_t &db_name_or_uuid,
-        UNUSED const signal_t *interruptor_on_home,
-        ql::datum_t *row_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
-    assert_thread();
-    *row_out = convert_table_config_to_datum(table_id, db_name_or_uuid,
-        config.config, identifier_format);
+        const table_config_t &config,
+        const ql::datum_t &db_name_or_uuid) const {
+    return convert_table_config_to_datum(table_id, db_name_or_uuid,
+        config, identifier_format);
 }
 
 bool convert_table_config_and_name_from_datum(
         ql::datum_t datum,
         bool existed_before,
-        const cluster_semilattice_metadata_t &all_metadata,
         admin_identifier_format_t identifier_format,
-        const table_config_and_shards_t &old_config,
+        const table_config_t &old_config,
         namespace_id_t *id_out,
         table_config_t *config_out,
-        name_string_t *db_name_out,
-        admin_err_t *error_out)
-        THROWS_ONLY(interrupted_exc_t, admin_op_exc_t) {
+        admin_err_t *error_out) {
     /* In practice, the input will always be an object and the `id` field will always
     be valid, because `artificial_table_t` will check those thing before passing the
-    row to `table_config_artificial_table_backend_t`. But we check them anyway for
+    row to `table_config_artificial_table_fdb_backend_t`. But we check them anyway for
     consistency. */
     converter_from_datum_object_t converter;
     if (!converter.init(datum, error_out)) {
@@ -213,9 +196,10 @@ bool convert_table_config_and_name_from_datum(
     if (!converter.get("db", &db_datum, error_out)) {
         return false;
     }
-    if (!convert_database_id_from_datum(
-            db_datum, identifier_format, all_metadata, &config_out->basic.database,
-            db_name_out, error_out)) {
+    // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
+    if (!convert_uuid_from_datum(
+            db_datum, &config_out->basic.database.value,
+            error_out)) {
         return false;
     }
 
@@ -242,8 +226,8 @@ bool convert_table_config_and_name_from_datum(
         }
 
         if (existed_before) {
-            bool equal = sindexes.size() == old_config.config.sindexes.size();
-            for (const auto &old_sindex : old_config.config.sindexes) {
+            bool equal = sindexes.size() == old_config.sindexes.size();
+            for (const auto &old_sindex : old_config.sindexes) {
                 equal &= sindexes.count(old_sindex.first) == 1;
             }
             if (!equal) {
@@ -251,7 +235,7 @@ bool convert_table_config_and_name_from_datum(
                                  "create or drop indexes.";
                 return false;
             }
-            config_out->sindexes = old_config.config.sindexes;
+            config_out->sindexes = old_config.sindexes;
         } else if (!sindexes.empty()) {
             error_out->msg = "The `indexes` field is read-only and can't be used to "
                              "create indexes.";
@@ -312,16 +296,16 @@ bool convert_table_config_and_name_from_datum(
             return false;
         }
         if (write_hook_datum.has()) {
-            if ((!old_config.config.write_hook &&
+            if ((!old_config.write_hook &&
                  write_hook_datum.get_type() != ql::datum_t::type_t::R_NULL ) ||
                 write_hook_datum
-                != convert_write_hook_to_datum(old_config.config.write_hook)) {
+                != convert_write_hook_to_datum(old_config.write_hook)) {
                 error_out->msg = "The `write_hook` field is read-only and can't" \
                     " be used to create or drop a write hook function.";
                 return false;
             }
         }
-        config_out->write_hook = old_config.config.write_hook;
+        config_out->write_hook = old_config.write_hook;
     } else {
         if (existed_before) {
             error_out->msg = "Expected a field named `write_hook`.";
@@ -339,6 +323,7 @@ bool convert_table_config_and_name_from_datum(
         config_out->user_data = default_user_data();
     }
 
+    // TODO: In fdb-ization, we dropped some keys, like shards, surely.  Tolerate them for now.
     if (!converter.check_no_extra_keys(error_out)) {
         return false;
     }
@@ -346,198 +331,204 @@ bool convert_table_config_and_name_from_datum(
     return true;
 }
 
-void table_config_artificial_table_backend_t::do_modify(
-        const namespace_id_t &table_id,
-        table_config_and_shards_t &&old_config,
-        table_config_t &&new_config_no_shards,
-        const name_string_t &old_db_name,
-        const name_string_t &new_db_name,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t, admin_op_exc_t) {
-    table_config_and_shards_t new_config;
-    new_config.config = std::move(new_config_no_shards);
-
-    if (new_config.config.basic.primary_key != old_config.config.basic.primary_key) {
-        throw admin_op_exc_t("It's illegal to change a table's primary key",
-                             query_state_t::FAILED);
-    }
-
-    if (new_config.config.basic.database != old_config.config.basic.database ||
-            new_config.config.basic.name != old_config.config.basic.name) {
-        if (table_meta_client->exists(
-                new_config.config.basic.database, new_config.config.basic.name)) {
-            throw admin_op_exc_t(
-                strprintf(
-                    "Can't rename table `%s.%s` to `%s.%s` because table `%s.%s` "
-                    "already exists.",
-                    old_db_name.c_str(), old_config.config.basic.name.c_str(),
-                    new_db_name.c_str(), new_config.config.basic.name.c_str(),
-                    new_db_name.c_str(), new_config.config.basic.name.c_str()),
-                query_state_t::FAILED);
-        }
-    }
-
-    table_config_and_shards_change_t table_config_and_shards_change(
-        table_config_and_shards_change_t::set_table_config_and_shards_t{ new_config });
-    table_meta_client->set_config(
-        table_id, table_config_and_shards_change, interruptor);
-}
-
-void table_config_artificial_table_backend_t::do_create(
-        const namespace_id_t &table_id,
-        table_config_t &&new_config_no_shards,
-        const name_string_t &new_db_name,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t, admin_op_exc_t) {
-    table_config_and_shards_t new_config;
-    new_config.config = std::move(new_config_no_shards);
-
-    if (table_meta_client->exists(
-            new_config.config.basic.database, new_config.config.basic.name)) {
-        throw admin_op_exc_t(
-            strprintf("Table `%s.%s` already exists.",
-                      new_db_name.c_str(), new_config.config.basic.name.c_str()),
-            query_state_t::FAILED);
-    }
-
-    table_meta_client->create(table_id, new_config, interruptor);
-}
-
-bool table_config_artificial_table_backend_t::write_row(
+bool table_config_artificial_table_fdb_backend_t::write_row(
+        FDBTransaction *txn,
         auth::user_context_t const &user_context,
         ql::datum_t primary_key,
         bool pkey_was_autogenerated,
         ql::datum_t *new_value_inout,
-        const signal_t *interruptor_on_caller,
+        const signal_t *interruptor,
         admin_err_t *error_out) {
     /* Parse primary key */
+    bool old_exists = false;
+    name_string_t old_db_name;
+    table_config_t old_config;
     namespace_id_t table_id;
-    admin_err_t dummy_error;
-    if (!convert_uuid_from_datum(primary_key, &table_id.value, &dummy_error)) {
-        /* If the primary key was not a valid UUID, then it must refer to a nonexistent
-        row. */
-        guarantee(!pkey_was_autogenerated, "auto-generated primary key should have "
-            "been a valid UUID string.");
-        table_id.value = nil_uuid();
+    {
+        admin_err_t dummy_error;
+        if (!convert_uuid_from_datum(primary_key, &table_id.value, &dummy_error)) {
+            /* If the primary key was not a valid UUID, then it must refer to a nonexistent
+            row. */
+            guarantee(!pkey_was_autogenerated, "auto-generated primary key should have "
+                "been a valid UUID string.");
+            // TODO: Just create an error right here instead of falling through to if (!pkey_was_autogenerated) branch later on.
+            table_id.value = nil_uuid();
+        } else {
+
+            // Fetch the old config.
+            fdb_value_fut<table_config_t> old_config_fut = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+            bool old_seems_to_exist = old_config_fut.block_and_deserialize(interruptor, &old_config);
+
+            if (old_seems_to_exist) {
+                fdb_value_fut<name_string_t> db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(txn, old_config.basic.database);
+                old_exists = db_by_id_fut.block_and_deserialize(interruptor, &old_db_name);
+            }
+        }
     }
 
-    cross_thread_signal_t interruptor_on_home(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-    cluster_semilattice_metadata_t metadata = semilattice_view->get();
+    if (old_exists) {
+        auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
+            = user_context.transaction_require_db_and_table_config_permission(
+                txn, old_config.basic.database, table_id);
 
-    try {
-        try {
-            /* Fetch the name of the table and its database for error messages */
-            table_basic_config_t old_basic_config;
-            table_meta_client->get_name(table_id, &old_basic_config);
-            guarantee(!pkey_was_autogenerated, "UUID collision happened");
+        // TODO: Maybe parallelize a bit.
+        auth_fut.block_and_check(interruptor);
 
-            user_context.require_config_permission(
-                rdb_context, old_basic_config.database, table_id);
-
-            name_string_t old_db_name;
-            if (!convert_database_id_to_datum(old_basic_config.database,
-                    identifier_format, metadata, nullptr, &old_db_name)) {
-                old_db_name = name_string_t::guarantee_valid("__deleted_database__");
-            }
-
-            if (new_value_inout->has()) {
-                table_config_and_shards_t old_config;
-                try {
-                    table_meta_client->get_config(
-                        table_id, &interruptor_on_home, &old_config);
-                } CATCH_OP_ERRORS(old_db_name, old_basic_config.name, error_out,
-                    "Failed to retrieve the table's configuration, it was not changed.",
-                    "Failed to retrieve the table's configuration, it was not changed.")
-
-                table_config_t new_config;
-                namespace_id_t new_table_id;
-                name_string_t new_db_name;
-                if (!convert_table_config_and_name_from_datum(*new_value_inout, true,
-                        metadata, identifier_format,
-                        old_config,
-                        &new_table_id, &new_config, &new_db_name,
-                        error_out)) {
-                    error_out->msg = "The change you're trying to make to "
-                        "`rethinkdb.table_config` has the wrong format. "
-                        + error_out->msg;
-                    return false;
-                }
-                guarantee(new_table_id == table_id, "artificial_table_t shouldn't have "
-                    "allowed the primary key to change");
-
-                // Verify the user is allowed to move the table to the new database.
-                if (new_config.basic.database != old_basic_config.database) {
-                    user_context.require_config_permission(
-                        rdb_context, new_config.basic.database);
-                }
-
-                try {
-                    do_modify(table_id, std::move(old_config), std::move(new_config),
-                        old_db_name, new_db_name,
-                        &interruptor_on_home);
-                    return true;
-                } CATCH_OP_ERRORS(old_db_name, old_basic_config.name, error_out,
-                    "The table's configuration was not changed.",
-                    "The table's configuration may or may not have been changed.")
-            } else {
-                try {
-                    table_meta_client->drop(table_id, &interruptor_on_home);
-                    return true;
-                } CATCH_OP_ERRORS(old_db_name, old_basic_config.name, error_out,
-                    "The table was not dropped.",
-                    "The table may or may not have been dropped.")
-            }
-        } catch (const no_such_table_exc_t &) {
-            /* Fall through */
-        }
         if (new_value_inout->has()) {
-            if (!pkey_was_autogenerated) {
-                *error_out = admin_err_t{
-                    "There is no existing table with the given ID. To create a "
-                    "new table by inserting into `rethinkdb.table_config`, you must let "
-                    "the database generate the primary key automatically.",
-                    query_state_t::FAILED};
-                return false;
-            }
-
+            // TODO: identifier_format freaks me out.
             namespace_id_t new_table_id;
             table_config_t new_config;
-            name_string_t new_db_name;
-            if (!convert_table_config_and_name_from_datum(*new_value_inout, false,
-                    metadata, identifier_format,
-                    table_config_and_shards_t(),
-                    &new_table_id, &new_config,
-                    &new_db_name, error_out)) {
+            if (!convert_table_config_and_name_from_datum(*new_value_inout, true,
+                identifier_format, old_config, &new_table_id, &new_config,
+                error_out)) {
                 error_out->msg = "The change you're trying to make to "
-                    "`rethinkdb.table_config` has the wrong format. " + error_out->msg;
+                    "`rethinkdb.table_config` has the wrong format. "
+                    + error_out->msg;
                 return false;
             }
             guarantee(new_table_id == table_id, "artificial_table_t shouldn't have "
                 "allowed the primary key to change");
 
-            /* `convert_table_config_and_name_from_datum()` might have filled in missing
-            fields, so we need to write back the filled-in values to `new_value_inout`.
-            */
-            *new_value_inout = convert_table_config_to_datum(
-                table_id, new_value_inout->get_field("db"), new_config,
-                identifier_format);
+            // At this point, we're now going to mutate the table config in-place.
 
-            try {
-                do_create(table_id, std::move(new_config),
-                    new_db_name, &interruptor_on_home);
+            // 0. If there is no config change, don't write anything.  We did already
+            // check permission.  Avoid spurious reqlfdb_config_version increments.
+            if (new_config == old_config) {
                 return true;
-            } CATCH_OP_ERRORS(new_db_name, new_config.basic.name, error_out,
-                "The table was not created.",
-                "The table may or may not have been created.")
+            }
+
+            fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+            // 1. Check the new db exists, if different from the old.
+
+            const bool db_changed = new_config.basic.database != old_config.basic.database;
+
+            name_string_t new_db_name;
+            if (db_changed) {
+                // TODO: Read the user_t _once_, not twice as with here and auth_fut.
+                auth::fdb_user_fut<auth::db_config_permission> auth2_fut
+                    = user_context.transaction_require_db_config_permission(txn, new_config.basic.database);
+                fdb_value_fut<name_string_t> new_db_fut
+                    = transaction_lookup_uq_index<db_config_by_id>(txn, new_config.basic.database);
+
+                auth2_fut.block_and_check(interruptor);
+                if (!new_db_fut.block_and_deserialize(interruptor, &new_db_name)) {
+                    // TODO: Better message, saying the move destination x -> y, etc.
+                    *error_out = admin_err_t{
+                        strprintf("The database with id `%s` does not exist.",
+                            uuid_to_str(new_config.basic.database).c_str()),
+                        query_state_t::FAILED};
+                    return false;
+                }
+            } else {
+                new_db_name = old_db_name;
+            }
+
+            if (new_config.basic.primary_key != old_config.basic.primary_key) {
+                *error_out = admin_err_t{"It's illegal to change a table's primary key",
+                     query_state_t::FAILED};
+                 return false;
+            }
+
+            if (db_changed || new_config.basic.name != old_config.basic.name) {
+                // We'll have to update the index entry and check for name conflicts
+                // (either with the new name in the same db, or the name in the new
+                // db).
+                ukey_string old_table_index_key = table_by_name_key(old_config.basic.database,
+                    old_config.basic.name);
+                ukey_string new_table_index_key = table_by_name_key(new_config.basic.database,
+                    new_config.basic.name);
+                fdb_future fut = transaction_lookup_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME,
+                    new_table_index_key);
+
+                fdb_value new_table_index_value = future_block_on_value(fut.fut, interruptor);
+                if (new_table_index_value.present) {
+                    *error_out = table_already_exists_error(new_db_name, new_config.basic.name);
+                    return false;
+                }
+
+                std::string table_pkey_value = serialize_for_cluster_to_string(new_table_id);
+                transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, old_table_index_key);
+                transaction_set_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, new_table_index_key,
+                    table_pkey_value);
+            }
+
+            transaction_set_uq_index<table_config_by_id>(txn, table_id, new_config);
+
+            reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+            cv.value++;
+            transaction_set_config_version(txn, cv);
+            return true;
         } else {
-            /* The user is deleting a table that doesn't exist. Do nothing. */
+            fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+            help_remove_table(txn, table_id, old_config, interruptor);
+            reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+            cv.value++;
+            transaction_set_config_version(txn, cv);
             return true;
         }
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
+    }
+
+    if (!new_value_inout->has()) {
+        /* The user is deleting a table that doesn't exist. Do nothing. */
+        return true;
+    }
+
+    // Now we're creating a table.
+    if (!pkey_was_autogenerated) {
+        *error_out = admin_err_t{
+            "There is no existing table with the given ID. To create a "
+            "new table by inserting into `rethinkdb.table_config`, you must let "
+            "the database generate the primary key automatically.",
+            query_state_t::FAILED};
         return false;
     }
+
+    namespace_id_t new_table_id;
+    table_config_t new_config;
+    if (!convert_table_config_and_name_from_datum(*new_value_inout, false,
+        identifier_format, table_config_t(),
+        &new_table_id, &new_config, error_out)) {
+        error_out->msg = "The change you're trying to make to "
+            "`rethinkdb.table_config` has the wrong format. " + error_out->msg;
+        return false;
+    }
+    guarantee(new_table_id == table_id, "artificial_table_t shouldn't have "
+        "allowed the primary key to change");
+
+    /* `convert_table_config_and_name_from_datum()` might have filled in missing
+    fields, so we need to write back the filled-in values to `new_value_inout`.
+    */
+    *new_value_inout = convert_table_config_to_datum(
+        table_id, new_value_inout->get_field("db"), new_config,
+        identifier_format);
+
+    // At this point we need to create the table.
+
+    // Consistency check:  Check if the new table config db exists.
+    // TODO: When we start paying attention to identifier_format, we might need to check by name.
+    fdb_value_fut<name_string_t> new_db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(txn, new_config.basic.database);
+    name_string_t new_db_name;
+    if (!new_db_by_id_fut.block_and_deserialize(interruptor, &new_db_name)) {
+        // TODO: dedup general db does not exist error.  And a better error message for system db.
+        *error_out = admin_err_t{
+            strprintf("The database with id `%s` does not exist.",
+                uuid_to_str(new_config.basic.database).c_str()),
+            query_state_t::FAILED};
+        return false;
+    }
+
+    // This updates the reqlfdb_config_version.
+    bool success = config_cache_table_create(txn, config_version_checker::empty(),
+        user_context, new_table_id, new_config, interruptor);
+    if (!success) {
+        *error_out = admin_err_t{
+            strprintf("Table `%s.%s` already exists.",
+                      new_db_name.c_str(), new_config.basic.name.c_str()),
+            query_state_t::FAILED};
+        return false;
+    }
+
+    return true;
 }

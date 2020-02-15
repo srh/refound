@@ -12,13 +12,16 @@
 #include "rdb_protocol/context.hpp"
 #include "rpc/semilattice/view.hpp"
 
+// QQQ: Remove these and some includes.
 class cluster_semilattice_metadata_t;
 class name_resolver_t;
 class table_config_and_shards_t;
+class table_config_t;
 
 /* This is a base class for the `rethinkdb.table_config` and `rethinkdb.table_status`
 pseudo-tables. Subclasses should implement `format_row()` and `write_row()`. */
 
+// QQQ: remove
 class common_table_artificial_table_backend_t :
 #if RDB_CF
     public timer_cfeed_artificial_table_backend_t
@@ -84,6 +87,59 @@ protected:
     table_meta_client_t *table_meta_client;
     admin_identifier_format_t identifier_format;
 };
+
+class common_table_artificial_table_fdb_backend_t :
+#if RDB_CF
+    public timer_cfeed_artificial_table_fdb_backend_t
+#else
+    public artificial_table_fdb_backend_t
+#endif
+{
+public:
+    common_table_artificial_table_fdb_backend_t(
+            name_string_t const &table_name,
+            admin_identifier_format_t _identifier_format);
+
+    std::string get_primary_key_name() const override;
+
+    bool read_all_rows_as_vector(
+            FDBDatabase *fdb,
+            auth::user_context_t const &user_context,
+            const signal_t *interruptor_on_caller,
+            std::vector<ql::datum_t> *rows_out,
+            admin_err_t *error_out) override;
+
+    bool read_row(
+            FDBTransaction *txn,
+            auth::user_context_t const &user_context,
+            ql::datum_t primary_key,
+            const signal_t *interruptor_on_caller,
+            ql::datum_t *row_out,
+            admin_err_t *error_out) override;
+
+protected:
+    virtual ql::datum_t format_row(
+            const namespace_id_t &table_id,
+            const table_config_t &config,
+            /* In theory `db_name_or_uuid` can be computed from `config`, but the
+            computation is non-trivial, so it's easier if `table_common` does it for all
+            the subclasses. */
+            const ql::datum_t &db_name_or_uuid) const = 0;
+
+    /* This is called for tables that we couldn't even determine the current
+    configuration of, because every single server for the table is disconnected. The
+    default implementation produces a document with an `error` field describing the
+    problem. */
+    virtual void format_error_row(
+            auth::user_context_t const &user_context,
+            const namespace_id_t &table_id,
+            const ql::datum_t &db_name_or_uuid,
+            const name_string_t &table_name,
+            ql::datum_t *row_out);
+
+    const admin_identifier_format_t identifier_format;
+};
+
 
 #endif /* CLUSTERING_ADMINISTRATION_TABLES_TABLE_COMMON_HPP_ */
 

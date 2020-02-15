@@ -18,6 +18,13 @@ namespace ql {
 class db_t;
 }
 
+struct ukey_string;
+
+// TODO: Move somewhere appropriate.
+ukey_string table_by_name_key(
+        const database_id_t &db_id,
+        const name_string_t &table_name);
+
 // TODO: Move this into reqlfdb_config_cache.hpp
 
 // These functions are declared here because reqlfdb_config_cache is used by context.hpp
@@ -50,7 +57,7 @@ MUST_USE bool config_cache_db_create(
 
 MUST_USE bool config_cache_table_create(
     FDBTransaction *txn,
-    reqlfdb_config_version expected_cv,
+    config_version_checker expected_cv,
     const auth::user_context_t &user_context,
     const namespace_id_t &new_table_id,
     const table_config_t &config,
@@ -69,6 +76,13 @@ MUST_USE bool help_remove_table_if_exists(
     database_id_t db_id,
     const std::string &table_name,
     const signal_t *interruptor);
+
+// Doesn't update config version!
+void help_remove_table(
+        FDBTransaction *txn,
+        const namespace_id_t &table_id,
+        const table_config_t &config,
+        const signal_t *interruptor);
 
 MUST_USE optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         FDBTransaction *txn,

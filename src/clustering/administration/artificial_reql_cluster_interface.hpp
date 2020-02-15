@@ -130,7 +130,6 @@ public:
         table_meta_client_t *table_meta_client,
         server_config_client_t *server_config_client,
         mailbox_manager_t *mailbox_manager,
-        rdb_context_t *rdb_context,
         lifetime_t<name_resolver_t const &> name_resolver);
 
 private:
@@ -167,8 +166,8 @@ private:
     scoped_ptr_t<stats_artificial_table_backend_t> stats_backend[2];
     backend_sentry_t stats_sentry;
 
-    scoped_ptr_t<table_config_artificial_table_backend_t> table_config_backend[2];
-    backend_sentry_t table_config_sentry;
+    scoped_ptr_t<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
+    fdb_backend_sentry_t table_config_sentry;
 
     scoped_ptr_t<table_status_artificial_table_backend_t> table_status_backend[2];
     backend_sentry_t table_status_sentry;

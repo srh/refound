@@ -312,7 +312,7 @@ private:
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 bool success = config_cache_table_create(
-                    txn, db->cv.assert_nonempty(),
+                    txn, db->cv,
                     env->env->get_user_context(), new_table_id, config,
                     env->env->interruptor);
                 if (success) {

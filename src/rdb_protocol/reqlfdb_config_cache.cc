@@ -492,7 +492,7 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
 
 bool config_cache_table_create(
         FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
+        config_version_checker expected_cv,
         const auth::user_context_t &user_context,
         const namespace_id_t &new_table_id,
         const table_config_t &config,
@@ -537,12 +537,9 @@ bool config_cache_table_create(
     // Okay, the db's present, the table is not present.  Create the table.
 
     // TODO: Figure out how to name these sorts of variables.
-    ukey_string table_pkey = table_by_id_key(new_table_id);
-    std::string table_config_value = serialize_for_cluster_to_string(config);
     std::string table_pkey_value = serialize_for_cluster_to_string(new_table_id);
 
-    transaction_set_pkey_index(txn, REQLFDB_TABLE_CONFIG_BY_ID, table_pkey,
-        table_config_value);
+    transaction_set_uq_index<table_config_by_id>(txn, new_table_id, config);
     transaction_set_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key,
         table_pkey_value);
 

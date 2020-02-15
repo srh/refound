@@ -5,6 +5,9 @@
 #include "clustering/administration/metadata.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
+#include "fdb/retry_loop.hpp"
+#include "fdb/system_tables.hpp"
+
 
 common_table_artificial_table_backend_t::common_table_artificial_table_backend_t(
         name_string_t const &table_name,
@@ -156,4 +159,117 @@ void common_table_artificial_table_backend_t::format_error_row(
         ql::datum_t("None of the replicas for this table are accessible."));
     *row_out = std::move(builder).to_datum();
 }
+
+// TODO: Remove above.
+
+common_table_artificial_table_fdb_backend_t::common_table_artificial_table_fdb_backend_t(
+        name_string_t const &table_name,
+        admin_identifier_format_t _identifier_format)
+#if RDB_CF
+    : timer_cfeed_artificial_table_fdb_backend_t(table_name),
+#else
+    : artificial_table_fdb_backend_t(table_name),
+#endif
+      identifier_format(_identifier_format) {
+}
+
+std::string common_table_artificial_table_fdb_backend_t::get_primary_key_name() const {
+    return "id";
+}
+
+bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
+        FDBDatabase *fdb,
+        UNUSED auth::user_context_t const &user_context,
+        const signal_t *interruptor,
+        std::vector<ql::datum_t> *rows_out,
+        UNUSED admin_err_t *error_out) {
+    // QQQ: Did we need to use user_context_t here?
+
+    // TODO: Break into parts...
+    std::string prefix = table_config_by_id::prefix;
+    std::string pend = prefix_end(prefix);
+    std::vector<std::pair<namespace_id_t, table_config_t>> configs;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&](FDBTransaction *txn) {
+        // TODO: Might be worth making a typed version of this -- similar code to config_cache_db_list_sorted_by_id.
+        transaction_read_whole_range_coro(txn, prefix, pend, interruptor,
+                [&](const FDBKeyValue &kv) {
+            key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+            key_view key = whole_key.guarantee_without_prefix(prefix);
+            namespace_id_t table_id = table_config_by_id::parse_ukey(key);
+            table_config_by_id::value_type config;
+            deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &config);
+            configs.emplace_back(table_id, std::move(config));
+            return true;
+        });
+    });
+    guarantee_fdb_TODO(loop_err, "common_table_artificial_table_fdb_backend_t::"
+        "read_all_rows_as_vector retry loop");
+
+    std::vector<ql::datum_t> rows;
+    rows.reserve(configs.size());
+    for (auto &pair : configs) {
+        // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
+        ql::datum_t db_name_or_uuid = convert_uuid_to_datum(pair.second.basic.database.value);
+        rows.push_back(format_row(
+            pair.first,
+            pair.second,
+            db_name_or_uuid));
+    }
+    *rows_out = std::move(rows);
+    return true;
+}
+
+bool common_table_artificial_table_fdb_backend_t::read_row(
+        FDBTransaction *txn,
+        UNUSED auth::user_context_t const &user_context,
+        ql::datum_t primary_key,
+        const signal_t *interruptor,
+        ql::datum_t *row_out,
+        UNUSED admin_err_t *error_out) {
+    // TODO: Did we need to use user_context here?
+    namespace_id_t table_id;
+    admin_err_t dummy_error;
+    if (!convert_uuid_from_datum(primary_key, &table_id.value, &dummy_error)) {
+        /* If the primary key was not a valid UUID, then it must refer to a nonexistent
+        row. */
+        *row_out = ql::datum_t::null();
+        return true;
+    }
+
+    // QQQ: This excludes the system tables, right?
+    fdb_value_fut<table_config_t> config_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+
+    table_config_t config;
+    if (!config_fut.block_and_deserialize(interruptor, &config)) {
+        *row_out = ql::datum_t::null();
+        return true;
+    }
+
+    // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
+    ql::datum_t db_name_or_uuid = convert_uuid_to_datum(config.basic.database.value);
+    *row_out = format_row(
+        table_id,
+        config,
+        db_name_or_uuid);
+    return true;
+}
+
+// QQQ: Remove unused?
+void common_table_artificial_table_fdb_backend_t::format_error_row(
+        UNUSED auth::user_context_t const &user_context,
+        const namespace_id_t &table_id,
+        const ql::datum_t &db_name_or_uuid,
+        const name_string_t &table_name,
+        ql::datum_t *row_out) {
+    ql::datum_object_builder_t builder;
+    builder.overwrite("id", convert_uuid_to_datum(table_id.value));
+    builder.overwrite("db", db_name_or_uuid);
+    builder.overwrite("name", convert_name_to_datum(table_name));
+    builder.overwrite("error",
+        ql::datum_t("None of the replicas for this table are accessible."));
+    *row_out = std::move(builder).to_datum();
+}
+
 
