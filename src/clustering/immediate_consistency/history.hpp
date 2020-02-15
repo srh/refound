@@ -120,17 +120,6 @@ bool version_is_ancestor(
     const region_t &relevant_region)
     THROWS_ONLY(missing_branch_exc_t);
 
-/* `version_find_common()` finds the last common ancestor of two other versions. The
-result may be different for different sub-regions, so it returns a `region_map_t`. Throws
-`missing_branch_exc_t` if the question can't be answered because some history is missing.
-*/
-region_map_t<version_t> version_find_common(
-    const branch_history_reader_t *bh,
-    const version_t &v1,
-    const version_t &v2,
-    const region_t &relevant_region)
-    THROWS_ONLY(missing_branch_exc_t);
-
 /* `version_find_branch_common()` is like `version_find_common()` but in place of one of
 the versions, it uses the latest version on the given branch. */
 region_map_t<version_t> version_find_branch_common(
