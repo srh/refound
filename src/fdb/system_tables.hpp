@@ -30,6 +30,13 @@ struct db_config_by_id {
         // We make an aesthetic key.
         return ukey_string{uuid_to_str(k.value)};
     }
+
+    static ukey_type parse_ukey(key_view k) {
+        database_id_t ret;
+        bool is_uuid = str_to_uuid(as_char(k.data), size_t(k.length), &ret.value);
+        guarantee(is_uuid, "db_config_by_id parse_ukey sees bad key");
+        return ret;
+    }
 };
 
 struct db_config_by_name {

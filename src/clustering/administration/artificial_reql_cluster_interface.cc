@@ -5,7 +5,6 @@
 #include "clustering/administration/auth/grant.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/metadata.hpp"
-#include "clustering/administration/real_reql_cluster_interface.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/env.hpp"
@@ -196,7 +195,6 @@ bool artificial_reql_cluster_interface_t::next_or_error(admin_err_t *error_out) 
 
 artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
-        real_reql_cluster_interface_t *real_reql_cluster_interface,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
@@ -233,15 +231,9 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         std::make_pair(users_backend.get(), users_backend.get()));
 
     db_config_backend.init(
-        new db_config_artificial_table_backend_t(
-            rdb_context,
-            name_resolver,
-            metadata_field(
-                &cluster_semilattice_metadata_t::databases,
-                cluster_semilattice_view),
-            real_reql_cluster_interface));
-    db_config_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
+        new db_config_artificial_table_fdb_backend_t());
+    db_config_sentry = fdb_backend_sentry_t(
+        artificial_reql_cluster_interface->get_table_fdb_backends_map_mutable(),
         name_string_t::guarantee_valid("db_config"),
         std::make_pair(db_config_backend.get(), db_config_backend.get()));
 

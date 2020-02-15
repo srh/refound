@@ -103,6 +103,7 @@ bool jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         return true;
     }
 
+    // TODO: Break into multiple txn's?  And such.
     std::vector<ql::datum_t> rows;
     // job_reports is naturally sorted by job id.
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {

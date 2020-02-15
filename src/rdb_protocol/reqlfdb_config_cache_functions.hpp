@@ -82,10 +82,20 @@ MUST_USE optional<database_id_t> config_cache_db_drop(
     const auth::user_context_t &user_context,
     const name_string_t &db_name, const signal_t *interruptor);
 
+// db_name MUST have come from the db_by_name or db_by_id index! (in the same txn of
+// course)
+void config_cache_db_drop_uuid(
+        FDBTransaction *txn, const auth::user_context_t &user_context,
+        const database_id_t &db_id, const name_string_t &db_name,
+        const signal_t *interruptor);
+
 std::vector<name_string_t> config_cache_db_list_sorted(
     FDBTransaction *txn,
     const signal_t *interruptor);
 
+std::vector<std::pair<database_id_t, name_string_t>> config_cache_db_list_sorted_by_id(
+    FDBTransaction *txn,
+    const signal_t *interruptor);
 
 std::vector<name_string_t> config_cache_table_list_sorted(
     FDBTransaction *txn,

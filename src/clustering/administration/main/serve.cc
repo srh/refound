@@ -301,7 +301,6 @@ bool do_serve(FDBDatabase *fdb,
 
             artificial_reql_cluster_backends_t artificial_reql_cluster_backends(
                 &artificial_reql_cluster_interface,
-                &real_reql_cluster_interface,
                 semilattice_manager_auth.get_root_view(),
                 semilattice_manager_cluster.get_root_view(),
                 directory_read_manager.get_root_view(),

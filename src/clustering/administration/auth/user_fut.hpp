@@ -45,7 +45,6 @@ public:
     T checker;
 };
 
-
 }  // namespace auth
 
 #endif  // CLUSTERING_ADMINISTRATION_AUTH_USER_FUT_HPP

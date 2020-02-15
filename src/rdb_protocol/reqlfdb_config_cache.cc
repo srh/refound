@@ -283,19 +283,12 @@ bool config_cache_db_create(
 
 // TODO: Use uniform reql datum primary key serialization, how about that idea?
 
-optional<database_id_t> config_cache_db_drop(
+// db_name must come from the db (in the same txn).
+void config_cache_db_drop_uuid(
         FDBTransaction *txn, const auth::user_context_t &user_context,
-        const name_string_t &db_name, const signal_t *interruptor) {
+        const database_id_t &db_id, const name_string_t &db_name,
+        const signal_t *interruptor) {
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-    fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(
-        txn, db_name);
-
-    fdb_value value = future_block_on_value(fut.fut, interruptor);
-    database_id_t db_id;
-    if (!deserialize_off_fdb_value(value, &db_id)) {
-        return r_nullopt;
-    }
-
     // TODO: We could get the table id's concurrently (in a coro).
     std::vector<namespace_id_t> table_ids;
     {
@@ -343,7 +336,21 @@ optional<database_id_t> config_cache_db_drop(
 
     cv.value++;
     transaction_set_config_version(txn, cv);
+}
 
+optional<database_id_t> config_cache_db_drop(
+        FDBTransaction *txn, const auth::user_context_t &user_context,
+        const name_string_t &db_name, const signal_t *interruptor) {
+    fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(
+        txn, db_name);
+
+    fdb_value value = future_block_on_value(fut.fut, interruptor);
+    database_id_t db_id;
+    if (!deserialize_off_fdb_value(value, &db_id)) {
+        return r_nullopt;
+    }
+
+    config_cache_db_drop_uuid(txn, user_context, db_id, db_name, interruptor);
     return make_optional(db_id);
 }
 
@@ -549,10 +556,9 @@ std::vector<name_string_t> config_cache_db_list_sorted(
         FDBTransaction *txn,
         const signal_t *interruptor) {
     std::string db_by_name_prefix = db_config_by_name::prefix;
-    std::string db_by_name_end = prefix_end(db_by_name_prefix);
     std::vector<name_string_t> db_names;
     transaction_read_whole_range_coro(txn,
-        db_by_name_prefix, db_by_name_end, interruptor,
+        db_by_name_prefix, prefix_end(db_by_name_prefix), interruptor,
         [&db_names, &db_by_name_prefix](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view key = whole_key.guarantee_without_prefix(db_by_name_prefix);
@@ -565,6 +571,25 @@ std::vector<name_string_t> config_cache_db_list_sorted(
         });
     // db_names is in sorted order.
     return db_names;
+}
+
+std::vector<std::pair<database_id_t, name_string_t>> config_cache_db_list_sorted_by_id(
+        FDBTransaction *txn,
+        const signal_t *interruptor) {
+    std::string db_by_id_prefix = db_config_by_id::prefix;
+    std::vector<std::pair<database_id_t, name_string_t>> ret;
+    transaction_read_whole_range_coro(txn,
+        db_by_id_prefix, prefix_end(db_by_id_prefix), interruptor,
+            [&ret, &db_by_id_prefix](const FDBKeyValue &kv) {
+        key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+        key_view key = whole_key.guarantee_without_prefix(db_by_id_prefix);
+        database_id_t db_id = db_config_by_id::parse_ukey(key);
+        name_string_t db_name;
+        deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &db_name);
+        ret.emplace_back(db_id, db_name);
+        return true;
+    });
+    return ret;
 }
 
 // TODO: If we can't iterate the tables in a single txn, we could do a snapshot read

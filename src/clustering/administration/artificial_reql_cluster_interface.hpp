@@ -29,7 +29,6 @@
 #include "rdb_protocol/context.hpp"
 
 class name_resolver_t;
-class real_reql_cluster_interface_t;
 class server_config_client_t;
 class table_meta_client_t;
 
@@ -121,7 +120,6 @@ class artificial_reql_cluster_backends_t {
 public:
     artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
-        real_reql_cluster_interface_t *real_reql_cluster_interface,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
             auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
@@ -151,8 +149,8 @@ private:
     scoped_ptr_t<auth::users_artificial_table_backend_t> users_backend;
     backend_sentry_t users_sentry;
 
-    scoped_ptr_t<db_config_artificial_table_backend_t> db_config_backend;
-    backend_sentry_t db_config_sentry;
+    scoped_ptr_t<db_config_artificial_table_fdb_backend_t> db_config_backend;
+    fdb_backend_sentry_t db_config_sentry;
 
     scoped_ptr_t<issues_artificial_table_backend_t> issues_backend[2];
     backend_sentry_t issues_sentry;
