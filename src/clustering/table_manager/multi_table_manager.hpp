@@ -79,14 +79,6 @@ public:
         io_backender_t *_io_backender,
         perfmon_collection_repo_t *_perfmon_collection_repo);
 
-    /* This constructor is used on proxy servers. */
-    multi_table_manager_t(
-        mailbox_manager_t *_mailbox_manager,
-        watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
-            *_multi_table_manager_directory,
-        watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
-            *_table_manager_directory);
-
     ~multi_table_manager_t();
 
     multi_table_manager_bcard_t get_multi_table_manager_bcard() {

@@ -12,13 +12,9 @@ TEST(ServerIdTest, Generate) {
     std::set<server_id_t> ids;
     for (int i = 0; i < 1000; ++i) {
         server_id_t sid = server_id_t::generate_server_id();
-        ASSERT_FALSE(sid.is_proxy());
         ids.insert(sid);
-        server_id_t pid = server_id_t::generate_proxy_id();
-        ASSERT_TRUE(pid.is_proxy());
-        ids.insert(pid);
     }
-    ASSERT_EQ(ids.size(), 2000);
+    ASSERT_EQ(ids.size(), 1000);
 }
 
 TEST(ServerIdTest, PrintAndParse) {
@@ -27,11 +23,6 @@ TEST(ServerIdTest, PrintAndParse) {
         server_id_t parsed_sid;
         ASSERT_TRUE(str_to_server_id(sid.print(), &parsed_sid));
         ASSERT_EQ(sid, parsed_sid);
-
-        server_id_t pid = server_id_t::generate_proxy_id();;
-        server_id_t parsed_pid;
-        ASSERT_TRUE(str_to_server_id(pid.print(), &parsed_pid));
-        ASSERT_EQ(pid, parsed_pid);
     }
 }
 
@@ -55,18 +46,12 @@ TEST(ServerIdTest, Serialization) {
     for (int i = 0; i < 1000; ++i) {
         server_id_t sid = server_id_t::generate_server_id();
         ASSERT_EQ(sid, roundtrip_serialize(sid));
-
-        server_id_t pid = server_id_t::generate_proxy_id();;
-        ASSERT_EQ(pid, roundtrip_serialize(pid));
     }
 }
 
 TEST(ServerIdTest, NilId) {
     server_id_t sid = server_id_t::from_server_uuid(nil_uuid());
     ASSERT_EQ(sid, roundtrip_serialize(sid));
-
-    server_id_t pid = server_id_t::from_proxy_uuid(nil_uuid());;
-    ASSERT_EQ(pid, roundtrip_serialize(pid));
 }
 
 }  // namespace unittest

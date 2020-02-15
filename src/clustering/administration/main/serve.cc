@@ -87,15 +87,13 @@ std::string run_uname(const std::string &flags);
 
 bool do_serve(FDBDatabase *fdb,
               io_backender_t *io_backender,
-              bool i_am_a_server,
               // NB. filepath & persistent_file are used only if i_am_a_server is true.
               const base_path_t &base_path,
               metadata_file_t *metadata_file,
               const serve_info_t &serve_info,
-              os_signal_cond_t *stop_cond,
-              /* For regular servers, the initial password is already set in the
-              metadata and this will be empty. */
-              const std::string &proxy_initial_password = "") {
+              os_signal_cond_t *stop_cond) {
+    // Vestigial proxy code exists.
+    const bool i_am_a_server = true;
     /* This coroutine is responsible for creating and destroying most of the important
     components of the server. */
 
@@ -121,19 +119,12 @@ bool do_serve(FDBDatabase *fdb,
         cluster_semilattice_metadata_t cluster_metadata;
         auth_semilattice_metadata_t auth_metadata;
         server_id_t server_id;
-        if (metadata_file != nullptr) {
-            guarantee(proxy_initial_password.empty());
+        if (true) {
             cond_t non_interruptor;
             metadata_file_t::read_txn_t txn(metadata_file, &non_interruptor);
             cluster_metadata = txn.read(mdkey_cluster_semilattices());
             auth_metadata = txn.read(mdkey_auth_semilattices());
             server_id = txn.read(mdkey_server_id());
-        } else {
-            // We are a proxy, generate a temporary proxy server id.
-            server_id = server_id_t::generate_proxy_id();
-            auth_metadata.m_users.insert(
-                auth_semilattice_metadata_t::create_initial_admin_pair(
-                    proxy_initial_password));
         }
 
 #ifndef NDEBUG
@@ -257,14 +248,6 @@ bool do_serve(FDBDatabase *fdb,
                     base_path,
                     io_backender,
                     &perfmon_collection_repo));
-            } else {
-                /* Proxies still need a `multi_table_manager_t` because it takes care of
-                receiving table names, databases, and primary keys from other servers and
-                providing them to the `table_meta_client_t`. */
-                multi_table_manager.init(new multi_table_manager_t(
-                    &mailbox_manager,
-                    &multi_table_manager_directory,
-                    table_directory_read_manager.get_root_view()));
             }
 
             artificial_reql_cluster_interface_t artificial_reql_cluster_interface(
@@ -585,26 +568,8 @@ bool serve(FDBDatabase *fdb,
            os_signal_cond_t *stop_cond) {
     return do_serve(fdb,
                     io_backender,
-                    true,
                     base_path,
                     metadata_file,
                     serve_info,
                     stop_cond);
-}
-
-// TODO: Do we have this?
-bool serve_proxy(FDBDatabase *fdb,
-                 const serve_info_t &serve_info,
-                 const std::string &initial_password,
-                 os_signal_cond_t *stop_cond) {
-    // TODO: filepath doesn't _seem_ ignored.
-    // filepath and persistent_file are ignored for proxies, so we use the empty string & NULL respectively.
-    return do_serve(fdb,
-                    nullptr,
-                    false,
-                    base_path_t(""),
-                    nullptr,
-                    serve_info,
-                    stop_cond,
-                    initial_password);
 }

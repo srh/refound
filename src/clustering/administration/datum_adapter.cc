@@ -130,12 +130,7 @@ bool convert_connected_server_id_to_datum(
         ql::datum_t *server_name_or_uuid_out,
         name_string_t *server_name_out) {
     optional<name_string_t> name;
-    if (server_id.is_proxy()) {
-        // Fill in a temporary proxy server name.
-        // We assume that proxies only appear anywhere if they are currently
-        // connected, so we don't need a separate check for connectedness.
-        name.set(name_string_t::guarantee_valid(server_id.print().c_str()));
-    } else {
+    {
         server_config_client->get_server_config_map()->read_key(server_id,
             [&](const server_config_versioned_t *config) {
                 if (config != nullptr) {

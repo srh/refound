@@ -65,26 +65,6 @@ multi_table_manager_t::multi_table_manager_t(
     help_construct();
 }
 
-/* This constructor is used for proxy servers. */
-multi_table_manager_t::multi_table_manager_t(
-        mailbox_manager_t *_mailbox_manager,
-        watchable_map_t<peer_id_t, multi_table_manager_bcard_t>
-            *_multi_table_manager_directory,
-        watchable_map_t<std::pair<peer_id_t, namespace_id_t>, table_manager_bcard_t>
-            *_table_manager_directory) :
-    is_proxy_server(true),
-    server_id(server_id_t::from_server_uuid(nil_uuid())),
-    mailbox_manager(_mailbox_manager),
-    multi_table_manager_directory(_multi_table_manager_directory),
-    table_manager_directory(_table_manager_directory),
-    persistence_interface(nullptr),
-    base_path(r_nullopt),
-    io_backender(nullptr),
-    perfmon_collection_repo(nullptr)
-{
-    help_construct();
-}
-
 multi_table_manager_t::~multi_table_manager_t() {
     /* First, shut out further mailbox events or watchable callbacks. This ensures that
     tables are not created or destroyed, nor are their states changed (active vs.

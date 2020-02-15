@@ -1279,27 +1279,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
     }
 }
 
-void run_rethinkdb_proxy(
-        FDBDatabase *db,
-        serve_info_t *serve_info,
-        const std::string &initial_password,
-        bool *const result_out) {
-
-    os_signal_cond_t sigint_cond;
-    guarantee(!serve_info->joins.empty());
-
-    try {
-        serve_info->look_up_peers();
-        *result_out = serve_proxy(db,
-                                  *serve_info,
-                                  initial_password,
-                                  &sigint_cond);
-    } catch (const host_lookup_exc_t &ex) {
-        logERR("%s\n", ex.what());
-        *result_out = false;
-    }
-}
-
 options::help_section_t get_server_options(std::vector<options::option_t> *options_out) {
     options::help_section_t help("Server options");
     options_out->push_back(options::option_t(options::names_t("--server-name", "-n"),
@@ -1751,21 +1730,6 @@ void get_rethinkdb_serve_options(std::vector<options::help_section_t> *help_out,
     help_out->push_back(get_config_file_options(options_out));
 }
 
-void get_rethinkdb_proxy_options(std::vector<options::help_section_t> *help_out,
-                                 std::vector<options::option_t> *options_out) {
-    help_out->push_back(get_network_options(true, options_out));
-#ifdef ENABLE_TLS
-    help_out->push_back(get_tls_options(options_out));
-#endif
-    help_out->push_back(get_auth_options(options_out));
-    help_out->push_back(get_web_options(options_out));
-    help_out->push_back(get_service_options(options_out));
-    help_out->push_back(get_setuser_options(options_out));
-    help_out->push_back(get_help_options(options_out));
-    help_out->push_back(get_log_options(options_out));
-    help_out->push_back(get_config_file_options(options_out));
-}
-
 void get_rethinkdb_porcelain_options(std::vector<options::help_section_t> *help_out,
                                      std::vector<options::option_t> *options_out) {
     help_out->push_back(get_file_options(options_out));
@@ -1797,7 +1761,6 @@ std::map<std::string, options::values_t> parse_config_file_flat(const std::strin
     // There will be some duplicates in here, but it shouldn't be a problem
     get_rethinkdb_create_options(&helps_superset, &options_superset);
     get_rethinkdb_serve_options(&helps_superset, &options_superset);
-    get_rethinkdb_proxy_options(&helps_superset, &options_superset);
     get_rethinkdb_porcelain_options(&helps_superset, &options_superset);
 
     return options::parse_config_file(file, config_filepath,
@@ -2223,96 +2186,6 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
     return EXIT_FAILURE;
 }
 
-int main_rethinkdb_proxy(FDBDatabase *db, int argc, char *argv[]) {
-    std::vector<options::option_t> options;
-    std::vector<options::help_section_t> help;
-    get_rethinkdb_proxy_options(&help, &options);
-
-    try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options);
-
-        if (handle_help_or_version_option(opts, &help_rethinkdb_proxy)) {
-            return EXIT_SUCCESS;
-        }
-
-        options::verify_option_counts(options, opts);
-
-        std::vector<host_and_port_t> joins = parse_join_options(opts, port_defaults::peer_port);
-
-        service_address_ports_t address_ports = get_service_address_ports(opts);
-
-        std::string initial_password = parse_initial_password_option(opts);
-
-        if (joins.empty()) {
-            fprintf(stderr, "No --join option(s) given. A proxy needs to connect to something!\n"
-                    "Run 'rethinkdb help proxy' for more information.\n");
-            return EXIT_FAILURE;
-        }
-
-        optional<int> join_delay_secs = parse_join_delay_secs_option(opts);
-        optional<int> node_reconnect_timeout_secs =
-            parse_node_reconnect_timeout_secs_option(opts);
-
-#ifndef _WIN32
-        get_and_set_user_group(opts);
-#endif
-
-        // Default to putting the log file in the current working directory
-        base_path_t base_path(".");
-        initialize_logfile(opts, base_path);
-
-        std::string web_path = get_web_path(opts);
-        const int num_workers = get_cpu_count();
-
-        if (check_pid_file(opts) != EXIT_SUCCESS) {
-            return EXIT_FAILURE;
-        }
-
-        if (!maybe_daemonize(opts)) {
-            // This is the parent process of the daemon, just exit
-            return EXIT_SUCCESS;
-        }
-
-        if (write_pid_file(opts) != EXIT_SUCCESS) {
-            return EXIT_FAILURE;
-        }
-
-        extproc_spawner_t extproc_spawner;
-
-        tls_configs_t tls_configs;
-#ifdef ENABLE_TLS
-        if (!configure_tls(opts, &tls_configs)) {
-            return EXIT_FAILURE;
-        }
-#endif
-
-        serve_info_t serve_info(std::move(joins),
-                                get_reql_http_proxy_option(opts),
-                                std::move(web_path),
-                                address_ports,
-                                get_optional_option(opts, "--config-file"),
-                                std::vector<std::string>(argv, argv + argc),
-                                join_delay_secs.value_or(0),
-                                node_reconnect_timeout_secs.value_or(cluster_defaults::reconnect_timeout),
-                                tls_configs);
-
-        bool result;
-        run_in_thread_pool(
-            std::bind(&run_rethinkdb_proxy, db, &serve_info, initial_password, &result),
-            num_workers);
-        return result ? EXIT_SUCCESS : EXIT_FAILURE;
-    } catch (const options::named_error_t &ex) {
-        output_named_error(ex, help);
-        fprintf(stderr, "Run 'rethinkdb help proxy' for help on the command\n");
-    } catch (const options::option_error_t &ex) {
-        output_sourced_error(ex);
-        fprintf(stderr, "Run 'rethinkdb help proxy' for help on the command\n");
-    } catch (const std::exception& ex) {
-        fprintf(stderr, "%s\n", ex.what());
-    }
-    return EXIT_FAILURE;
-}
-
 MUST_USE bool split_db_table(const std::string &db_table, std::string *db_name_out, std::string *table_name_out) {
     size_t first_pos = db_table.find_first_of('.');
     if (first_pos == std::string::npos || db_table.find_last_of('.') != first_pos) {
@@ -2430,14 +2303,7 @@ void help_rethinkdb_serve() {
 }
 
 void help_rethinkdb_proxy() {
-    std::vector<options::help_section_t> help_sections;
-    {
-        std::vector<options::option_t> options;
-        get_rethinkdb_proxy_options(&help_sections, &options);
-    }
-
-    printf("'rethinkdb proxy' serves as a proxy to an existing RethinkDB cluster.\n");
-    printf("%s", format_help(help_sections).c_str());
+    printf("'rethinkdb proxy' is not supported in reqlfdb (now every node is a proxy).\n");  // TODO: product name
 }
 
 void help_rethinkdb_export() {

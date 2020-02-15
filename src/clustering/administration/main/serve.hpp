@@ -160,9 +160,4 @@ bool serve(FDBDatabase *db,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond);
 
-bool serve_proxy(FDBDatabase *db,
-                 const serve_info_t& serve_info,
-                 const std::string &initial_password,
-                 os_signal_cond_t *stop_cond);
-
 #endif /* CLUSTERING_ADMINISTRATION_MAIN_SERVE_HPP_ */
