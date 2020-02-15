@@ -42,14 +42,11 @@ void branch_history_reader_t::export_branch_history(
 }
 
 void branch_history_reader_t::export_branch_history(
-        const region_map_t<version_t> &region_map, branch_history_t *out)
+        const version_t &vers, branch_history_t *out)
         const THROWS_NOTHING {
-    region_map.visit(region_map.get_domain(),
-    [&](const region_t &, const version_t &vers) {
-        if (!vers.branch.is_nil()) {
-            export_branch_history(vers.branch, out);
-        }
-    });
+    if (!vers.branch.is_nil()) {
+        export_branch_history(vers.branch, out);
+    }
 }
 
 branch_birth_certificate_t branch_history_t::get_branch(const branch_id_t &branch) const

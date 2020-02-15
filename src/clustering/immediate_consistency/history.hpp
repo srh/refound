@@ -89,7 +89,7 @@ public:
     /* Convenience function that finds all records related to the given version
     map and copies them into `out` */
     void export_branch_history(
-        const region_map_t<version_t> &region_map, branch_history_t *out)
+        const version_t &version, branch_history_t *out)
         const THROWS_NOTHING;
 
 protected:

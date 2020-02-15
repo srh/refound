@@ -155,7 +155,7 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
             contract_ack_t ack(contract_ack_t::state_t::primary_need_branch);
             ack.branch.set(*our_branch_id);
             context->branch_history_manager->export_branch_history(
-                region_map_t<version_t>(region_t::universe(), primary_dispatcher.get_branch_birth_certificate().origin),
+                primary_dispatcher.get_branch_birth_certificate().origin,
                 &ack.branch_history);
             ack.branch_history.branches.insert(std::make_pair(
                 *our_branch_id,
