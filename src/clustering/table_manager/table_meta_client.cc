@@ -146,53 +146,6 @@ void table_meta_client_t::list_configs(
     }
 }
 
-void table_meta_client_t::get_sindex_status(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor_on_caller,
-        std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            *sindex_statuses_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
-    cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-    sindex_statuses_out->clear();
-    table_config_and_shards_t config;
-    get_config(table_id, &interruptor, &config);
-    for (const auto &pair : config.config.sindexes) {
-        auto it = sindex_statuses_out->insert(
-            std::make_pair(pair.first, std::make_pair(pair.second,
-                                                      sindex_status_t()))).first;
-        it->second.second.outdated =
-            (pair.second.func_version != reql_version_t::LATEST)
-            && !outdated_index_issue_tracker_t::is_acceptable_outdated(pair.second);
-    }
-    table_status_request_t request;
-    request.want_sindexes = true;
-    std::set<namespace_id_t> failures;
-    get_status(
-        make_optional(table_id),
-        request,
-        server_selector_t::EVERY_SERVER,
-        &interruptor,
-        [&](const server_id_t &, const namespace_id_t &,
-                const table_status_response_t &response) {
-            for (auto &&pair : *sindex_statuses_out) {
-                auto it = response.sindexes.find(pair.first);
-                /* Note that we treat an index with the wrong definition like a
-                missing index. */
-                if (it != response.sindexes.end() &&
-                        it->second.first == pair.second.first) {
-                    pair.second.second.accum(it->second.second);
-                } else {
-                    pair.second.second.ready = false;
-                }
-            }
-        },
-        &failures);
-    if (!failures.empty()) {
-        throw_appropriate_exception(table_id);
-    }
-}
-
 void table_meta_client_t::get_shard_status(
         const namespace_id_t &table_id,
         all_replicas_ready_mode_t all_replicas_ready_mode,

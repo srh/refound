@@ -144,15 +144,6 @@ public:
         std::map<namespace_id_t, table_basic_config_t> *disconnected_configs_out)
         THROWS_ONLY(interrupted_exc_t);
 
-    /* `get_sindex_status()` returns a list of the sindexes on the given table and the
-    status of each one. */
-    void get_sindex_status(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor,
-        std::map<std::string, std::pair<sindex_config_t, sindex_status_t> >
-            *index_statuses_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
-
     /* `get_shard_status()` returns some of the information necessary to fill in the
     `rethinkdb.table_status` system table. If `server_shards_out` is set to `nullptr`, it
     that information will not be retrieved, which will improve performance. */
