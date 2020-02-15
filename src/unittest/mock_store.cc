@@ -62,7 +62,7 @@ std::string mock_lookup(store_view_t *store, std::string key) {
 
 mock_store_t::mock_store_t(version_t universe_metainfo)
     : store_view_t(),
-      metainfo_(region_t::universe(), universe_metainfo) { }
+      metainfo_(universe_metainfo) { }
 mock_store_t::~mock_store_t() { }
 
 void mock_store_t::new_read_token(read_token_t *token_out) {
@@ -77,10 +77,9 @@ void mock_store_t::new_write_token(write_token_t *token_out) {
     token_out->main_write_token.create(&token_sink_, token);
 }
 
-region_map_t<version_t> mock_store_t::get_metainfo(
+version_t mock_store_t::get_metainfo(
         order_token_t order_token,
         read_token_t *token,
-        const region_t &_region,
         const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
@@ -93,10 +92,10 @@ region_map_t<version_t> mock_store_t::get_metainfo(
     if (randint(2) == 0) {
         nap(randint(10), interruptor);
     }
-    return metainfo_.mask(_region);
+    return metainfo_;
 }
 
-void mock_store_t::set_metainfo(const region_map_t<version_t> &new_metainfo,
+void mock_store_t::set_metainfo(const version_t &new_metainfo,
                                 order_token_t order_token,
                                 write_token_t *token,
                                 UNUSED write_durability_t durability,
@@ -113,7 +112,7 @@ void mock_store_t::set_metainfo(const region_map_t<version_t> &new_metainfo,
         nap(randint(10), interruptor);
     }
 
-    metainfo_.update(new_metainfo);
+    metainfo_ = new_metainfo;
 }
 
 
@@ -135,7 +134,7 @@ void mock_store_t::read(
         }
 
 #ifndef NDEBUG
-        metainfo_.visit(metainfo_checker.region, metainfo_checker.callback);
+        metainfo_checker.callback(metainfo_);
 #endif
 
         if (randint(2) == 0) {
@@ -164,7 +163,7 @@ void mock_store_t::read(
 
 void mock_store_t::write(
         DEBUG_ONLY(const metainfo_checker_t &metainfo_checker, )
-        const region_map_t<version_t> &new_metainfo,
+        const version_t &new_metainfo,
         const write_t &_write,
         write_response_t *response,
         UNUSED write_durability_t durability,
@@ -182,7 +181,7 @@ void mock_store_t::write(
         order_sink_.check_out(order_token);
 
 #ifndef NDEBUG
-        metainfo_.visit(metainfo_checker.region, metainfo_checker.callback);
+        metainfo_checker.callback(metainfo_);
 #endif
 
         if (randint(2) == 0) {
@@ -214,7 +213,7 @@ void mock_store_t::write(
             crash("mock_store_t only supports point writes and syncs");
         }
 
-        metainfo_.update(new_metainfo);
+        metainfo_ = new_metainfo;
     }
     if (randint(2) == 0) {
         nap(randint(10), interruptor);

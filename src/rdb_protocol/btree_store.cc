@@ -829,10 +829,9 @@ bool store_t::acquire_sindex_superblocks_for_write(
     return !sindexes_to_acquire || sindex_sbs_out->size() == sindexes_to_acquire->size();
 }
 
-region_map_t<version_t> store_t::get_metainfo(
+version_t store_t::get_metainfo(
         UNUSED order_token_t order_token,  // TODO
         read_token_t *token,
-        const region_t &_region,
         const signal_t *interruptor)
     THROWS_ONLY(interrupted_exc_t) {
     assert_thread();
@@ -841,10 +840,10 @@ region_map_t<version_t> store_t::get_metainfo(
     acquire_superblock_for_read(token,
                                 &txn, &superblock,
                                 interruptor);
-    return metainfo->get(superblock.get(), _region);
+    return metainfo->get(superblock.get());
 }
 
-void store_t::set_metainfo(const region_map_t<version_t> &new_metainfo,
+void store_t::set_metainfo(const version_t &new_metainfo,
                            UNUSED order_token_t order_token,  // TODO
                            write_token_t *token,
                            write_durability_t durability,

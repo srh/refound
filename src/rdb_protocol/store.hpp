@@ -84,15 +84,14 @@ public:
     void new_read_token(read_token_t *token_out) override;
     void new_write_token(write_token_t *token_out) override;
 
-    region_map_t<version_t> get_metainfo(
+    version_t get_metainfo(
             order_token_t order_token,
             read_token_t *token,
-            const region_t &region,
             const signal_t *interruptor) override
         THROWS_ONLY(interrupted_exc_t);
 
     void set_metainfo(
-            const region_map_t<version_t> &new_metainfo,
+            const version_t &new_metainfo,
             order_token_t order_token,
             write_token_t *token,
             write_durability_t durability,
@@ -325,7 +324,7 @@ public:
     // Return a pointer to a specific changefeed server if it exists. These can
     // block.
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> changefeed_server(
-            const region_t &region);
+            const key_range_t &region);
     std::pair<ql::changefeed::server_t *, auto_drainer_t::lock_t> changefeed_server(
             const store_key_t &key);
     // Like `changefeed_server()`, but creates the server if it doesn't exist.

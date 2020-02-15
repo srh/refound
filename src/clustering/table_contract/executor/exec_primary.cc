@@ -139,9 +139,9 @@ void primary_execution_t::run(auto_drainer_t::lock_t keepalive) {
 
         read_token_t token;
         store->new_read_token(&token);
-        region_map_t<version_t> initial_version = store->get_metainfo(
+        version_t initial_version = store->get_metainfo(
             order_source.check_in("primary_t").with_read_mode(),
-            &token, region_t::universe(), &interruptor_store_thread);
+            &token, &interruptor_store_thread);
 
         primary_dispatcher_t primary_dispatcher(initial_version);
 

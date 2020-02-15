@@ -33,7 +33,7 @@ public:
     `get_branch_id()` and `get_branch_birth_certificate()` methods. */
 
     primary_dispatcher_t(
-        const region_map_t<version_t> &base_version);
+        const version_t &base_version);
 
     branch_id_t get_branch_id() {
         return branch_id;

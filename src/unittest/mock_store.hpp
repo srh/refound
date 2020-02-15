@@ -33,23 +33,24 @@ public:
         order_sink_.rethread(new_thread);
     }
 
-    void note_reshard() { }
+#if RDB_CF
+    void note_reshard() override { }
+#endif
 
-    void new_read_token(read_token_t *token_out);
-    void new_write_token(write_token_t *token_out);
+    void new_read_token(read_token_t *token_out) override;
+    void new_write_token(write_token_t *token_out) override;
 
-    region_map_t<version_t> get_metainfo(
+    version_t get_metainfo(
             order_token_t order_token,
             read_token_t *token,
-            const region_t &region,
             const signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t);
+            THROWS_ONLY(interrupted_exc_t) override;
 
-    void set_metainfo(const region_map_t<version_t> &new_metainfo,
+    void set_metainfo(const version_t &new_metainfo,
                       order_token_t order_token,
                       write_token_t *token,
                       write_durability_t durability,
-                      const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t);
+                      const signal_t *interruptor) override THROWS_ONLY(interrupted_exc_t);
 
     void read(
             DEBUG_ONLY(const metainfo_checker_t &metainfo_checker, )
@@ -61,7 +62,7 @@ public:
 
     void write(
             DEBUG_ONLY(const metainfo_checker_t &metainfo_checker, )
-            const region_map_t<version_t> &new_metainfo,
+            const version_t &new_metainfo,
             const write_t &write,
             write_response_t *response,
             write_durability_t durability,
@@ -81,7 +82,7 @@ private:
 
     order_sink_t order_sink_;
 
-    region_map_t<version_t> metainfo_;
+    version_t metainfo_;
     std::map<store_key_t, std::pair<repli_timestamp_t, ql::datum_t> > table_;
 
     DISABLE_COPYING(mock_store_t);

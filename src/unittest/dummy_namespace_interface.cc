@@ -13,18 +13,12 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
     read_token_t read_token;
     next->store->new_read_token(&read_token);
 
-    region_map_t<version_t> metainfo = next->store->get_metainfo(
+    version_t metainfo = next->store->get_metainfo(
         order_source->check_in("dummy_timestamper_t").with_read_mode(),
         &read_token,
-        region_t::universe(),
         &interruptor);
 
-    current_timestamp = state_timestamp_t::zero();
-    metainfo.visit(metainfo.get_domain(),
-        [&](const region_t &, const version_t &b) {
-            state_timestamp_t region_ts = b.timestamp;
-            current_timestamp = std::max(current_timestamp, region_ts);
-        });
+    current_timestamp = metainfo.timestamp;
 }
 
 #if RDB_FDB_UNITTEST

@@ -31,9 +31,7 @@ public:
         cond_t non_interruptor;
         write_token_t token;
         store.new_write_token(&token);
-        region_map_t<version_t> new_metainfo(
-                region_t::universe(),
-                version_t::zero());
+        version_t new_metainfo = version_t::zero();
         store.set_metainfo(new_metainfo, order_source->check_in("test_store_t"), &token,
             write_durability_t::SOFT, &non_interruptor);
     }

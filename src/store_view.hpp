@@ -3,7 +3,6 @@
 
 #include "btree/types.hpp"
 #include "protocol_api.hpp"
-#include "region/region_map.hpp"
 
 class version_t;
 
@@ -12,11 +11,9 @@ class version_t;
 class metainfo_checker_t {
 public:
     metainfo_checker_t(
-            const region_t &r,
-            const std::function<void(const region_t &, const version_t &)> &cb) :
-        region(r), callback(cb) { }
-    region_t region;
-    std::function<void(const region_t &, const version_t &)> callback;
+            const std::function<void(const version_t &)> &cb) :
+        callback(cb) { }
+    std::function<void(const version_t &)> callback;
 };
 
 #endif  // NDEBUG
@@ -53,16 +50,15 @@ public:
     virtual void new_write_token(write_token_t *token_out) = 0;
 
     /* Gets the metainfo. */
-    virtual region_map_t<version_t> get_metainfo(
+    virtual version_t get_metainfo(
             order_token_t order_token,
             read_token_t *token,
-            const region_t &region,
             const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) = 0;
 
     /* Replaces the metainfo in `new_metainfo`'s domain with `new_metainfo`. */
     virtual void set_metainfo(
-            const region_map_t<version_t> &new_metainfo,
+            const version_t &new_metainfo,
             order_token_t order_token,
             write_token_t *token,
             write_durability_t durability,
