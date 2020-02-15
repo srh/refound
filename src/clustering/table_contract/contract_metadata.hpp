@@ -17,6 +17,7 @@
 #include "containers/optional.hpp"
 #include "region/region.hpp"
 #include "region/region_map.hpp"
+#include "rpc/connectivity/server_id.hpp"
 #include "rpc/semilattice/joins/macros.hpp"   /* for EQUALITY_COMPARABLE macros */
 
 /* `table_raft_state_t` is the type of the state that is stored in each table's Raft

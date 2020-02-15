@@ -16,7 +16,6 @@
 #include "protocol_api.hpp"
 #include "rdb_protocol/context.hpp"
 #include "rdb_protocol/protocol.hpp"
-#include "rpc/connectivity/server_id.hpp"
 #include "rpc/semilattice/joins/macros.hpp"
 #include "rpc/serialize_macros.hpp"
 

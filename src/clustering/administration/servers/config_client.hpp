@@ -10,6 +10,7 @@
 #include "concurrency/watchable_map.hpp"
 #include "containers/empty_value.hpp"
 #include "containers/incremental_lenses.hpp"
+#include "rpc/connectivity/server_id.hpp"
 #include "rpc/semilattice/view.hpp"
 
 struct admin_err_t;
