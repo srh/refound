@@ -14,6 +14,7 @@ ql::datum_t convert_table_status_to_datum(
         const table_status_t &status,
         admin_identifier_format_t identifier_format);
 
+// QQQ: "shards" got removed when creating a datum, see to it that we do the right thing for writes.
 class table_status_artificial_table_backend_t :
     public common_table_artificial_table_backend_t
 {

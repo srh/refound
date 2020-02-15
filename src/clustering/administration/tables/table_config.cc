@@ -3,7 +3,6 @@
 
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/metadata.hpp"
-#include "clustering/administration/tables/generate_config.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "containers/archive/string_stream.hpp"
@@ -16,7 +15,6 @@ table_config_artificial_table_backend_t::table_config_artificial_table_backend_t
         std::shared_ptr< semilattice_readwrite_view_t<
             cluster_semilattice_metadata_t> > _semilattice_view,
         admin_identifier_format_t _identifier_format,
-        server_config_client_t *_server_config_client,
         table_meta_client_t *_table_meta_client)
     : common_table_artificial_table_backend_t(
         name_string_t::guarantee_valid("table_config"),
@@ -24,124 +22,13 @@ table_config_artificial_table_backend_t::table_config_artificial_table_backend_t
         _semilattice_view,
         _table_meta_client,
         _identifier_format),
-      rdb_context(_rdb_context),
-      server_config_client(_server_config_client) {
+      rdb_context(_rdb_context) {
 }
 
 table_config_artificial_table_backend_t::~table_config_artificial_table_backend_t() {
 #if RDB_CF
     begin_changefeed_destruction();
 #endif
-}
-
-bool convert_server_id_from_datum(
-        const ql::datum_t &datum,
-        admin_identifier_format_t identifier_format,
-        server_config_client_t *server_config_client,
-        server_id_t *server_id_out,
-        admin_err_t *error_out) {
-    if (identifier_format == admin_identifier_format_t::name) {
-        name_string_t name;
-        if (!convert_name_from_datum(datum, "server name", &name, error_out)) {
-            return false;
-        }
-        // TODO: admin_identifier_format_t::name not completely supported here because wo don't have old_server_names anymore.
-        size_t count = 0;
-        server_config_client->get_server_config_map()->read_all(
-        [&](const server_id_t &server_id, const server_config_versioned_t *config) {
-            if (config->config.name == name) {
-                *server_id_out = server_id;
-                ++count;
-            }
-        });
-        if (count >= 2) {
-            *error_out = admin_err_t{
-                strprintf("Server `%s` is ambiguous; there are multiple "
-                          "servers with that name.", name.c_str()),
-                query_state_t::FAILED};
-            return false;
-        } else if (count == 0) {
-            *error_out = admin_err_t{
-                strprintf("Server `%s` does not exist or is not connected.",
-                          name.c_str()),
-                query_state_t::FAILED};
-            return false;
-        } else {
-            return true;
-        }
-    } else {
-        if (!convert_server_id_from_datum(datum, server_id_out, error_out)) {
-            return false;
-        }
-        /* We know the server's UUID, but we need to confirm that it exists and determine
-        its name. First we look up the server name in `get_server_config_map()`; if that
-        fails, then we look it up in `old_server_names`. We prefer
-        `get_server_config_map()` because the name information there is more likely to be
-        up-to-date. */
-        bool found;
-        server_config_client->get_server_config_map()->read_key(*server_id_out,
-            [&](const server_config_versioned_t *config) {
-                if (config != nullptr) {
-                    found = true;
-                } else {
-                    found = false;
-                }
-            });
-        if (found) {
-            return true;
-        }
-        *error_out = admin_err_t{
-            strprintf("There is no server with UUID `%s`.",
-                      uuid_to_str(server_id_out->get_uuid()).c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-}
-
-ql::datum_t convert_replica_list_to_datum(
-        const server_id_t &replicas,
-        admin_identifier_format_t identifier_format) {
-    ql::datum_array_builder_t replicas_builder(ql::configured_limits_t::unlimited);
-    {
-        (void)identifier_format;
-        // TODO: We no longer support the name identifier format because we don't have a
-        // server_names map.
-        server_id_t replica = replicas;
-        replicas_builder.add(convert_uuid_to_datum(replica.get_uuid()));
-    }
-    return std::move(replicas_builder).to_datum();
-}
-
-bool convert_replica_list_from_datum(
-        const ql::datum_t &datum,
-        admin_identifier_format_t identifier_format,
-        server_config_client_t *server_config_client,
-        std::set<server_id_t> *replicas_out,
-        admin_err_t *error_out) {
-    if (datum.get_type() != ql::datum_t::R_ARRAY) {
-        *error_out = admin_err_t{
-            "Expected an array, got " + datum.print(),
-            query_state_t::FAILED};
-        return false;
-    }
-    replicas_out->clear();
-    for (size_t i = 0; i < datum.arr_size(); ++i) {
-        server_id_t server_id;
-        if (!convert_server_id_from_datum(datum.get(i), identifier_format,
-                server_config_client, &server_id,
-                error_out)) {
-            return false;
-        }
-        auto pair = replicas_out->insert(server_id);
-        if (!pair.second) {
-            *error_out = admin_err_t{
-                strprintf("Server `%s` is listed more than once.",
-                          server_id.print().c_str()),
-                query_state_t::FAILED};
-            return false;
-        }
-    }
-    return true;
 }
 
 ql::datum_t convert_write_ack_config_to_datum(
@@ -200,107 +87,6 @@ bool convert_durability_from_datum(
             query_state_t::FAILED};
         return false;
     }
-    return true;
-}
-
-ql::datum_t convert_table_config_shard_to_datum(
-        const table_config_t::shard_t &shard,
-        admin_identifier_format_t identifier_format) {
-    ql::datum_object_builder_t builder;
-
-    builder.overwrite("replicas",
-        convert_replica_list_to_datum(
-            shard.primary_replica, identifier_format));
-    builder.overwrite("nonvoting_replicas",
-        ql::datum_t(std::vector<ql::datum_t>(), ql::configured_limits_t::unlimited));
-    // TODO: identifier_format unused.
-    builder.overwrite("primary_replica",
-        convert_uuid_to_datum(shard.primary_replica.get_uuid()));
-
-    return std::move(builder).to_datum();
-}
-
-bool convert_table_config_shard_from_datum(
-        ql::datum_t datum,
-        admin_identifier_format_t identifier_format,
-        server_config_client_t *server_config_client,
-        table_config_t::shard_t *shard_out,
-        admin_err_t *error_out) {
-    converter_from_datum_object_t converter;
-    if (!converter.init(datum, error_out)) {
-        return false;
-    }
-
-    ql::datum_t all_replicas_datum;
-    if (!converter.get("replicas", &all_replicas_datum, error_out)) {
-        return false;
-    }
-
-    std::set<server_id_t> all_replicas;
-    if (!convert_replica_list_from_datum(all_replicas_datum, identifier_format,
-            server_config_client, &all_replicas,
-            error_out)) {
-        error_out->msg = "In `replicas`: " + error_out->msg;
-        return false;
-    }
-    if (all_replicas.empty()) {
-        *error_out = admin_err_t{
-            "You must specify at least one replica for each shard.",
-            query_state_t::FAILED};
-        return false;
-    }
-
-    std::set<server_id_t> nonvoting_replicas;
-    ql::datum_t nonvoting_replicas_datum;
-    if (converter.get("nonvoting_replicas", &nonvoting_replicas_datum, error_out)) {
-        if (!convert_replica_list_from_datum(nonvoting_replicas_datum, identifier_format,
-                server_config_client, &nonvoting_replicas,
-                error_out)) {
-            error_out->msg = "In `nonvoting_replicas`: " + error_out->msg;
-            return false;
-        }
-        for (const server_id_t &server : nonvoting_replicas) {
-            if (all_replicas.count(server) != 1) {
-                *error_out = admin_err_t{
-                    "Every server listed in the `nonvoting_replicas` field "
-                    "must also appear in `replicas`.",
-                    query_state_t::FAILED};
-                return false;
-            }
-        }
-    }
-
-    ql::datum_t primary_replica_datum;
-    if (!converter.get("primary_replica", &primary_replica_datum, error_out)) {
-        return false;
-    }
-
-    if (!convert_server_id_from_datum(primary_replica_datum, identifier_format,
-            server_config_client, &shard_out->primary_replica,
-            error_out)) {
-        error_out->msg = "In `primary_replica`: " + error_out->msg;
-        return false;
-    }
-    if (all_replicas.count(shard_out->primary_replica) != 1) {
-        *error_out = admin_err_t{
-            strprintf("The server listed in the `primary_replica` field "
-                      "(`%s`) must also appear in `replicas`.",
-                      shard_out->primary_replica.print().c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    if (nonvoting_replicas.count(shard_out->primary_replica) == 1) {
-        *error_out = admin_err_t{
-            strprintf("The primary replica (`%s`) must not be a nonvoting replica.",
-                      shard_out->primary_replica.print().c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-
-    if (!converter.check_no_extra_keys(error_out)) {
-        return false;
-    }
-
     return true;
 }
 
@@ -371,10 +157,6 @@ ql::datum_t convert_table_config_to_datum(
     builder.overwrite("indexes", convert_sindexes_to_datum(config.sindexes));
     builder.overwrite("write_hook", convert_write_hook_to_datum(config.write_hook));
     builder.overwrite("primary_key", convert_string_to_datum(config.basic.primary_key));
-    builder.overwrite("shards",
-            ql::datum_t(std::vector<ql::datum_t>(1, convert_table_config_shard_to_datum(
-                          config.the_shard, identifier_format)),
-                        ql::configured_limits_t::unlimited));
     // TODO: Could we remove this from the table config datum?
     builder.overwrite("write_acks",
         convert_write_ack_config_to_datum(write_ack_config_t::MAJORITY));
@@ -402,10 +184,7 @@ bool convert_table_config_and_name_from_datum(
         bool existed_before,
         const cluster_semilattice_metadata_t &all_metadata,
         admin_identifier_format_t identifier_format,
-        server_config_client_t *server_config_client,
         const table_config_and_shards_t &old_config,
-        table_meta_client_t *table_meta_client,
-        const signal_t *interruptor,
         namespace_id_t *id_out,
         table_config_t *config_out,
         name_string_t *db_name_out,
@@ -497,53 +276,6 @@ bool convert_table_config_and_name_from_datum(
         }
     } else {
         config_out->basic.primary_key = "id";
-    }
-
-    if (existed_before || converter.has("shards")) {
-        ql::datum_t shards_datum;
-        if (!converter.get("shards", &shards_datum, error_out)) {
-            return false;
-        }
-        std::vector<table_config_t::shard_t> shards;
-        if (!convert_vector_from_datum<table_config_t::shard_t>(
-                [&](ql::datum_t shard_datum, table_config_t::shard_t *shard_out,
-                        admin_err_t *error_out_2) {
-                    return convert_table_config_shard_from_datum(
-                        shard_datum, identifier_format, server_config_client,
-                        shard_out,
-                        error_out_2);
-                },
-                shards_datum,
-                &shards,
-                error_out)) {
-            error_out->msg = "In `shards`: " + error_out->msg;
-            return false;
-        }
-        if (shards.size() != 1) {
-            *error_out = admin_err_t{
-                "In `shards`: You must specify exactly one shard.",
-                query_state_t::FAILED};
-        }
-        config_out->the_shard = shards.at(0);
-    } else {
-        try {
-            table_generate_config(
-                server_config_client, namespace_id_t{nil_uuid()}, table_meta_client,
-                table_generate_config_params_t::make_default(),
-                interruptor, &config_out->the_shard);
-        } catch (const admin_op_exc_t &msg) {
-            throw admin_op_exc_t(
-                "Unable to automatically generate configuration for "
-                "new table: " + std::string(msg.what()),
-                query_state_t::FAILED);
-        } catch (const no_such_table_exc_t &) {
-            /* This can't happen when calling `table_generate_config()` for a new table,
-            only when updating an existing one */
-            unreachable();
-        } catch (const failed_table_op_exc_t &) {
-            /* Same as with `no_such_table_exc_t` */
-            unreachable();
-        }
     }
 
     if (existed_before || converter.has("write_acks")) {
@@ -724,8 +456,8 @@ bool table_config_artificial_table_backend_t::write_row(
                 namespace_id_t new_table_id;
                 name_string_t new_db_name;
                 if (!convert_table_config_and_name_from_datum(*new_value_inout, true,
-                        metadata, identifier_format, server_config_client,
-                        old_config, table_meta_client, &interruptor_on_home,
+                        metadata, identifier_format,
+                        old_config,
                         &new_table_id, &new_config, &new_db_name,
                         error_out)) {
                     error_out->msg = "The change you're trying to make to "
@@ -775,9 +507,9 @@ bool table_config_artificial_table_backend_t::write_row(
             table_config_t new_config;
             name_string_t new_db_name;
             if (!convert_table_config_and_name_from_datum(*new_value_inout, false,
-                    metadata, identifier_format, server_config_client,
-                    table_config_and_shards_t(), table_meta_client,
-                    &interruptor_on_home, &new_table_id, &new_config,
+                    metadata, identifier_format,
+                    table_config_and_shards_t(),
+                    &new_table_id, &new_config,
                     &new_db_name, error_out)) {
                 error_out->msg = "The change you're trying to make to "
                     "`rethinkdb.table_config` has the wrong format. " + error_out->msg;

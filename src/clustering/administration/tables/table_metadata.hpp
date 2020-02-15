@@ -70,12 +70,7 @@ RDB_MAKE_SERIALIZABLE_2(sindex_metaconfig_t, sindex_id, creation_task_or_nil);
 
 class table_config_t {
 public:
-    class shard_t {
-    public:
-        server_id_t primary_replica;
-    };
     table_basic_config_t basic;
-    shard_t the_shard;
     // Two parallel maps.
     // TODO: Combine these maps after non-FDB code is stripped out.
     std::map<std::string, sindex_config_t> sindexes;
@@ -86,8 +81,6 @@ public:
 
 RDB_DECLARE_SERIALIZABLE(table_config_t);
 RDB_DECLARE_EQUALITY_COMPARABLE(table_config_t);
-RDB_DECLARE_SERIALIZABLE(table_config_t::shard_t);
-RDB_DECLARE_EQUALITY_COMPARABLE(table_config_t::shard_t);
 
 // Represents a store_key_t.
 struct virtual_key_ptr {

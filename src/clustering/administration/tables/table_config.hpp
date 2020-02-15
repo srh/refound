@@ -37,7 +37,6 @@ public:
             std::shared_ptr<semilattice_readwrite_view_t<
                 cluster_semilattice_metadata_t> > _semilattice_view,
             admin_identifier_format_t _identifier_format,
-            server_config_client_t *_server_config_client,
             table_meta_client_t *_table_meta_client);
     ~table_config_artificial_table_backend_t();
 
@@ -78,7 +77,6 @@ private:
             maybe_failed_table_op_exc_t, admin_op_exc_t);
 
     rdb_context_t *rdb_context;
-    server_config_client_t *server_config_client;
 };
 
 #endif /* CLUSTERING_ADMINISTRATION_TABLES_TABLE_CONFIG_HPP_ */

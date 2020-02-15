@@ -128,19 +128,17 @@ doesn't get a new contract ID. */
 contract_t calculate_contract(
         /* The old contract that contains this region. */
         const contract_t &old_c,
-        /* The user-specified configuration for the shard containing this region. */
-        const table_config_t::shard_t &config,
         /* Contract acks from replicas regarding `old_c`. If a replica hasn't sent us an
         ack *specifically* for `old_c`, it won't appear in this map; we don't include
         acks for contracts that were in the same region before `old_c`. */
         const std::map<server_id_t, contract_ack_frag_t> &acks) {
-    (void)old_c, (void)acks;  // TODO: Remove unused params.
+     (void)acks;  // TODO: Remove unused params.
 
 
     contract_t new_c = old_c;
 
     /* If there are new servers in `config.all_replicas`, add them to `c.replicas` */
-    new_c.the_server = config.primary_replica;
+    new_c.the_server = server_id_t();
 
     return new_c;
 }
@@ -239,7 +237,6 @@ void calculate_all_contracts(
 
                 contract_t new_contract = calculate_contract(
                     old_contract,
-                    old_state.config.config.the_shard,
                     acks_map);
 
                 /* Register a branch if a primary is asking us to */

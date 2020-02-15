@@ -17,9 +17,6 @@ table_config_and_shards_t make_table_config_and_shards() {
     table_config_and_shards.config.basic.name = name_string_t::guarantee_valid("test");
     table_config_and_shards.config.basic.database = database_id_t{generate_uuid()};
     table_config_and_shards.config.basic.primary_key = "id";
-    table_config_t::shard_t shard;
-    shard.primary_replica = server_id_t();
-    table_config_and_shards.config.the_shard = shard;
     table_config_and_shards.config.user_data = default_user_data();
 
     return table_config_and_shards;

@@ -7,13 +7,8 @@ bool check_all_replicas_ready(
     for (const auto &pair : table_state.contracts) {
 
         /* Find the config shard corresponding to this contract */
-        const table_config_t::shard_t *shard = &table_state.config.config.the_shard;
-
         /* Check if the config shard matches the contract */
         const contract_t &contract = pair.second;
-        if (contract.the_server != shard->primary_replica) {
-            return false;
-        }
 
         /* Check if all the replicas have acked the contract */
         {

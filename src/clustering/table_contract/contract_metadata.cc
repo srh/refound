@@ -147,14 +147,12 @@ table_raft_state_t make_new_table_raft_state(
     table_raft_state_t state;
     state.config = config;
     {
-        const table_config_t::shard_t &shard_conf = config.config.the_shard;
         contract_t contract;
-        contract.the_server = shard_conf.primary_replica;
-        guarantee(!shard_conf.primary_replica.get_uuid().is_nil());
+        contract.the_server = server_id_t();
         state.contracts.insert(std::make_pair(contract_id_t{generate_uuid()},
             contract));
         {
-            server_id_t server_id = shard_conf.primary_replica;
+            server_id_t server_id = server_id_t();
             if (state.member_ids.count(server_id) == 0) {
                 state.member_ids[server_id] = raft_member_id_t(generate_uuid());
             }

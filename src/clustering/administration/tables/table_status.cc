@@ -44,57 +44,6 @@ ql::datum_t convert_replica_status_to_datum(
     return std::move(replica_builder).to_datum();
 }
 
-ql::datum_t convert_shard_status_to_datum(
-        const table_config_t::shard_t &shard,
-        const std::map<server_id_t, table_shard_status_t> &states,
-        const std::set<server_id_t> &disconnected,
-        admin_identifier_format_t identifier_format) {
-    ql::datum_array_builder_t primary_replicas_builder(
-        ql::configured_limits_t::unlimited);
-    ql::datum_array_builder_t replicas_builder(
-        ql::configured_limits_t::unlimited);
-
-    for (const auto &pair : states) {
-        if (!pair.second.primary && !pair.second.secondary &&
-                !pair.second.transitioning) {
-            continue;
-        }
-        if (pair.second.primary) {
-            // TODO: Only uuid identifier format supported.
-            primary_replicas_builder.add(convert_uuid_to_datum(
-                pair.first.get_uuid()));
-        }
-        const char *status;
-        if (pair.second.need_quorum) {
-            status = "waiting_for_quorum";
-        } else if (pair.second.need_primary) {
-            status = "waiting_for_primary";
-        } else if (pair.second.transitioning) {
-            status = "transitioning";
-        } else {
-            status = "ready";
-        }
-        replicas_builder.add(convert_replica_status_to_datum(
-            pair.first, status, identifier_format));
-    }
-
-    {
-        server_id_t server = shard.primary_replica;
-        guarantee(states.count(server) != 0 || disconnected.count(server) != 0);
-        if (disconnected.count(server) != 0) {
-            replicas_builder.add(convert_replica_status_to_datum(
-                server, "disconnected", identifier_format));
-        }
-    }
-
-    ql::datum_object_builder_t shard_builder;
-    shard_builder.overwrite("primary_replicas",
-        std::move(primary_replicas_builder).to_datum());
-    shard_builder.overwrite("replicas",
-        std::move(replicas_builder).to_datum());
-    return std::move(shard_builder).to_datum();
-}
-
 ql::datum_t convert_raft_leader_to_datum(
         const table_status_t &status,
         admin_identifier_format_t identifier_format) {
@@ -111,30 +60,6 @@ ql::datum_t convert_table_status_to_datum(
         const table_status_t &status,
         admin_identifier_format_t identifier_format) {
     ql::datum_object_builder_t builder;
-
-    if (status.total_loss) {
-        builder.overwrite("shards", ql::datum_t::null());
-    } else {
-        ql::datum_array_builder_t shards_builder(ql::configured_limits_t::unlimited);
-        {
-            key_range_t range = key_range_t::universe();
-            std::map<server_id_t, table_shard_status_t> states;
-            for (const auto &pair : status.server_shards) {
-                pair.second.visit(
-                    key_range_t::right_bound_t(range.left),
-                    range.right,
-                    [&](const key_range_t::right_bound_t &,
-                            const key_range_t::right_bound_t &,
-                            const table_shard_status_t &range_states) {
-                        states[pair.first].merge(range_states);
-                    });
-            }
-            shards_builder.add(convert_shard_status_to_datum(
-                status.config->config.the_shard, states, status.disconnected,
-                identifier_format));
-        }
-        builder.overwrite("shards", std::move(shards_builder).to_datum());
-    }
 
     // add raft leader information
     builder.overwrite("raft_leader",

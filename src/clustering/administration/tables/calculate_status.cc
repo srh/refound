@@ -58,7 +58,7 @@ void get_table_status(
     into `disconnected`, and in the latter case we set their state to `transitioning` in
     `server_shards`. */
     {
-        server_id_t server = config.config.the_shard.primary_replica;
+        server_id_t server = server_id_t();
         if (status_out->server_shards.count(server) == 0 &&
                 status_out->disconnected.count(server) == 0) {
             if (server_config_client->

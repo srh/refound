@@ -22,7 +22,7 @@ void calculate_member_ids_and_raft_config(
         raft_config_t *new_config_out) {
     /* Assemble a set of all of the servers that ought to be in `member_ids`. */
     std::set<server_id_t> members_goal;
-    members_goal.insert(sc.state.config.config.the_shard.primary_replica);
+    members_goal.insert(server_id_t());
     for (const auto &pair : sc.state.contracts) {
         members_goal.insert(pair.second.the_server);
     }
