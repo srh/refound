@@ -36,7 +36,7 @@ void contract_ack_t::sanity_check(
         "branch_id should be present iff state is primary_need_branch");
     guarantee(false == static_cast<bool>(version),
         "version should be present iff state is secondary_need_primary");
-    guarantee(!static_cast<bool>(version) || version->get_domain() == region,
+    guarantee(!static_cast<bool>(version) || region_t::universe() == region,
         "version has wrong region");
 
     bool is_voter = contract.the_server == server;

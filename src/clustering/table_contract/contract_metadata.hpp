@@ -135,7 +135,7 @@ public:
     state_t state;
 
     /* This is non-empty if `state` is `secondary_need_primary`. */
-    optional<region_map_t<version_t> > version;
+    optional<version_t> version;
 
     /* This is non-empty if `state` is `primary_need_branch`.
     When a new primary is first instantiated in response to a new contract_t, it

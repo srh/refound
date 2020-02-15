@@ -55,8 +55,9 @@ region_map_t<contract_ack_frag_t> break_ack_into_fragments(
         branch_history_combiner_t combined_branch_history(
             raft_branch_history, &ack.branch_history);
         /* Fragment over branches and then over versions within each branch. */
-        return ack.version->map_multi(region,
-        [&](const region_t &ack_version_reg, const version_t &vers) {
+        {
+            const region_t &ack_version_reg = region;
+            const version_t vers = *ack.version;
             base_frag.version = make_optional(vers);
             return current_branches.map_multi(ack_version_reg,
             [&](const region_t &branch_reg, const branch_id_t &branch) {
@@ -80,13 +81,10 @@ region_map_t<contract_ack_frag_t> break_ack_into_fragments(
                     make_optional(points_on_canonical_branch.timestamp);
                 return region_map_t<contract_ack_frag_t>(branch_reg, base_frag);
             });
-        });
+        }
     } else {
-        return ack.version->map(region,
-        [&](const version_t &vers) {
-            base_frag.version = make_optional(vers);
-            return base_frag;
-        });
+        base_frag.version = make_optional(*ack.version);
+        return region_map_t<contract_ack_frag_t>(region, base_frag);
     }
 }
 

@@ -193,7 +193,7 @@ ql::datum_t convert_debug_contract_acks_to_datum(
         contract_builder.overwrite(
             "version",
             static_cast<bool>(contract_ack.second.version)
-                ? convert_debug_version_map_to_datum(
+                ? convert_debug_version_to_datum(
                         contract_ack.second.version.get())
                 : ql::datum_t::null());
         contract_builder.overwrite(
