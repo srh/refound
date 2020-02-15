@@ -34,20 +34,11 @@ public:
             mailbox_manager_t *mailbox_manager,
             std::shared_ptr<semilattice_readwrite_view_t<
                 auth_semilattice_metadata_t> > auth_semilattice_view,
-            std::shared_ptr<semilattice_readwrite_view_t<
-                cluster_semilattice_metadata_t> > cluster_semilattice_view,
             rdb_context_t *rdb_context,
             server_config_client_t *server_config_client,
             table_meta_client_t *table_meta_client,
             lifetime_t<name_resolver_t const &> name_resolver);
 
-    bool db_drop_uuid(
-            auth::user_context_t const &user_context,
-            database_id_t database_id,
-            const name_string_t &name,
-            const signal_t *interruptor_on_home,
-            ql::datum_t *result_out,
-            admin_err_t *error_out);
     bool db_config(
             auth::user_context_t const &user_context,
             const counted_t<const ql::db_t> &db,
@@ -87,24 +78,13 @@ private:
     mailbox_manager_t *m_mailbox_manager;
     std::shared_ptr<semilattice_readwrite_view_t<
         auth_semilattice_metadata_t> > m_auth_semilattice_view;
-    std::shared_ptr<semilattice_readwrite_view_t<
-        cluster_semilattice_metadata_t> > m_cluster_semilattice_view;
     table_meta_client_t *m_table_meta_client;
-    scoped_array_t< scoped_ptr_t< cross_thread_watchable_variable_t<
-        databases_semilattice_metadata_t > > > m_cross_thread_database_watchables;
     rdb_context_t *m_rdb_context;
 
 #if RDB_CF
     ql::changefeed::client_t m_changefeed_client;
 #endif
     server_config_client_t *m_server_config_client;
-
-    void wait_for_cluster_metadata_to_propagate(
-            const cluster_semilattice_metadata_t &metadata,
-            const signal_t *interruptor);
-
-    // This could soooo be optimized if you don't want to copy the whole thing.
-    void get_databases_metadata(databases_semilattice_metadata_t *out);
 
     void make_single_selection(
             auth::user_context_t const &user_context,

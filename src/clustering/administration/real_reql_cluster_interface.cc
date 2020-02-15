@@ -29,8 +29,6 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         mailbox_manager_t *mailbox_manager,
         std::shared_ptr<semilattice_readwrite_view_t<
             auth_semilattice_metadata_t> > auth_semilattice_view,
-        std::shared_ptr<semilattice_readwrite_view_t<
-            cluster_semilattice_metadata_t> > cluster_semilattice_view,
         rdb_context_t *rdb_context,
         server_config_client_t *server_config_client,
         table_meta_client_t *table_meta_client,
@@ -38,9 +36,7 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
     m_fdb(fdb),
     m_mailbox_manager(mailbox_manager),
     m_auth_semilattice_view(auth_semilattice_view),
-    m_cluster_semilattice_view(cluster_semilattice_view),
     m_table_meta_client(table_meta_client),
-    m_cross_thread_database_watchables(get_num_threads()),
     m_rdb_context(rdb_context),
 #if RDB_CF
     m_changefeed_client(
@@ -50,86 +46,8 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
     m_server_config_client(server_config_client)
 {
     guarantee(m_auth_semilattice_view->home_thread() == home_thread());
-    guarantee(m_cluster_semilattice_view->home_thread() == home_thread());
     guarantee(m_table_meta_client->home_thread() == home_thread());
     guarantee(m_server_config_client->home_thread() == home_thread());
-    for (int thr = 0; thr < get_num_threads(); ++thr) {
-        m_cross_thread_database_watchables[thr].init(
-            new cross_thread_watchable_variable_t<databases_semilattice_metadata_t>(
-                clone_ptr_t<semilattice_watchable_t<databases_semilattice_metadata_t> >
-                    (new semilattice_watchable_t<databases_semilattice_metadata_t>(
-                        metadata_field(&cluster_semilattice_metadata_t::databases, m_cluster_semilattice_view))), threadnum_t(thr)));
-    }
-}
-
-bool real_reql_cluster_interface_t::db_drop_uuid(
-            auth::user_context_t const &user_context,
-            database_id_t database_id,
-            const name_string_t &name,
-            const signal_t *interruptor_on_home,
-            ql::datum_t *result_out,
-            admin_err_t *error_out) {
-    assert_thread();
-    guarantee(name != name_string_t::guarantee_valid("rethinkdb"),
-        "real_reql_cluster_interface_t should never get queries for system tables");
-
-    // TODO: We'll need to get the table names from fdb.
-    std::map<namespace_id_t, table_basic_config_t> table_names;
-    m_table_meta_client->list_names(&table_names);
-    std::set<namespace_id_t> table_ids;
-    for (auto const &table_name : table_names) {
-        if (table_name.second.database == database_id) {
-            table_ids.insert(table_name.first);
-        }
-    }
-
-    user_context.require_config_permission(m_rdb_context, database_id, table_ids);
-
-    // Here we actually delete the tables
-    size_t tables_dropped = 0;
-    for (const auto &table_id : table_ids) {
-        try {
-            m_table_meta_client->drop(table_id, interruptor_on_home);
-            ++tables_dropped;
-        } catch (const no_such_table_exc_t &) {
-             /* The table was dropped by something else between the time when we called
-             `list_names()` and when we went to actually delete it. This is OK. */
-        } CATCH_OP_ERRORS(name, table_names.at(table_id).name, error_out,
-            "The database was not dropped, but some of the tables in it may or may not "
-                "have been dropped.",
-            "The database was not dropped, but some of the tables in it may or may not "
-                "have been dropped.")
-    }
-
-    // TODO: fdb-ize this function
-    cluster_semilattice_metadata_t metadata = m_cluster_semilattice_view->get();
-    auto iter = metadata.databases.databases.find(database_id);
-    if (iter != metadata.databases.databases.end() && !iter->second.is_deleted()) {
-        iter->second.mark_deleted();
-        m_cluster_semilattice_view->join(metadata);
-        metadata = m_cluster_semilattice_view->get();
-    } else {
-        *error_out = admin_err_t{
-            "The database was already deleted.", query_state_t::FAILED};
-        return false;
-    }
-    wait_for_cluster_metadata_to_propagate(metadata, interruptor_on_home);
-
-    if (result_out != nullptr) {
-        ql::datum_t old_config =
-            convert_db_or_table_config_and_name_to_datum(name, database_id.value);
-
-        ql::datum_object_builder_t result_builder;
-        result_builder.overwrite("dbs_dropped", ql::datum_t(1.0));
-        result_builder.overwrite(
-            "tables_dropped", ql::datum_t(static_cast<double>(tables_dropped)));
-        result_builder.overwrite(
-            "config_changes",
-            make_replacement_pair(std::move(old_config), ql::datum_t::null()));
-        *result_out = std::move(result_builder).to_datum();
-    }
-
-    return true;
 }
 
 bool real_reql_cluster_interface_t::db_config(
@@ -236,34 +154,9 @@ bool is_joined(const T &multiple, const T &divisor) {
     return cpy == multiple;
 }
 
-void real_reql_cluster_interface_t::wait_for_cluster_metadata_to_propagate(
-        const cluster_semilattice_metadata_t &metadata,
-        const signal_t *interruptor_on_caller) {
-    int threadnum = get_thread_id().threadnum;
-
-    // TODO: Remove this.
-
-    guarantee(m_cross_thread_database_watchables[threadnum].has());
-    m_cross_thread_database_watchables[threadnum]->get_watchable()->run_until_satisfied(
-        [&](const databases_semilattice_metadata_t &md) -> bool {
-            return is_joined(md, metadata.databases);
-        },
-        interruptor_on_caller);
-}
-
 template <class T>
 void copy_value(const T *in, T *out) {
     *out = *in;
-}
-
-void real_reql_cluster_interface_t::get_databases_metadata(
-        databases_semilattice_metadata_t *out) {
-    // TODO: fdb-ize
-    int threadnum = get_thread_id().threadnum;
-    r_sanity_check(m_cross_thread_database_watchables[threadnum].has());
-    m_cross_thread_database_watchables[threadnum]->apply_read(
-            std::bind(&copy_value<databases_semilattice_metadata_t>,
-                      ph::_1, out));
 }
 
 // TODO: fdb-ize functions (for writing) below.
