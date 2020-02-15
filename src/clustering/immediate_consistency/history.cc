@@ -113,11 +113,10 @@ public:
     }
 };
 
-region_map_t<version_t> version_find_common(
+version_t version_find_common(
         const branch_history_reader_t *bh,
         const version_t &initial_v1,
-        const version_t &initial_v2,
-        const region_t &initial_region)
+        const version_t &initial_v2)
         THROWS_ONLY(missing_branch_exc_t) {
     /* In order to limit recursion depth in pathological cases, we use a heap-stack
     instead of the real stack. `stack` stores the sub-regions left to process and
@@ -128,8 +127,6 @@ region_map_t<version_t> version_find_common(
     `initial_region`. */
     class fragment_t {
     public:
-        /* The region that this fragment applies to */
-        region_t r;
         /* The versions we're trying to find the common ancestor of in the region */
         version_t v1, v2;
         /* Versions equivalent to `v1` and `v2` in the region, which the initial values
@@ -138,10 +135,9 @@ region_map_t<version_t> version_find_common(
         std::set<version_t, version_set_less_t> v1_equiv, v2_equiv;
     };
     std::stack<fragment_t> stack;
-    std::vector<region_t> result_regions;
+    // TODO: Remove this function, surely, but right now result_versions has size 1 when the while loop returns (since there is no splitting or anything)
     std::vector<version_t> result_versions;
     fragment_t initial_fragment;
-    initial_fragment.r = initial_region;
     initial_fragment.v1 = initial_v1;
     initial_fragment.v2 = initial_v2;
     stack.push(initial_fragment);
@@ -152,20 +148,16 @@ region_map_t<version_t> version_find_common(
             /* This is the base case; we got to two versions which are on the same
             branch, so one of them is the common ancestor of both. */
             version_t common(x.v1.branch, std::min(x.v1.timestamp, x.v2.timestamp));
-            result_regions.push_back(x.r);
             result_versions.push_back(common);
         } else if (x.v1_equiv.count(x.v2) == 1) {
             /* Alternative base case: `v1` and `v2` are equivalent. */
-            result_regions.push_back(x.r);
             result_versions.push_back(x.v2);
         } else if (x.v2_equiv.count(x.v1) == 1) {
-            result_regions.push_back(x.r);
             result_versions.push_back(x.v1);
         } else if (x.v1 == version_t::zero() || x.v2 == version_t::zero()) {
             /* Conceptually, this case is a subset of the next case. We handle it
             separately because `bh->get_branch()` crashes on a nil branch ID, so we'd
             have to make the next case implementation more complicated. */
-            result_regions.push_back(x.r);
             result_versions.push_back(version_t::zero());
         } else {
             /* The versions are on two separate branches. */
@@ -199,21 +191,19 @@ region_map_t<version_t> version_find_common(
 
             /* OK, now recurse to `b1`'s parents. */
             {
-                region_t reg = region_t::universe();
                 version_t vers = b1.origin;
-                stack.push({reg, vers, x.v2, v1_equiv, x.v2_equiv});
+                stack.push({vers, x.v2, v1_equiv, x.v2_equiv});
             }
         }
     }
-    return region_map_t<version_t>::from_unordered_fragments(
-        std::move(result_regions), std::move(result_versions));
+    guarantee(result_versions.size() == 1);
+    return result_versions[0];
 }
 
-region_map_t<version_t> version_find_branch_common(
+version_t version_find_branch_common(
         const branch_history_reader_t *bh,
         const version_t &version,
-        const branch_id_t &branch,
-        const region_t &relevant_region)
+        const branch_id_t &branch)
         THROWS_ONLY(missing_branch_exc_t) {
     version_t branch_version;
     if (branch.is_nil()) {
@@ -221,7 +211,7 @@ region_map_t<version_t> version_find_branch_common(
     } else {
         branch_version = version_t(branch, state_timestamp_t::max());
     }
-    return version_find_common(bh, version, branch_version, relevant_region);
+    return version_find_common(bh, version, branch_version);
 }
 
 branch_birth_certificate_t branch_history_combiner_t::get_branch(

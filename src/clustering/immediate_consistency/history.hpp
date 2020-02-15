@@ -122,11 +122,10 @@ bool version_is_ancestor(
 
 /* `version_find_branch_common()` is like `version_find_common()` but in place of one of
 the versions, it uses the latest version on the given branch. */
-region_map_t<version_t> version_find_branch_common(
+version_t version_find_branch_common(
     const branch_history_reader_t *bh,
     const version_t &version,
-    const branch_id_t &branch,
-    const region_t &relevant_region)
+    const branch_id_t &branch)
     THROWS_ONLY(missing_branch_exc_t);
 
 /* `branch_history_combiner_t` is a `branch_history_reader_t` that reads from two or more

@@ -49,9 +49,9 @@ void contract_ack_t::sanity_check(
                     *branch,
                     branch_history.get_branch(*branch).initial_timestamp);
                 raft_state.current_branches.visit(region,
-                [&](const region_t &subregion, const branch_id_t &cur_branch) {
+                [&](const region_t &, const branch_id_t &cur_branch) {
                     version_find_branch_common(
-                        &combiner, branch_initial_version, cur_branch, subregion);
+                        &combiner, branch_initial_version, cur_branch);
                 });
             }
         } catch (const missing_branch_exc_t &) {

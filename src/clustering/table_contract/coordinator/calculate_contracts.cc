@@ -60,11 +60,11 @@ region_map_t<contract_ack_frag_t> break_ack_into_fragments(
             base_frag.version = make_optional(vers);
             return current_branches.map_multi(ack_version_reg,
             [&](const region_t &branch_reg, const branch_id_t &branch) {
-                region_map_t<version_t> points_on_canonical_branch;
+                version_t points_on_canonical_branch;
                 try {
                     points_on_canonical_branch =
                         version_find_branch_common(&combined_branch_history,
-                            vers, branch, branch_reg);
+                            vers, branch);
                 } catch (const missing_branch_exc_t &) {
 #ifndef NDEBUG
                     crash("Branch history is incomplete");
@@ -73,17 +73,12 @@ region_map_t<contract_ack_frag_t> break_ack_into_fragments(
                            "that there is a bug in RethinkDB. Please report this "
                            "at https://github.com/rethinkdb/rethinkdb/issues/ .");
                     /* Recover by using the root branch */
-                    points_on_canonical_branch =
-                        region_map_t<version_t>(region_t::universe(),
-                                                version_t::zero());
+                    points_on_canonical_branch = version_t::zero();
 #endif
                 }
-                return points_on_canonical_branch.map(branch_reg,
-                [&](const version_t &common_vers) {
-                    base_frag.common_ancestor =
-                        make_optional(common_vers.timestamp);
-                    return base_frag;
-                });
+                base_frag.common_ancestor =
+                    make_optional(points_on_canonical_branch.timestamp);
+                return region_map_t<contract_ack_frag_t>(branch_reg, base_frag);
             });
         });
     } else {
