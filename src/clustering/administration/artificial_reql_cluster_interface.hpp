@@ -12,9 +12,7 @@
 #include "clustering/administration/stats/debug_stats_backend.hpp"
 #include "clustering/administration/stats/stats_backend.hpp"
 #include "clustering/administration/tables/db_config.hpp"
-#include "clustering/administration/tables/debug_table_status.hpp"
 #include "clustering/administration/tables/table_config.hpp"
-#include "clustering/administration/tables/table_status.hpp"
 #include "clustering/administration/issues/issues_backend.hpp"
 #include "clustering/administration/auth/permissions_artificial_table_backend.hpp"
 #include "clustering/administration/auth/users_artificial_table_backend.hpp"
@@ -169,9 +167,6 @@ private:
     scoped_ptr_t<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
     fdb_backend_sentry_t table_config_sentry;
 
-    scoped_ptr_t<table_status_artificial_table_backend_t> table_status_backend[2];
-    backend_sentry_t table_status_sentry;
-
     scoped_ptr_t<jobs_artificial_table_fdb_backend_t> jobs_backend[2];
     fdb_backend_sentry_t jobs_sentry;
 
@@ -180,10 +175,6 @@ private:
 
     scoped_ptr_t<debug_stats_artificial_table_backend_t> debug_stats_backend;
     backend_sentry_t debug_stats_sentry;
-
-    scoped_ptr_t<debug_table_status_artificial_table_backend_t>
-        debug_table_status_backend;
-    backend_sentry_t debug_table_status_sentry;
 };
 
 // TODO: Move to appropriate file

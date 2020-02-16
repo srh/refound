@@ -316,20 +316,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         std::make_pair(table_config_backend[0].get(), table_config_backend[1].get()));
 
     for (int format = 0; format < 2; ++format) {
-        table_status_backend[format].init(
-            new table_status_artificial_table_backend_t(
-                name_resolver,
-                cluster_semilattice_view,
-                server_config_client,
-                table_meta_client,
-                static_cast<admin_identifier_format_t>(format)));
-    }
-    table_status_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("table_status"),
-        std::make_pair(table_status_backend[0].get(), table_status_backend[1].get()));
-
-    for (int format = 0; format < 2; ++format) {
         jobs_backend[format].init(
             new jobs_artificial_table_fdb_backend_t(
                 static_cast<admin_identifier_format_t>(format)));
@@ -358,14 +344,4 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
         name_string_t::guarantee_valid("_debug_stats"),
         std::make_pair(debug_stats_backend.get(), debug_stats_backend.get()));
-
-    debug_table_status_backend.init(
-        new debug_table_status_artificial_table_backend_t(
-            name_resolver,
-            cluster_semilattice_view,
-            table_meta_client));
-    debug_table_status_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("_debug_table_status"),
-        std::make_pair(debug_table_status_backend.get(), debug_table_status_backend.get()));
 }
