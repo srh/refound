@@ -173,45 +173,9 @@ public:
         std::map<server_id_t, table_status_response_t> *responses_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
 
-    /* `create()` creates a table with the given configuration. It sets `*table_id_out`
-    to the ID of the newly generated table. It may block. If it returns successfully, the
-    change will be visible in `find()`, etc. */
-    void create(
-        namespace_id_t new_table_id,
-        const table_config_and_shards_t &new_config,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t);
-
-    /* `drop()` drops the table with the given ID. It may block. As long as the table
-    exists it will always succeed, even if the other servers are not accessible. */
-    void drop(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t);
-
-    /* `set_config()` changes the configuration of the table with the given ID. It may
-    block. If it returns successfully, the change will be visible in `find()`, etc. */
-    void set_config(
-        const namespace_id_t &table_id,
-        const table_config_and_shards_change_t &table_config_and_shards_change,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t, config_change_exc_t);
-
 private:
     typedef std::pair<table_basic_config_t, multi_table_manager_timestamp_t>
         timestamped_basic_config_t;
-
-    /* `create_or_emergency_repair()` factors out the common parts of `create()` and
-    `emergency_repair()`. */
-    void create_or_emergency_repair(
-        const namespace_id_t &table_id,
-        const table_raft_state_t &raft_state,
-        const multi_table_manager_timestamp_epoch_t &epoch,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, failed_table_op_exc_t,
-            maybe_failed_table_op_exc_t);
 
     /* `get_status()` runs a status query. It can run for a specific table or every
     table. If `servers` is `EVERY_SERVER`, it runs against every server for the table(s);
