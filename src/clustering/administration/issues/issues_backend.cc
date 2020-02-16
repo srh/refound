@@ -29,11 +29,9 @@ issues_artificial_table_backend_t::issues_artificial_table_backend_t(
       server_config_client(_server_config_client),
       table_meta_client(_table_meta_client),
       local_issue_client(mailbox_manager, directory_view),
-      outdated_index_issue_tracker(table_meta_client),
-      non_transitive_issue_tracker(_server_config_client)  {
+      outdated_index_issue_tracker(table_meta_client)  {
     trackers.insert(&local_issue_client);
     trackers.insert(&outdated_index_issue_tracker);
-    trackers.insert(&non_transitive_issue_tracker);
 }
 
 issues_artificial_table_backend_t::~issues_artificial_table_backend_t() {
