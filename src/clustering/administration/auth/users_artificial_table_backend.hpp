@@ -2,7 +2,7 @@
 #ifndef CLUSTERING_ADMINISTRATION_AUTH_USER_ARTIFICIAL_TABLE_BACKEND_HPP
 #define CLUSTERING_ADMINISTRATION_AUTH_USER_ARTIFICIAL_TABLE_BACKEND_HPP
 
-#include "clustering/administration/auth/base_artificial_table_backend.hpp"
+#include "rdb_protocol/artificial_table/backend.hpp"
 
 namespace auth {
 

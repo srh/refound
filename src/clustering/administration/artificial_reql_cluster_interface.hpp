@@ -19,7 +19,7 @@ class name_resolver_t;
 class server_config_client_t;
 class table_meta_client_t;
 namespace auth {
-class permissions_artificial_table_backend_t;
+class permissions_artificial_table_fdb_backend_t;
 class users_artificial_table_fdb_backend_t;
 }
 class db_config_artificial_table_fdb_backend_t;
@@ -117,8 +117,6 @@ class artificial_reql_cluster_backends_t {
 public:
     artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
-        std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
-            auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
             cluster_semilattice_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
@@ -137,9 +135,9 @@ private:
         artificial_reql_cluster_interface_t::table_fdb_backends_map_t::key_type,
         artificial_reql_cluster_interface_t::table_fdb_backends_map_t::mapped_type>;
 
-    scoped_ptr_t<auth::permissions_artificial_table_backend_t>
+    scoped_ptr_t<auth::permissions_artificial_table_fdb_backend_t>
         permissions_backend[2];
-    backend_sentry_t permissions_sentry;
+    fdb_backend_sentry_t permissions_sentry;
 
     scoped_ptr_t<auth::users_artificial_table_fdb_backend_t> users_backend;
     fdb_backend_sentry_t users_sentry;

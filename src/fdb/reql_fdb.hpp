@@ -63,6 +63,10 @@ public:
         return fut == nullptr;
     }
 
+    bool has() const {
+        return !empty();
+    }
+
     fdb_future(fdb_future &&movee) noexcept : fut(movee.fut) {
         movee.fut = nullptr;
     }

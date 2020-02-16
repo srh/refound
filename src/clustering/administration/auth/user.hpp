@@ -63,7 +63,8 @@ public:
 
     bool has_connect_permission() const;
 
-    bool operator==(user_t const &rhs) const;
+    bool operator==(const user_t &rhs) const;
+    bool operator!=(const user_t &rhs) const { return !(*this == rhs); }
 
     RDB_DECLARE_ME_SERIALIZABLE(user_t);
 

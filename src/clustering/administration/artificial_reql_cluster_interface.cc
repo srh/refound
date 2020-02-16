@@ -12,11 +12,13 @@
 #include "clustering/administration/tables/db_config.hpp"
 #include "clustering/administration/tables/table_config.hpp"
 #include "concurrency/cross_thread_signal.hpp"
+#include "containers/lifetime.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/artificial_table/in_memory.hpp"
 #include "rdb_protocol/env.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "rpc/semilattice/view/field.hpp"
+
 
 /* static */ const name_string_t artificial_reql_cluster_interface_t::database_name =
     name_string_t::guarantee_valid("rethinkdb");
@@ -204,8 +206,6 @@ artificial_reql_cluster_backends_t::~artificial_reql_cluster_backends_t() { }
 
 artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
-        std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
-            auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
             cluster_semilattice_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
@@ -215,14 +215,11 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         lifetime_t<name_resolver_t const &> name_resolver) {
     for (int format = 0; format < 2; ++format) {
         permissions_backend[format].init(
-            new auth::permissions_artificial_table_backend_t(
-                name_resolver,
-                auth_semilattice_view,
-                cluster_semilattice_view,
+            new auth::permissions_artificial_table_fdb_backend_t(
                 static_cast<admin_identifier_format_t>(format)));
     }
-    permissions_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
+    permissions_sentry = fdb_backend_sentry_t(
+        artificial_reql_cluster_interface->get_table_fdb_backends_map_mutable(),
         name_string_t::guarantee_valid("permissions"),
         std::make_pair(permissions_backend[0].get(), permissions_backend[1].get()));
 
