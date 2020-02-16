@@ -209,13 +209,6 @@ public:
         return secondary_index_slices.at(id).get();
     }
 
-    void protocol_write(scoped_ptr_t<txn_t> txn,
-                        const write_t &write,
-                        write_response_t *response,
-                        state_timestamp_t timestamp,
-                        scoped_ptr_t<real_superblock_lock> superblock,
-                        const signal_t *interruptor);
-
     void acquire_superblock_for_read(
             read_token_t *token,
             scoped_ptr_t<txn_t> *txn_out,

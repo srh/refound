@@ -101,13 +101,6 @@ private:
     const signal_t *interruptor_;
 };
 
-continue_bool_t geo_traversal(
-        const rocksdb::Snapshot *snap,
-        rockshard rocksh,
-        uuid_u sindex_uuid,
-        const key_range_t &sindex_range,
-        geo_index_traversal_helper_t *helper);
-
 continue_bool_t geo_fdb_traversal(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
