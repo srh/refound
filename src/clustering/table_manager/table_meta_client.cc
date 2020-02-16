@@ -48,27 +48,6 @@ void table_meta_client_t::find(
     }
 }
 
-bool table_meta_client_t::exists(const namespace_id_t &table_id) {
-    bool found = false;
-    table_basic_configs.get_watchable()->read_key(table_id,
-        [&](const timestamped_basic_config_t *value) {
-            found = (value != nullptr);
-        });
-    return found;
-}
-
-bool table_meta_client_t::exists(
-        const database_id_t &database, const name_string_t &name) {
-    bool found = false;
-    table_basic_configs.get_watchable()->read_all(
-        [&](const namespace_id_t &, const timestamped_basic_config_t *value) {
-            if (value->first.database == database && value->first.name == name) {
-                found = true;
-            }
-        });
-    return found;
-}
-
 void table_meta_client_t::get_name(
         const namespace_id_t &table_id,
         table_basic_config_t *basic_config_out)
@@ -80,39 +59,6 @@ void table_meta_client_t::get_name(
             }
             *basic_config_out = value->first;
         });
-}
-
-void table_meta_client_t::list_names(
-        std::map<namespace_id_t, table_basic_config_t> *names_out) const {
-    table_basic_configs.get_watchable()->read_all(
-        [&](const namespace_id_t &table_id, const timestamped_basic_config_t *value) {
-            (*names_out)[table_id] = value->first;
-        });
-}
-
-void table_meta_client_t::get_config(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor_on_caller,
-        table_config_and_shards_t *config_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
-    cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-    table_status_request_t request;
-    request.want_config = true;
-    std::set<namespace_id_t> failures;
-    get_status(
-        make_optional(table_id),
-        request,
-        server_selector_t::BEST_SERVER_ONLY,
-        &interruptor,
-        [&](const server_id_t &, const namespace_id_t &,
-                const table_status_response_t &response) {
-            *config_out = *response.config;
-        },
-        &failures);
-    if (!failures.empty()) {
-        throw_appropriate_exception(table_id);
-    }
 }
 
 void table_meta_client_t::list_configs(
@@ -143,94 +89,6 @@ void table_meta_client_t::list_configs(
                 disconnected_configs_out->insert(std::make_pair(table_id, value->first));
             }
         });
-    }
-}
-
-void table_meta_client_t::get_shard_status(
-        const namespace_id_t &table_id,
-        all_replicas_ready_mode_t all_replicas_ready_mode,
-        const signal_t *interruptor_on_caller,
-        std::map<server_id_t, range_map_t<key_range_t::right_bound_t,
-            table_shard_status_t> > *shard_statuses_out,
-        bool *all_replicas_ready_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
-    cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-    *all_replicas_ready_out = false;
-    table_status_request_t request;
-    request.want_shard_status = (shard_statuses_out != nullptr);
-    request.want_all_replicas_ready = true;
-    request.all_replicas_ready_mode = all_replicas_ready_mode;
-    std::set<namespace_id_t> failures;
-    get_status(
-        make_optional(table_id),
-        request,
-        /* If we only care about `all_replicas_ready`, there's no need to contact any
-        server other than the primary */
-        shard_statuses_out != nullptr
-            ? server_selector_t::EVERY_SERVER
-            : server_selector_t::BEST_SERVER_ONLY,
-        &interruptor,
-        [&](const server_id_t &server_id, const namespace_id_t &,
-                const table_status_response_t &response) {
-            if (shard_statuses_out != nullptr) {
-                shard_statuses_out->insert(
-                    std::make_pair(server_id, response.shard_status));
-            }
-            *all_replicas_ready_out |= response.all_replicas_ready;
-        },
-        &failures);
-    if (!failures.empty()) {
-        throw_appropriate_exception(table_id);
-    }
-}
-
-void table_meta_client_t::get_raft_leader(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor_on_caller,
-        optional<server_id_t> *raft_leader_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
-    cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-
-    table_manager_directory->read_all(
-      [&](const std::pair<peer_id_t, namespace_id_t> &key,
-          const table_manager_bcard_t *bcard) {
-          if (key.second == table_id && static_cast<bool>(bcard->leader)) {
-            *raft_leader_out = make_optional(bcard->server_id);
-          }
-      });
-}
-
-void table_meta_client_t::get_debug_status(
-        const namespace_id_t &table_id,
-        all_replicas_ready_mode_t all_replicas_ready_mode,
-        const signal_t *interruptor_on_caller,
-        std::map<server_id_t, table_status_response_t> *responses_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t) {
-    cross_thread_signal_t interruptor(interruptor_on_caller, home_thread());
-    on_thread_t thread_switcher(home_thread());
-    table_status_request_t request;
-    request.want_config = true;
-    request.want_sindexes = true;
-    request.want_raft_state = true;
-    request.want_contract_acks = true;
-    request.want_shard_status = true;
-    request.want_all_replicas_ready = true;
-    request.all_replicas_ready_mode = all_replicas_ready_mode;
-    std::set<namespace_id_t> failures;
-    get_status(
-        make_optional(table_id),
-        request,
-        server_selector_t::EVERY_SERVER,
-        &interruptor,
-        [&](const server_id_t &server_id, const namespace_id_t &,
-                const table_status_response_t &response) {
-            responses_out->insert(std::make_pair(server_id, response));
-        },
-        &failures);
-    if (!failures.empty()) {
-        throw_appropriate_exception(table_id);
     }
 }
 
@@ -367,82 +225,5 @@ void table_meta_client_t::get_status(
     }
 
     *failures_out = std::move(tables_todo);
-}
-
-void table_meta_client_t::retry(
-        const std::function<void(const signal_t *)> &fun,
-        const signal_t *interruptor) {
-    /* 8 tries at 300ms initially with 1.5x exponential backoff means the last try will
-    be about 15 seconds after the first try. Since that's about ten times the Raft
-    election timeout, we can be reasonably certain that if it fails that many times there
-    is a real problem and not just a transient failure. */
-    static const int max_tries = 8;
-    static const int initial_wait_ms = 300;
-    int tries_left = max_tries;
-    int wait_ms = initial_wait_ms;
-    bool maybe_succeeded = false;
-    for (;;) {
-        try {
-            fun(interruptor);
-            return;
-        } catch (const failed_table_op_exc_t &) {
-            /* ignore */
-        } catch (const maybe_failed_table_op_exc_t &) {
-            maybe_succeeded = true;
-        }
-        --tries_left;
-        if (tries_left == 0) {
-            if (maybe_succeeded) {
-                /* Throw `maybe_failed_table_op_exc_t` if any of the tries threw
-                `maybe_failed_table_op_exc_t`. */
-                throw maybe_failed_table_op_exc_t();
-            } else {
-                throw failed_table_op_exc_t();
-            }
-        }
-        nap(wait_ms, interruptor);
-        wait_ms *= 1.5;
-    }
-}
-
-NORETURN void table_meta_client_t::throw_appropriate_exception(
-        const namespace_id_t &table_id)
-        THROWS_ONLY(no_such_table_exc_t, failed_table_op_exc_t) {
-    multi_table_manager->get_table_basic_configs()->read_key(
-        table_id,
-        [&](const timestamped_basic_config_t *value) {
-            if (value == nullptr) {
-                throw no_such_table_exc_t();
-            } else {
-                throw failed_table_op_exc_t();
-            }
-        });
-    unreachable();
-}
-
-void table_meta_client_t::wait_until_change_visible(
-        const namespace_id_t &table_id,
-        const std::function<bool(const timestamped_basic_config_t *)> &cb,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, maybe_failed_table_op_exc_t)
-{
-    signal_timer_t timeout;
-    timeout.start(10*1000);
-    wait_any_t interruptor_combined(interruptor, &timeout);
-    try {
-        multi_table_manager->get_table_basic_configs()->run_key_until_satisfied(
-            table_id, cb, &interruptor_combined);
-    } catch (const interrupted_exc_t &) {
-        if (interruptor->is_pulsed()) {
-            throw;
-        } else {
-            /* The timeout ran out. We know the change was applied, but it isn't visible
-            to us yet, so we error anyway to preserve the guarantee that changes should
-            be visible after the operation completes. */
-            throw maybe_failed_table_op_exc_t();
-        }
-    }
-    /* Wait until the change is also visible on other threads */
-    table_basic_configs.flush();
 }
 

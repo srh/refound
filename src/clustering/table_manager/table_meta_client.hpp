@@ -108,32 +108,12 @@ public:
         namespace_id_t *table_id_out, std::string *primary_key_out = nullptr)
         THROWS_ONLY(no_such_table_exc_t, ambiguous_table_exc_t);
 
-    /* `exists()` returns `true` if a table with the given `table_id` exists. */
-    bool exists(const namespace_id_t &table_id);
-
-    /* `exists()` returns `true` if one or more tables exist with the given name in the
-    given database. */
-    bool exists(const database_id_t &database, const name_string_t &name);
-
     /* `get_name()` determines the name, database, and primary key of the table with the
     given ID; it's the reverse of `find()`. It will not block. */
     void get_name(
         const namespace_id_t &table_id,
         table_basic_config_t *basic_config_out)
         THROWS_ONLY(no_such_table_exc_t);
-
-    /* `list_names()` determines the IDs, names, databases, and primary keys of every
-    table. It will not block. */
-    void list_names(
-        std::map<namespace_id_t, table_basic_config_t> *names_out) const;
-
-    /* `get_config()` fetches the configuration of the table with the given ID. It may
-    block and it may fail. */
-    void get_config(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor,
-        table_config_and_shards_t *config_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
 
     /* `list_configs()` fetches the configurations of every table at once. It may block.
     If it can't find a config for a certain table, then it puts the table's name and info
@@ -143,35 +123,6 @@ public:
         std::map<namespace_id_t, table_config_and_shards_t> *configs_out,
         std::map<namespace_id_t, table_basic_config_t> *disconnected_configs_out)
         THROWS_ONLY(interrupted_exc_t);
-
-    /* `get_shard_status()` returns some of the information necessary to fill in the
-    `rethinkdb.table_status` system table. If `server_shards_out` is set to `nullptr`, it
-    that information will not be retrieved, which will improve performance. */
-    void get_shard_status(
-        const namespace_id_t &table_id,
-        all_replicas_ready_mode_t all_replicas_ready_mode,
-        const signal_t *interruptor,
-        std::map<server_id_t, range_map_t<key_range_t::right_bound_t,
-            table_shard_status_t> > *shard_statuses_out,
-        bool *all_replicas_ready_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
-
-    /* `get_raft_leader()` fetches raft leader from the table directory.
-    This is for displaying raft information in `rethinkdb.table_status`. */
-    void get_raft_leader(
-        const namespace_id_t &table_id,
-        const signal_t *interruptor,
-        optional<server_id_t> *raft_leader_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
-
-    /* `get_debug_status()` fetches all status information from all servers. This is for
-    displaying in `rethinkdb._debug_table_status`. */
-    void get_debug_status(
-        const namespace_id_t &table_id,
-        all_replicas_ready_mode_t all_replicas_ready_mode,
-        const signal_t *interruptor,
-        std::map<server_id_t, table_status_response_t> *responses_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, failed_table_op_exc_t);
 
 private:
     typedef std::pair<table_basic_config_t, multi_table_manager_timestamp_t>
@@ -196,21 +147,6 @@ private:
             )> &callback,
         std::set<namespace_id_t> *failures_out)
         THROWS_ONLY(interrupted_exc_t);
-
-    /* `retry()` calls `fun()` repeatedly. If `fun()` fails with a
-    `failed_table_op_exc_t` or `maybe_failed_table_op_exc_t`, then `retry()` catches the
-    exception, waits for some time, and calls `fun()` again. After some number of tries
-    it gives up and allows the exception to bubble up to the caller. */
-    void retry(const std::function<void(const signal_t *)> &fun, const signal_t *interruptor);
-
-    NORETURN void throw_appropriate_exception(const namespace_id_t &table_id)
-        THROWS_ONLY(no_such_table_exc_t, failed_table_op_exc_t);
-
-    void wait_until_change_visible(
-        const namespace_id_t &table_id,
-        const std::function<bool(const timestamped_basic_config_t *)> &cb,
-        const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t, maybe_failed_table_op_exc_t);
 
     mailbox_manager_t *const mailbox_manager;
     multi_table_manager_t *const multi_table_manager;
