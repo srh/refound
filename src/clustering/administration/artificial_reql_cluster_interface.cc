@@ -201,8 +201,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
             auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
             cluster_semilattice_view,
-        clone_ptr_t<watchable_t<change_tracking_map_t<
-            peer_id_t, cluster_directory_metadata_t>>> directory_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
         table_meta_client_t *table_meta_client,
         server_config_client_t *server_config_client,
@@ -268,45 +266,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         name_string_t::guarantee_valid("logs"),
         std::make_pair(logs_backend[0].get(), logs_backend[1].get()));
 
-    server_config_backend.init(
-        new server_config_artificial_table_backend_t(
-            name_resolver,
-            directory_map_view,
-            server_config_client));
-    server_config_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("server_config"),
-        std::make_pair(server_config_backend.get(), server_config_backend.get()));
-
-    for (int format = 0; format < 2; ++format) {
-        server_status_backend[format].init(
-            new server_status_artificial_table_backend_t(
-                name_resolver,
-                directory_map_view,
-                server_config_client,
-                static_cast<admin_identifier_format_t>(format)));
-    }
-    server_status_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("server_status"),
-        std::make_pair(server_status_backend[0].get(), server_status_backend[1].get()));
-
-    for (int format = 0; format < 2; ++format) {
-        stats_backend[format].init(
-            new stats_artificial_table_backend_t(
-                name_resolver,
-                directory_view,
-                cluster_semilattice_view,
-                server_config_client,
-                table_meta_client,
-                mailbox_manager,
-                static_cast<admin_identifier_format_t>(format)));
-    }
-    stats_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("stats"),
-        std::make_pair(stats_backend[0].get(), stats_backend[1].get()));
-
     for (int format = 0; format < 2; ++format) {
         table_config_backend[format].init(
             new table_config_artificial_table_fdb_backend_t(
@@ -335,15 +294,4 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
         name_string_t::guarantee_valid("_debug_scratch"),
         std::make_pair(debug_scratch_backend.get(), debug_scratch_backend.get()));
-
-    debug_stats_backend.init(
-        new debug_stats_artificial_table_backend_t(
-            name_resolver,
-            directory_map_view,
-            server_config_client,
-            mailbox_manager));
-    debug_stats_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("_debug_stats"),
-        std::make_pair(debug_stats_backend.get(), debug_stats_backend.get()));
 }

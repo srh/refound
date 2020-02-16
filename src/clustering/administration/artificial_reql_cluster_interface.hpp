@@ -7,10 +7,6 @@
 #include <string>
 
 #include "clustering/administration/metadata.hpp"
-#include "clustering/administration/servers/server_config.hpp"
-#include "clustering/administration/servers/server_status.hpp"
-#include "clustering/administration/stats/debug_stats_backend.hpp"
-#include "clustering/administration/stats/stats_backend.hpp"
 #include "clustering/administration/tables/db_config.hpp"
 #include "clustering/administration/tables/table_config.hpp"
 #include "clustering/administration/issues/issues_backend.hpp"
@@ -122,8 +118,6 @@ public:
             auth_semilattice_view,
         std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
             cluster_semilattice_view,
-        clone_ptr_t<watchable_t<change_tracking_map_t<
-            peer_id_t, cluster_directory_metadata_t>>> directory_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
         table_meta_client_t *table_meta_client,
         server_config_client_t *server_config_client,
@@ -156,15 +150,6 @@ private:
     scoped_ptr_t<logs_artificial_table_backend_t> logs_backend[2];
     backend_sentry_t logs_sentry;
 
-    scoped_ptr_t<server_config_artificial_table_backend_t> server_config_backend;
-    backend_sentry_t server_config_sentry;
-
-    scoped_ptr_t<server_status_artificial_table_backend_t> server_status_backend[2];
-    backend_sentry_t server_status_sentry;
-
-    scoped_ptr_t<stats_artificial_table_backend_t> stats_backend[2];
-    backend_sentry_t stats_sentry;
-
     scoped_ptr_t<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
     fdb_backend_sentry_t table_config_sentry;
 
@@ -174,8 +159,19 @@ private:
     scoped_ptr_t<in_memory_artificial_table_backend_t> debug_scratch_backend;
     backend_sentry_t debug_scratch_sentry;
 
-    scoped_ptr_t<debug_stats_artificial_table_backend_t> debug_stats_backend;
-    backend_sentry_t debug_stats_sentry;
+    /* QQQ: Reimplement these backends:
+
+    - server status - we could report info about what nodes are registered, and they
+      could include basic config information in their report.
+
+    - _debug_stats - from the debug_stats_artificial_table_backend_t - request that
+      servers dump their perfmon stats and whatnot to some FDB location.  (They could
+      set up a watch for such requests.)
+
+    - stats - from the stats_artificial_table_backend_t.  As with _debug_stats.
+
+    */
+
 
     DISABLE_COPYING(artificial_reql_cluster_backends_t);
 };
