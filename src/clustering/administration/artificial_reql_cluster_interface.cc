@@ -219,13 +219,9 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         name_string_t::guarantee_valid("permissions"),
         std::make_pair(permissions_backend[0].get(), permissions_backend[1].get()));
 
-    users_backend.init(
-        new auth::users_artificial_table_backend_t(
-            name_resolver,
-            auth_semilattice_view,
-            cluster_semilattice_view));
-    users_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
+    users_backend.init(new auth::users_artificial_table_fdb_backend_t());
+    users_sentry = fdb_backend_sentry_t(
+        artificial_reql_cluster_interface->get_table_fdb_backends_map_mutable(),
         name_string_t::guarantee_valid("users"),
         std::make_pair(users_backend.get(), users_backend.get()));
 

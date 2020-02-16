@@ -25,6 +25,9 @@ ukey_string table_by_name_key(
         const database_id_t &db_id,
         const name_string_t &table_name);
 
+// TODO: Move somewhere appropriate, add system table.
+auth::username_t username_parse_pkey(key_view k);
+
 // TODO: Move this into reqlfdb_config_cache.hpp
 
 // These functions are declared here because reqlfdb_config_cache is used by context.hpp
@@ -188,5 +191,9 @@ void transaction_set_user(
     FDBTransaction *txn,
     const auth::username_t &username,
     const auth::user_t &user);
+
+void transaction_erase_user(
+    FDBTransaction *txn,
+    const auth::username_t &username);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

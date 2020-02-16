@@ -138,8 +138,8 @@ private:
         permissions_backend[2];
     backend_sentry_t permissions_sentry;
 
-    scoped_ptr_t<auth::users_artificial_table_backend_t> users_backend;
-    backend_sentry_t users_sentry;
+    scoped_ptr_t<auth::users_artificial_table_fdb_backend_t> users_backend;
+    fdb_backend_sentry_t users_sentry;
 
     scoped_ptr_t<db_config_artificial_table_fdb_backend_t> db_config_backend;
     fdb_backend_sentry_t db_config_sentry;
