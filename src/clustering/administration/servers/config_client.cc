@@ -6,11 +6,9 @@
 #include "rpc/mailbox/disconnect_watcher.hpp"
 
 server_config_client_t::server_config_client_t(
-        mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *_directory_view,
         watchable_map_t<std::pair<peer_id_t, server_id_t>, empty_value_t>
             *_peer_connections_map) :
-    mailbox_manager(_mailbox_manager),
     directory_view(_directory_view),
     peer_connections_map(_peer_connections_map),
     directory_subs(
@@ -52,104 +50,6 @@ void server_config_client_t::update_server_connectivity(
         ++server_connectivity.all_servers[key.second];
         server_connectivity.connected_to[key.first].insert(key.second);
     }
-}
-
-bool server_config_client_t::set_config(
-        const server_id_t &server_id,
-        const name_string_t &old_server_name,
-        const server_config_t &new_config,
-        const signal_t *interruptor,
-        admin_err_t *error_out) {
-    bool name_collision = false, is_noop = false;
-    server_config_map.read_all(
-    [&](const server_id_t &sid, const server_config_versioned_t *conf) {
-        if (sid != server_id && conf->config.name == new_config.name) {
-            name_collision = true;
-        } else if (sid == server_id && conf->config == new_config) {
-            is_noop = true;
-        }
-    });
-    if (name_collision) {
-        *error_out = admin_err_t{
-            strprintf("Cannot rename server `%s` to `%s` because server `%s` "
-                      "already exists.",
-                      old_server_name.c_str(), new_config.name.c_str(),
-                      new_config.name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    if (is_noop) {
-        return true;
-    }
-
-    optional<peer_id_t> peer = server_to_peer_map.get_key(server_id);
-    if (!peer.has_value()) {
-        std::string s = strprintf(
-            "Could not contact server `%s` while trying to change the server "
-            "configuration.  The configuration was not changed.",
-            old_server_name.c_str());
-        *error_out = admin_err_t{s, query_state_t::FAILED};
-        return false;
-    }
-    server_config_business_card_t bcard;
-    directory_view->read_key(*peer, [&](const cluster_directory_metadata_t *md) {
-        guarantee(md != nullptr);
-        bcard = md->server_config_business_card.get();
-    });
-
-    server_config_version_t version;
-    {
-        promise_t<std::pair<server_config_version_t, std::string> > reply;
-        mailbox_t<server_config_version_t, std::string> ack_mailbox(
-            mailbox_manager,
-            [&](const signal_t *, server_config_version_t v, const std::string &m) {
-                reply.pulse(std::make_pair(v, m));
-            });
-        disconnect_watcher_t disconnect_watcher(mailbox_manager, *peer);
-        send(mailbox_manager, bcard.set_config_addr,
-            new_config, ack_mailbox.get_address());
-        wait_any_t waiter(reply.get_ready_signal(), &disconnect_watcher);
-        wait_interruptible(&waiter, interruptor);
-        if (!reply.is_pulsed()) {
-
-            std::string disconnect_msg = strprintf(
-                "Lost contact with server `%s` while trying "
-                "to change the server configuration. The configuration may or may not "
-                "have been changed.", old_server_name.c_str());
-            *error_out = admin_err_t{disconnect_msg, query_state_t::INDETERMINATE};
-            return false;
-        }
-        if (!reply.assert_get_value().second.empty()) {
-            guarantee(reply.assert_get_value().first == 0);
-            *error_out = admin_err_t{
-                strprintf("Error when trying to change the configuration of "
-                          "server `%s`: %s The configuration was not changed.",
-                          old_server_name.c_str(),
-                          reply.assert_get_value().second.c_str()),
-                query_state_t::FAILED};
-            return false;
-        }
-        version = reply.assert_get_value().first;
-    }
-
-    /* Wait up to 10 seconds for the change to appear in the directory. */
-    try {
-        signal_timer_t timeout;
-        timeout.start(10000);
-        wait_any_t waiter(interruptor, &timeout);
-        server_config_map.run_key_until_satisfied(
-            server_id,
-            [&](const server_config_versioned_t *conf) {
-                return conf == nullptr || conf->version >= version;
-            },
-            &waiter);
-    } catch (const interrupted_exc_t &) {
-        if (interruptor->is_pulsed()) {
-            throw;
-        }
-    }
-
-    return true;
 }
 
 void server_config_client_t::install_server_metadata(

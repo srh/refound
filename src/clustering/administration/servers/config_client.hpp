@@ -25,7 +25,6 @@ struct server_connectivity_t {
 class server_config_client_t : public home_thread_mixin_t {
 public:
     server_config_client_t(
-        mailbox_manager_t *_mailbox_manager,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t>
             *_directory_view,
         watchable_map_t<std::pair<peer_id_t, server_id_t>, empty_value_t>
@@ -56,13 +55,6 @@ public:
     const server_connectivity_t& get_server_connectivity() const {
         return server_connectivity;
     }
-    /* `set_config()` changes the config of the server with the given server ID. */
-    bool set_config(
-        const server_id_t &server_id,
-        const name_string_t &old_server_name,   /* for error messages */
-        const server_config_t &new_server_config,
-        const signal_t *interruptor,
-        admin_err_t *error_out);
 
     void update_server_connectivity(
         const std::pair<server_id_t, server_id_t> &key,
@@ -79,7 +71,6 @@ private:
         const std::pair<peer_id_t, server_id_t> &key,
         const empty_value_t *value);
 
-    mailbox_manager_t *const mailbox_manager;
     watchable_map_t<peer_id_t, cluster_directory_metadata_t> * const directory_view;
     watchable_map_t< std::pair<peer_id_t, server_id_t>, empty_value_t>
         * const peer_connections_map;

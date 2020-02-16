@@ -189,7 +189,6 @@ bool do_serve(FDBDatabase *fdb,
         servers' names and tags over the network by sending messages to the servers'
         `server_config_server_t`s. */
         server_config_client_t server_config_client(
-            &mailbox_manager,
             directory_read_manager.get_root_map_view(),
             server_connection_read_manager.get_root_view());
 
