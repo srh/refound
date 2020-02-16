@@ -283,11 +283,10 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         std::make_pair(jobs_backend[0].get(), jobs_backend[1].get()));
 
     debug_scratch_backend.init(
-        new in_memory_artificial_table_backend_t(
-            name_string_t::guarantee_valid("_debug_scratch"),
-            name_resolver));
-    debug_scratch_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
+        new in_memory_artificial_table_fdb_backend_t(
+            name_string_t::guarantee_valid("_debug_scratch")));
+    debug_scratch_sentry = fdb_backend_sentry_t(
+        artificial_reql_cluster_interface->get_table_fdb_backends_map_mutable(),
         name_string_t::guarantee_valid("_debug_scratch"),
         std::make_pair(debug_scratch_backend.get(), debug_scratch_backend.get()));
 }

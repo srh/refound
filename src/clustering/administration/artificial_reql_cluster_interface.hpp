@@ -156,8 +156,8 @@ private:
     scoped_ptr_t<jobs_artificial_table_fdb_backend_t> jobs_backend[2];
     fdb_backend_sentry_t jobs_sentry;
 
-    scoped_ptr_t<in_memory_artificial_table_backend_t> debug_scratch_backend;
-    backend_sentry_t debug_scratch_sentry;
+    scoped_ptr_t<in_memory_artificial_table_fdb_backend_t> debug_scratch_backend;
+    fdb_backend_sentry_t debug_scratch_sentry;
 
     /* QQQ: Reimplement these backends:
 
