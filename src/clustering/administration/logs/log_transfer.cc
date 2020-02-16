@@ -4,7 +4,9 @@
 #include <functional>
 
 #include "concurrency/promise.hpp"
+#include "concurrency/wait_any.hpp"
 #include "containers/archive/boost_types.hpp"
+#include "containers/archive/stl_types.hpp"
 #include "rpc/mailbox/disconnect_watcher.hpp"
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v1_13(log_server_business_card_t, address);

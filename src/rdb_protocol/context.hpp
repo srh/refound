@@ -148,13 +148,6 @@ public:
     name_string_t primary_replica_tag;
 };
 
-enum class admin_identifier_format_t {
-    /* Some parts of the code rely on the fact that `admin_identifier_format_t` can be
-    mapped to `{0, 1}` using `static_cast`. */
-    name = 0,
-    uuid = 1
-};
-
 namespace ql {
 class reader_t;
 }

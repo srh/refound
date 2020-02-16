@@ -9,7 +9,7 @@
 
 #include "containers/scoped.hpp"
 #include "rpc/semilattice/view.hpp"
-#include "rdb_protocol/context.hpp"
+#include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/datum_string.hpp"
 

@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+#include "errors.hpp"
+#include <boost/variant.hpp>
+
 #include "clustering/administration/logs/log_writer.hpp"
 
 class log_server_business_card_t {

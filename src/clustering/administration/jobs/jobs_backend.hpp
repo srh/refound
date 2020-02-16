@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
-#include "rdb_protocol/context.hpp"
+#include "rdb_protocol/admin_identifier_format.hpp"
 #include "rpc/connectivity/peer_id.hpp"
 
 namespace auth {

@@ -8,12 +8,13 @@
 #include <vector>
 
 #include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
-#include "rdb_protocol/context.hpp"
+#include "rdb_protocol/admin_identifier_format.hpp"
 #include "rpc/connectivity/peer_id.hpp"
 
 class cluster_directory_metadata_t;
 class log_message_t;
 class log_server_business_card_t;
+class mailbox_manager_t;
 class server_config_client_t;
 class server_id_t;
 template <class T> class lifetime_t;

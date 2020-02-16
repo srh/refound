@@ -12,11 +12,14 @@
 #include <io.h>
 #endif
 
+#include "arch/runtime/runtime.hpp"
 #include "arch/runtime/thread_pool.hpp"
 #include "arch/io/disk/filestat.hpp"
 #include "arch/io/disk.hpp"
 #include "arch/io/io_utils.hpp"
+#include "concurrency/pmap.hpp"
 #include "concurrency/promise.hpp"
+#include "containers/archive/stl_types.hpp"
 #include "containers/scoped.hpp"
 #include "paths.hpp"
 #include "thread_local.hpp"
