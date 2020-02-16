@@ -2,6 +2,10 @@
 #ifndef CLUSTERING_ADMINISTRATION_STATS_REQUEST_HPP_
 #define CLUSTERING_ADMINISTRATION_STATS_REQUEST_HPP_
 
+// We don't use stats request in fdb yet, but we keep the code around except for a few
+// parts that won't compile, so we can maintain it in-situ.
+#define STATS_REQUEST_IN_FDB 0
+
 #include <map>
 #include <set>
 #include <string>
@@ -107,8 +111,10 @@ public:
     typedef cluster_semilattice_metadata_t metadata_t;
 
     static std::set<std::vector<std::string> > global_stats_filter();
+#if STATS_REQUEST_IN_FDB
     static std::vector<peer_id_t> all_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory);
+#endif
 
     virtual ~stats_request_t() { }
 
@@ -116,9 +122,11 @@ public:
     virtual std::set<std::vector<std::string> > get_filter() const = 0;
 
     // Gets the list of servers/peers the request should be sent to
+#if STATS_REQUEST_IN_FDB
     virtual std::vector<peer_id_t> get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *server_config_client) const = 0;
+#endif
 
     // Converts stats from the response into the row format for the stats table
     virtual bool to_datum(const parsed_stats_t &stats,
@@ -140,9 +148,11 @@ public:
 
     std::set<std::vector<std::string> > get_filter() const;
 
+#if STATS_REQUEST_IN_FDB
     std::vector<peer_id_t> get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *server_config_client) const;
+#endif
 
     virtual bool to_datum(const parsed_stats_t &stats,
                           const metadata_t &metadata,
@@ -165,9 +175,11 @@ public:
 
     std::set<std::vector<std::string> > get_filter() const;
 
+#if STATS_REQUEST_IN_FDB
     std::vector<peer_id_t> get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *server_config_client) const;
+#endif
 
     virtual bool to_datum(const parsed_stats_t &stats,
                           const metadata_t &metadata,
@@ -189,9 +201,11 @@ public:
 
     std::set<std::vector<std::string> > get_filter() const;
 
+#if STATS_REQUEST_IN_FDB
     std::vector<peer_id_t> get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *server_config_client) const;
+#endif
 
     virtual bool to_datum(const parsed_stats_t &stats,
                           const metadata_t &metadata,
@@ -215,9 +229,11 @@ public:
 
     std::set<std::vector<std::string> > get_filter() const;
 
+#if STATS_REQUEST_IN_FDB
     std::vector<peer_id_t> get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *server_config_client) const;
+#endif
 
     virtual bool to_datum(const parsed_stats_t &stats,
                           const metadata_t &metadata,

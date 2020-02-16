@@ -1,6 +1,8 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/stats/request.hpp"
 
+#if STATS_REQUEST_IN_FDB
+
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/servers/config_client.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
@@ -256,6 +258,7 @@ std::set<std::vector<std::string> > stats_request_t::global_stats_filter() {
           {"[0-9A-Fa-f-]+", "serializers" } });
 }
 
+#if STATS_REQUEST_IN_FDB
 std::vector<peer_id_t> stats_request_t::all_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory) {
     std::vector<peer_id_t> res;
@@ -265,6 +268,7 @@ std::vector<peer_id_t> stats_request_t::all_peers(
     }
     return res;
 }
+#endif  // STATS_REQUEST_IN_FDB
 
 // ------------------------------------
 // cluster_stats_request_t
@@ -289,11 +293,13 @@ std::set<std::vector<std::string> > cluster_stats_request_t::get_filter() const 
           {".*", "serializers", "shard_[0-9]+", "btree-.*", "keys_.*" } });
 }
 
+#if STATS_REQUEST_IN_FDB
 std::vector<peer_id_t> cluster_stats_request_t::get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *) const {
     return all_peers(directory);
 }
+#endif
 
 bool cluster_stats_request_t::to_datum(const parsed_stats_t &stats,
                                        const metadata_t &,
@@ -348,11 +354,13 @@ std::set<std::vector<std::string> > table_stats_request_t::get_filter() const {
         });
 }
 
+#if STATS_REQUEST_IN_FDB
 std::vector<peer_id_t> table_stats_request_t::get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &directory,
         server_config_client_t *) const {
     return all_peers(directory);
 }
+#endif
 
 bool table_stats_request_t::to_datum(const parsed_stats_t &stats,
                                      const metadata_t &metadata,
@@ -410,6 +418,7 @@ std::set<std::vector<std::string> > server_stats_request_t::get_filter() const {
           {".*", "serializers", "shard_[0-9]+", "btree-.*" } });
 }
 
+#if STATS_REQUEST_IN_FDB
 std::vector<peer_id_t> server_stats_request_t::get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &,
         server_config_client_t *server_config_client) const {
@@ -420,6 +429,7 @@ std::vector<peer_id_t> server_stats_request_t::get_peers(
     }
     return std::vector<peer_id_t>(1, peer.get());
 }
+#endif  // STATS_REQUEST_IN_FDB
 
 bool server_stats_request_t::to_datum(const parsed_stats_t &stats,
                                       const metadata_t &,
@@ -497,6 +507,7 @@ std::set<std::vector<std::string> > table_server_stats_request_t::get_filter() c
         { uuid_to_str(table_id), "serializers" } });
 }
 
+#if STATS_REQUEST_IN_FDB
 std::vector<peer_id_t> table_server_stats_request_t::get_peers(
         const std::map<peer_id_t, cluster_directory_metadata_t> &,
         server_config_client_t *server_config_client) const {
@@ -507,6 +518,7 @@ std::vector<peer_id_t> table_server_stats_request_t::get_peers(
     }
     return std::vector<peer_id_t>(1, peer.get());
 }
+#endif  // STATS_REQUEST_IN_FDB
 
 bool table_server_stats_request_t::to_datum(const parsed_stats_t &stats,
                                             const metadata_t &metadata,
@@ -576,3 +588,6 @@ bool table_server_stats_request_t::to_datum(const parsed_stats_t &stats,
     *result_out = std::move(row_builder).to_datum();
     return true;
 }
+
+#endif  // STATS_REQUEST_IN_FDB
+

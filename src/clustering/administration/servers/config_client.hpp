@@ -31,9 +31,6 @@ public:
 
     /* `get_peer_to_server_map()` and `get_server_to_peer_map()` allow conversion back
     and forth between server IDs and peer IDs. */
-    watchable_map_t<peer_id_t, server_id_t> *get_peer_to_server_map() {
-        return &peer_to_server_map;
-    }
     watchable_map_t<server_id_t, peer_id_t> *get_server_to_peer_map() {
         return &server_to_peer_map;
     }

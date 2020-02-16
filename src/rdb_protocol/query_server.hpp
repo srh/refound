@@ -22,7 +22,7 @@ class rdb_query_server_t : public query_handler_t {
 public:
     rdb_query_server_t(
       const std::set<ip_address_t> &local_addresses, int port,
-      rdb_context_t *_rdb_ctx, server_config_client_t *_server_config_client,
+      rdb_context_t *_rdb_ctx,
       const server_id_t &_server_id, tls_ctx_t *tls_ctx);
 
     http_app_t *get_http_app();
@@ -38,7 +38,6 @@ private:
 
     query_server_t server;
     rdb_context_t *rdb_ctx;
-    server_config_client_t *server_config_client;
     server_id_t server_id;
     one_per_thread_t<int> thread_counters;
 

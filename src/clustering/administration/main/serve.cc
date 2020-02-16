@@ -377,7 +377,6 @@ bool do_serve(FDBDatabase *fdb,
                     serve_info.ports.local_addresses_driver,
                     serve_info.ports.reql_port,
                     &rdb_ctx,
-                    &server_config_client,
                     server_id,
                     serve_info.tls_configs.driver.get());
                 logNTC("Listening for client driver connections on port %d\n",
