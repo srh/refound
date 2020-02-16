@@ -28,7 +28,6 @@ public:
         std::shared_ptr<semilattice_read_view_t<cluster_semilattice_metadata_t> >
             _cluster_sl_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_view,
-        server_config_client_t *server_config_client,
         table_meta_client_t *table_meta_client,
         admin_identifier_format_t identifier_format);
     ~issues_artificial_table_backend_t();
@@ -64,7 +63,6 @@ private:
     std::shared_ptr<semilattice_read_view_t<cluster_semilattice_metadata_t> >
         cluster_sl_view;
 
-    server_config_client_t *server_config_client;
     table_meta_client_t *table_meta_client;
 
     std::set<issue_tracker_t *> trackers;

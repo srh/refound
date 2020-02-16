@@ -264,7 +264,6 @@ bool do_serve(FDBDatabase *fdb,
                 &mailbox_manager,
                 semilattice_manager_auth.get_root_view(),
                 &rdb_ctx,
-                &server_config_client,
                 &table_meta_client,
                 make_lifetime(name_resolver));
 

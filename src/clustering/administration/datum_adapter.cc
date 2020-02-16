@@ -127,7 +127,6 @@ ql::datum_t convert_name_or_server_id_to_datum(
 bool convert_connected_server_id_to_datum(
         const server_id_t &server_id,
         UNUSED admin_identifier_format_t identifier_format,
-        UNUSED server_config_client_t *server_config_client,
         ql::datum_t *server_name_or_uuid_out,
         name_string_t *server_name_out) {
     *server_name_or_uuid_out = convert_uuid_to_datum(server_id.get_uuid());

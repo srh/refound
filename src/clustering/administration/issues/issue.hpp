@@ -16,7 +16,6 @@
 class cluster_semilattice_metadata_t;
 class issue_multiplexer_t;
 class name_string_t;
-class server_config_client_t;
 class table_meta_client_t;
 
 class issue_t {
@@ -31,7 +30,6 @@ public:
     typedef cluster_semilattice_metadata_t metadata_t;
     bool to_datum(
         const metadata_t &metadata,
-        server_config_client_t *server_config_client,
         table_meta_client_t *table_meta_client,
         admin_identifier_format_t identifier_format,
         ql::datum_t *datum_out) const;
@@ -53,7 +51,6 @@ protected:
     contents of the metadata that the issue is no longer relevant. */
     virtual bool build_info_and_description(
         const metadata_t &metadata,
-        server_config_client_t *server_config_client,
         table_meta_client_t *table_meta_client,
         admin_identifier_format_t identifier_format,
         ql::datum_t *info_out,

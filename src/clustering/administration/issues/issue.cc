@@ -4,7 +4,6 @@
 #include "clustering/administration/datum_adapter.hpp"
 
 bool issue_t::to_datum(const metadata_t &metadata,
-                       server_config_client_t *server_config_client,
                        table_meta_client_t *table_meta_client,
                        admin_identifier_format_t identifier_format,
                        ql::datum_t *datum_out) const {
@@ -14,7 +13,7 @@ bool issue_t::to_datum(const metadata_t &metadata,
     builder.overwrite("critical", ql::datum_t::boolean(is_critical()));
     ql::datum_t info;
     datum_string_t description;
-    if (!build_info_and_description(metadata, server_config_client, table_meta_client,
+    if (!build_info_and_description(metadata, table_meta_client,
             identifier_format, &info, &description)) {
         return false;
     }

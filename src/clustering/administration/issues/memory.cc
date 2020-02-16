@@ -15,7 +15,6 @@ memory_issue_t::memory_issue_t(const std::string &_message) :
 
 bool memory_issue_t::build_info_and_description(
     const metadata_t &,
-    server_config_client_t *server_config_client,
     table_meta_client_t *,
     admin_identifier_format_t identifier_format,
     ql::datum_t *info_out,
@@ -30,7 +29,6 @@ bool memory_issue_t::build_info_and_description(
         name_string_t server_name;
         if (!convert_connected_server_id_to_datum(server_id,
                                                   identifier_format,
-                                                  server_config_client,
                                                   &server_name_or_uuid,
                                                   &server_name)) {
             continue;

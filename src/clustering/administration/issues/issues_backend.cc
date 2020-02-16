@@ -14,7 +14,6 @@ issues_artificial_table_backend_t::issues_artificial_table_backend_t(
         std::shared_ptr<semilattice_read_view_t<cluster_semilattice_metadata_t> >
             _cluster_sl_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_view,
-        server_config_client_t *_server_config_client,
         table_meta_client_t *_table_meta_client,
         admin_identifier_format_t _identifier_format)
 #if RDB_CF
@@ -26,7 +25,6 @@ issues_artificial_table_backend_t::issues_artificial_table_backend_t(
 #endif
       identifier_format(_identifier_format),
       cluster_sl_view(_cluster_sl_view),
-      server_config_client(_server_config_client),
       table_meta_client(_table_meta_client),
       local_issue_client(mailbox_manager, directory_view),
       outdated_index_issue_tracker(table_meta_client)  {
@@ -58,7 +56,7 @@ bool issues_artificial_table_backend_t::read_all_rows_as_vector(
         for (auto const &issue : tracker->get_issues(&ct_interruptor)) {
             ql::datum_t row;
             bool still_valid = issue->to_datum(cluster_sl_view->get(),
-                server_config_client, table_meta_client, identifier_format, &row);
+                table_meta_client, identifier_format, &row);
             if (!still_valid) {
                 /* Based on `metadata`, the issue decided it is no longer relevant. */
                 continue;
@@ -93,7 +91,7 @@ bool issues_artificial_table_backend_t::read_row(
             if (issue->get_id() == issue_id) {
                 ql::datum_t row;
                 bool still_valid = issue->to_datum(cluster_sl_view->get(),
-                    server_config_client, table_meta_client, identifier_format, &row);
+                    table_meta_client, identifier_format, &row);
                 if (still_valid) {
                     *row_out = row;
                 }

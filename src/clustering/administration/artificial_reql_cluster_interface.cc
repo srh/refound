@@ -246,7 +246,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
                 mailbox_manager,
                 cluster_semilattice_view,
                 directory_map_view,
-                server_config_client,
                 table_meta_client,
                 static_cast<admin_identifier_format_t>(format)));
     }

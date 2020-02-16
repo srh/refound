@@ -133,7 +133,7 @@ bool logs_artificial_table_backend_t::read_row(
     ql::datum_t server_datum;
     name_string_t server_name;
     if (!convert_connected_server_id_to_datum(server_id, identifier_format,
-            server_config_client, &server_datum, &server_name)) {
+            &server_datum, &server_name)) {
         /* The server is not currently connected */
         *row_out = ql::datum_t();
         return true;

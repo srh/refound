@@ -17,7 +17,6 @@ class artificial_reql_cluster_interface_t;
 class artificial_table_backend_t;
 template <class T> class lifetime_t;
 class name_resolver_t;
-class server_config_client_t;
 
 /* `real_reql_cluster_interface_t` is a concrete subclass of `reql_cluster_interface_t`
 that translates the user's `table_create()`, `table_drop()`, etc. requests into specific
@@ -35,7 +34,6 @@ public:
             std::shared_ptr<semilattice_readwrite_view_t<
                 auth_semilattice_metadata_t> > auth_semilattice_view,
             rdb_context_t *rdb_context,
-            server_config_client_t *server_config_client,
             table_meta_client_t *table_meta_client,
             lifetime_t<name_resolver_t const &> name_resolver);
 
@@ -84,7 +82,6 @@ private:
 #if RDB_CF
     ql::changefeed::client_t m_changefeed_client;
 #endif
-    server_config_client_t *m_server_config_client;
 
     void make_single_selection(
             auth::user_context_t const &user_context,

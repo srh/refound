@@ -20,7 +20,6 @@ outdated_index_issue_t::outdated_index_issue_t(
 
 bool outdated_index_issue_t::build_info_and_description(
         const metadata_t &metadata,
-        UNUSED server_config_client_t *server_config_client,
         table_meta_client_t *table_meta_client,
         admin_identifier_format_t identifier_format,
         ql::datum_t *info_out,
