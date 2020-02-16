@@ -129,6 +129,7 @@ public:
         server_config_client_t *server_config_client,
         mailbox_manager_t *mailbox_manager,
         lifetime_t<name_resolver_t const &> name_resolver);
+    ~artificial_reql_cluster_backends_t();
 
 private:
     using backend_sentry_t = map_insertion_sentry_t<
@@ -175,6 +176,8 @@ private:
 
     scoped_ptr_t<debug_stats_artificial_table_backend_t> debug_stats_backend;
     backend_sentry_t debug_stats_sentry;
+
+    DISABLE_COPYING(artificial_reql_cluster_backends_t);
 };
 
 // TODO: Move to appropriate file

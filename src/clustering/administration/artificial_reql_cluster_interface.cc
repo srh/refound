@@ -193,6 +193,8 @@ bool artificial_reql_cluster_interface_t::next_or_error(admin_err_t *error_out) 
     return true;
 }
 
+artificial_reql_cluster_backends_t::~artificial_reql_cluster_backends_t() { }
+
 artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
