@@ -6,7 +6,6 @@
 #include <set>
 #include <string>
 
-#include "clustering/administration/servers/server_metadata.hpp"
 #include "concurrency/watchable_map.hpp"
 #include "containers/empty_value.hpp"
 #include "containers/incremental_lenses.hpp"
@@ -29,12 +28,6 @@ public:
             *_directory_view,
         watchable_map_t<std::pair<peer_id_t, server_id_t>, empty_value_t>
             *_peer_connections_map);
-
-    /* `get_server_config_map()` returns the server IDs and current configurations of
-    every connected server. */
-    watchable_map_t<server_id_t, server_config_versioned_t> *get_server_config_map() {
-        return &server_config_map;
-    }
 
     /* `get_peer_to_server_map()` and `get_server_to_peer_map()` allow conversion back
     and forth between server IDs and peer IDs. */
@@ -75,7 +68,6 @@ private:
     watchable_map_t< std::pair<peer_id_t, server_id_t>, empty_value_t>
         * const peer_connections_map;
 
-    watchable_map_var_t<server_id_t, server_config_versioned_t> server_config_map;
     watchable_map_var_t<peer_id_t, server_id_t> peer_to_server_map;
     watchable_map_var_t<server_id_t, peer_id_t> server_to_peer_map;
     watchable_map_var_t<std::pair<server_id_t, server_id_t>, empty_value_t>

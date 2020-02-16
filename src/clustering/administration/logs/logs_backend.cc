@@ -529,14 +529,14 @@ bool logs_artificial_table_backend_t::read_all_rows_raw(
             const ql::datum_t &server_name_datum)> &callback,
         const signal_t *interruptor,
         admin_err_t *error_out) {
-    std::map<peer_id_t, std::pair<name_string_t, server_id_t>> server_names;
+    std::map<peer_id_t, server_id_t> server_names;
     std::map<peer_id_t, log_server_business_card_t> server_business_cards;
     directory->read_all(
         [&](const peer_id_t &peer_id, const cluster_directory_metadata_t *value) {
             if (value->peer_type == SERVER_PEER) {
                 server_names.insert(std::make_pair(
                     peer_id,
-                    std::make_pair(value->server_config.config.name, value->server_id)));
+                    value->server_id));
                 server_business_cards.insert(std::make_pair(
                     peer_id, value->log_mailbox));
             }
@@ -568,19 +568,19 @@ bool logs_artificial_table_backend_t::read_all_rows_raw(
             } catch (const log_read_exc_t &e) {
                 /* We'll deal with it outside the `pmap()` */
                 error.set(strprintf("Problem with reading log file on server `%s`: %s",
-                                    server_name->second.first.c_str(), e.what()));
+                                    "theserver", e.what()));
                 return;
             }
 
             ql::datum_t server_name_datum = convert_name_or_server_id_to_datum(
-                server_name->second.first,
-                server_name->second.second,
+                name_string_t::guarantee_valid("theserver"),
+                server_name->second,
                 identifier_format);
             for (const log_message_t &message : messages) {
                 callback(
                     message,
                     pair.first,
-                    server_name->second.second,
+                    server_name->second,
                     server_name_datum);
             }
         });

@@ -2,7 +2,6 @@
 #include "clustering/administration/metadata.hpp"
 
 #include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/administration/servers/server_metadata.hpp"
 #include "containers/archive/archive.hpp"
 #include "containers/archive/boost_types.hpp"
 #include "containers/archive/stl_types.hpp"
@@ -27,7 +26,7 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(proc_directory_metadata_t,
     http_admin_port,
     argv);
 
-RDB_IMPL_SERIALIZABLE_10_FOR_CLUSTER(cluster_directory_metadata_t,
+RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(cluster_directory_metadata_t,
      server_id,
      peer_id,
      proc,
@@ -35,8 +34,6 @@ RDB_IMPL_SERIALIZABLE_10_FOR_CLUSTER(cluster_directory_metadata_t,
      multi_table_manager_bcard,
      log_mailbox,
      local_issue_bcard,
-     server_config,
-     server_config_business_card,
      peer_type);
 
 admin_err_t db_not_found_error(const name_string_t &name) {

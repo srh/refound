@@ -57,7 +57,6 @@
 #include "clustering/administration/main/path.hpp"
 #include "clustering/administration/persist/file.hpp"
 #include "clustering/administration/persist/file_keys.hpp"
-#include "clustering/administration/servers/server_metadata.hpp"
 #include "containers/scoped.hpp"
 #include "crypto/random.hpp"
 #include "logger.hpp"
@@ -1093,23 +1092,20 @@ bool configure_tls(
 #endif /* ENABLE_TLS */
 
 void run_rethinkdb_create(const base_path_t &base_path,
-                          const name_string_t &server_name,
-                          const std::set<name_string_t> &server_tags,
+                          UNUSED const name_string_t &server_name,
+                          UNUSED const std::set<name_string_t> &server_tags,
                           const std::string &initial_password,
-                          optional<uint64_t> total_cache_size,
+                          UNUSED optional<uint64_t> total_cache_size,
                           const file_direct_io_mode_t direct_io_mode,
                           const int max_concurrent_io_requests,
                           bool *const result_out) {
+    // TODO: Deprecate server_name, or mark dormant in command line ops.
+    // TODO: Ditto server_tags, total_cache_size.
+
     server_id_t our_server_id = server_id_t();
 
     cluster_semilattice_metadata_t cluster_metadata;
     auth_semilattice_metadata_t auth_metadata;
-
-    server_config_versioned_t server_config;
-    server_config.config.name = server_name;
-    server_config.config.tags = server_tags;
-    server_config.config.cache_size_bytes = total_cache_size;
-    server_config.version = 1;
 
     rockstore::store rocks = rockstore::create_rockstore(base_path);
     io_backender_t io_backender(&rocks, direct_io_mode, max_concurrent_io_requests);
@@ -1125,8 +1121,6 @@ void run_rethinkdb_create(const base_path_t &base_path,
             [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
                 write_txn->write(mdkey_server_id(),
                     our_server_id, interruptor);
-                write_txn->write(mdkey_server_config(),
-                    server_config, interruptor);
                 write_txn->write(mdkey_cluster_semilattices(),
                     cluster_metadata, interruptor);
                 write_txn->write(mdkey_auth_semilattices(),
@@ -1149,7 +1143,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                          const optional<optional<uint64_t> >
                             &total_cache_size,
                          const server_id_t *our_server_id,
-                         const server_config_versioned_t *server_config,
                          const cluster_semilattice_metadata_t *cluster_metadata,
                          directory_lock_t *data_directory_lock,
                          bool *const result_out) {
@@ -1179,8 +1172,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                 [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
                     write_txn->write(mdkey_server_id(),
                         *our_server_id, interruptor);
-                    write_txn->write(mdkey_server_config(),
-                        *server_config, interruptor);
                     write_txn->write(mdkey_cluster_semilattices(),
                         *cluster_metadata, interruptor);
                     write_txn->write(mdkey_auth_semilattices(),
@@ -1213,18 +1204,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                         "and password configurations.  Please remove it and try again.",
                         auth_path.permanent_path().c_str());
                 }
-            }
-            if (static_cast<bool>(total_cache_size)) {
-                /* Apply change to cache size */
-                metadata_file_t::write_txn_t txn(metadata_file.get(), &non_interruptor);
-                server_config_versioned_t config =
-                    txn.read(mdkey_server_config());
-                if (config.config.cache_size_bytes != *total_cache_size) {
-                    config.config.cache_size_bytes = *total_cache_size;
-                    ++config.version;
-                    txn.write(mdkey_server_config(), config, &non_interruptor);
-                }
-                txn.commit();
             }
             if (!initial_password.empty()) {
                 /* Apply the initial password if there isn't one already. */
@@ -2168,7 +2147,6 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
                                      max_concurrent_io_requests,
                                      total_cache_size,
                                      static_cast<server_id_t*>(nullptr),
-                                     static_cast<server_config_versioned_t *>(nullptr),
                                      static_cast<cluster_semilattice_metadata_t*>(nullptr),
                                      &data_directory_lock,
                                      &result),

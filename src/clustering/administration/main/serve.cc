@@ -20,7 +20,6 @@
 #include "clustering/administration/persist/semilattice.hpp"
 #include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
-#include "clustering/administration/servers/config_server.hpp"
 #include "clustering/administration/servers/config_client.hpp"
 #include "clustering/administration/tables/name_resolver.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
@@ -174,15 +173,6 @@ bool do_serve(FDBDatabase *fdb,
         /* `log_server` retrieves pieces of our local log file and sends them out over
         the network via its mailbox. */
         log_server_t log_server(&mailbox_manager, &log_writer);
-
-        /* `server_config_server` tracks this server's name, tags, etc. It takes care of
-        loading and persisting that information to disk, and also distributing it over
-        the network via the `cluster_directory_metadata_t`. */
-        scoped_ptr_t<server_config_server_t> server_config_server;
-        if (i_am_a_server) {
-            server_config_server.init(new server_config_server_t(
-                &mailbox_manager, metadata_file));
-        }
 
         /* `server_config_client` is used to get a list of all connected servers and
         request information about their names and tags. It can also be used to change
@@ -354,41 +344,12 @@ bool do_serve(FDBDatabase *fdb,
                 i_am_a_server
                     ? local_issue_server->get_bcard()
                     : local_issue_bcard_t(),
-                i_am_a_server
-                    ? server_config_server->get_config()->get()
-                    : server_config_versioned_t(),
-                i_am_a_server
-                    ? make_optional(server_config_server->get_business_card())
-                    : optional<server_config_business_card_t>(),
                 i_am_a_server ? SERVER_PEER : PROXY_PEER);
 
             /* `our_root_directory_variable` is the value we'll send out over the network
             in our directory to all the other servers. */
             watchable_variable_t<cluster_directory_metadata_t>
                 our_root_directory_variable(initial_directory);
-
-            /* These will take care of updating the directory every time our cache size
-            or server config changes. They also fill in the initial values. */
-            scoped_ptr_t<watchable_field_copier_t<
-                    uint64_t, cluster_directory_metadata_t> >
-                actual_cache_size_directory_copier;
-            scoped_ptr_t<watchable_field_copier_t<
-                    server_config_versioned_t, cluster_directory_metadata_t> >
-                server_config_directory_copier;
-            if (i_am_a_server) {
-                actual_cache_size_directory_copier.init(
-                    new watchable_field_copier_t<
-                            uint64_t, cluster_directory_metadata_t>(
-                        &cluster_directory_metadata_t::actual_cache_size_bytes,
-                        server_config_server->get_actual_cache_size_bytes(),
-                        &our_root_directory_variable));
-                server_config_directory_copier.init(
-                    new watchable_field_copier_t<
-                            server_config_versioned_t, cluster_directory_metadata_t>(
-                        &cluster_directory_metadata_t::server_config,
-                        server_config_server->get_config(),
-                        &our_root_directory_variable));
-            }
 
             /* These `directory_*_write_manager_t`s are the counterparts to the
             `directory_*_read_manager_t`s earlier in this file. These are responsible for
@@ -511,9 +472,9 @@ bool do_serve(FDBDatabase *fdb,
                     }
 
                     if (i_am_a_server) {
+                        // TODO: "theserver" in user output.
                         logNTC("Server ready, \"%s\" %s\n",
-                               server_config_server->get_config()
-                                   ->get().config.name.c_str(),
+                               "theserver",
                                server_id.print().c_str());
                     } else {
                         logNTC("Proxy ready, %s", server_id.print().c_str());

@@ -8,8 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "clustering/administration/servers/server_metadata.hpp"
-#include "clustering/generic/nonoverlapping_regions.hpp"
 #include "containers/name_string.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/id_types.hpp"

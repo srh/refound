@@ -13,7 +13,6 @@
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/issues/local.hpp"
 #include "clustering/administration/logs/log_transfer.hpp"
-#include "clustering/administration/servers/server_metadata.hpp"
 #include "clustering/administration/tables/database_metadata.hpp"
 #include "containers/optional.hpp"
 #include "clustering/table_manager/table_metadata.hpp"
@@ -112,8 +111,6 @@ public:
             const multi_table_manager_bcard_t &mtmbc,
             const log_server_business_card_t &lmb,
             const local_issue_bcard_t &lib,
-            const server_config_versioned_t &sc,
-            const optional<server_config_business_card_t> &scbc,
             cluster_directory_peer_type_t _peer_type) :
         server_id(_server_id),
         peer_id(_peer_id),
@@ -122,8 +119,6 @@ public:
         multi_table_manager_bcard(mtmbc),
         log_mailbox(lmb),
         local_issue_bcard(lib),
-        server_config(sc),
-        server_config_business_card(scbc),
         peer_type(_peer_type) { }
     /* Move constructor */
     cluster_directory_metadata_t(const cluster_directory_metadata_t &) = default;
@@ -142,11 +137,6 @@ public:
     multi_table_manager_bcard_t multi_table_manager_bcard;
     log_server_business_card_t log_mailbox;
     local_issue_bcard_t local_issue_bcard;
-
-    /* For proxies, `server_config` is meaningless and `server_config_business_card` is
-    empty. */
-    server_config_versioned_t server_config;
-    optional<server_config_business_card_t> server_config_business_card;
 
     cluster_directory_peer_type_t peer_type;
 };

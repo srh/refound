@@ -64,7 +64,6 @@ void server_config_client_t::install_server_metadata(
                     std::make_pair(server_id, pair.second), empty_value_t());
             }
         });
-    server_config_map.set_key(server_id, metadata.server_config);
 }
 
 void server_config_client_t::on_directory_change(
@@ -97,8 +96,6 @@ void server_config_client_t::on_directory_change(
             all_server_to_peer_map.insert(std::make_pair(server_id, peer_id));
             peer_to_server_map.set_key(peer_id, server_id);
             install_server_metadata(peer_id, *metadata);
-        } else {
-            server_config_map.set_key(server_id, metadata->server_config);
         }
 
     } else {
@@ -125,7 +122,6 @@ void server_config_client_t::on_directory_change(
         for (const auto &pair : connection_pairs_to_delete) {
             connections_map.delete_key(pair);
         }
-        server_config_map.delete_key(*server_id);
 
         /* If there is another connected peer with the same server ID, reinstall its
         values. */
