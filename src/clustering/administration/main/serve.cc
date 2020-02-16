@@ -297,10 +297,6 @@ bool do_serve(FDBDatabase *fdb,
                 semilattice_manager_cluster.get_root_view()->get(),
                 stop_cond);
 
-            /* When the user reads the `rethinkdb.stats` table, it sends messages to the
-            `stat_manager_t` on each server to get the stats information. */
-            stat_manager_t stat_manager(&mailbox_manager, server_id);
-
             /* `real_reql_cluster_interface_t` needs access to the admin tables so that
             it can return rows from the `table_status` and `table_config` artificial
             tables when the user calls the corresponding porcelains. But
@@ -354,7 +350,6 @@ bool do_serve(FDBDatabase *fdb,
                 initial_proc_directory,
                 0,   /* we'll fill `actual_cache_size_bytes` in later */
                 multi_table_manager->get_multi_table_manager_bcard(),
-                stat_manager.get_address(),
                 log_server.get_business_card(),
                 i_am_a_server
                     ? local_issue_server->get_bcard()

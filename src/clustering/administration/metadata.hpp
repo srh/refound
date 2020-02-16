@@ -14,7 +14,6 @@
 #include "clustering/administration/issues/local.hpp"
 #include "clustering/administration/logs/log_transfer.hpp"
 #include "clustering/administration/servers/server_metadata.hpp"
-#include "clustering/administration/stats/stat_manager.hpp"
 #include "clustering/administration/tables/database_metadata.hpp"
 #include "containers/optional.hpp"
 #include "clustering/table_manager/table_metadata.hpp"
@@ -111,7 +110,6 @@ public:
             const proc_directory_metadata_t &_proc,
             uint64_t _actual_cache_size_bytes,
             const multi_table_manager_bcard_t &mtmbc,
-            const get_stats_mailbox_address_t& _stats_mailbox,
             const log_server_business_card_t &lmb,
             const local_issue_bcard_t &lib,
             const server_config_versioned_t &sc,
@@ -122,7 +120,6 @@ public:
         proc(_proc),
         actual_cache_size_bytes(_actual_cache_size_bytes),
         multi_table_manager_bcard(mtmbc),
-        get_stats_mailbox_address(_stats_mailbox),
         log_mailbox(lmb),
         local_issue_bcard(lib),
         server_config(sc),
@@ -143,7 +140,6 @@ public:
     uint64_t actual_cache_size_bytes;   /* might be user-set or automatically picked */
 
     multi_table_manager_bcard_t multi_table_manager_bcard;
-    get_stats_mailbox_address_t get_stats_mailbox_address;
     log_server_business_card_t log_mailbox;
     local_issue_bcard_t local_issue_bcard;
 
