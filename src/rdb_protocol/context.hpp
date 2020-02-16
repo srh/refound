@@ -134,20 +134,6 @@ public:
 };
 } // namespace ql
 
-// TODO: Remove this?
-class table_generate_config_params_t {
-public:
-    static table_generate_config_params_t make_default() {
-        table_generate_config_params_t p;
-        p.primary_replica_tag = name_string_t::guarantee_valid("default");
-        p.num_replicas[p.primary_replica_tag] = 1;
-        return p;
-    }
-    std::map<name_string_t, size_t> num_replicas;
-    std::set<name_string_t> nonvoting_replica_tags;
-    name_string_t primary_replica_tag;
-};
-
 namespace ql {
 class reader_t;
 }

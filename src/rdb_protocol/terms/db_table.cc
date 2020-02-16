@@ -52,11 +52,31 @@ name_string_t get_name(env_t *env, const scoped_ptr_t<val_t> &name, const char *
     return get_name(name.get(), name->as_str(env), type_str);
 }
 
+class table_generate_config_params_t {
+public:
+    static table_generate_config_params_t make_default() {
+        table_generate_config_params_t p;
+        p.primary_replica_tag = name_string_t::guarantee_valid("default");
+        p.num_replicas[p.primary_replica_tag] = 1;
+        return p;
+    }
+    std::map<name_string_t, size_t> num_replicas;
+    std::set<name_string_t> nonvoting_replica_tags;
+    name_string_t primary_replica_tag;
+};
+
 void get_replicas_and_primary(env_t *env,
                               const scoped_ptr_t<val_t> &replicas,
                               const scoped_ptr_t<val_t> &nonvoting_replica_tags,
-                              const scoped_ptr_t<val_t> &primary_replica_tag,
-                              table_generate_config_params_t *params) {
+                              const scoped_ptr_t<val_t> &primary_replica_tag) {
+    // This is vestigial option parsing, designed solely to error on certain options,
+    // and force evaluation of the arguments, as they were pre-fdb.  If the code is more
+    // complicated tha it needs to be, so be it.
+
+
+    table_generate_config_params_t params_value = table_generate_config_params_t::make_default();
+    auto *params = &params_value;
+
     if (replicas.has()) {
         params->num_replicas.clear();
         datum_t datum = replicas->as_datum(env);
@@ -251,8 +271,6 @@ private:
     scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const override {
         /* Parse arguments */
-        table_generate_config_params_t config_params =
-            table_generate_config_params_t::make_default();
 
         // Parse the 'shards' optarg
         if (scoped_ptr_t<val_t> shards_optarg = args->optarg(env, "shards")) {
@@ -260,13 +278,13 @@ private:
                           "Every table must have exactly one shard.  (The configuration is obsolete.)");
         }
 
-        // Parse the 'replicas', 'nonvoting_replica_tags', and
-        // 'primary_replica_tag' optargs
+        // Parse the 'replicas', 'nonvoting_replica_tags', and 'primary_replica_tag'
+        // optargs.  (The results don't get output anywhere post-fdb, because we now
+        // ignore these arguments.
         get_replicas_and_primary(env->env,
                                  args->optarg(env, "replicas"),
                                  args->optarg(env, "nonvoting_replica_tags"),
-                                 args->optarg(env, "primary_replica_tag"),
-                                 &config_params);
+                                 args->optarg(env, "primary_replica_tag"));
 
         std::string primary_key = "id";
         if (scoped_ptr_t<val_t> v = args->optarg(env, "primary_key")) {
@@ -804,6 +822,7 @@ char const * const wait_term_t::wait_reads_str = "ready_for_reads";
 char const * const wait_term_t::wait_writes_str = "ready_for_writes";
 char const * const wait_term_t::wait_all_str = "all_replicas_ready";
 
+// This term exists simply to parse arguments and respond with an error.
 class reconfigure_term_t : public table_or_db_meta_term_t {
 public:
     reconfigure_term_t(compile_env_t *env, const raw_term_t &term)
@@ -842,10 +861,6 @@ private:
                 emergency_repair->as_datum(env) == ql::datum_t::null()) {
             /* We're doing a regular reconfiguration. */
 
-            // Use the default primary_replica_tag, unless the optarg overwrites it
-            table_generate_config_params_t config_params =
-                table_generate_config_params_t::make_default();
-
             // Parse the 'shards' optarg
             scoped_ptr_t<val_t> shards_optarg = required_optarg(env, args, "shards");
             rcheck_target(shards_optarg, shards_optarg->as_int(env) == 1,
@@ -853,12 +868,11 @@ private:
                           "Every table must have exactly one shard.  (The configuration is obsolete.)");
 
             // Parse the 'replicas', 'nonvoting_replica_tags', and
-            // 'primary_replica_tag' optargs
+            // 'primary_replica_tag' optargs (and then ignore the arguments).
             get_replicas_and_primary(env->env,
                                      required_optarg(env, args, "replicas"),
                                      args->optarg(env, "nonvoting_replica_tags"),
-                                     args->optarg(env, "primary_replica_tag"),
-                                     &config_params);
+                                     args->optarg(env, "primary_replica_tag"));
 
             bool success;
             datum_t result;
