@@ -8,6 +8,7 @@
 #include <boost/algorithm/string/join.hpp>
 
 #include "arch/runtime/runtime_utils.hpp"
+#include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"

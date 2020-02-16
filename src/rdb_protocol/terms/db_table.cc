@@ -15,6 +15,8 @@
 #include "clustering/administration/real_reql_cluster_interface.hpp"
 // For utility function; maybe move convert_db_or_table_config_and_name_to_datum out.
 #include "clustering/administration/tables/db_config.hpp"
+// For utility function; maybe move convert_table_config_to_datum out.
+#include "clustering/administration/tables/table_config.hpp"
 // TODO: Move db_not_found_error to a different location
 #include "clustering/administration/metadata.hpp"
 #include "containers/name_string.hpp"

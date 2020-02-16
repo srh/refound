@@ -51,7 +51,7 @@ private:
         namespace_id_t *table_id_out,
         admin_err_t *admin_err_out = nullptr);
 
-    bool global_to_datum(
+    static bool global_to_datum(
         username_t const &username,
         permissions_t const &permissions,
         ql::datum_t *datum_out);

@@ -6,6 +6,8 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
+// For utility function, maybe move convert_write_hook_to_datum out.
+#include "clustering/administration/tables/table_config.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/retry_loop.hpp"
 #include "rdb_protocol/btree.hpp"

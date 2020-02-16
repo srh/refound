@@ -7,24 +7,27 @@
 #include <string>
 
 #include "clustering/administration/metadata.hpp"
-#include "clustering/administration/tables/db_config.hpp"
-#include "clustering/administration/tables/table_config.hpp"
-#include "clustering/administration/issues/issues_backend.hpp"
-#include "clustering/administration/auth/permissions_artificial_table_backend.hpp"
-#include "clustering/administration/auth/users_artificial_table_backend.hpp"
-#include "clustering/administration/logs/logs_backend.hpp"
-#include "clustering/administration/jobs/jobs_backend.hpp"
 #include "containers/map_sentries.hpp"
 #include "containers/name_string.hpp"
 #include "containers/scoped.hpp"
 #include "containers/uuid.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
-#include "rdb_protocol/artificial_table/in_memory.hpp"
 #include "rdb_protocol/context.hpp"
 
+template <typename T> class lifetime_t;
 class name_resolver_t;
 class server_config_client_t;
 class table_meta_client_t;
+namespace auth {
+class permissions_artificial_table_backend_t;
+class users_artificial_table_fdb_backend_t;
+}
+class db_config_artificial_table_fdb_backend_t;
+class in_memory_artificial_table_fdb_backend_t;
+class issues_artificial_table_backend_t;
+class jobs_artificial_table_fdb_backend_t;
+class logs_artificial_table_backend_t;
+class table_config_artificial_table_fdb_backend_t;
 
 /* The `artificial_reql_cluster_interface_t` is responsible for handling queries to the
 `rethinkdb` database. It's implemented as a proxy over the
