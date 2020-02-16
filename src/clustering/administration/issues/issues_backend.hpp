@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "clustering/administration/issues/local.hpp"
-#include "clustering/administration/issues/name_collision.hpp"
 #include "clustering/administration/issues/non_transitive.hpp"
 #include "clustering/administration/issues/outdated_index.hpp"
 #include "concurrency/watchable.hpp"
@@ -74,7 +73,6 @@ private:
     // Global issues are tracked here, local issues are collected from other servers by
     // the local_issue_client_t.
     local_issue_client_t local_issue_client;
-    name_collision_issue_tracker_t name_collision_issue_tracker;
     outdated_index_issue_tracker_t outdated_index_issue_tracker;
     non_transitive_issue_tracker_t non_transitive_issue_tracker;
 };
