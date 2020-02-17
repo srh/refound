@@ -15,7 +15,6 @@
 #include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/store.hpp"
-#include "rpc/semilattice/semilattice_manager.hpp"
 #include "stl_utils.hpp"
 #include "unittest/dummy_namespace_interface.hpp"
 #include "unittest/dummy_metadata_controller.hpp"
