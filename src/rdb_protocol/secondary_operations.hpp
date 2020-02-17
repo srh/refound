@@ -13,8 +13,6 @@
 #include "rdb_protocol/wire_func.hpp"
 #include "rpc/serialize_macros.hpp"
 
-class rockshard;
-
 class real_superblock_lock;
 
 // The query evaluation reql version information that we store with each secondary
@@ -60,6 +58,7 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(sindex_multi_bool_t, int8_t,
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(sindex_geo_bool_t, int8_t,
         sindex_geo_bool_t::REGULAR, sindex_geo_bool_t::GEO);
 
+// TODO: Fix that gross copy/refrobulation into this type and remove.
 struct sindex_disk_info_t {
     sindex_disk_info_t() { }
     sindex_disk_info_t(const ql::deterministic_func &_mapping,
@@ -76,6 +75,7 @@ struct sindex_disk_info_t {
 
 RDB_DECLARE_SERIALIZABLE(sindex_disk_info_t);
 
+// TODO: Remove, I presume.
 struct secondary_index_t {
     secondary_index_t()
         : needs_post_construction_range(key_range_t::universe()),
@@ -139,40 +139,5 @@ struct sindex_name_t {
 
 RDB_DECLARE_SERIALIZABLE(sindex_name_t);
 
-//Secondary Index functions
-
-/* Note if this function is called after secondary indexes have been added it
- * will leak blocks (and also make those secondary indexes unusable.) There's
- * no reason to ever do this. */
-void initialize_secondary_indexes(
-    rockshard rocksh, real_superblock_lock *sindex_block);
-
-bool get_secondary_index(rockshard rocksh, real_superblock_lock *sindex_block,
-                         const sindex_name_t &name,
-                         secondary_index_t *sindex_out);
-
-bool get_secondary_index(rockshard rocksh, real_superblock_lock *sindex_block, uuid_u id,
-                         secondary_index_t *sindex_out);
-
-void get_secondary_indexes(rockshard rocksh, real_superblock_lock *sindex_block,
-                           std::map<sindex_name_t, secondary_index_t> *sindexes_out);
-
-// TODO: Check if any of these functions are unused.
-/* Overwrites existing values with the same id. */
-void set_secondary_index(rockshard rocksh, real_superblock_lock *sindex_block,
-                         const sindex_name_t &name, const secondary_index_t &sindex);
-
-/* Must be used to overwrite an already existing sindex. */
-// TODO: Unclear why we have redundant id/sindex.id parameters.
-void set_secondary_index(rockshard rocksh, real_superblock_lock *sindex_block, uuid_u id,
-                         const secondary_index_t &sindex);
-
-void set_secondary_indexes(rockshard rocksh, real_superblock_lock *sindex_block,
-        const std::map<sindex_name_t, secondary_index_t> &sindexes);
-
-// XXX note this just drops the entry. It doesn't cleanup the btree that it points
-// to. `drop_sindex` Does both and should be used publicly.
-bool delete_secondary_index(rockshard rocksh,
-                            real_superblock_lock *sindex_block, const sindex_name_t &name);
 
 #endif /* RDB_PROTOCOL_SECONDARY_OPERATIONS_HPP_ */

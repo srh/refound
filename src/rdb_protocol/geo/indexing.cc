@@ -4,11 +4,6 @@
 #include <string>
 #include <vector>
 
-// TODO: Remove this include if we wrap the iterator stuff...
-#include "rocksdb/db.h"
-#include "rocksdb/iterator.h"
-#include "rocksdb/utilities/optimistic_transaction_db.h"
-
 #include "arch/runtime/thread_pool.hpp"
 #include "btree/keys.hpp"
 #include "btree/reql_specific.hpp"
@@ -29,8 +24,6 @@
 #include "rdb_protocol/geo/s2/strings/strutil.h"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/pseudo_geometry.hpp"
-#include "rockstore/rockshard.hpp"
-#include "rockstore/store.hpp"
 
 using geo::S2Cell;
 using geo::S2CellId;

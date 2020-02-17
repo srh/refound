@@ -8,14 +8,6 @@
 #include "rockstore/store.hpp"
 
 
-void btree_slice_t::init_real_superblock(real_superblock_lock *superblock,
-                                         rockshard rocksh,
-                                         const std::vector<char> &metainfo_key) {
-    superblock->write_acq_signal()->wait_lazily_ordered();
-    set_superblock_metainfo(superblock, rocksh, metainfo_key, version_t::zero());
-    initialize_secondary_indexes(rocksh, superblock);
-}
-
 btree_slice_t::btree_slice_t(cache_t *c, perfmon_collection_t *parent,
                              const std::string &identifier,
                              index_type_t index_type)
