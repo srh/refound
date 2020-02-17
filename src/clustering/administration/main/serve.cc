@@ -15,8 +15,6 @@
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/perfmon_collection_repo.hpp"
 #include "clustering/administration/persist/file_keys.hpp"
-#include "clustering/administration/persist/semilattice.hpp"
-#include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
 #include "containers/incremental_lenses.hpp"
 #include "containers/lifetime.hpp"
@@ -25,10 +23,6 @@
 #include "fdb/node_holder.hpp"
 #include "rdb_protocol/query_server.hpp"
 #include "rpc/connectivity/cluster.hpp"
-#include "rpc/directory/map_read_manager.hpp"
-#include "rpc/directory/map_write_manager.hpp"
-#include "rpc/directory/read_manager.hpp"
-#include "rpc/directory/write_manager.hpp"
 #include "rpc/semilattice/semilattice_manager.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
@@ -107,15 +101,12 @@ bool do_serve(FDBDatabase *fdb,
         log messages will be written using the event loop instead of blocking. */
         thread_pool_log_writer_t log_writer;
 
-        cluster_semilattice_metadata_t cluster_metadata;
         auth_semilattice_metadata_t auth_metadata;
-        server_id_t server_id;
+        server_id_t server_id = server_id_t();
         if (true) {
             cond_t non_interruptor;
             metadata_file_t::read_txn_t txn(metadata_file, &non_interruptor);
-            cluster_metadata = txn.read(mdkey_cluster_semilattices());
             auth_metadata = txn.read(mdkey_auth_semilattices());
-            server_id = txn.read(mdkey_server_id());
         }
 
 #ifndef NDEBUG
@@ -132,26 +123,6 @@ bool do_serve(FDBDatabase *fdb,
         /* The `mailbox_manager_t` maintains a local index of mailboxes that exist on
         this server, and routes mailbox messages received from other servers. */
         mailbox_manager_t mailbox_manager(&connectivity_cluster, 'M');
-
-        /* `semilattice_manager_cluster`, `semilattice_manager_auth`, and
-        `semilattice_manager_heartbeat` are responsible for syncing the semilattice
-        metadata between servers over the network. */
-        semilattice_manager_t<cluster_semilattice_metadata_t>
-            semilattice_manager_cluster(&connectivity_cluster, 'S', cluster_metadata);
-
-        /* The `directory_*_read_manager_t`s are responsible for receiving directory
-        updates over the network from other servers. */
-
-        /* The `cluster_directory_metadata_t` contains basic information about each
-        server (such as its name, server ID, version, PID, command line arguments, etc.)
-        and also many singleton mailboxes for various purposes. */
-        directory_read_manager_t<cluster_directory_metadata_t>
-            directory_read_manager(&connectivity_cluster, 'D');
-
-        /* The `table_manager_bcard_t`s contain the mailboxes that allow the Raft members
-        on different servers to communicate with each other. */
-        directory_map_read_manager_t<namespace_id_t, table_manager_bcard_t>
-            table_directory_read_manager(&connectivity_cluster, 'T');
 
         /* `connectivity_cluster_run` is the other half of the `connectivity_cluster_t`.
         Before it's created, the `connectivity_cluster_t` won't process any connections
@@ -188,10 +159,12 @@ bool do_serve(FDBDatabase *fdb,
 
             /* Kick off a coroutine to log any outdated indexes. */
             // TODO: Do something like this at startup -- but make only one node do it, after there's a centralized logging infrastructure?
-            // outdated_index_issue_tracker_t::log_outdated_indexes(
-            //     multi_table_manager.get(),
-            //     semilattice_manager_cluster.get_root_view()->get(),
-            //     stop_cond);
+#if 0
+            outdated_index_issue_tracker_t::log_outdated_indexes(
+                multi_table_manager.get(),
+                semilattice_manager_cluster.get_root_view()->get(),
+                stop_cond);
+#endif  // 0
 
             /* `real_reql_cluster_interface_t` needs access to the admin tables so that
             it can return rows from the `table_status` and `table_config` artificial
@@ -219,36 +192,6 @@ bool do_serve(FDBDatabase *fdb,
                 memory_checker.init(new memory_checker_t());
             }
 
-            proc_directory_metadata_t initial_proc_directory {
-                RETHINKDB_VERSION_STR,
-                current_microtime(),
-                getpid(),
-                str_gethostname(),
-                static_cast<uint16_t>(serve_info.ports.reql_port),
-                serve_info.ports.http_admin_is_disabled
-                    ? optional<uint16_t>()
-                    : optional<uint16_t>(serve_info.ports.http_port),
-                serve_info.argv };
-            cluster_directory_metadata_t initial_directory(
-                server_id,
-                connectivity_cluster.get_me(),
-                initial_proc_directory,
-                0,   /* we'll fill `actual_cache_size_bytes` in later */
-                i_am_a_server ? SERVER_PEER : PROXY_PEER);
-
-            /* `our_root_directory_variable` is the value we'll send out over the network
-            in our directory to all the other servers. */
-            watchable_variable_t<cluster_directory_metadata_t>
-                our_root_directory_variable(initial_directory);
-
-            /* These `directory_*_write_manager_t`s are the counterparts to the
-            `directory_*_read_manager_t`s earlier in this file. These are responsible for
-            sending directory information over the network; the `read_manager_t`s are
-            responsible for receiving the transmissions. */
-
-            directory_write_manager_t<cluster_directory_metadata_t> directory_write_manager(
-                &connectivity_cluster, 'D', our_root_directory_variable.get_watchable());
-
             {
                 /* The `rdb_query_server_t` listens for client requests and processes the
                 queries it receives. */
@@ -259,27 +202,6 @@ bool do_serve(FDBDatabase *fdb,
                     serve_info.tls_configs.driver.get());
                 logNTC("Listening for client driver connections on port %d\n",
                        rdb_query_server.get_port());
-                /* If `serve_info.ports.reql_port` was zero then the OS assigned us a
-                port, so we need to update the directory. */
-                our_root_directory_variable.apply_atomic_op(
-                    [&](cluster_directory_metadata_t *md) -> bool {
-                        md->proc.reql_port = rdb_query_server.get_port();
-                        return (md->proc.reql_port != serve_info.ports.reql_port);
-                    });
-
-                /* `cluster_metadata_persister`, `auth_metadata_persister`, and
-                `heartbeat_semilattice_metadata_t` are responsible for syncing the
-                semilattice metadata to disk. */
-                scoped_ptr_t<semilattice_persister_t<cluster_semilattice_metadata_t> >
-                    cluster_metadata_persister;
-
-                if (i_am_a_server) {
-                    cluster_metadata_persister.init(
-                        new semilattice_persister_t<cluster_semilattice_metadata_t>(
-                            metadata_file,
-                            mdkey_cluster_semilattices(),
-                            semilattice_manager_cluster.get_root_view()));
-                }
 
                 {
                     /* The `administrative_http_server_manager_t` serves the web UI. */
@@ -298,14 +220,6 @@ bool do_serve(FDBDatabase *fdb,
                                 serve_info.tls_configs.web.get()));
                         logNTC("Listening for administrative HTTP connections on port %d\n",
                                admin_server_ptr->get_port());
-                        /* If `serve_info.ports.http_port` was zero then the OS assigned
-                        us a port, so we need to update the directory. */
-                        our_root_directory_variable.apply_atomic_op(
-                            [&](cluster_directory_metadata_t *md) -> bool {
-                                *md->proc.http_admin_port = admin_server_ptr->get_port();
-                                return (*md->proc.http_admin_port !=
-                                    serve_info.ports.http_port);
-                            });
                     }
 
                     std::string addresses_string =
@@ -354,11 +268,6 @@ bool do_serve(FDBDatabase *fdb,
                     when it's time for the server to shut down. */
                     stop_cond->wait_lazily_unordered();
                     logNTC("Server got %s; shutting down...", stop_cond->format().c_str());
-                }
-
-                cond_t non_interruptor;
-                if (i_am_a_server) {
-                    cluster_metadata_persister->stop_and_flush(&non_interruptor);
                 }
 
                 logNTC("Shutting down client connections...\n");
