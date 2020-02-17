@@ -32,11 +32,6 @@ RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
     multi_table_manager_bcard_t,
     action_mailbox, get_status_mailbox, server_id);
 
-RDB_IMPL_SERIALIZABLE_2_SINCE_v2_1(table_active_persistent_state_t,
-    epoch, raft_member_id);
-RDB_IMPL_SERIALIZABLE_2_SINCE_v2_1(table_inactive_persistent_state_t,
-    second_hand_config, timestamp);
-
 const microtime_t multi_table_manager_timestamp_t::epoch_t::special_timestamp =
     static_cast<microtime_t>(std::numeric_limits<time_t>::min());
 

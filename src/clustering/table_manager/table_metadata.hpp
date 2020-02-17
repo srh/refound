@@ -285,30 +285,5 @@ public:
 RDB_DECLARE_SERIALIZABLE(table_manager_bcard_t::leader_bcard_t);
 RDB_DECLARE_SERIALIZABLE(table_manager_bcard_t);
 
-/* If we are an active member for a given table, we'll store a
-`table_active_persistent_state_t` plus a `raft_persistent_state_t<table_raft_state_t>`;
-the latter will be stored as individual components for better efficiency. If we are not
-an active member, we'll store a `table_inactive_persistent_state_t`. If the table is
-deleted we won't store anything. */
-
-class table_active_persistent_state_t {
-public:
-    multi_table_manager_timestamp_t::epoch_t epoch;
-    raft_member_id_t raft_member_id;
-};
-
-RDB_DECLARE_SERIALIZABLE(table_active_persistent_state_t);
-
-class table_inactive_persistent_state_t {
-public:
-    table_basic_config_t second_hand_config;
-
-    /* `timestamp` records a time at which `second_hand_config` is known to have been
-    correct. */
-    multi_table_manager_timestamp_t timestamp;
-};
-
-RDB_DECLARE_SERIALIZABLE(table_inactive_persistent_state_t);
-
 #endif /* CLUSTERING_TABLE_MANAGER_TABLE_METADATA_HPP_ */
 
