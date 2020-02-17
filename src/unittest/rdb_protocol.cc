@@ -6,7 +6,6 @@
 
 #include "arch/io/disk.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
-#include "clustering/administration/metadata.hpp"
 #include "extproc/extproc_pool.hpp"
 #include "extproc/extproc_spawner.hpp"
 #include "rdb_protocol/changefeed.hpp"

@@ -6,7 +6,6 @@
 
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/auth/user_context.hpp"
-#include "clustering/administration/metadata.hpp"
 #include "extproc/http_runner.hpp"
 #include "fdb/retry_loop.hpp"
 #include "math.hpp"

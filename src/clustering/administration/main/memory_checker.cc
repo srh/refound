@@ -6,7 +6,6 @@
 #include <sys/resource.h>
 #endif
 
-#include "clustering/administration/metadata.hpp"
 #include "logger.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/pseudo_time.hpp"

@@ -7,7 +7,6 @@
 #include <string>
 
 #include "arch/io/openssl.hpp"
-#include "clustering/administration/metadata.hpp"
 #include "http/http.hpp"
 
 class http_server_t;

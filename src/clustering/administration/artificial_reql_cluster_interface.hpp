@@ -6,7 +6,6 @@
 #include <set>
 #include <string>
 
-#include "clustering/administration/metadata.hpp"
 #include "containers/map_sentries.hpp"
 #include "containers/name_string.hpp"
 #include "containers/scoped.hpp"

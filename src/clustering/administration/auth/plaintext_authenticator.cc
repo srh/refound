@@ -2,7 +2,7 @@
 #include "clustering/administration/auth/plaintext_authenticator.hpp"
 
 #include "clustering/administration/auth/authentication_error.hpp"
-#include "clustering/administration/metadata.hpp"
+#include "clustering/administration/auth/user.hpp"
 #include "crypto/compare_equal.hpp"
 #include "crypto/pbkcs5_pbkdf2_hmac.hpp"
 #include "crypto/saslprep.hpp"

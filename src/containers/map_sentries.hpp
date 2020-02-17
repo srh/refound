@@ -6,6 +6,8 @@
 #include <set>
 #include <utility>
 
+#include "errors.hpp"
+
 /* `map_insertion_sentry_t` inserts a value into a map on construction, and
 removes it in the destructor. */
 template<class key_t, class value_t>

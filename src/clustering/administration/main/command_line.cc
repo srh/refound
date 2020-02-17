@@ -45,6 +45,9 @@
 #include "arch/filesystem.hpp"
 
 #include "extproc/extproc_spawner.hpp"
+#include "clustering/administration/auth/user.hpp"
+#include "clustering/administration/auth/username.hpp"
+#include "clustering/administration/auth/password.hpp"
 #include "clustering/administration/main/cache_size.hpp"
 #include "clustering/administration/main/names.hpp"
 #include "clustering/administration/main/options.hpp"

@@ -12,7 +12,6 @@
 #include <boost/variant.hpp>
 
 #include "clustering/administration/main/ports.hpp"
-#include "clustering/administration/metadata.hpp"
 #include "clustering/administration/auth/permission_error.hpp"
 #include "concurrency/cross_thread_watchable.hpp"
 #include "concurrency/watchable.hpp"

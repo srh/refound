@@ -9,7 +9,6 @@
 
 #include "arch/io/disk.hpp"
 #include "arch/timing.hpp"
-#include "clustering/administration/metadata.hpp"
 #include "unittest/gtest.hpp"
 #include "unittest/mock_store.hpp"
 #include "unittest/unittest_utils.hpp"

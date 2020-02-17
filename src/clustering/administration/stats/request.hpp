@@ -14,7 +14,6 @@
 // "outer" STATS_REQUEST_IN_FDB, added because we've dropped table_meta_client and other information-gathering stuff this file uses.
 #if STATS_REQUEST_IN_FDB
 
-#include "clustering/administration/metadata.hpp"
 #include "containers/uuid.hpp"
 #include "rdb_protocol/datum.hpp"
 
