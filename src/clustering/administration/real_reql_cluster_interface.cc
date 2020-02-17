@@ -119,54 +119,6 @@ bool real_reql_cluster_interface_t::table_config(
     } CATCH_NAME_ERRORS(db->name, name, error_out)
 }
 
-bool real_reql_cluster_interface_t::table_status(
-        counted_t<const ql::db_t> db,
-        config_version_checker cv_checker,
-        const namespace_id_t &table_id,
-        const name_string_t &name,
-        ql::backtrace_id_t bt,
-        ql::env_t *env,
-        scoped_ptr_t<ql::val_t> *selection_out,
-        admin_err_t *error_out) {
-    // TODO: fdb-ize this or the single selection function.
-    try {
-        // OOO: We do need a cv check to ensure that the table id we used isn't wildly ou of date.  Then we construct a single selection on the config table.  That can't carry its own cv checker, can it?  Or can it?
-
-        // NNN: We need a table status, right?
-
-        // NNN: There is no table status table.
-
-
-        // QQQ: No more name errors to catch, probblay.
-        make_single_selection(
-            env->get_user_context(),
-            name_string_t::guarantee_valid("table_status"),
-            cv_checker,
-            table_id.value,
-            bt,
-            env,
-            [&](FDBTransaction *) { },
-            selection_out);
-        return true;
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
-        return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
-}
-
-/* Checks that divisor is indeed a divisor of multiple. */
-template <class T>
-bool is_joined(const T &multiple, const T &divisor) {
-    T cpy = multiple;
-
-    semilattice_join(&cpy, divisor);
-    return cpy == multiple;
-}
-
-template <class T>
-void copy_value(const T *in, T *out) {
-    *out = *in;
-}
 
 // TODO: fdb-ize functions (for writing) below.
 // TODO: fdb-ize this, somehow.  (Caller passes in txn and uses it to mutate, probably.)

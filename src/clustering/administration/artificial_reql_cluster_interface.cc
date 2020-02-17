@@ -103,24 +103,6 @@ bool artificial_reql_cluster_interface_t::table_config(
         user_context, db, cv_checker, table_id, name, bt, env, selection_out, error_out);
 }
 
-bool artificial_reql_cluster_interface_t::table_status(
-        counted_t<const ql::db_t> db,
-        config_version_checker cv_checker,
-        const namespace_id_t &table_id,
-        const name_string_t &name,
-        ql::backtrace_id_t bt, ql::env_t *env,
-        scoped_ptr_t<ql::val_t> *selection_out, admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; the system tables in it don't "
-                      "have meaningful status information.", artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->table_status(
-        db, cv_checker, table_id, name, bt, env, selection_out, error_out);
-}
-
 void artificial_reql_cluster_interface_t::set_next_reql_cluster_interface(
         reql_cluster_interface_t *next) {
     m_next = next;

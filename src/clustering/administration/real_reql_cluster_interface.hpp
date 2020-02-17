@@ -51,15 +51,6 @@ public:
             ql::env_t *env,
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) override;
-    bool table_status(
-            counted_t<const ql::db_t> db,
-            config_version_checker cv_checker,
-            const namespace_id_t &table_id,
-            const name_string_t &name,
-            ql::backtrace_id_t bt,
-            ql::env_t *env,
-            scoped_ptr_t<ql::val_t> *selection_out,
-            admin_err_t *error_out) override;
 
 #if RDB_CF
     ql::changefeed::client_t *get_changefeed_client() override {
