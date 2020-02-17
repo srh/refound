@@ -27,10 +27,7 @@
 /* static */ const database_id_t artificial_reql_cluster_interface_t::database_id =
     database_id_t{uuid_u::from_hash(str_to_uuid("39a24924-14ec-4deb-99f1-742eda7aba5e"), "rethinkdb")};
 
-artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t(
-        std::shared_ptr<semilattice_readwrite_view_t<auth_semilattice_metadata_t>>
-            auth_semilattice_view) :
-    m_auth_semilattice_view(auth_semilattice_view),
+artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t() :
     m_next(nullptr) {
 }
 
