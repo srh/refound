@@ -98,29 +98,7 @@ struct point_read_response_t {
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_read_response_t);
 
-#if RDB_CF
-struct shard_stamp_info_t {
-    uint64_t stamp;
-    // The starting points of the reads (assuming left to right traversal)
-    store_key_t last_read_start;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(shard_stamp_info_t);
-
-struct changefeed_stamp_response_t {
-    changefeed_stamp_response_t() { }
-    // The `uuid_u` below is the uuid of the changefeed `server_t`.  (We have
-    // different timestamps for each `server_t` because they're on different
-    // servers and don't synchronize with each other.)  If this is empty it
-    // means the feed was aborted.
-    optional<std::map<uuid_u, shard_stamp_info_t> > stamp_infos;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_stamp_response_t);
-#endif  // RDB_CF
-
 struct rget_read_response_t {
-#if RDB_CF
-    optional<changefeed_stamp_response_t> stamp_response;
-#endif
     ql::result_t result;
 
     rget_read_response_t() { }
@@ -145,41 +123,6 @@ struct nearest_geo_read_response_t {
         : results_or_error(_error) { }
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_response_t);
-
-#if RDB_CF
-struct changefeed_subscribe_response_t {
-    changefeed_subscribe_response_t() { }
-    std::set<uuid_u> server_uuids;
-    std::set<ql::changefeed::server_t::addr_t> addrs;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_subscribe_response_t);
-
-struct changefeed_limit_subscribe_response_t {
-    int64_t shards;
-    std::vector<ql::changefeed::server_t::limit_addr_t> limit_addrs;
-
-    changefeed_limit_subscribe_response_t() { }
-    changefeed_limit_subscribe_response_t(
-        int64_t _shards, decltype(limit_addrs) _limit_addrs)
-        : shards(_shards), limit_addrs(std::move(_limit_addrs)) { }
-};
-RDB_DECLARE_SERIALIZABLE(changefeed_limit_subscribe_response_t);
-
-struct changefeed_point_stamp_response_t {
-    changefeed_point_stamp_response_t() { }
-    // The `uuid_u` below is the uuid of the changefeed `server_t`.  (We have
-    // different timestamps for each `server_t` because they're on different
-    // servers and don't synchronize with each other.)
-    struct valid_response_t {
-        std::pair<uuid_u, uint64_t> stamp;
-        ql::datum_t initial_val;
-    };
-    // If this is empty it means the feed was aborted.
-    optional<valid_response_t> resp;
-};
-RDB_DECLARE_SERIALIZABLE(changefeed_point_stamp_response_t::valid_response_t);
-RDB_DECLARE_SERIALIZABLE(changefeed_point_stamp_response_t);
-#endif  // RDB_CF
 
 struct dummy_read_response_t {
     // dummy read always succeeds
@@ -207,12 +150,6 @@ struct read_response_t {
     typedef boost::variant<point_read_response_t,
                            rget_read_response_t,
                            nearest_geo_read_response_t,
-#if RDB_CF
-                           changefeed_subscribe_response_t,
-                           changefeed_limit_subscribe_response_t,
-                           changefeed_stamp_response_t,
-                           changefeed_point_stamp_response_t,
-#endif
                            dummy_read_response_t> variant_t;
     variant_t response;
     profile::event_log_t event_log;
@@ -267,24 +204,11 @@ struct sindex_rangespec_t {
 
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(sindex_rangespec_t);
 
-#if RDB_CF
-struct changefeed_stamp_t {
-    changefeed_stamp_t() { }
-    explicit changefeed_stamp_t(ql::changefeed::client_addr_t _addr)
-        : addr(std::move(_addr)) { }
-    ql::changefeed::client_addr_t addr;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_stamp_t);
-#endif  // RDB_CF
-
 class rget_read_t {
 public:
     rget_read_t() : batchspec(ql::batchspec_t::empty()) { }
 
     rget_read_t(
-#if RDB_CF
-                optional<changefeed_stamp_t> &&_stamp,
-#endif
                 region_t _region,
                 optional<std::map<store_key_t, uint64_t> > _primary_keys,
                 serializable_env_t s_env,
@@ -294,11 +218,7 @@ public:
                 optional<ql::terminal_variant_t> &&_terminal,
                 optional<sindex_rangespec_t> &&_sindex,
                 sorting_t _sorting)
-    :
-#if RDB_CF
-      stamp(std::move(_stamp)),
-#endif
-      region(std::move(_region)),
+    : region(std::move(_region)),
       primary_keys(std::move(_primary_keys)),
       serializable_env(std::move(s_env)),
       table_name(std::move(_table_name)),
@@ -307,10 +227,6 @@ public:
       terminal(std::move(_terminal)),
       sindex(std::move(_sindex)),
       sorting(std::move(_sorting)) { }
-
-#if RDB_CF
-    optional<changefeed_stamp_t> stamp;
-#endif
 
     region_t region; // We need this even for sindex reads due to sharding.
 
@@ -340,9 +256,6 @@ public:
     intersecting_geo_read_t() : batchspec(ql::batchspec_t::empty()) { }
 
     intersecting_geo_read_t(
-#if RDB_CF
-        optional<changefeed_stamp_t> &&_stamp,
-#endif
         serializable_env_t s_env,
         std::string _table_name,
         ql::batchspec_t _batchspec,
@@ -350,21 +263,13 @@ public:
         optional<ql::terminal_variant_t> &&_terminal,
         sindex_rangespec_t &&_sindex,
         ql::datum_t _query_geometry)
-        :
-#if RDB_CF
-          stamp(std::move(_stamp)),
-#endif
-          serializable_env(s_env),
+        : serializable_env(s_env),
           table_name(std::move(_table_name)),
           batchspec(std::move(_batchspec)),
           transforms(std::move(_transforms)),
           terminal(std::move(_terminal)),
           sindex(std::move(_sindex)),
           query_geometry(std::move(_query_geometry)) { }
-
-#if RDB_CF
-    optional<changefeed_stamp_t> stamp;
-#endif
 
     serializable_env_t serializable_env;
     std::string table_name;
@@ -413,58 +318,11 @@ public:
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_t);
 
-#if RDB_CF
-struct changefeed_subscribe_t {
-    changefeed_subscribe_t() { }
-    explicit changefeed_subscribe_t(ql::changefeed::client_t::addr_t _addr)
-        : addr(_addr) { }
-    ql::changefeed::client_t::addr_t addr;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_subscribe_t);
-
-struct changefeed_limit_subscribe_t {
-    changefeed_limit_subscribe_t() { }
-    explicit changefeed_limit_subscribe_t(
-        ql::changefeed::client_t::addr_t _addr,
-        uuid_u _uuid,
-        ql::changefeed::keyspec_t::limit_t _spec,
-        std::string _table,
-        serializable_env_t s_env,
-        region_t pkey_region)
-        : addr(std::move(_addr)),
-          uuid(std::move(_uuid)),
-          spec(std::move(_spec)),
-          table(std::move(_table)),
-          serializable_env(std::move(s_env)),
-          region(std::move(pkey_region)) { }
-    ql::changefeed::client_t::addr_t addr;
-    uuid_u uuid;
-    ql::changefeed::keyspec_t::limit_t spec;
-    std::string table;
-    serializable_env_t serializable_env;
-    region_t region;
-};
-RDB_DECLARE_SERIALIZABLE(changefeed_limit_subscribe_t);
-
-// This is a separate class because it needs to shard and unshard differently.
-struct changefeed_point_stamp_t {
-    ql::changefeed::client_t::addr_t addr;
-    store_key_t key;
-};
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(changefeed_point_stamp_t);
-#endif  // RDB_CF
-
 struct read_t {
     typedef boost::variant<point_read_t,
                            rget_read_t,
                            intersecting_geo_read_t,
                            nearest_geo_read_t,
-#if RDB_CF
-                           changefeed_subscribe_t,
-                           changefeed_stamp_t,
-                           changefeed_limit_subscribe_t,
-                           changefeed_point_stamp_t,
-#endif
                            dummy_read_t> variant_t;
 
     variant_t read;
@@ -477,13 +335,6 @@ struct read_t {
     template<class T>
     read_t(T &&_read, profile_bool_t _profile, read_mode_t _read_mode)
         : read(std::forward<T>(_read)), profile(_profile), read_mode(_read_mode) { }
-
-    // At the moment changefeed reads must be routed to the primary replica.
-#if RDB_CF
-    bool route_to_primary() const THROWS_NOTHING;
-#else
-    bool route_to_primary() const THROWS_NOTHING { return false; }
-#endif
 };
 RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(read_t);
 
