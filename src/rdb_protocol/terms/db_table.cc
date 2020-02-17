@@ -651,21 +651,10 @@ private:
             REQL_RETHROW(error);
         }
 
-        scoped_ptr_t<val_t> selection;
-        try {
-            // OOO: Fdb-ize this, I guess.  Look at make_single_selection in
-            // real_reql_cluster_interface_t.
-            admin_err_t error;
-            if (!env->env->reql_cluster_interface()->table_status(
-                    table->db, table->tbl->cv, table->get_id(),
-                    table_name, backtrace(), env->env, &selection, &error)) {
-                REQL_RETHROW(error);
-            }
-        } catch (auth::permission_error_t const &permission_error) {
-            rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-        }
-
-        return selection;
+        admin_err_t error{
+            "The `status` term is not supported in reql-on-fdb.",  // TODO: Product name
+                query_state_t::FAILED};
+        REQL_RETHROW(error);
     }
     virtual const char *name() const { return "status"; }
 };

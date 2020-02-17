@@ -49,9 +49,6 @@ bool real_reql_cluster_interface_t::db_config(
         admin_err_t *error_out) {
     // TODO: fdb-ize this function (for writing?  for making a single section?  fdb-ize artificial table?)
     try {
-        // NNN: These config permission checks will need to happen in the fdb txn.
-        user_context.require_config_permission(m_rdb_context, db->id);
-
         make_single_selection(
             user_context,
             name_string_t::guarantee_valid("db_config"),
@@ -102,9 +99,6 @@ bool real_reql_cluster_interface_t::table_config(
         // OOO: We do need a cv check to ensure that the table id we used isn't wildly ou of date.  Then we construct a single selection on the config table.  That can't carry its own cv checker, can it?  Or can it?
 
         // QQQ: No more name errors to catch, probblay.
-
-        // NNN: Put into the fdb txn
-        user_context.require_config_permission(m_rdb_context, db->id, table_id);
 
         make_single_selection(
             user_context,
