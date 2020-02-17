@@ -3,6 +3,8 @@
 
 #include "perfmon/perfmon.hpp"
 
+// TODO: make use of this, perhaps.  Or remove.
+
 class btree_stats_t {
 public:
     explicit btree_stats_t(perfmon_collection_t *parent,

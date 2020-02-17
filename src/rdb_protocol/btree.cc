@@ -9,9 +9,6 @@
 #include <vector>
 
 #include "btree/concurrent_traversal.hpp"
-#include "btree/operations.hpp"
-#include "btree/reql_specific.hpp"
-#include "btree/operations.hpp"
 #include "concurrency/coro_pool.hpp"
 #include "concurrency/new_mutex.hpp"
 #include "concurrency/queue/unlimited_fifo.hpp"

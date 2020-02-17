@@ -1,7 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "rdb_protocol/secondary_operations.hpp"
 
-#include "btree/operations.hpp"
 #include "containers/archive/stl_types.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "containers/archive/vector_stream.hpp"

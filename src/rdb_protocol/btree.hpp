@@ -15,7 +15,6 @@
 #include "rdb_protocol/protocol.hpp"
 
 class btree_slice_t;
-enum class delete_mode_t;
 template <class> class promise_t;
 struct sindex_disk_info_t;
 

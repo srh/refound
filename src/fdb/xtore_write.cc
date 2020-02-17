@@ -6,7 +6,6 @@
 #include "errors.hpp"
 #include <boost/variant/static_visitor.hpp>
 
-#include "btree/operations.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/jobs/index_create.hpp"

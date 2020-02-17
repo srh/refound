@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "btree/keys.hpp"
-#include "btree/reql_specific.hpp"
 #include "btree/types.hpp"
 #include "containers/counted.hpp"
 #include "containers/optional.hpp"
