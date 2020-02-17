@@ -185,8 +185,6 @@ protected:
     virtual ~reql_cluster_interface_t() { }   // silence compiler warnings
 };
 
-class mailbox_manager_t;
-
 class rdb_context_t {
 public:
     // Used by unit tests.
@@ -200,7 +198,6 @@ public:
     rdb_context_t(
         FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool,
-        mailbox_manager_t *_mailbox_manager,
         artificial_reql_cluster_interface_t *_cluster_interface,
         perfmon_collection_t *global_stats,
         const std::string &_reql_http_proxy);
@@ -214,8 +211,6 @@ public:
     reql_cluster_interface_t *cluster_interface;
     // This is null in unit tests.
     artificial_reql_cluster_interface_t *artificial_interface_or_null = nullptr;
-
-    mailbox_manager_t *manager;
 
     const std::string reql_http_proxy;
 

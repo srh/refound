@@ -170,7 +170,6 @@ bool do_serve(FDBDatabase *fdb,
         needs. */
         rdb_context_t rdb_ctx(fdb,
                               &extproc_pool,
-                              &mailbox_manager,
                               nullptr,   /* we'll fill this in later */
                               &get_global_perfmon_collection(),
                               serve_info.reql_http_proxy);
