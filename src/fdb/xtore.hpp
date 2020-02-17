@@ -30,7 +30,7 @@ write_response_t apply_write(FDBTransaction *txn,
     const write_t &write,
     const signal_t *interruptor);
 
-
+bool needs_config_permission(const write_t &write);
 
 
 

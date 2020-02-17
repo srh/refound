@@ -197,12 +197,13 @@ counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
         UNUSED read_mode_t read_mode,
         UNUSED const ql::datum_t &query_geometry) {
     try {
-        txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
+        fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
             auth::fdb_user_fut<auth::read_permission> auth_fut
                 = m_backend->get_read_permission(txn, env->get_user_context());
             auth_fut.block_and_check(env->interruptor);
         });
+        guarantee_fdb_TODO(loop_err, "artificial_table_fdb_t::read_intersecting retry loop");
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -226,12 +227,13 @@ ql::datum_t artificial_table_fdb_t::read_nearest(
         UNUSED dist_unit_t dist_unit,
         UNUSED const ql::configured_limits_t &limits) {
     try {
-        txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
+        fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
             auth::fdb_user_fut<auth::read_permission> auth_fut
                 = m_backend->get_read_permission(txn, env->get_user_context());
             auth_fut.block_and_check(env->interruptor);
         });
+        guarantee_fdb_TODO(loop_err, "artificial_table_fdb_t::read_nearest retry loop");
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }

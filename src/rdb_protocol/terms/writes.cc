@@ -148,12 +148,6 @@ private:
                 ignore_write_hook_arg->as_bool(env) ?
                 ignore_write_hook_t::YES :
                 ignore_write_hook_t::NO;
-            if (ignore_write_hook == ignore_write_hook_t::YES) {
-                env->env->get_user_context().require_config_permission(
-                    env->env->get_rdb_ctx(),
-                    t->db->id,
-                    t->get_id());
-            }
         }
         if (conflict_behavior == conflict_behavior_t::FUNCTION) {
             counted_t<const ql::func_t> f = conflict_optarg->as_func(env->env);
@@ -326,12 +320,6 @@ private:
         if (v0->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
             counted_t<single_selection_t> sel = v0->as_single_selection(env->env);
 
-            if (ignore_write_hook == ignore_write_hook_t::YES) {
-                env->env->get_user_context().require_config_permission(
-                    env->env->get_rdb_ctx(),
-                    sel->get_tbl()->db->id,
-                    sel->get_tbl()->get_id());
-            }
             datum_t replace_stats = sel->replace(
                 env->env,
                 f,
@@ -346,12 +334,6 @@ private:
             counted_t<table_t> tbl = tblrows->table;
             counted_t<datum_stream_t> ds = tblrows->seq;
 
-            if (ignore_write_hook == ignore_write_hook_t::YES) {
-                env->env->get_user_context().require_config_permission(
-                    env->env->get_rdb_ctx(),
-                    tbl->db->id,
-                    tbl->get_id());
-            }
             if (f->is_deterministic().test(single_server_t::no, constant_now_t::yes)) {
                 // Attach a transformation to `ds` to pull out the primary key.
                 minidriver_t r(backtrace());

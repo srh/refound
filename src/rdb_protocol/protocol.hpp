@@ -544,12 +544,14 @@ struct batched_replace_t {
             std::vector<store_key_t> &&_keys,
             const std::string &_pkey,
             const ql::deterministic_func &func,
+            ignore_write_hook_t _ignore_write_hook,
             const optional<ql::deterministic_func> &wh,
             serializable_env_t s_env,
             return_changes_t _return_changes)
         : keys(std::move(_keys)),
           pkey(_pkey),
           f(func),
+          ignore_write_hook(_ignore_write_hook),
           write_hook(wh),
           serializable_env(std::move(s_env)),
           return_changes(_return_changes) {
@@ -558,6 +560,7 @@ struct batched_replace_t {
     std::vector<store_key_t> keys;
     std::string pkey;
     ql::deterministic_func f;
+    ignore_write_hook_t ignore_write_hook;
     optional<ql::deterministic_func> write_hook;
     serializable_env_t serializable_env;
     return_changes_t return_changes;
@@ -569,6 +572,7 @@ struct batched_insert_t {
     batched_insert_t(
         std::vector<ql::datum_t> &&_inserts,
         const std::string &_pkey,
+        ignore_write_hook_t _ignore_write_hook,
         const optional<ql::deterministic_func> &_write_hook,
         conflict_behavior_t _conflict_behavior,
         const optional<ql::deterministic_func> &_conflict_func,
@@ -578,6 +582,8 @@ struct batched_insert_t {
 
     std::vector<ql::datum_t> inserts;
     std::string pkey;
+    // TODO: Right now we just use this to decide whether to do config auth.  At some point we'll remove the write_hook field because we know that a priori in the table config.
+    ignore_write_hook_t ignore_write_hook;
     optional<ql::deterministic_func> write_hook;
     conflict_behavior_t conflict_behavior;
     optional<ql::deterministic_func> conflict_func;

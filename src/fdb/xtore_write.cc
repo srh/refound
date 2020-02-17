@@ -681,3 +681,21 @@ write_response_t apply_write(FDBTransaction *txn,
     response.event_log.push_back(profile::stop_t());
     return response;
 }
+
+struct needs_config_permission_visitor : public boost::static_visitor<bool> {
+    bool operator()(const batched_replace_t &br) {
+        return br.ignore_write_hook == ignore_write_hook_t::YES;
+    }
+    bool operator()(const batched_insert_t &br) {
+        return br.ignore_write_hook == ignore_write_hook_t::YES;
+    }
+    bool operator()(const point_write_t &) { return false; }
+    bool operator()(const point_delete_t &) { return false; }
+    bool operator()(const sync_t &) { return false; }
+    bool operator()(const dummy_write_t &) { return false; }
+};
+
+bool needs_config_permission(const write_t &write) {
+    needs_config_permission_visitor v;
+    return boost::apply_visitor(v, write.write);
+};

@@ -261,6 +261,7 @@ datum_t table_t::batched_replace(
     r_sanity_check(vals.size() == keys.size());
 
     if (vals.empty()) {
+        // NNN: We ought to require config permission on the table even in this case with no documents, when ignore_write_hook is YES
         return ql::datum_t::empty_object();
     }
 

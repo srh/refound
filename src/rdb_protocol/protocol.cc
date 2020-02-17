@@ -529,6 +529,7 @@ region_t write_t::get_region() const THROWS_NOTHING {
 batched_insert_t::batched_insert_t(
         std::vector<ql::datum_t> &&_inserts,
         const std::string &_pkey,
+        ignore_write_hook_t _ignore_write_hook,
         const optional<ql::deterministic_func> &_write_hook,
         conflict_behavior_t _conflict_behavior,
         const optional<ql::deterministic_func> &_conflict_func,
@@ -537,6 +538,7 @@ batched_insert_t::batched_insert_t(
         return_changes_t _return_changes)
         : inserts(std::move(_inserts)),
           pkey(_pkey),
+          ignore_write_hook(_ignore_write_hook),
           write_hook(_write_hook),
           conflict_behavior(_conflict_behavior),
           conflict_func(_conflict_func),
@@ -706,18 +708,20 @@ RDB_IMPL_SERIALIZABLE_0_FOR_CLUSTER(dummy_write_response_t);
 
 RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(write_response_t, response, event_log);
 
-RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(
         batched_replace_t,
         keys,
         pkey,
         f,
+        ignore_write_hook,
         write_hook,
         serializable_env,
         return_changes);
-RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(
+RDB_IMPL_SERIALIZABLE_9_FOR_CLUSTER(
         batched_insert_t,
         inserts,
         pkey,
+        ignore_write_hook,
         write_hook,
         conflict_behavior,
         conflict_func,
