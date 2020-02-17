@@ -933,36 +933,22 @@ void config_cache_cv_check(
     check_cv(expected_cv, cv);
 }
 
-// OOO: Now is the time to create a system table struct.
-ukey_string username_pkey(const auth::username_t &username) {
-    return ukey_string{username.to_string()};
-}
-
-auth::username_t username_parse_pkey(key_view k) {
-    return auth::username_t{std::string(as_char(k.data), size_t(k.length))};
-}
-
 fdb_value_fut<auth::user_t> transaction_get_user(
         FDBTransaction *txn,
         const auth::username_t &username) {
-    ukey_string pkey = username_pkey(username);
-    return fdb_value_fut<auth::user_t>{transaction_lookup_pkey_index(
-        txn, REQLFDB_USERS_BY_USERNAME, pkey)};
+    return transaction_lookup_uq_index<users_by_username>(txn, username);
 }
 
 void transaction_set_user(
         FDBTransaction *txn,
         const auth::username_t &username,
         const auth::user_t &user) {
-    ukey_string pkey = username_pkey(username);
-    std::string value = serialize_for_cluster_to_string(user);
-    transaction_set_pkey_index(txn, REQLFDB_USERS_BY_USERNAME, pkey, value);
+    transaction_set_uq_index<users_by_username>(txn, username, user);
 }
 
 void transaction_erase_user(
         FDBTransaction *txn,
         const auth::username_t &username) {
     guarantee(!username.is_admin(), "transaction_erase_user on admin user");
-    ukey_string pkey = username_pkey(username);
-    transaction_erase_pkey_index(txn, REQLFDB_USERS_BY_USERNAME, pkey);
+    transaction_erase_uq_index<users_by_username>(txn, username);
 }

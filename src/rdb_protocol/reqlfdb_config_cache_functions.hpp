@@ -25,9 +25,6 @@ ukey_string table_by_name_key(
         const database_id_t &db_id,
         const name_string_t &table_name);
 
-// TODO: Move somewhere appropriate, add system table.
-auth::username_t username_parse_pkey(key_view k);
-
 // TODO: Move this into reqlfdb_config_cache.hpp
 
 // These functions are declared here because reqlfdb_config_cache is used by context.hpp

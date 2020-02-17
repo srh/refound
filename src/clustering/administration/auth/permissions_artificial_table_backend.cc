@@ -35,12 +35,12 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     std::vector<ql::datum_t> rows_from_db;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
         std::vector<ql::datum_t> rows;
-        std::string prefix = REQLFDB_USERS_BY_USERNAME;
+        std::string prefix = users_by_username::prefix;
         transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
                 [&](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view username_key = whole_key.guarantee_without_prefix(prefix);
-            username_t username = username_parse_pkey(username_key);
+            username_t username = users_by_username::parse_ukey(username_key);
             user_t user;
             deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &user);
             {

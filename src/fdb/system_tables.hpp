@@ -1,10 +1,14 @@
 #ifndef RETHINKDB_FDB_SYSTEM_TABLES_HPP_
 #define RETHINKDB_FDB_SYSTEM_TABLES_HPP_
 
+#include "clustering/administration/auth/username.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/index.hpp"
 #include "fdb/reql_fdb.hpp"
 
+namespace auth {
+class username_t;
+}
 class table_config_t;
 
 struct table_config_by_id {
@@ -53,6 +57,20 @@ struct db_config_by_name {
         bool success = str.assign_value(std::string(as_char(k.data), size_t(k.length)));
         guarantee(success, "db_config_by_name::parse_ukey got bad name_string_t");
         return str;
+    }
+};
+
+struct users_by_username {
+    using ukey_type = auth::username_t;
+    using value_type = auth::user_t;
+    static constexpr const char *prefix = REQLFDB_USERS_BY_USERNAME;
+
+    static ukey_string ukey_str(const ukey_type &k) {
+        return ukey_string{k.to_string()};
+    }
+
+    static ukey_type parse_ukey(key_view k) {
+        return auth::username_t{std::string(as_char(k.data), size_t(k.length))};
     }
 };
 

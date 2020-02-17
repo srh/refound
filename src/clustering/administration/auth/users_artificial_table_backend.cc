@@ -7,6 +7,7 @@
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/retry_loop.hpp"
+#include "fdb/system_tables.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
 namespace auth {
@@ -34,7 +35,7 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     // QQQ: Do we need to filter out the admin user (which is put into fdb)?
-    std::string prefix = REQLFDB_USERS_BY_USERNAME;
+    std::string prefix = users_by_username::prefix;
     std::string end = prefix_end(prefix);
 
     std::vector<std::pair<username_t, user_t>> rows;
@@ -44,7 +45,7 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         transaction_read_whole_range_coro(txn, prefix, end, interruptor, [&](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view just_the_key = whole_key.guarantee_without_prefix(prefix);
-            username_t uname = username_parse_pkey(just_the_key);
+            username_t uname = users_by_username::parse_ukey(just_the_key);
             builder.emplace_back();
             builder.back().first = std::move(uname);
             deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &builder.back().second);
