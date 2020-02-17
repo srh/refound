@@ -16,8 +16,6 @@ class table_raft_stored_snapshot_t;
 /* This file defines the keys that are used to index the `metadata_file_t`. Changing
 these keys will break the on-disk format. */
 
-metadata_file_t::key_t<auth_semilattice_metadata_t>
-    mdkey_auth_semilattices();
 metadata_file_t::key_t<server_config_versioned_t>
     mdkey_server_config();
 

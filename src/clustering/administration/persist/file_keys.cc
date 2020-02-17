@@ -3,11 +3,6 @@
 
 #include "rpc/connectivity/server_id.hpp"
 
-metadata_file_t::key_t<auth_semilattice_metadata_t>
-        mdkey_auth_semilattices() {
-    return metadata_file_t::key_t<auth_semilattice_metadata_t>("auth_semilattice");
-}
-
 metadata_file_t::key_t<server_config_versioned_t>
         mdkey_server_config() {
     return metadata_file_t::key_t<server_config_versioned_t>("server_config");

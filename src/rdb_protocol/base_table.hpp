@@ -11,9 +11,6 @@
 #include "protocol_api.hpp"
 #include "rdb_protocol/error.hpp"
 
-// TODO: Trim down these decls.
-
-class reqlfdb_config_cache;
 enum class return_changes_t;
 
 namespace ql {
@@ -32,17 +29,9 @@ class streamspec_t;
 #endif
 }
 
-struct admin_err_t;
-
-class auth_semilattice_metadata_t;
 enum class dist_unit_t;
 class ellipsoid_spec_t;
-class extproc_pool_t;
 struct lon_lat_point_t;
-class name_string_t;
-class namespace_interface_t;
-template <class> class cross_thread_watchable_variable_t;
-template <class> class semilattice_read_view_t;
 
 // TODO: This type's usage in counted_t could be constified.  Do so after fully FDBized.
 class base_table_t : public slow_atomic_countable_t<base_table_t> {

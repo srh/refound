@@ -70,7 +70,6 @@ std::string run_uname(const std::string &flags);
 #endif
 
 bool do_serve(FDBDatabase *fdb,
-              metadata_file_t *metadata_file,
               const serve_info_t &serve_info,
               os_signal_cond_t *stop_cond) {
     // Vestigial proxy code exists.
@@ -96,13 +95,6 @@ bool do_serve(FDBDatabase *fdb,
         /* `thread_pool_log_writer_t` automatically registers itself. While it exists,
         log messages will be written using the event loop instead of blocking. */
         thread_pool_log_writer_t log_writer;
-
-        auth_semilattice_metadata_t auth_metadata;
-        if (true) {
-            cond_t non_interruptor;
-            metadata_file_t::read_txn_t txn(metadata_file, &non_interruptor);
-            auth_metadata = txn.read(mdkey_auth_semilattices());
-        }
 
 #ifndef NDEBUG
         logNTC("Our server ID is %s", server_id_t().print().c_str());
@@ -270,11 +262,9 @@ bool do_serve(FDBDatabase *fdb,
 }
 
 bool serve(FDBDatabase *fdb,
-           metadata_file_t *metadata_file,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond) {
     return do_serve(fdb,
-                    metadata_file,
                     serve_info,
                     stop_cond);
 }

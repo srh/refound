@@ -65,7 +65,6 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
-#include "rockstore/store.hpp"
 #include "rpc/connectivity/server_id.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
@@ -1095,8 +1094,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
                          serve_info_t *serve_info,
                          const std::string &initial_password,
-                         const file_direct_io_mode_t direct_io_mode,
-                         const int max_concurrent_io_requests,
                          const optional<optional<uint64_t> >
                             &total_cache_size,
                          const server_id_t *our_server_id,
@@ -1112,44 +1109,12 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
 
     logNTC("Loading data from directory %s\n", base_path.path().c_str());
 
-    rockstore::store rocks = rockstore::create_rockstore(base_path);
-    io_backender_t io_backender(&rocks, direct_io_mode, max_concurrent_io_requests);
-
-    perfmon_collection_t metadata_perfmon_collection;
-    perfmon_membership_t metadata_perfmon_membership(&get_global_perfmon_collection(), &metadata_perfmon_collection, "metadata");
-
     try {
-        scoped_ptr_t<metadata_file_t> metadata_file;
         cond_t non_interruptor;
         if (our_server_id != nullptr) {
             guarantee(!static_cast<bool>(total_cache_size), "rethinkdb porcelain should "
                 "have already set up total_cache_size");
         } else {
-            metadata_file.init(new metadata_file_t(
-                &io_backender,
-                &metadata_perfmon_collection));
-            /* The `metadata_file_t` constructor will migrate the main metadata if it
-            exists, but we need to migrate the auth metadata separately */
-            serializer_filepath_t auth_path(base_path, "auth_metadata");
-            if (access(auth_path.permanent_path().c_str(), F_OK) == 0) {
-                {
-                    metadata_file_t::write_txn_t txn(metadata_file.get(),
-                                                     &non_interruptor);
-                    logNTC("Migrating auth metadata to v2.1");
-                    // TODO: Clean up migration logic (in a user-friendly manner)
-                    crash("Cannot migrate auth metadata from old pre-rockstore db");
-                    /* Commit the transaction here so we flush the new metadata file before
-                    we delete the old auth file */
-                    txn.commit();
-                }
-                if (remove(auth_path.permanent_path().c_str()) != 0) {
-                    fail_due_to_user_error(
-                        "Failed to remove legacy 'auth_metadata' configuration file at %s.  "
-                        "If this file remains, it could overwrite future changes to user "
-                        "and password configurations.  Please remove it and try again.",
-                        auth_path.permanent_path().c_str());
-                }
-            }
             if (!initial_password.empty()) {
                 /* Apply the initial password if there isn't one already. */
                 // TODO: Is there some sort of sigint interruptor we can set up earlier?
@@ -1188,7 +1153,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
 
         serve_info->look_up_peers();
         *result_out = serve(fdb,
-                            metadata_file.get(),
                             *serve_info,
                             &sigint_cond);
 
@@ -2008,6 +1972,7 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
+        // QQQ: Remove this option for fdb, it's unused.
         int max_concurrent_io_requests;
         if (!parse_io_threads_option(opts, &max_concurrent_io_requests)) {
             return EXIT_FAILURE;
@@ -2062,7 +2027,8 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
                                 node_reconnect_timeout_secs.value_or(cluster_defaults::reconnect_timeout),
                                 tls_configs);
 
-        const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
+        // QQQ: Remove this option and such for fdb.
+        // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
         bool result;
         run_in_thread_pool(std::bind(&run_rethinkdb_serve,
@@ -2070,8 +2036,6 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
                                      base_path,
                                      &serve_info,
                                      initial_password,
-                                     direct_io_mode,
-                                     max_concurrent_io_requests,
                                      total_cache_size,
                                      static_cast<server_id_t*>(nullptr),
                                      &data_directory_lock,
