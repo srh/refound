@@ -37,21 +37,6 @@ public:
     void note_reshard() override { }
 #endif
 
-    void new_read_token(read_token_t *token_out) override;
-    void new_write_token(write_token_t *token_out) override;
-
-    version_t get_metainfo(
-            order_token_t order_token,
-            read_token_t *token,
-            const signal_t *interruptor)
-            THROWS_ONLY(interrupted_exc_t) override;
-
-    void set_metainfo(const version_t &new_metainfo,
-                      order_token_t order_token,
-                      write_token_t *token,
-                      write_durability_t durability,
-                      const signal_t *interruptor) override THROWS_ONLY(interrupted_exc_t);
-
     void read(
             DEBUG_ONLY(const metainfo_checker_t &metainfo_checker, )
             const read_t &read,

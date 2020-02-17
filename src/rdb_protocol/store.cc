@@ -14,33 +14,6 @@
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/table_common.hpp"
 
-#if RDB_CF
-void store_t::note_reshard() {
-    // This is no longer for resharding, it just shuts off changefeeds for
-    // local_replicator_t.  Maybe this is unnecessary; maybe we could let the destructor
-    // do its work.
-
-    // We acquire `changefeed_servers_lock` and move the matching pointer out of
-    // `changefeed_servers`. We then destruct the server in a separate step,
-    // after releasing the lock.
-    // The reason we do this is to avoid deadlocks that could happen if someone
-    // was holding a lock on the drainer in one of the changefeed servers,
-    // and was at the same time trying to acquire the `changefeed_servers_lock`.
-    scoped_ptr_t<ql::changefeed::server_t> to_destruct;
-    {
-        rwlock_acq_t acq(&the_changefeed_server_lock, access_t::write);
-        ASSERT_NO_CORO_WAITING;
-        if (the_changefeed_server.has()) {
-            to_destruct = std::move(the_changefeed_server);
-            the_changefeed_server.reset();
-        }
-    }
-    // The changefeed server is actually getting destructed here. This might
-    // block.
-}
-#endif
-
-
 void store_t::help_construct_bring_sindexes_up_to_date() {
     // Make sure to continue bringing sindexes up-to-date if it was interrupted earlier
 

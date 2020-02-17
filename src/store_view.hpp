@@ -42,28 +42,6 @@ public:
         home_thread_mixin_t::assert_thread();
     }
 
-#if RDB_CF
-    virtual void note_reshard() = 0;
-#endif
-
-    virtual void new_read_token(read_token_t *token_out) = 0;
-    virtual void new_write_token(write_token_t *token_out) = 0;
-
-    /* Gets the metainfo. */
-    virtual version_t get_metainfo(
-            order_token_t order_token,
-            read_token_t *token,
-            const signal_t *interruptor)
-        THROWS_ONLY(interrupted_exc_t) = 0;
-
-    /* Replaces the metainfo in `new_metainfo`'s domain with `new_metainfo`. */
-    virtual void set_metainfo(
-            const version_t &new_metainfo,
-            order_token_t order_token,
-            write_token_t *token,
-            write_durability_t durability,
-            const signal_t *interruptor) THROWS_ONLY(interrupted_exc_t) = 0;
-
 protected:
     store_view_t() { }
 

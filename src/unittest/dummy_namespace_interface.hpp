@@ -14,6 +14,8 @@ class rdb_context_t;
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
+
 class dummy_performer_t {
 
 public:
@@ -53,8 +55,6 @@ public:
 private:
     shard_t the_shard;
 };
-
-#if RDB_FDB_UNITTEST
 
 class dummy_namespace_interface_t : public namespace_interface_t {
 public:

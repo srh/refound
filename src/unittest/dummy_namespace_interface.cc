@@ -5,6 +5,8 @@
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
+
 dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
                                          order_source_t *order_source)
     : next(n) {
@@ -21,7 +23,6 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
     current_timestamp = metainfo.timestamp;
 }
 
-#if RDB_FDB_UNITTEST
 
 dummy_namespace_interface_t::
 dummy_namespace_interface_t(store_view_t *the_store, order_source_t
