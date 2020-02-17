@@ -18,7 +18,6 @@
 #include "clustering/administration/persist/semilattice.hpp"
 #include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
-#include "clustering/table_manager/multi_table_manager.hpp"
 #include "containers/incremental_lenses.hpp"
 #include "containers/lifetime.hpp"
 #include "containers/optional.hpp"
