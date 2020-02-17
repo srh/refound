@@ -8,7 +8,6 @@
 #include "arch/io/openssl.hpp"
 #include "concurrency/one_per_thread.hpp"
 #include "client_protocol/server.hpp"
-#include "clustering/administration/servers/config_client.hpp"
 
 namespace ql {
 class query_params_t;
@@ -22,8 +21,7 @@ class rdb_query_server_t : public query_handler_t {
 public:
     rdb_query_server_t(
       const std::set<ip_address_t> &local_addresses, int port,
-      rdb_context_t *_rdb_ctx,
-      const server_id_t &_server_id, tls_ctx_t *tls_ctx);
+      rdb_context_t *_rdb_ctx, tls_ctx_t *tls_ctx);
 
     http_app_t *get_http_app();
     int get_port() const;
@@ -38,7 +36,6 @@ private:
 
     query_server_t server;
     rdb_context_t *rdb_ctx;
-    server_id_t server_id;
     one_per_thread_t<int> thread_counters;
 
     DISABLE_COPYING(rdb_query_server_t);

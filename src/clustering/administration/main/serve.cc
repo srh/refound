@@ -20,7 +20,6 @@
 #include "clustering/administration/persist/semilattice.hpp"
 #include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
-#include "clustering/administration/servers/config_client.hpp"
 #include "clustering/administration/tables/name_resolver.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
 #include "clustering/table_manager/multi_table_manager.hpp"
@@ -163,20 +162,6 @@ bool do_serve(FDBDatabase *fdb,
         on different servers to communicate with each other. */
         directory_map_read_manager_t<namespace_id_t, table_manager_bcard_t>
             table_directory_read_manager(&connectivity_cluster, 'T');
-
-        /* `server_connection_read_manager` gives us second-order connectivity
-        information; we can figure out which of the servers we're connected to are
-        connected to which other servers. */
-        directory_map_read_manager_t<server_id_t, empty_value_t>
-            server_connection_read_manager(&connectivity_cluster, 'C');
-
-        /* `server_config_client` is used to get a list of all connected servers and
-        request information about their names and tags. It can also be used to change
-        servers' names and tags over the network by sending messages to the servers'
-        `server_config_server_t`s. */
-        server_config_client_t server_config_client(
-            directory_read_manager.get_root_map_view(),
-            server_connection_read_manager.get_root_view());
 
         /* `connectivity_cluster_run` is the other half of the `connectivity_cluster_t`.
         Before it's created, the `connectivity_cluster_t` won't process any connections
@@ -368,7 +353,6 @@ bool do_serve(FDBDatabase *fdb,
                     serve_info.ports.local_addresses_driver,
                     serve_info.ports.reql_port,
                     &rdb_ctx,
-                    server_id,
                     serve_info.tls_configs.driver.get());
                 logNTC("Listening for client driver connections on port %d\n",
                        rdb_query_server.get_port());

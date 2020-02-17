@@ -8,17 +8,17 @@
 #include "rdb_protocol/query_cache.hpp"
 #include "rdb_protocol/query_params.hpp"
 #include "rdb_protocol/response.hpp"
+#include "rpc/connectivity/server_id.hpp"
 
 rdb_query_server_t::rdb_query_server_t(
     const std::set<ip_address_t> &local_addresses, int port,
     rdb_context_t *_rdb_ctx,
-    const server_id_t &_server_id, tls_ctx_t *tls_ctx
+    tls_ctx_t *tls_ctx
 ) :
     server(
         _rdb_ctx, local_addresses, port, this, default_http_timeout_sec, tls_ctx
     ),
     rdb_ctx(_rdb_ctx),
-    server_id(_server_id),
     thread_counters(0) { }
 
 http_app_t *rdb_query_server_t::get_http_app() {
@@ -84,7 +84,7 @@ void rdb_query_server_t::run_query(ql::query_params_t *query_params,
 
 // TODO: Maybe "proxy" should be set to true.
 void rdb_query_server_t::fill_server_info(ql::response_t *out) {
-    datum_string_t id(server_id.print());
+    datum_string_t id(server_id_t().print());
 
     ql::datum_object_builder_t builder;
     builder.overwrite(datum_string_t("id"), ql::datum_t(id));
