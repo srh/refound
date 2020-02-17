@@ -4,7 +4,6 @@
 
 #include "clustering/generic/minidir.hpp"
 #include "clustering/generic/raft_core.hpp"
-#include "clustering/generic/raft_network.hpp"
 #include "clustering/table_contract/contract_metadata.hpp"
 #include "clustering/table_contract/executor/exec.hpp"
 #include "containers/optional.hpp"
