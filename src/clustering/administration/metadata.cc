@@ -26,13 +26,12 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(proc_directory_metadata_t,
     http_admin_port,
     argv);
 
-RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(cluster_directory_metadata_t,
+RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(cluster_directory_metadata_t,
      server_id,
      peer_id,
      proc,
      actual_cache_size_bytes,
      multi_table_manager_bcard,
-     log_mailbox,
      local_issue_bcard,
      peer_type);
 

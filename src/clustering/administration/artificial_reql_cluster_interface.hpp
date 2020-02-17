@@ -26,7 +26,6 @@ class db_config_artificial_table_fdb_backend_t;
 class in_memory_artificial_table_fdb_backend_t;
 class issues_artificial_table_backend_t;
 class jobs_artificial_table_fdb_backend_t;
-class logs_artificial_table_backend_t;
 class table_config_artificial_table_fdb_backend_t;
 
 /* The `artificial_reql_cluster_interface_t` is responsible for handling queries to the
@@ -117,7 +116,6 @@ public:
             cluster_semilattice_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
         table_meta_client_t *table_meta_client,
-        server_config_client_t *server_config_client,
         mailbox_manager_t *mailbox_manager,
         lifetime_t<name_resolver_t const &> name_resolver);
     ~artificial_reql_cluster_backends_t();
@@ -143,9 +141,6 @@ private:
 
     scoped_ptr_t<issues_artificial_table_backend_t> issues_backend[2];
     backend_sentry_t issues_sentry;
-
-    scoped_ptr_t<logs_artificial_table_backend_t> logs_backend[2];
-    backend_sentry_t logs_sentry;
 
     scoped_ptr_t<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
     fdb_backend_sentry_t table_config_sentry;

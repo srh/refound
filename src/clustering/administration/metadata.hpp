@@ -9,14 +9,14 @@
 #include <vector>
 #include <utility>
 
+#include "arch/address.hpp"
 #include "clustering/administration/auth/user.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/issues/local.hpp"
-#include "clustering/administration/logs/log_transfer.hpp"
 #include "clustering/administration/tables/database_metadata.hpp"
-#include "containers/optional.hpp"
 #include "clustering/table_manager/table_metadata.hpp"
-#include "arch/address.hpp"
+#include "containers/optional.hpp"
+#include "logger.hpp"
 #include "rpc/connectivity/peer_id.hpp"
 #include "rpc/semilattice/joins/macros.hpp"
 #include "rpc/semilattice/joins/versioned.hpp"
@@ -109,7 +109,6 @@ public:
             const proc_directory_metadata_t &_proc,
             uint64_t _actual_cache_size_bytes,
             const multi_table_manager_bcard_t &mtmbc,
-            const log_server_business_card_t &lmb,
             const local_issue_bcard_t &lib,
             cluster_directory_peer_type_t _peer_type) :
         server_id(_server_id),
@@ -117,7 +116,6 @@ public:
         proc(_proc),
         actual_cache_size_bytes(_actual_cache_size_bytes),
         multi_table_manager_bcard(mtmbc),
-        log_mailbox(lmb),
         local_issue_bcard(lib),
         peer_type(_peer_type) { }
     /* Move constructor */
@@ -135,7 +133,6 @@ public:
     uint64_t actual_cache_size_bytes;   /* might be user-set or automatically picked */
 
     multi_table_manager_bcard_t multi_table_manager_bcard;
-    log_server_business_card_t log_mailbox;
     local_issue_bcard_t local_issue_bcard;
 
     cluster_directory_peer_type_t peer_type;

@@ -6,7 +6,6 @@
 #include "clustering/administration/auth/users_artificial_table_backend.hpp"
 #include "clustering/administration/issues/issues_backend.hpp"
 #include "clustering/administration/jobs/jobs_backend.hpp"
-#include "clustering/administration/logs/logs_backend.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/tables/db_config.hpp"
@@ -207,7 +206,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
             cluster_semilattice_view,
         watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
         table_meta_client_t *table_meta_client,
-        server_config_client_t *server_config_client,
         mailbox_manager_t *mailbox_manager,
         lifetime_t<name_resolver_t const &> name_resolver) {
     for (int format = 0; format < 2; ++format) {
@@ -247,20 +245,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface->get_table_backends_map_mutable(),
         name_string_t::guarantee_valid("current_issues"),
         std::make_pair(issues_backend[0].get(), issues_backend[1].get()));
-
-    for (int format = 0; format < 2; ++format) {
-        logs_backend[format].init(
-            new logs_artificial_table_backend_t(
-                name_resolver,
-                mailbox_manager,
-                directory_map_view,
-                server_config_client,
-                static_cast<admin_identifier_format_t>(format)));
-    }
-    logs_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("logs"),
-        std::make_pair(logs_backend[0].get(), logs_backend[1].get()));
 
     for (int format = 0; format < 2; ++format) {
         table_config_backend[format].init(

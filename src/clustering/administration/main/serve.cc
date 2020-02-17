@@ -170,10 +170,6 @@ bool do_serve(FDBDatabase *fdb,
         directory_map_read_manager_t<server_id_t, empty_value_t>
             server_connection_read_manager(&connectivity_cluster, 'C');
 
-        /* `log_server` retrieves pieces of our local log file and sends them out over
-        the network via its mailbox. */
-        log_server_t log_server(&mailbox_manager, &log_writer);
-
         /* `server_config_client` is used to get a list of all connected servers and
         request information about their names and tags. It can also be used to change
         servers' names and tags over the network by sending messages to the servers'
@@ -274,7 +270,6 @@ bool do_serve(FDBDatabase *fdb,
                 semilattice_manager_cluster.get_root_view(),
                 directory_read_manager.get_root_map_view(),
                 &table_meta_client,
-                &server_config_client,
                 &mailbox_manager,
                 make_lifetime(name_resolver));
 
@@ -337,7 +332,6 @@ bool do_serve(FDBDatabase *fdb,
                 initial_proc_directory,
                 0,   /* we'll fill `actual_cache_size_bytes` in later */
                 multi_table_manager->get_multi_table_manager_bcard(),
-                log_server.get_business_card(),
                 i_am_a_server
                     ? local_issue_server->get_bcard()
                     : local_issue_bcard_t(),
