@@ -55,14 +55,6 @@ bool artificial_reql_cluster_interface_t::db_config(
 
 std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorted() {
     std::vector<name_string_t> ret;
-    for (auto&& pair : m_table_backends) {
-        if (pair.first.str()[0] == '_') {
-            /* If a table's name starts with `_`, don't show it to the user unless
-            they explicitly request it. */
-            continue;
-        }
-        ret.push_back(pair.first);
-    }
     for (auto&& pair : m_table_fdb_backends) {
         if (pair.first.str()[0] == '_') {
             /* If a table's name starts with `_`, don't show it to the user unless
@@ -80,14 +72,9 @@ bool artificial_reql_cluster_interface_t::table_find(
         admin_identifier_format_t identifier_format,
         counted_t<base_table_t> *table_out,
         admin_err_t *error_out) {
-    auto backend = get_table_backend(name, identifier_format);
-    if (backend.first != nullptr) {
-        table_out->reset(
-            new artificial_table_t(backend.first));
-        return true;
-    } else if (backend.second != nullptr) {
-        table_out->reset(
-            new artificial_table_fdb_t(backend.second));
+    auto backend = get_table_backend_or_null(name, identifier_format);
+    if (backend != nullptr) {
+        table_out->reset(new artificial_table_fdb_t(backend));
         return true;
     } else {
         *error_out = table_not_found_error(
@@ -136,46 +123,22 @@ void artificial_reql_cluster_interface_t::set_next_reql_cluster_interface(
     m_next = next;
 }
 
-std::pair<artificial_table_backend_t *, artificial_table_fdb_backend_t *>
-artificial_reql_cluster_interface_t::get_table_backend(
+artificial_table_fdb_backend_t *
+artificial_reql_cluster_interface_t::get_table_backend_or_null(
         name_string_t const &table_name,
         admin_identifier_format_t admin_identifier_format) const {
-    std::pair<artificial_table_backend_t *, artificial_table_fdb_backend_t *> ret
-        = {nullptr, nullptr};
-    auto table_backend = m_table_backends.find(table_name);
-    if (table_backend != m_table_backends.end()) {
+    auto table_fdb_backend = m_table_fdb_backends.find(table_name);
+    if (table_fdb_backend != m_table_fdb_backends.end()) {
         switch (admin_identifier_format) {
         case admin_identifier_format_t::name:
-            ret.first = table_backend->second.first;
+            return table_fdb_backend->second.first;
         case admin_identifier_format_t::uuid:
-            ret.first = table_backend->second.second;
+            return table_fdb_backend->second.second;
         default:
             unreachable();
         }
-    } else {
-        auto table_fdb_backend = m_table_fdb_backends.find(table_name);
-        if (table_fdb_backend != m_table_fdb_backends.end()) {
-            switch (admin_identifier_format) {
-            case admin_identifier_format_t::name:
-                ret.second = table_fdb_backend->second.first;
-            case admin_identifier_format_t::uuid:
-                ret.second = table_fdb_backend->second.second;
-            default:
-                unreachable();
-            }
-        }
     }
-    return ret;
-}
-
-artificial_reql_cluster_interface_t::table_backends_map_t *
-artificial_reql_cluster_interface_t::get_table_backends_map_mutable() {
-    return &m_table_backends;
-}
-
-artificial_reql_cluster_interface_t::table_backends_map_t const &
-artificial_reql_cluster_interface_t::get_table_backends_map() const {
-    return m_table_backends;
+    return nullptr;
 }
 
 artificial_reql_cluster_interface_t::table_fdb_backends_map_t *

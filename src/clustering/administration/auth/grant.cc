@@ -35,7 +35,7 @@ bool grant(
         = user_context.transaction_require_write_permission(
             txn,
             artificial_reql_cluster_interface_t::database_id,
-            artificial_table_backend_t::compute_artificial_table_id(
+            artificial_table_fdb_backend_t::compute_artificial_table_id(
                 name_string_t::guarantee_valid("permissions")));
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 

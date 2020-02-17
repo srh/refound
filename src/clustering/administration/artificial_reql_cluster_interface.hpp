@@ -73,23 +73,15 @@ public:
 
     void set_next_reql_cluster_interface(reql_cluster_interface_t *next);
 
-    // This is a variant, but i'm paranoid about includes, so at most one of these is non-null.
-    // TODO: Obviously, once artificial_table_backend_t is gone, we'll fix this.
-    std::pair<artificial_table_backend_t *, artificial_table_fdb_backend_t *>
-    get_table_backend(
+    artificial_table_fdb_backend_t *
+    get_table_backend_or_null(
             name_string_t const &,
             admin_identifier_format_t) const;
-
-    using table_backends_map_t = std::map<
-        name_string_t,
-        std::pair<artificial_table_backend_t *, artificial_table_backend_t *>>;
 
     using table_fdb_backends_map_t = std::map<
         name_string_t,
         std::pair<artificial_table_fdb_backend_t *, artificial_table_fdb_backend_t *>>;
 
-    table_backends_map_t *get_table_backends_map_mutable();
-    table_backends_map_t const &get_table_backends_map() const;
     table_fdb_backends_map_t *get_table_fdb_backends_map_mutable();
     table_fdb_backends_map_t const &get_table_fdb_backends_map() const;
 
@@ -103,7 +95,6 @@ public:
 private:
     bool next_or_error(admin_err_t *error_out) const;
 
-    table_backends_map_t m_table_backends;
     table_fdb_backends_map_t m_table_fdb_backends;
     reql_cluster_interface_t *m_next;
 };
@@ -115,10 +106,6 @@ public:
     ~artificial_reql_cluster_backends_t();
 
 private:
-    using backend_sentry_t = map_insertion_sentry_t<
-        artificial_reql_cluster_interface_t::table_backends_map_t::key_type,
-        artificial_reql_cluster_interface_t::table_backends_map_t::mapped_type>;
-
     using fdb_backend_sentry_t = map_insertion_sentry_t<
         artificial_reql_cluster_interface_t::table_fdb_backends_map_t::key_type,
         artificial_reql_cluster_interface_t::table_fdb_backends_map_t::mapped_type>;

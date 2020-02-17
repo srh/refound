@@ -160,78 +160,46 @@ void real_reql_cluster_interface_t::make_single_selection(
         ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t) {
-    auto table_backend =
-        artificial_reql_cluster_interface->get_table_backend(
+    artificial_table_fdb_backend_t *table_backend =
+        artificial_reql_cluster_interface->get_table_backend_or_null(
             table_name,
             admin_identifier_format_t::name);
+    guarantee(table_backend != nullptr, "real_reql_cluster_interface_t::make_single_selection missing backend");
     counted_t<const ql::db_t> db = make_counted<ql::db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name, config_version_checker::empty());
-    counted_t<ql::table_t> table;
 
-    if (table_backend.first != nullptr) {
+    // TODO: Do we really need to read the row up-front?
+
+    ql::datum_t row;
+    fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
+            [&](FDBTransaction *txn) {
         admin_err_t error;
-
-        ql::datum_t row;
-        if (!table_backend.first->read_row(
+        ql::datum_t tmp_row;
+        if (!table_backend->read_row(
+                txn,
                 user_context,
                 convert_uuid_to_datum(primary_key),
                 env->interruptor,
-                &row,
+                &tmp_row,
                 &error)) {
             throw admin_op_exc_t(error);
         } else if (!row.has()) {
             /* This is unlikely, but it can happen if the object is deleted between when we
             look up its name and when we call `read_row()` */
+            // TODO: Ensure callers catch this.  Is this even a legit exception?  It should be a no such row exception, or something like that...  Maybe real_reql_cluster_interface_t means this to refer to the r.table() param?
             throw no_such_table_exc_t();
         }
+        row = std::move(tmp_row);
+    });
+    guarantee_fdb_TODO(loop_err, "real_reql_cluster_interface_t::make_single_selection retry loop");
 
-        table = make_counted<ql::table_t>(
-            make_counted<artificial_table_t>(table_backend.first),
-            db,
-            table_name,
-            read_mode_t::SINGLE,
-            bt);
+    counted_t<ql::table_t> table = make_counted<ql::table_t>(
+        make_counted<artificial_table_fdb_t>(table_backend),
+        db,
+        table_name,
+        read_mode_t::SINGLE,
+        bt);
 
-        *selection_out = make_scoped<ql::val_t>(
-            ql::single_selection_t::from_row(bt, table, row),
-            bt);
-    } else if (table_backend.second != nullptr) {
-        // TODO: Do we really need to read the row up-front?
-
-        ql::datum_t row;
-        fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
-                [&](FDBTransaction *txn) {
-            admin_err_t error;
-            ql::datum_t tmp_row;
-            if (!table_backend.second->read_row(
-                    txn,
-                    user_context,
-                    convert_uuid_to_datum(primary_key),
-                    env->interruptor,
-                    &tmp_row,
-                    &error)) {
-                throw admin_op_exc_t(error);
-            } else if (!row.has()) {
-                /* This is unlikely, but it can happen if the object is deleted between when we
-                look up its name and when we call `read_row()` */
-                // TODO: Ensure callers catch this.  Is this even a legit exception?  It should be a no such row exception, or something like that...  Maybe real_reql_cluster_interface_t means this to refer to the r.table() param?
-                throw no_such_table_exc_t();
-            }
-            row = std::move(tmp_row);
-        });
-        guarantee_fdb_TODO(loop_err, "real_reql_cluster_interface_t::make_single_selection retry loop");
-
-        table = make_counted<ql::table_t>(
-            make_counted<artificial_table_fdb_t>(table_backend.second),
-            db,
-            table_name,
-            read_mode_t::SINGLE,
-            bt);
-
-        *selection_out = make_scoped<ql::val_t>(
-            ql::single_selection_t::from_row(bt, table, row),
-            bt);
-    } else {
-        guarantee(table_backend.first != nullptr || table_backend.second != nullptr,
-            "real_reql_cluster_interface_t::make_single_selection used invalid table???");
-    }
+    *selection_out = make_scoped<ql::val_t>(
+        ql::single_selection_t::from_row(bt, table, row),
+        bt);
 }
