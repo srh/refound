@@ -115,11 +115,6 @@ public:
         const database_id_t &db_id,
         const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t);
 
-    void require_write_permission(
-            rdb_context_t *rdb_context,
-            database_id_t const &database_id,
-            namespace_id_t const &table_id) const THROWS_ONLY(permission_error_t);
-
     // transaction_require_config_permission functions work using solely the txn.
     // They may quick-throw if we hold a permissions_t.
     fdb_user_fut<config_permission> transaction_require_config_permission(

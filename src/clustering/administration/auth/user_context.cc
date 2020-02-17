@@ -188,25 +188,6 @@ void require_permission_internal(
     }
 }
 
-void user_context_t::require_write_permission(
-        rdb_context_t *rdb_context,
-        database_id_t const &database_id,
-        namespace_id_t const &table_id) const THROWS_ONLY(permission_error_t) {
-    require_permission_internal(
-        m_context,
-        m_read_only,
-        rdb_context,
-        [&](permissions_t const &permissions) -> bool {
-            return permissions.get_read() == tribool::True
-                && permissions.get_write() == tribool::True;
-        },
-        [&](user_t const &user) -> bool {
-            return user.has_read_permission(database_id, table_id) &&
-                user.has_write_permission(database_id, table_id);
-        },
-        "write");
-}
-
 void user_context_t::require_config_permission(
         rdb_context_t *rdb_context) const THROWS_ONLY(permission_error_t) {
     require_permission_internal(
