@@ -142,8 +142,6 @@ bool do_serve(FDBDatabase *fdb,
         metadata between servers over the network. */
         semilattice_manager_t<cluster_semilattice_metadata_t>
             semilattice_manager_cluster(&connectivity_cluster, 'S', cluster_metadata);
-        semilattice_manager_t<auth_semilattice_metadata_t>
-            semilattice_manager_auth(&connectivity_cluster, 'A', auth_metadata);
 
         /* The `directory_*_read_manager_t`s are responsible for receiving directory
         updates over the network from other servers. */
@@ -178,7 +176,6 @@ bool do_serve(FDBDatabase *fdb,
                               &extproc_pool,
                               &mailbox_manager,
                               nullptr,   /* we'll fill this in later */
-                              semilattice_manager_auth.get_root_view(),
                               &get_global_perfmon_collection(),
                               serve_info.reql_http_proxy);
         {
@@ -327,8 +324,6 @@ bool do_serve(FDBDatabase *fdb,
                 semilattice metadata to disk. */
                 scoped_ptr_t<semilattice_persister_t<cluster_semilattice_metadata_t> >
                     cluster_metadata_persister;
-                scoped_ptr_t<semilattice_persister_t<auth_semilattice_metadata_t> >
-                    auth_metadata_persister;
 
                 if (i_am_a_server) {
                     cluster_metadata_persister.init(
@@ -336,11 +331,6 @@ bool do_serve(FDBDatabase *fdb,
                             metadata_file,
                             mdkey_cluster_semilattices(),
                             semilattice_manager_cluster.get_root_view()));
-                    auth_metadata_persister.init(
-                        new semilattice_persister_t<auth_semilattice_metadata_t>(
-                            metadata_file,
-                            mdkey_auth_semilattices(),
-                            semilattice_manager_auth.get_root_view()));
                 }
 
                 {
@@ -421,7 +411,6 @@ bool do_serve(FDBDatabase *fdb,
                 cond_t non_interruptor;
                 if (i_am_a_server) {
                     cluster_metadata_persister->stop_and_flush(&non_interruptor);
-                    auth_metadata_persister->stop_and_flush(&non_interruptor);
                 }
 
                 logNTC("Shutting down client connections...\n");

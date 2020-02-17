@@ -194,9 +194,7 @@ public:
     // Also used by unit tests.
     rdb_context_t(FDBDatabase *_fdb,
                   extproc_pool_t *_extproc_pool,
-                  reql_cluster_interface_t *_cluster_interface,
-                  std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
-                      auth_semilattice_view);
+                  reql_cluster_interface_t *_cluster_interface);
 
     // The "real" constructor used outside of unit tests.
     rdb_context_t(
@@ -204,8 +202,6 @@ public:
         extproc_pool_t *_extproc_pool,
         mailbox_manager_t *_mailbox_manager,
         artificial_reql_cluster_interface_t *_cluster_interface,
-        std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
-            auth_semilattice_view,
         perfmon_collection_t *global_stats,
         const std::string &_reql_http_proxy);
 
@@ -243,16 +239,7 @@ public:
 
     std::set<ql::query_cache_t *> *get_query_caches_for_this_thread();
 
-    clone_ptr_t<watchable_t<auth_semilattice_metadata_t>> get_auth_watchable() const;
-
 private:
-    void init_auth_watchables(
-        std::shared_ptr<semilattice_read_view_t<auth_semilattice_metadata_t>>
-            auth_semilattice_view);
-
-    std::vector<std::unique_ptr<cross_thread_watchable_variable_t<
-        auth_semilattice_metadata_t>>> m_cross_thread_auth_watchables;
-
     one_per_thread_t<std::set<ql::query_cache_t *> > query_caches;
 
     DISABLE_COPYING(rdb_context_t);
