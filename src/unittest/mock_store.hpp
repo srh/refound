@@ -5,7 +5,6 @@
 #include <utility>
 #include <string>
 
-#include "clustering/immediate_consistency/version.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "store_view.hpp"
 #include "unittest/unittest_utils.hpp"
