@@ -11,7 +11,6 @@
 #include "clustering/administration/main/initial_join.hpp"
 #include "clustering/administration/main/ports.hpp"
 #include "clustering/administration/main/memory_checker.hpp"
-#include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/perfmon_collection_repo.hpp"
 #include "clustering/administration/persist/file_keys.hpp"

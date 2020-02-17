@@ -6,7 +6,6 @@
 #include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
-#include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/tables/table_config.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "containers/archive/string_stream.hpp"

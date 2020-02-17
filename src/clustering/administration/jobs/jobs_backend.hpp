@@ -8,7 +8,6 @@
 
 #include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 #include "rdb_protocol/admin_identifier_format.hpp"
-#include "rpc/connectivity/peer_id.hpp"
 
 namespace auth {
 class user_context_t;

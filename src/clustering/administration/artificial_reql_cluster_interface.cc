@@ -5,7 +5,6 @@
 #include "clustering/administration/auth/permissions_artificial_table_backend.hpp"
 #include "clustering/administration/auth/users_artificial_table_backend.hpp"
 #include "clustering/administration/jobs/jobs_backend.hpp"
-#include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/tables/db_config.hpp"
 #include "clustering/administration/tables/table_config.hpp"
