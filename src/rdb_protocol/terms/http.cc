@@ -4,8 +4,11 @@
 #include <string>
 #include "debug.hpp"
 
+#include "clustering/administration/auth/user_fut.hpp"
+#include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "extproc/http_runner.hpp"
+#include "fdb/retry_loop.hpp"
 #include "math.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/error.hpp"
@@ -228,7 +231,13 @@ void dispatch_http(env_t *env,
 scoped_ptr_t<val_t> http_term_t::eval_impl(scope_env_t *env, args_t *args,
                                            eval_flags_t) const {
     try {
-        env->env->get_user_context().require_connect_permission(env->env->get_rdb_ctx());
+        // TODO: Are we really transacting with fdb for every http connection -- what if we run them in a loop or map?  Can we cache this?  On a per-query basis?
+        fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
+                [&](FDBTransaction *txn) {
+            auth::fdb_user_fut<auth::connect_permission> user_fut = env->env->get_user_context().transaction_require_connect_permission(txn);
+            user_fut.block_and_check(env->env->interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "http_term_t retry loop");
     } catch (auth::permission_error_t const &permission_error) {
         rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }

@@ -136,6 +136,17 @@ user_context_t::transaction_require_db_multi_table_config_permission(
             std::move(table_ids)});
 }
 
+fdb_user_fut<connect_permission>
+user_context_t::transaction_require_connect_permission(
+        FDBTransaction *txn) const
+        THROWS_ONLY(permission_error_t) {
+    return require_permission_internal(txn, m_context, m_read_only,
+        [](permissions_t const &permissions) -> bool {
+            return permissions.get_connect() == tribool::True;
+        },
+        connect_permission{});
+}
+
 template <typename F, typename G>
 void require_permission_internal(
         boost::variant<permissions_t, username_t> const &context,
@@ -289,22 +300,6 @@ void user_context_t::require_config_permission(
             return true;
         },
         "config");
-}
-
-void user_context_t::require_connect_permission(
-        rdb_context_t *rdb_context) const THROWS_ONLY(permission_error_t) {
-    require_permission_internal(
-        m_context,
-        // Ignore the read-only flag for connect, they have no write or config impact
-        false,
-        rdb_context,
-        [&](permissions_t const &permissions) -> bool {
-            return permissions.get_connect() == tribool::True;
-        },
-        [&](user_t const &user) -> bool {
-            return user.has_connect_permission();
-        },
-        "connect");
 }
 
 std::string user_context_t::to_string() const {

@@ -84,6 +84,14 @@ public:
     const char *permission_name() const { return "config"; }
 };
 
+class connect_permission {
+public:
+    bool check(const user_t &user) const {
+        return user.has_config_permission();
+    }
+    const char *permission_name() const { return "connect"; }
+};
+
 // QQQ: These fdb functions should be config-cached in one way or another...
 
 class user_context_t
@@ -157,8 +165,8 @@ public:
             std::set<namespace_id_t> const &table_ids) const THROWS_ONLY(
                 permission_error_t);
 
-    void require_connect_permission(
-            rdb_context_t *rdb_context) const THROWS_ONLY(permission_error_t);
+    fdb_user_fut<connect_permission> transaction_require_connect_permission(
+            FDBTransaction *txn) const THROWS_ONLY(permission_error_t);
 
     std::string to_string() const;
 
