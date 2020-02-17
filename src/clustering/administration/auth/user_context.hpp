@@ -110,11 +110,6 @@ public:
         const database_id_t &db_id,
         const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t);
 
-    void require_read_permission(
-            rdb_context_t *rdb_context,
-            database_id_t const &database_id,
-            namespace_id_t const &table_id) const THROWS_ONLY(permission_error_t);
-
     fdb_user_fut<write_permission> transaction_require_write_permission(
         FDBTransaction *txn,
         const database_id_t &db_id,

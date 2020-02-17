@@ -109,9 +109,6 @@ counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_all(
     counted_t<ql::datum_stream_t> stream;
 
     try {
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-
         if (get_all_sindex_id != m_primary_key_name) {
             rfail_datum(ql::base_exc_t::OP_FAILED, "%s",
                 error_message_index_not_found(get_all_sindex_id, table_name).c_str());
@@ -200,8 +197,12 @@ counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
         UNUSED read_mode_t read_mode,
         UNUSED const ql::datum_t &query_geometry) {
     try {
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
+        txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
+            [&](FDBTransaction *txn) {
+            auth::fdb_user_fut<auth::read_permission> auth_fut
+                = m_backend->get_read_permission(txn, env->get_user_context());
+            auth_fut.block_and_check(env->interruptor);
+        });
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -225,8 +226,12 @@ ql::datum_t artificial_table_fdb_t::read_nearest(
         UNUSED dist_unit_t dist_unit,
         UNUSED const ql::configured_limits_t &limits) {
     try {
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
+        txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
+            [&](FDBTransaction *txn) {
+            auth::fdb_user_fut<auth::read_permission> auth_fut
+                = m_backend->get_read_permission(txn, env->get_user_context());
+            auth_fut.block_and_check(env->interruptor);
+        });
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -290,15 +295,6 @@ ql::datum_t artificial_table_fdb_t::write_batched_insert(
         return_changes_t return_changes,
         UNUSED durability_requirement_t durability,
         UNUSED ignore_write_hook_t ignore_write_hook) {
-    try {
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-        env->get_user_context().require_write_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-    } catch (auth::permission_error_t const &permission_error) {
-        rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-    }
-
     ql::datum_t stats = ql::datum_t::empty_object();
     std::set<std::string> conditions;
     optional<std::string> permission_error_what;
