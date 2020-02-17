@@ -609,13 +609,14 @@ private:
                 }
             } else {
                 counted_t<table_t> table = target->as_table(env->env);
-                name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
+                name_string_t table_name = table->name;
                 admin_err_t error;
                 /// OOO: Fdb-ize this here.  Look at make_single_selection in
                 /// real_reql_cluster_interface_t.
                 if (!env->env->reql_cluster_interface()->table_config(
                         env->env->get_user_context(),
                         table->db,
+                        table->get_id(),
                         table_name, backtrace(),
                         env->env,
                         &selection,
@@ -639,7 +640,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
-        name_string_t table_name = name_string_t::guarantee_valid(table->name.c_str());
+        name_string_t table_name = table->name;
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
             admin_err_t error{
@@ -655,7 +656,8 @@ private:
             // real_reql_cluster_interface_t.
             admin_err_t error;
             if (!env->env->reql_cluster_interface()->table_status(
-                    table->db, table_name, backtrace(), env->env, &selection, &error)) {
+                    table->db, table->get_id(),
+                    table_name, backtrace(), env->env, &selection, &error)) {
                 REQL_RETHROW(error);
             }
         } catch (auth::permission_error_t const &permission_error) {

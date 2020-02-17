@@ -56,6 +56,7 @@ public:
     bool table_config(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
+            const namespace_id_t &table_id,
             const name_string_t &name,
             ql::backtrace_id_t bt,
             ql::env_t *env,
@@ -63,6 +64,7 @@ public:
             admin_err_t *error_out) override;
     bool table_status(
             counted_t<const ql::db_t> db,
+            const namespace_id_t &table_id,
             const name_string_t &name,
             ql::backtrace_id_t bt,
             ql::env_t *env,

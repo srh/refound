@@ -80,6 +80,7 @@ admin_err_t table_already_exists_error(
 bool real_reql_cluster_interface_t::table_config(
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
+        const namespace_id_t &table_id,
         const name_string_t &name,
         ql::backtrace_id_t bt,
         ql::env_t *env,
@@ -87,8 +88,9 @@ bool real_reql_cluster_interface_t::table_config(
         admin_err_t *error_out) {
     // TODO: fdb-ize this or the single selection function.
     try {
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, name, &table_id);
+        // OOO: We do need a cv check to ensure that the table id we used isn't wildly ou of date.  Then we construct a single selection on the config table.  That can't carry its own cv checker, can it?  Or can it?
+
+        // QQQ: No more name errors to catch, probblay.
 
         user_context.require_config_permission(m_rdb_context, db->id, table_id);
 
@@ -108,6 +110,7 @@ bool real_reql_cluster_interface_t::table_config(
 
 bool real_reql_cluster_interface_t::table_status(
         counted_t<const ql::db_t> db,
+        const namespace_id_t &table_id,
         const name_string_t &name,
         ql::backtrace_id_t bt,
         ql::env_t *env,
@@ -115,8 +118,10 @@ bool real_reql_cluster_interface_t::table_status(
         admin_err_t *error_out) {
     // TODO: fdb-ize this or the single selection function.
     try {
-        namespace_id_t table_id;
-        m_table_meta_client->find(db->id, name, &table_id);
+        // OOO: We do need a cv check to ensure that the table id we used isn't wildly ou of date.  Then we construct a single selection on the config table.  That can't carry its own cv checker, can it?  Or can it?
+
+
+        // QQQ: No more name errors to catch, probblay.
         make_single_selection(
             env->get_user_context(),
             name_string_t::guarantee_valid("table_status"),
