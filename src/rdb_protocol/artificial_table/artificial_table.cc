@@ -69,8 +69,8 @@ ql::datum_t artificial_table_fdb_t::read_row(
         const auth::user_context_t &user_context = env->get_user_context();
         fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
                 [&](FDBTransaction *txn) {
-            auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn,
-                artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
+            auth::fdb_user_fut<auth::read_permission> auth_fut = m_backend->get_read_permission(txn, user_context);
+
             // It's an artificial table; just block and check the auth fut up-front,
             // before doing a huge read, other logic like that, possibly failing with
             // its own auth fut.
@@ -245,15 +245,6 @@ ql::datum_t artificial_table_fdb_t::write_batched_replace(
         return_changes_t return_changes,
         UNUSED durability_requirement_t durability,
         UNUSED ignore_write_hook_t ignore_write_hook) {
-    try {
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-        env->get_user_context().require_write_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-    } catch (auth::permission_error_t const &permission_error) {
-        rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-    }
-
     /* Note that we ignore the `durability` optarg. In theory we could assert that it's
     unspecified or specified to be "soft", since durability is irrelevant or effectively
     soft for system tables anyway. But this might lead to some confusing errors if the
@@ -368,10 +359,13 @@ void artificial_table_fdb_t::do_single_update(
         ql::datum_t *stats_inout,
         std::set<std::string> *conditions_inout) {
     // TODO: Given env isn't used for evaluation, it's p screwy that we pass it in.
-    // QQQ: env->get_rdb_ctx() might be null, if we make a pristine env -- pass in fdb directly up caller...
+    // QQQ: env->get_rdb_ctx() might be null, if we make a pristine env -- but how would we get an artificial_table_fdb_t?
     ql::datum_t resp_out;
     fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, interruptor,
             [&](FDBTransaction *txn) {
+        auth::fdb_user_fut<auth::write_permission> user_fut = env->get_user_context().transaction_require_write_permission(txn, artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
+        user_fut.block_and_check(env->interruptor);
+
         admin_err_t error;
         ql::datum_t old_row;
         if (!checked_read_row_from_backend(txn,
@@ -398,6 +392,7 @@ void artificial_table_fdb_t::do_single_update(
                 new_row.reset();
             }
 
+            // TODO: write_row will update the config version, right?
             if (!m_backend->write_row(
                     txn,
                     env->get_user_context(),

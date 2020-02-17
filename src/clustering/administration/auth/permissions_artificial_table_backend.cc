@@ -27,12 +27,14 @@ std::string permissions_artificial_table_fdb_backend_t::get_primary_key_name() c
 
 bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
-        UNUSED auth::user_context_t const &user_context,
+        auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     std::vector<ql::datum_t> rows_from_db;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
+        auth::fdb_user_fut<auth::read_permission> user_fut = get_read_permission(txn, user_context);
+        user_fut.block_and_check(interruptor);
         std::vector<ql::datum_t> rows;
         std::string prefix = users_by_username::prefix;
         transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,

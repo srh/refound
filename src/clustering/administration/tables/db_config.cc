@@ -76,14 +76,16 @@ std::string db_config_artificial_table_fdb_backend_t::get_primary_key_name() con
 
 bool db_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
-        UNUSED auth::user_context_t const &user_context,
+        auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     std::vector<std::pair<database_id_t, name_string_t>> result;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&](FDBTransaction *txn) {
+        auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
         auto dbs = config_cache_db_list_sorted_by_id(txn, interruptor);
+        auth_fut.block_and_check(interruptor);
         result = std::move(dbs);
     });
     guarantee_fdb_TODO(loop_err, "read_all_rows_as_vector retry loop");

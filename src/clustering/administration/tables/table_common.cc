@@ -1,6 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/tables/table_common.hpp"
 
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "concurrency/cross_thread_signal.hpp"
@@ -24,7 +25,7 @@ std::string common_table_artificial_table_fdb_backend_t::get_primary_key_name() 
 
 bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
-        UNUSED auth::user_context_t const &user_context,
+        auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
@@ -36,7 +37,9 @@ bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     std::vector<std::pair<namespace_id_t, table_config_t>> configs;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&](FDBTransaction *txn) {
-        // TODO: Might be worth making a typed version of this -- similar code to config_cache_db_list_sorted_by_id.
+        // TODO: Might be worth making a typed version of this read_whole_range func -- similar code to config_cache_db_list_sorted_by_id.
+        auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
+        std::vector<std::pair<namespace_id_t, table_config_t>> builder;
         transaction_read_whole_range_coro(txn, prefix, pend, interruptor,
                 [&](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
@@ -44,9 +47,11 @@ bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
             namespace_id_t table_id = table_config_by_id::parse_ukey(key);
             table_config_by_id::value_type config;
             deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &config);
-            configs.emplace_back(table_id, std::move(config));
+            builder.emplace_back(table_id, std::move(config));
             return true;
         });
+        auth_fut.block_and_check(interruptor);
+        configs = std::move(builder);
     });
     guarantee_fdb_TODO(loop_err, "common_table_artificial_table_fdb_backend_t::"
         "read_all_rows_as_vector retry loop");

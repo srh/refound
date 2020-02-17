@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/datum_stream.hpp"
@@ -120,3 +121,8 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered_as_stream(
     return true;
 }
 
+auth::fdb_user_fut<auth::read_permission>
+artificial_table_fdb_backend_t::get_read_permission(
+        FDBTransaction *txn, const auth::user_context_t &user_context) {
+    return user_context.transaction_require_read_permission(txn, artificial_reql_cluster_interface_t::database_id, get_table_id());
+}

@@ -12,6 +12,9 @@
 
 namespace auth {
 class user_context_t;
+template <class T> class fdb_user_fut;
+class read_permission;
+class write_permission;
 }
 
 namespace ql {
@@ -119,6 +122,9 @@ public:
 #endif
 
     static const uuid_u base_table_id;
+
+    auth::fdb_user_fut<auth::read_permission> get_read_permission(
+        FDBTransaction *, const auth::user_context_t &);
 
 private:
     // Takes an FDBDatabase, not txn, because it might need to break range read up into

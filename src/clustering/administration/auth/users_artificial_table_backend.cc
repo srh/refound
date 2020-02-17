@@ -3,6 +3,7 @@
 
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/user.hpp"
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
@@ -30,7 +31,7 @@ std::string users_artificial_table_fdb_backend_t::get_primary_key_name() const {
 
 bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
-        UNUSED user_context_t const &user_context,
+        user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
@@ -41,6 +42,7 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     std::vector<std::pair<username_t, user_t>> rows;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&](FDBTransaction *txn) {
+        auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
         std::vector<std::pair<username_t, user_t>> builder;
         transaction_read_whole_range_coro(txn, prefix, end, interruptor, [&](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
@@ -51,6 +53,7 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
             deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &builder.back().second);
             return true;
         });
+        auth_fut.block_and_check(interruptor);
         rows = std::move(builder);
     });
     guarantee_fdb_TODO(loop_err, "users_artificial_table_fdb_backend_t::read_all_rows_as_vector"

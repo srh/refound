@@ -4,6 +4,7 @@
 
 #include <string>
 
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "fdb/jobs.hpp"
@@ -107,12 +108,13 @@ bool jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     std::vector<ql::datum_t> rows;
     // job_reports is naturally sorted by job id.
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
+        auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
         std::vector<fdb_job_info> job_infos = lookup_all_fdb_jobs(txn, interruptor);
         std::vector<ql::datum_t> job_reports;
         for (fdb_job_info &info : job_infos) {
             job_reports.push_back(job_info_to_datum(info, identifier_format));
         }
-
+        auth_fut.block_and_check(interruptor);
         rows = std::move(job_reports);
     });
     guarantee_fdb_TODO(loop_err, "jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector");

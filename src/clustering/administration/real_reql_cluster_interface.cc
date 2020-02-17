@@ -131,6 +131,8 @@ void real_reql_cluster_interface_t::make_single_selection(
 
     // TODO: Do we really need to read the row up-front?
 
+    // TODO: Verify that we didn't check read permissions on the system table pre-fdb.
+
     ql::datum_t row;
     fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
