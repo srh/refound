@@ -57,8 +57,6 @@
 #include "clustering/administration/main/windows_service.hpp"
 #include "clustering/administration/logs/log_writer.hpp"
 #include "clustering/administration/main/path.hpp"
-#include "clustering/administration/persist/file.hpp"
-#include "clustering/administration/persist/file_keys.hpp"
 #include "containers/scoped.hpp"
 #include "crypto/random.hpp"
 #include "logger.hpp"
@@ -1159,9 +1157,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                             *serve_info,
                             &sigint_cond);
 
-    } catch (const file_in_use_exc_t &ex) {
-        logNTC("Directory '%s' is in use by another rethinkdb process.\n", base_path.path().c_str());
-        *result_out = false;
     } catch (const host_lookup_exc_t &ex) {
         logERR("%s\n", ex.what());
         *result_out = false;

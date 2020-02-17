@@ -11,7 +11,6 @@
 #include "clustering/administration/main/ports.hpp"
 #include "clustering/administration/main/memory_checker.hpp"
 #include "clustering/administration/perfmon_collection_repo.hpp"
-#include "clustering/administration/persist/file_keys.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
 #include "containers/incremental_lenses.hpp"
 #include "containers/lifetime.hpp"
