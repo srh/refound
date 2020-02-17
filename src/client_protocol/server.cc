@@ -315,9 +315,10 @@ void query_server_t::handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &ncon
             throw client_protocol::client_server_error_t(
                 -1, "The PROTOBUF client protocol is no longer supported");
         } else if (version < 10) {
+            // TODO: Could this allow a downgrade attack?
             // We'll get std::make_unique in C++14
             authenticator.reset(
-                new auth::plaintext_authenticator_t(rdb_ctx->get_auth_watchable()));
+                new auth::plaintext_authenticator_t());
 
             uint32_t auth_key_size;
             conn->read_buffered(&auth_key_size, sizeof(uint32_t), &ct_keepalive);
@@ -334,6 +335,7 @@ void query_server_t::handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &ncon
 
             try {
                 authenticator->next_message(
+                    rdb_ctx->fdb, &ct_keepalive,
                     std::string(auth_key_buffer.data(), auth_key_size));
             } catch (auth::authentication_error_t const &) {
                 // Note we must not change this message for backwards compatibility
@@ -364,7 +366,7 @@ void query_server_t::handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &ncon
             conn->write(success_msg, strlen(success_msg) + 1, &ct_keepalive);
         } else {
             authenticator.reset(
-                new auth::scram_authenticator_t(rdb_ctx->get_auth_watchable()));
+                new auth::scram_authenticator_t());
 
             {
                 ql::datum_object_builder_t datum_object_builder;
@@ -417,7 +419,7 @@ void query_server_t::handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &ncon
                 datum_object_builder.overwrite(
                     "authentication",
                     ql::datum_t(
-                        authenticator->next_message(authentication.as_str().to_std())));
+                        authenticator->next_message(rdb_ctx->fdb, &ct_keepalive, authentication.as_str().to_std())));
 
                 write_datum(
                     conn.get(),
@@ -440,7 +442,7 @@ void query_server_t::handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &ncon
                 datum_object_builder.overwrite(
                     "authentication",
                     ql::datum_t(
-                        authenticator->next_message(authentication.as_str().to_std())));
+                        authenticator->next_message(rdb_ctx->fdb, &ct_keepalive, authentication.as_str().to_std())));
 
                 write_datum(
                     conn.get(),

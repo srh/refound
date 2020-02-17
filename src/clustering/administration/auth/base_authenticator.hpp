@@ -4,28 +4,23 @@
 
 #include <string>
 
+#include "concurrency/interruptor.hpp"
 #include "clustering/administration/auth/authentication_error.hpp"
 #include "clustering/administration/auth/username.hpp"
-#include "clustering/administration/metadata.hpp"
+#include "fdb/fdb.hpp"
 
 namespace auth {
 
 class base_authenticator_t {
 public:
-    base_authenticator_t(
-            clone_ptr_t<watchable_t<auth_semilattice_metadata_t>> auth_watchable)
-        : m_auth_watchable(auth_watchable) {
-    }
-    virtual ~base_authenticator_t() {
-    }
+    virtual ~base_authenticator_t() { }
 
-    virtual std::string next_message(std::string const &)
-            THROWS_ONLY(authentication_error_t) = 0;
+    virtual std::string next_message(FDBDatabase *fdb, const signal_t *interruptor, std::string const &)
+            THROWS_ONLY(authentication_error_t, interrupted_exc_t) = 0;
+
+    // TODO: It would be nice if the session got broken when the user password changed -- which is something we could easily check whenever we use the user context to read FDB.
     virtual username_t get_authenticated_username() const
             THROWS_ONLY(authentication_error_t) = 0;
-
-protected:
-    clone_ptr_t<watchable_t<auth_semilattice_metadata_t>> m_auth_watchable;
 };
 
 }  // namespace auth

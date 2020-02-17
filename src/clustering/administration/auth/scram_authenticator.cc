@@ -3,22 +3,24 @@
 
 #include "clustering/administration/auth/authentication_error.hpp"
 #include "clustering/administration/auth/password.hpp"
-#include "clustering/administration/auth/username.hpp"
+#include "clustering/administration/auth/user.hpp"
 #include "crypto/base64.hpp"
 #include "crypto/error.hpp"
 #include "crypto/hash.hpp"
 #include "crypto/hmac.hpp"
 #include "crypto/random.hpp"
+#include "fdb/retry_loop.hpp"
+#include "fdb/typed.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
 namespace auth {
 
-scram_authenticator_t::scram_authenticator_t(
-        clone_ptr_t<watchable_t<auth_semilattice_metadata_t>> auth_watchable)
-    : base_authenticator_t(auth_watchable),
-      m_state(state_t::FIRST_MESSAGE) {
+scram_authenticator_t::scram_authenticator_t()
+    : m_state(state_t::FIRST_MESSAGE) {
 }
 
-std::string scram_authenticator_t::next_message(std::string const &message)
+std::string scram_authenticator_t::next_message(FDBDatabase *fdb, const signal_t *interruptor,
+        std::string const &message)
         THROWS_ONLY(authentication_error_t) {
     try {
         switch (m_state) {
@@ -54,19 +56,24 @@ std::string scram_authenticator_t::next_message(std::string const &message)
                     throw authentication_error_t(10, "Invalid encoding");
                 }
 
-                m_auth_watchable->apply_read(
-                    [&](auth_semilattice_metadata_t const *auth_metadata) {
-                        auto user = auth_metadata->m_users.find(m_username);
-                        if (user == auth_metadata->m_users.end() ||
-                                !static_cast<bool>(user->second.get_ref())) {
-                            m_is_user_known = false;
-                            m_password =
-                                password_t::generate_password_for_unknown_user();
-                        } else {
-                            m_is_user_known = true;
-                            m_password = user->second.get_ref()->get_password();
-                        }
+                optional<user_t> the_user;
+                fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
+                    fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, m_username);
+                    user_t user;
+                    if (!user_fut.block_and_deserialize(interruptor, &user)) {
+                        return;
+                    }
+                    the_user.set(std::move(user));
                 });
+                guarantee_fdb_TODO(loop_err, "next_message loading user");
+                if (the_user.has_value()) {
+                    m_is_user_known = false;
+                    m_password =
+                        password_t::generate_password_for_unknown_user();
+                } else {
+                    m_is_user_known = true;
+                    m_password = the_user->get_password();
+                }
 
                 std::array<unsigned char, 18> server_nonce = crypto::random_bytes<18>();
                 m_nonce = client_nonce + crypto::base64_encode(server_nonce);

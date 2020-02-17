@@ -6,28 +6,33 @@
 #include "crypto/compare_equal.hpp"
 #include "crypto/pbkcs5_pbkdf2_hmac.hpp"
 #include "crypto/saslprep.hpp"
+#include "fdb/retry_loop.hpp"
+#include "fdb/typed.hpp"
+#include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
 namespace auth {
 
 plaintext_authenticator_t::plaintext_authenticator_t(
-        clone_ptr_t<watchable_t<auth_semilattice_metadata_t>> auth_watchable,
         username_t const &username)
-    : base_authenticator_t(auth_watchable),
-      m_username(username),
+    : m_username(username),
       m_is_authenticated(false) {
 }
 
-/* virtual */ std::string plaintext_authenticator_t::next_message(
-        std::string const &password) THROWS_ONLY(authentication_error_t) {
+std::string plaintext_authenticator_t::next_message(
+        FDBDatabase *fdb, const signal_t *interruptor,
+        std::string const &password) THROWS_ONLY(authentication_error_t, interrupted_exc_t) {
     optional<user_t> user;
 
-    m_auth_watchable->apply_read(
-        [&](auth_semilattice_metadata_t const *auth_metadata) {
-            auto iter = auth_metadata->m_users.find(m_username);
-            if (iter != auth_metadata->m_users.end()) {
-                user = iter->second.get_ref();
-            }
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
+        fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, m_username);
+        user_t loop_user;
+        if (!user_fut.block_and_deserialize(interruptor, &loop_user)) {
+            return;
+        }
+        user.set(std::move(loop_user));
     });
+    guarantee_fdb_TODO(loop_err, "next_message loading user");
+
 
     if (!static_cast<bool>(user)) {
         // The user doesn't exist
@@ -49,7 +54,7 @@ plaintext_authenticator_t::plaintext_authenticator_t(
     return "";
 }
 
-/* virtual */ username_t plaintext_authenticator_t::get_authenticated_username() const
+username_t plaintext_authenticator_t::get_authenticated_username() const
         THROWS_ONLY(authentication_error_t) {
     if (m_is_authenticated) {
         return m_username;

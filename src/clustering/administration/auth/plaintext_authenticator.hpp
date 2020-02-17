@@ -5,19 +5,20 @@
 #include <string>
 
 #include "clustering/administration/auth/base_authenticator.hpp"
-#include "clustering/administration/auth/user.hpp"
+#include "clustering/administration/auth/username.hpp"
 
 namespace auth {
 
 class plaintext_authenticator_t : public base_authenticator_t {
 public:
-    plaintext_authenticator_t(
-        clone_ptr_t<watchable_t<auth_semilattice_metadata_t>> auth_watchable,
+    explicit plaintext_authenticator_t(
         username_t const &username = username_t("admin"));
 
-    /* virtual */ std::string next_message(std::string const &)
-            THROWS_ONLY(authentication_error_t);
-    /* virtual */ username_t get_authenticated_username() const
+    std::string next_message(
+        FDBDatabase *fdb, const signal_t *interruptor, std::string const &)
+            override
+            THROWS_ONLY(authentication_error_t, interrupted_exc_t);
+    username_t get_authenticated_username() const override
             THROWS_ONLY(authentication_error_t);
 
 private:
