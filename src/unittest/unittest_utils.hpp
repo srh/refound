@@ -12,7 +12,6 @@
 #include "fdb/fdb.hpp"
 #include "paths.hpp"
 #include "rdb_protocol/protocol.hpp"
-#include "rockstore/store.hpp"
 #include "rpc/serialize_macros.hpp"
 
 // QQQ: Refactor non-compiling unit tests for fdb.
@@ -68,18 +67,6 @@ private:
     base_path_t directory;
 
     DISABLE_COPYING(temp_directory_t);
-};
-
-class temp_rockstore {
-public:
-    temp_rockstore();
-    DISABLE_COPYING(temp_rockstore);
-
-    rockstore::store *rocks() { return rocks_.get(); }
-
-private:
-    temp_directory_t dir_;
-    scoped_ptr_t<rockstore::store> rocks_;
 };
 
 void let_stuff_happen();
