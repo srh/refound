@@ -1244,8 +1244,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
 
         serve_info->look_up_peers();
         *result_out = serve(fdb,
-                            &io_backender,
-                            base_path,
                             metadata_file.get(),
                             *serve_info,
                             &sigint_cond);

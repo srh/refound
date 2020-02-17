@@ -26,12 +26,11 @@ RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(proc_directory_metadata_t,
     http_admin_port,
     argv);
 
-RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(cluster_directory_metadata_t,
+RDB_IMPL_SERIALIZABLE_5_FOR_CLUSTER(cluster_directory_metadata_t,
      server_id,
      peer_id,
      proc,
      actual_cache_size_bytes,
-     multi_table_manager_bcard,
      peer_type);
 
 admin_err_t db_not_found_error(const name_string_t &name) {

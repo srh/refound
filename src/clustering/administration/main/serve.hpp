@@ -154,8 +154,6 @@ public:
 long time to compile. */
 
 bool serve(FDBDatabase *db,
-           io_backender_t *io_backender,
-           const base_path_t &base_path,
            metadata_file_t *metadata_file,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond);

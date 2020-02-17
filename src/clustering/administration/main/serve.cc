@@ -81,9 +81,6 @@ std::string run_uname(const std::string &flags);
 #endif
 
 bool do_serve(FDBDatabase *fdb,
-              io_backender_t *io_backender,
-              // NB. filepath & persistent_file are used only if i_am_a_server is true.
-              const base_path_t &base_path,
               metadata_file_t *metadata_file,
               const serve_info_t &serve_info,
               os_signal_cond_t *stop_cond) {
@@ -179,41 +176,6 @@ bool do_serve(FDBDatabase *fdb,
                               &get_global_perfmon_collection(),
                               serve_info.reql_http_proxy);
         {
-            /* Extract a subview of the directory with all the table meta manager
-            business cards. */
-            watchable_map_value_transform_t<peer_id_t, cluster_directory_metadata_t,
-                    multi_table_manager_bcard_t>
-                multi_table_manager_directory(
-                    directory_read_manager.get_root_map_view(),
-                    [](const cluster_directory_metadata_t *cluster_md) {
-                        return &cluster_md->multi_table_manager_bcard;
-                    });
-
-            /* The `multi_table_manager_t` takes care of the actual business of setting
-            up tables and handling queries for them. The `table_persistence_interface_t`
-            helps it by constructing the B-trees and serializers, and also persisting
-            table-related metadata to disk. */
-            scoped_ptr_t<real_table_persistence_interface_t>
-                table_persistence_interface;
-            scoped_ptr_t<multi_table_manager_t> multi_table_manager;
-            if (i_am_a_server) {
-                table_persistence_interface.init(
-                    new real_table_persistence_interface_t(
-                        io_backender,
-                        base_path,
-                        &rdb_ctx,
-                        metadata_file));
-                multi_table_manager.init(new multi_table_manager_t(
-                    server_id,
-                    &mailbox_manager,
-                    &multi_table_manager_directory,
-                    table_directory_read_manager.get_root_view(),
-                    table_persistence_interface.get(),
-                    base_path,
-                    io_backender,
-                    &perfmon_collection_repo));
-            }
-
             artificial_reql_cluster_interface_t artificial_reql_cluster_interface;
 
             /* The `real_reql_cluster_interface_t` is the interface that the ReQL logic
@@ -274,13 +236,20 @@ bool do_serve(FDBDatabase *fdb,
                 connectivity_cluster.get_me(),
                 initial_proc_directory,
                 0,   /* we'll fill `actual_cache_size_bytes` in later */
-                multi_table_manager->get_multi_table_manager_bcard(),
                 i_am_a_server ? SERVER_PEER : PROXY_PEER);
 
             /* `our_root_directory_variable` is the value we'll send out over the network
             in our directory to all the other servers. */
             watchable_variable_t<cluster_directory_metadata_t>
                 our_root_directory_variable(initial_directory);
+
+            /* These `directory_*_write_manager_t`s are the counterparts to the
+            `directory_*_read_manager_t`s earlier in this file. These are responsible for
+            sending directory information over the network; the `read_manager_t`s are
+            responsible for receiving the transmissions. */
+
+            directory_write_manager_t<cluster_directory_metadata_t> directory_write_manager(
+                &connectivity_cluster, 'D', our_root_directory_variable.get_watchable());
 
             {
                 /* The `rdb_query_server_t` listens for client requests and processes the
@@ -417,14 +386,10 @@ bool do_serve(FDBDatabase *fdb,
 }
 
 bool serve(FDBDatabase *fdb,
-           io_backender_t *io_backender,
-           const base_path_t &base_path,
            metadata_file_t *metadata_file,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond) {
     return do_serve(fdb,
-                    io_backender,
-                    base_path,
                     metadata_file,
                     serve_info,
                     stop_cond);

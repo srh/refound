@@ -107,13 +107,11 @@ public:
             peer_id_t _peer_id,
             const proc_directory_metadata_t &_proc,
             uint64_t _actual_cache_size_bytes,
-            const multi_table_manager_bcard_t &mtmbc,
             cluster_directory_peer_type_t _peer_type) :
         server_id(_server_id),
         peer_id(_peer_id),
         proc(_proc),
         actual_cache_size_bytes(_actual_cache_size_bytes),
-        multi_table_manager_bcard(mtmbc),
         peer_type(_peer_type) { }
     /* Move constructor */
     cluster_directory_metadata_t(const cluster_directory_metadata_t &) = default;
@@ -128,8 +126,6 @@ public:
     /* This group of fields are for showing in `rethinkdb.server_status` */
     proc_directory_metadata_t proc;
     uint64_t actual_cache_size_bytes;   /* might be user-set or automatically picked */
-
-    multi_table_manager_bcard_t multi_table_manager_bcard;
 
     cluster_directory_peer_type_t peer_type;
 };
