@@ -61,10 +61,12 @@ void memory_checker_t::do_check(UNUSED auto_drainer_t::lock_t keepalive) {
             print_log_message = false;
         }
         checks_until_reset = reset_checks;
-        memory_issue_tracker.report_error(error_message);
+        // TODO: Report memory issues to the appropriate FDB table.
+        // memory_issue_tracker.report_error(error_message);
     } else if (checks_until_reset == 0) {
         // We haven't had more than 200 major page faults per minute for the last 10m.
-        memory_issue_tracker.report_success();
+        // TODO: Report memory issues to the appropriate FDB table.
+        // memory_issue_tracker.report_success();
         print_log_message = true;
     }
 

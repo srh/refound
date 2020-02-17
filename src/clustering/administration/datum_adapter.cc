@@ -5,6 +5,7 @@
 #include "clustering/administration/tables/database_metadata.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
+#include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
 
 ql::datum_t convert_string_to_datum(

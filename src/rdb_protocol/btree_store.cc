@@ -10,7 +10,6 @@
 #include "buffer_cache/page_cache.hpp"
 #include "rdb_protocol/secondary_operations.hpp"
 #include "buffer_cache/alt.hpp"
-#include "clustering/administration/issues/outdated_index.hpp"
 #include "concurrency/wait_any.hpp"
 #include "containers/archive/buffer_stream.hpp"
 #include "containers/archive/vector_stream.hpp"
@@ -209,7 +208,7 @@ std::map<std::string, std::pair<sindex_config_t, sindex_status_t> > store_t::sin
         res->second.outdated =
             (disk_info.mapping_version_info.latest_compatible_reql_version !=
              reql_version_t::LATEST)
-            && !outdated_index_issue_tracker_t::is_acceptable_outdated(res->first);
+            && !is_acceptable_outdated(res->first);
 
         if (pair.second.is_ready()) {
             res->second.ready = true;

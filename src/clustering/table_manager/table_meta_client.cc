@@ -1,7 +1,6 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/table_manager/table_meta_client.hpp"
 
-#include "clustering/administration/issues/outdated_index.hpp"
 #include "clustering/generic/raft_core.tcc"
 #include "clustering/table_manager/multi_table_manager.hpp"
 #include "concurrency/cross_thread_signal.hpp"

@@ -6,7 +6,6 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "arch/timing.hpp"
-#include "clustering/administration/issues/memory.hpp"
 #include "clustering/administration/main/cache_size.hpp"
 #include "concurrency/auto_drainer.hpp"
 #include "rdb_protocol/context.hpp"
@@ -20,9 +19,6 @@ class memory_checker_t : private repeating_timer_callback_t {
 public:
     memory_checker_t();
 
-    memory_issue_tracker_t *get_memory_issue_tracker() {
-        return &memory_issue_tracker;
-    }
 private:
     void do_check(auto_drainer_t::lock_t keepalive);
     void on_ring() final {
@@ -30,7 +26,6 @@ private:
                                          this,
                                          drainer.lock()));
     }
-    memory_issue_tracker_t memory_issue_tracker;
 
     uint64_t checks_until_reset;
     uint64_t swap_usage;

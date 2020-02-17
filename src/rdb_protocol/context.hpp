@@ -83,6 +83,8 @@ public:
 };
 RDB_DECLARE_SERIALIZABLE(sindex_config_t);
 
+bool is_acceptable_outdated(const sindex_config_t &sindex_config);
+
 class write_hook_config_t {
 public:
     write_hook_config_t() { }

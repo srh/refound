@@ -17,6 +17,7 @@
 #include "arch/io/disk/filestat.hpp"
 #include "arch/io/disk.hpp"
 #include "arch/io/io_utils.hpp"
+#include "concurrency/interruptor.hpp"
 #include "concurrency/pmap.hpp"
 #include "concurrency/promise.hpp"
 #include "containers/archive/stl_types.hpp"
@@ -602,11 +603,12 @@ void thread_pool_log_writer_t::write(const log_message_t &lm) {
     std::string error_message;
     bool ok;
     thread_pool_t::run_in_blocker_pool(std::bind(&thread_pool_log_writer_t::write_blocking, this, lm, &error_message, &ok));
-    if (ok) {
-        log_write_issue_tracker.report_success();
-    } else {
-        log_write_issue_tracker.report_error(error_message);
-    }
+    // TODO: Report log write success/failure to FDB, report in issues table.
+    // if (ok) {
+    //     log_write_issue_tracker.report_success();
+    // } else {
+    //     log_write_issue_tracker.report_error(error_message);
+    // }
 }
 
 void thread_pool_log_writer_t::write_blocking(const log_message_t &msg, std::string *error_out, bool *ok_out) {

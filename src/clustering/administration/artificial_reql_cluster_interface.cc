@@ -4,7 +4,6 @@
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/permissions_artificial_table_backend.hpp"
 #include "clustering/administration/auth/users_artificial_table_backend.hpp"
-#include "clustering/administration/issues/issues_backend.hpp"
 #include "clustering/administration/jobs/jobs_backend.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/metadata.hpp"
@@ -201,13 +200,7 @@ bool artificial_reql_cluster_interface_t::next_or_error(admin_err_t *error_out) 
 artificial_reql_cluster_backends_t::~artificial_reql_cluster_backends_t() { }
 
 artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
-        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
-        std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
-            cluster_semilattice_view,
-        watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
-        table_meta_client_t *table_meta_client,
-        mailbox_manager_t *mailbox_manager,
-        lifetime_t<name_resolver_t const &> name_resolver) {
+        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface) {
     for (int format = 0; format < 2; ++format) {
         permissions_backend[format].init(
             new auth::permissions_artificial_table_fdb_backend_t(
@@ -230,21 +223,6 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t(
         artificial_reql_cluster_interface->get_table_fdb_backends_map_mutable(),
         name_string_t::guarantee_valid("db_config"),
         std::make_pair(db_config_backend.get(), db_config_backend.get()));
-
-    for (int format = 0; format < 2; ++format) {
-        issues_backend[format].init(
-            new issues_artificial_table_backend_t(
-                name_resolver,
-                mailbox_manager,
-                cluster_semilattice_view,
-                directory_map_view,
-                table_meta_client,
-                static_cast<admin_identifier_format_t>(format)));
-    }
-    issues_sentry = backend_sentry_t(
-        artificial_reql_cluster_interface->get_table_backends_map_mutable(),
-        name_string_t::guarantee_valid("current_issues"),
-        std::make_pair(issues_backend[0].get(), issues_backend[1].get()));
 
     for (int format = 0; format < 2; ++format) {
         table_config_backend[format].init(

@@ -24,6 +24,18 @@ bool sindex_config_t::operator==(const sindex_config_t &o) const {
 RDB_IMPL_SERIALIZABLE_4_SINCE_v2_1(sindex_config_t,
     func, func_version, multi, geo);
 
+bool is_acceptable_outdated(const sindex_config_t &sindex_config) {
+    if (sindex_config.func.det_func.is_simple_selector()) {
+        switch(sindex_config.func_version) {
+            // A version should return false if it breaks compatibility for even simple sindexes.
+        case reql_version_t::v2_4_is_latest:
+        default:
+            return true;
+        }
+    }
+    return false;
+}
+
 bool write_hook_config_t::operator==(const write_hook_config_t &o) const {
     if (func_version != o.func_version) {
         return false;

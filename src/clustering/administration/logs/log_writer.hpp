@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "arch/io/io_utils.hpp"
-#include "clustering/administration/issues/log_write.hpp"
 #include "concurrency/mutex.hpp"
 #include "containers/scoped.hpp"
 #include "logger.hpp"
@@ -72,10 +71,6 @@ public:
 
     std::vector<log_message_t> tail(int max_lines, struct timespec min_timestamp, struct timespec max_timestamp, const signal_t *interruptor) THROWS_ONLY(log_read_exc_t, interrupted_exc_t);
 
-    log_write_issue_tracker_t *get_log_write_issue_tracker() {
-        return &log_write_issue_tracker;
-    }
-
 private:
     friend void log_coro(thread_pool_log_writer_t *writer, log_level_t level, const std::string &message, auto_drainer_t::lock_t lock);
     friend void log_internal(const char *src_file, int src_line, log_level_t level, const char *format, ...);
@@ -93,7 +88,6 @@ private:
                        bool *ok_out);
 
     mutex_t write_mutex;
-    log_write_issue_tracker_t log_write_issue_tracker;
     bool has_parse_error;
 
     DISABLE_COPYING(thread_pool_log_writer_t);

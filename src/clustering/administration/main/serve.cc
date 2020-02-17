@@ -7,8 +7,6 @@
 #include "arch/os_signal.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/http/server.hpp"
-#include "clustering/administration/issues/local.hpp"
-#include "clustering/administration/issues/outdated_index.hpp"
 #include "clustering/administration/logs/log_writer.hpp"
 #include "clustering/administration/main/initial_join.hpp"
 #include "clustering/administration/main/ports.hpp"
@@ -251,18 +249,14 @@ bool do_serve(FDBDatabase *fdb,
                 &real_reql_cluster_interface);
 
             artificial_reql_cluster_backends_t artificial_reql_cluster_backends(
-                &artificial_reql_cluster_interface,
-                semilattice_manager_cluster.get_root_view(),
-                directory_read_manager.get_root_map_view(),
-                &table_meta_client,
-                &mailbox_manager,
-                make_lifetime(name_resolver));
+                &artificial_reql_cluster_interface);
 
             /* Kick off a coroutine to log any outdated indexes. */
-            outdated_index_issue_tracker_t::log_outdated_indexes(
-                multi_table_manager.get(),
-                semilattice_manager_cluster.get_root_view()->get(),
-                stop_cond);
+            // TODO: Do something like this at startup -- but make only one node do it, after there's a centralized logging infrastructure?
+            // outdated_index_issue_tracker_t::log_outdated_indexes(
+            //     multi_table_manager.get(),
+            //     semilattice_manager_cluster.get_root_view()->get(),
+            //     stop_cond);
 
             /* `real_reql_cluster_interface_t` needs access to the admin tables so that
             it can return rows from the `table_status` and `table_config` artificial
@@ -290,17 +284,6 @@ bool do_serve(FDBDatabase *fdb,
                 memory_checker.init(new memory_checker_t());
             }
 
-            /* When the user reads the `rethinkdb.current_issues` table, it sends
-            messages to the `local_issue_server` on each server to get the issues
-            information. */
-            scoped_ptr_t<local_issue_server_t> local_issue_server;
-            if (i_am_a_server) {
-                local_issue_server.init(new local_issue_server_t(
-                    &mailbox_manager,
-                    log_writer.get_log_write_issue_tracker(),
-                    memory_checker->get_memory_issue_tracker()));
-            }
-
             proc_directory_metadata_t initial_proc_directory {
                 RETHINKDB_VERSION_STR,
                 current_microtime(),
@@ -317,9 +300,6 @@ bool do_serve(FDBDatabase *fdb,
                 initial_proc_directory,
                 0,   /* we'll fill `actual_cache_size_bytes` in later */
                 multi_table_manager->get_multi_table_manager_bcard(),
-                i_am_a_server
-                    ? local_issue_server->get_bcard()
-                    : local_issue_bcard_t(),
                 i_am_a_server ? SERVER_PEER : PROXY_PEER);
 
             /* `our_root_directory_variable` is the value we'll send out over the network

@@ -3,6 +3,7 @@
 
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/table_manager/table_meta_client.hpp"
+#include "rpc/semilattice/view.hpp"
 
 name_resolver_t::name_resolver_t(
         std::shared_ptr<semilattice_read_view_t<cluster_semilattice_metadata_t>>

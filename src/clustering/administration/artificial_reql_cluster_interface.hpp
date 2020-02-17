@@ -11,6 +11,7 @@
 #include "containers/name_string.hpp"
 #include "containers/scoped.hpp"
 #include "containers/uuid.hpp"
+#include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/context.hpp"
 
@@ -24,7 +25,6 @@ class users_artificial_table_fdb_backend_t;
 }
 class db_config_artificial_table_fdb_backend_t;
 class in_memory_artificial_table_fdb_backend_t;
-class issues_artificial_table_backend_t;
 class jobs_artificial_table_fdb_backend_t;
 class table_config_artificial_table_fdb_backend_t;
 
@@ -110,14 +110,8 @@ private:
 
 class artificial_reql_cluster_backends_t {
 public:
-    artificial_reql_cluster_backends_t(
-        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
-        std::shared_ptr<semilattice_readwrite_view_t<cluster_semilattice_metadata_t>>
-            cluster_semilattice_view,
-        watchable_map_t<peer_id_t, cluster_directory_metadata_t> *directory_map_view,
-        table_meta_client_t *table_meta_client,
-        mailbox_manager_t *mailbox_manager,
-        lifetime_t<name_resolver_t const &> name_resolver);
+    explicit artificial_reql_cluster_backends_t(
+        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface);
     ~artificial_reql_cluster_backends_t();
 
 private:
@@ -138,9 +132,6 @@ private:
 
     scoped_ptr_t<db_config_artificial_table_fdb_backend_t> db_config_backend;
     fdb_backend_sentry_t db_config_sentry;
-
-    scoped_ptr_t<issues_artificial_table_backend_t> issues_backend[2];
-    backend_sentry_t issues_sentry;
 
     scoped_ptr_t<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
     fdb_backend_sentry_t table_config_sentry;

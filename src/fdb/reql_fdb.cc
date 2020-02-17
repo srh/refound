@@ -68,6 +68,16 @@ Config version:
 
     (We don't mind querying upon rare failure case.)
 
+Issues:
+
+    We read outdated index issues by scanning the table config.
+
+    We might have a place to write "cannot write log entry" issues, or generally, local
+    issues.
+
+TODO: Implement logging to FDB.
+TODO: Implement issues.
+
 Table format:
 
     Given a table prefix like "tables/uuid/",

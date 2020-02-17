@@ -15,6 +15,7 @@
 #include "containers/uuid.hpp"
 #include "rdb_protocol/datum.hpp"
 
+enum class admin_identifier_format_t;
 class server_config_client_t;
 class table_meta_client_t;
 
