@@ -7,30 +7,12 @@ RDB_IMPL_SERIALIZABLE_2_SINCE_v2_1(
     multi_table_manager_timestamp_t::epoch_t, timestamp, id);
 RDB_IMPL_SERIALIZABLE_2_SINCE_v2_1(
     multi_table_manager_timestamp_t, epoch, log_index);
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
-    table_manager_bcard_t::leader_bcard_t,
-    uuid, set_config_mailbox, contract_ack_minidir_bcard);
-RDB_IMPL_SERIALIZABLE_6_FOR_CLUSTER(
-    table_manager_bcard_t,
-    leader, timestamp, raft_member_id, raft_business_card,
-    execution_bcard_minidir_bcard, server_id);
 RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(table_status_request_t,
     want_config, want_sindexes, want_raft_state, want_contract_acks, want_shard_status,
     want_all_replicas_ready, all_replicas_ready_mode);
 RDB_IMPL_SERIALIZABLE_7_FOR_CLUSTER(table_status_response_t,
     config, sindexes, raft_state, raft_state_timestamp, contract_acks, shard_status,
     all_replicas_ready);
-
-RDB_IMPL_SERIALIZABLE_8_FOR_CLUSTER(
-    multi_table_manager_bcard_t::action_message_t,
-    table_id, timestamp, status, basic_config, raft_member_id, initial_raft_state,
-    start_election_immediately, ack_addr);
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
-    multi_table_manager_bcard_t::get_status_message_t,
-    table_ids, request, reply_addr);
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(
-    multi_table_manager_bcard_t,
-    action_mailbox, get_status_mailbox, server_id);
 
 const microtime_t multi_table_manager_timestamp_t::epoch_t::special_timestamp =
     static_cast<microtime_t>(std::numeric_limits<time_t>::min());
