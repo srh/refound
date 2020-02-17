@@ -6,6 +6,7 @@
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/datum_adapter.hpp"
+#include "clustering/administration/tables/table_metadata.hpp"
 #include "containers/lifetime.hpp"
 #include "fdb/index.hpp"
 #include "fdb/retry_loop.hpp"

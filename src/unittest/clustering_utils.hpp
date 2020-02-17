@@ -14,8 +14,10 @@
 #include "unittest/gtest.hpp"
 #include "unittest/mock_store.hpp"
 #include "unittest/unittest_utils.hpp"
+#include "random.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/store.hpp"
+#include "rpc/connectivity/cluster.hpp"
 
 namespace unittest {
 

@@ -5,8 +5,9 @@
 #include <memory>
 
 #include "arch/timing.hpp"
-#include "rpc/semilattice/view.hpp"
 #include "concurrency/mutex.hpp"
+#include "random.hpp"
+#include "rpc/semilattice/view.hpp"
 #include "unittest/unittest_utils.hpp"
 
 namespace unittest {

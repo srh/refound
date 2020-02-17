@@ -8,6 +8,7 @@
 // TODO: Uncomment or remove.
 // #include "clustering/administration/auth/username.hpp"
 // #include "clustering/administration/auth/user.hpp"
+#include "clustering/id_types.hpp"
 #include "containers/counted.hpp"
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"

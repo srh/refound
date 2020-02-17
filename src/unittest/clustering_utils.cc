@@ -1,5 +1,7 @@
 #include "unittest/clustering_utils.hpp"
 
+#include "rpc/connectivity/cluster.hpp"
+
 namespace unittest {
 
 peer_address_t get_cluster_local_address(connectivity_cluster_t *cm) {

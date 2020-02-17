@@ -10,16 +10,18 @@
 #include <utility>
 
 #include "arch/address.hpp"
+#include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/user.hpp"
 #include "clustering/administration/auth/username.hpp"
 #include "clustering/administration/tables/database_metadata.hpp"
-#include "clustering/table_manager/table_metadata.hpp"
 #include "containers/optional.hpp"
 #include "logger.hpp"
 #include "rpc/connectivity/peer_id.hpp"
+#include "rpc/connectivity/server_id.hpp"
 #include "rpc/semilattice/joins/macros.hpp"
 #include "rpc/semilattice/joins/versioned.hpp"
 #include "rpc/serialize_macros.hpp"
+#include "time.hpp"
 
 class cluster_semilattice_metadata_t {
 public:

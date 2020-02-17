@@ -4,6 +4,7 @@
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"  // for table_already_exists_error
+#include "clustering/administration/tables/table_metadata.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/index.hpp"

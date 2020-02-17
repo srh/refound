@@ -3,6 +3,7 @@
 
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/auth/user.hpp"
+#include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/metadata.hpp"
 #include "fdb/reql_fdb.hpp"
