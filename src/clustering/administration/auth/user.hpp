@@ -13,7 +13,6 @@
 
 class cluster_semilattice_metadata_t;
 class table_basic_config_t;
-class table_meta_client_t;
 
 namespace auth {
 

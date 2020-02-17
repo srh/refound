@@ -26,12 +26,7 @@ class real_reql_cluster_interface_t :
     public reql_cluster_interface_t,
     public home_thread_mixin_t {
 public:
-    real_reql_cluster_interface_t(
-            FDBDatabase *fdb,
-            std::shared_ptr<semilattice_readwrite_view_t<
-                auth_semilattice_metadata_t> > auth_semilattice_view,
-            rdb_context_t *rdb_context,
-            table_meta_client_t *table_meta_client);
+    real_reql_cluster_interface_t();
 
     bool db_config(
             auth::user_context_t const &user_context,
@@ -63,12 +58,6 @@ public:
     artificial_reql_cluster_interface_t *artificial_reql_cluster_interface;
 
 private:
-    FDBDatabase *m_fdb;
-    mailbox_manager_t *m_mailbox_manager;
-    std::shared_ptr<semilattice_readwrite_view_t<
-        auth_semilattice_metadata_t> > m_auth_semilattice_view;
-    table_meta_client_t *m_table_meta_client;
-    rdb_context_t *m_rdb_context;
 
 #if RDB_CF
     ql::changefeed::client_t m_changefeed_client;
@@ -84,14 +73,6 @@ private:
             std::function<void(FDBTransaction *)> cfg_checker,  // OOO: Hideous!
             scoped_ptr_t<ql::val_t> *selection_out)
             THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t);
-
-    void wait_internal(
-            std::set<namespace_id_t> tables,
-            table_readiness_t readiness,
-            const signal_t *interruptor,
-            ql::datum_t *result_out,
-            int *count_out)
-            THROWS_ONLY(interrupted_exc_t, admin_op_exc_t);
 
     DISABLE_COPYING(real_reql_cluster_interface_t);
 };

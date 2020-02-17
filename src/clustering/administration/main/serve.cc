@@ -18,7 +18,6 @@
 #include "clustering/administration/persist/semilattice.hpp"
 #include "clustering/administration/persist/table_interface.hpp"
 #include "clustering/administration/real_reql_cluster_interface.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 #include "clustering/table_manager/multi_table_manager.hpp"
 #include "containers/incremental_lenses.hpp"
 #include "containers/lifetime.hpp"
@@ -220,22 +219,9 @@ bool do_serve(FDBDatabase *fdb,
 
             artificial_reql_cluster_interface_t artificial_reql_cluster_interface;
 
-            /* The `table_meta_client_t` sends messages to the `multi_table_manager_t`s
-            on the other servers in the cluster to create, drop, and reconfigure tables,
-            as well as request information about them. */
-            table_meta_client_t table_meta_client(
-                &mailbox_manager,
-                multi_table_manager.get(),
-                &multi_table_manager_directory,
-                table_directory_read_manager.get_root_view());
-
             /* The `real_reql_cluster_interface_t` is the interface that the ReQL logic
             uses to create, destroy, and reconfigure databases and tables. */
-            real_reql_cluster_interface_t real_reql_cluster_interface(
-                fdb,
-                semilattice_manager_auth.get_root_view(),
-                &rdb_ctx,
-                &table_meta_client);
+            real_reql_cluster_interface_t real_reql_cluster_interface;
 
             artificial_reql_cluster_interface.set_next_reql_cluster_interface(
                 &real_reql_cluster_interface);
