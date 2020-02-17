@@ -62,49 +62,6 @@ enum class table_readiness_t {
     finished
 };
 
-#if RDB_CF
-/* `namespace_interface_t` is the interface that the protocol-agnostic database
-logic for query routing exposes to the protocol-specific query parser. */
-
-class namespace_interface_t {
-public:
-    virtual signal_t *get_initial_ready_signal() { return nullptr; }
-
-    // QQQ: Look at callers, see if we should check if fdb is ready.
-    bool check_readiness(DEBUG_VAR table_readiness_t readiness,
-                         UNUSED const signal_t *interruptor) {
-        rassert(readiness != table_readiness_t::finished,
-            "Cannot check for the 'finished' state with namespace_interface_t.");
-        return true;
-    }
-
-    // TODO: changefeed code won't compile, because it calls read( and write(.
-
-protected:
-    virtual ~namespace_interface_t() { }
-};
-#endif  // RDB_CF
-
-#if RDB_CF
-/* `namespace_interface_access_t` is like a smart pointer to a `namespace_interface_t`.
-This is the format in which `real_table_t` expects to receive its
-`namespace_interface_t *`. This allows the thing that is constructing the `real_table_t`
-to control the lifetime of the `namespace_interface_t`, but also allows the
-`real_table_t` to block it from being destroyed while in use. */
-class namespace_interface_access_t {
-public:
-    // TODO: Remove this type, it's fake.
-    namespace_interface_access_t();
-    explicit namespace_interface_access_t(const namespace_id_t &table_id);
-    ~namespace_interface_access_t();
-
-    namespace_interface_t *get() { return nsi_.get(); }
-
-private:
-    std::shared_ptr<namespace_interface_t> nsi_;
-};
-#endif  // RDB_CF
-
 // Specifies the desired behavior for insert operations, upon discovering a
 // conflict.
 //  - conflict_behavior_t::ERROR: Signal an error upon conflicts.
