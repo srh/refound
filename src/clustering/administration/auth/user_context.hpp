@@ -120,16 +120,9 @@ public:
     fdb_user_fut<config_permission> transaction_require_config_permission(
             FDBTransaction *txn) const THROWS_ONLY(permission_error_t);
 
-    void require_config_permission(
-            rdb_context_t *rdb_context) const THROWS_ONLY(permission_error_t);
-
     fdb_user_fut<db_config_permission> transaction_require_db_config_permission(
             FDBTransaction *txn,
             const database_id_t &db_id) const THROWS_ONLY(permission_error_t);
-
-    void require_config_permission(
-            rdb_context_t *rdb_context,
-            database_id_t const &database) const THROWS_ONLY(permission_error_t);
 
     fdb_user_fut<db_table_config_permission>
     transaction_require_db_and_table_config_permission(
@@ -137,23 +130,12 @@ public:
             const database_id_t &db_id,
             const namespace_id_t &table_id) const THROWS_ONLY(permission_error_t);
 
-    void require_config_permission(
-            rdb_context_t *rdb_context,
-            database_id_t const &database_id,
-            namespace_id_t const &table_id) const THROWS_ONLY(permission_error_t);
-
     fdb_user_fut<db_multi_table_config_permission>
     transaction_require_db_multi_table_config_permission(
             FDBTransaction *txn,
             const database_id_t &db_id,
             std::vector<namespace_id_t> table_ids) const
             THROWS_ONLY(permission_error_t);
-
-    void require_config_permission(
-            rdb_context_t *rdb_context,
-            database_id_t const &database_id,
-            std::set<namespace_id_t> const &table_ids) const THROWS_ONLY(
-                permission_error_t);
 
     fdb_user_fut<connect_permission> transaction_require_connect_permission(
             FDBTransaction *txn) const THROWS_ONLY(permission_error_t);
