@@ -28,7 +28,6 @@ class real_reql_cluster_interface_t :
 public:
     real_reql_cluster_interface_t(
             FDBDatabase *fdb,
-            mailbox_manager_t *mailbox_manager,
             std::shared_ptr<semilattice_readwrite_view_t<
                 auth_semilattice_metadata_t> > auth_semilattice_view,
             rdb_context_t *rdb_context,

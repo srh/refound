@@ -233,7 +233,6 @@ bool do_serve(FDBDatabase *fdb,
             uses to create, destroy, and reconfigure databases and tables. */
             real_reql_cluster_interface_t real_reql_cluster_interface(
                 fdb,
-                &mailbox_manager,
                 semilattice_manager_auth.get_root_view(),
                 &rdb_ctx,
                 &table_meta_client);

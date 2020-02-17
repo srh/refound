@@ -22,18 +22,16 @@
 
 real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         FDBDatabase *fdb,
-        mailbox_manager_t *mailbox_manager,
         std::shared_ptr<semilattice_readwrite_view_t<
             auth_semilattice_metadata_t> > auth_semilattice_view,
         rdb_context_t *rdb_context,
         table_meta_client_t *table_meta_client) :
     m_fdb(fdb),
-    m_mailbox_manager(mailbox_manager),
     m_auth_semilattice_view(auth_semilattice_view),
     m_table_meta_client(table_meta_client),
     m_rdb_context(rdb_context)
 #if RDB_CF
-    , m_changefeed_client(m_mailbox_manager)
+    , m_changefeed_client()
 #endif
 {
 }
