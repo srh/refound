@@ -27,33 +27,11 @@
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/table_common.hpp"
+#include "rockstore/store.hpp"
+#include "rockstore/rockshard.hpp"
 
 #include "debug.hpp"
 
-void rdb_get(rockshard rocksh, const store_key_t &store_key,
-             real_superblock_lock *superblock, point_read_response_t *response) {
-    superblock->read_acq_signal()->wait_lazily_ordered();
-    std::string loc = rockstore::table_primary_key(rocksh.table_id, key_to_unescaped_str(store_key));
-    std::pair<std::string, bool> val = rocksh.rocks->try_read(loc);
-    superblock->reset_superblock();
-    if (!val.second) {
-        response->data = ql::datum_t::null();
-    } else {
-        ql::datum_t datum = datum_deserialize_from_vec(val.first.data(), val.first.size());
-        response->data = std::move(datum);
-    }
-}
-
-void kv_location_delete(rockstore::store *rocks,
-                        real_superblock_lock *superblock,
-                        const std::string &rocks_kv_location,
-                        repli_timestamp_t timestamp,
-                        delete_mode_t delete_mode) {
-    (void)rocks;  // TODO
-    (void)timestamp;  // TODO: Use with WAL?
-    (void)delete_mode;  // TODO: Use this with WAL?
-    superblock->wait_write_batch()->Delete(rocks_kv_location);
-}
 
 ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, std::string *out) {
     // TODO: We can avoid double-copying or something, because the write_message_t does
@@ -69,24 +47,6 @@ ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, s
     guarantee(write_res == 0);
     *out = std::move(stream.str());
     return res;
-}
-
-// TODO: Does this function really need to exist?
-MUST_USE ql::serialization_result_t
-kv_location_set_secondary(
-        rockstore::store *rocks,
-        real_superblock_lock *superblock,
-        const std::string &rocks_kv_location,
-        const ql::datum_t &value_datum) {
-    (void)rocks;  // TODO
-    // TODO: Avoid having to reserialize the value again (for each secondary index on top of the primary).
-    std::string str;
-    ql::serialization_result_t res =
-        datum_serialize_to_string(value_datum, &str);
-    guarantee(!bad(res));
-    superblock->wait_write_batch()->Put(rocks_kv_location, str);
-    // TODO: Useless return value;
-    return ql::serialization_result_t::SUCCESS;
 }
 
 ql::datum_t btree_batched_replacer_t::apply_write_hook(

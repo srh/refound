@@ -20,7 +20,6 @@
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
 #include "rdb_protocol/shards.hpp"
-#include "rdb_protocol/store.hpp"
 #include "stl_utils.hpp"
 #include "unittest/rdb_protocol.hpp"
 #include "unittest/unittest_utils.hpp"

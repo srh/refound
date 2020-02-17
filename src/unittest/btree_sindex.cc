@@ -7,13 +7,13 @@
 #include "buffer_cache/alt.hpp"
 #include "buffer_cache/page_cache.hpp"
 #include "clustering/immediate_consistency/version.hpp"
+#include "containers/archive/vector_stream.hpp"
 #include "containers/uuid.hpp"
 #include "unittest/unittest_utils.hpp"
 #include "random.hpp"
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/minidriver.hpp"
-#include "rdb_protocol/store.hpp"
 #include "rdb_protocol/protocol.hpp"
 
 namespace unittest {

@@ -13,7 +13,6 @@
 #include "rdb_protocol/datum_stream/vector.hpp"
 #include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/protocol.hpp"
-#include "rdb_protocol/store.hpp"
 #include "stl_utils.hpp"
 #include "unittest/dummy_namespace_interface.hpp"
 #include "unittest/gtest.hpp"

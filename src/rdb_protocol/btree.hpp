@@ -13,7 +13,6 @@
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/protocol.hpp"
-#include "rdb_protocol/store.hpp"
 
 namespace rocksdb { class Snapshot; }
 
