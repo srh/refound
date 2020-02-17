@@ -10,8 +10,6 @@
 #include "concurrency/auto_drainer.hpp"
 #include "rdb_protocol/context.hpp"
 
-class table_meta_client_t;
-
 // memory_checker_t is created in serve.cc, and calls a repeating timer to
 // Periodically check if we're using swap by looking at the proc file or system calls.
 // If we're using swap, it creates an issue in a local issue tracker, and logs an error.

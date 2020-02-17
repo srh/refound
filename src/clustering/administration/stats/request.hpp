@@ -19,8 +19,6 @@
 #include "rdb_protocol/datum.hpp"
 
 enum class admin_identifier_format_t;
-class server_config_client_t;
-class table_meta_client_t;
 
 // A `parsed_stats_t` represents all the values that have been gathered from other
 // servers in the cluster.  At construction, it parses the given responses to create

@@ -15,8 +15,6 @@
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/context.hpp"
 
-class server_config_client_t;
-class table_meta_client_t;
 namespace auth {
 class permissions_artificial_table_fdb_backend_t;
 class users_artificial_table_fdb_backend_t;
