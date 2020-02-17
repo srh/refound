@@ -1,12 +1,12 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/tables/table_metadata.hpp"
 
-#include "clustering/administration/tables/database_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/archive/archive.hpp"
 #include "containers/archive/boost_types.hpp"
 #include "containers/archive/stl_types.hpp"
 #include "containers/archive/versioned.hpp"
+#include "containers/archive/optional.hpp"
 #include "rdb_protocol/protocol.hpp"
 
 // We start with an empty object, not null -- because a good user would set fields of
@@ -129,12 +129,4 @@ RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(table_config_and_shards_change_t::sindex_ren
 
 RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(table_config_and_shards_change_t::write_hook_create_t, config);
 RDB_IMPL_SERIALIZABLE_0_FOR_CLUSTER(table_config_and_shards_change_t::write_hook_drop_t);
-
-RDB_IMPL_SERIALIZABLE_1_SINCE_v1_13(database_semilattice_metadata_t, name);
-RDB_IMPL_SEMILATTICE_JOINABLE_1(database_semilattice_metadata_t, name);
-RDB_IMPL_EQUALITY_COMPARABLE_1(database_semilattice_metadata_t, name);
-
-RDB_IMPL_SERIALIZABLE_1_SINCE_v1_13(databases_semilattice_metadata_t, databases);
-RDB_IMPL_SEMILATTICE_JOINABLE_1(databases_semilattice_metadata_t, databases);
-RDB_IMPL_EQUALITY_COMPARABLE_1(databases_semilattice_metadata_t, databases);
 

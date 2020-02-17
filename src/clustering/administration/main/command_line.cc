@@ -67,6 +67,7 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rockstore/store.hpp"
+#include "rpc/connectivity/server_id.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
 #define RETHINKDB_IMPORT_SCRIPT "rethinkdb-import"

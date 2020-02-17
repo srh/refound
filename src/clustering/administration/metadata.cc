@@ -7,6 +7,7 @@
 #include "containers/archive/stl_types.hpp"
 #include "containers/archive/versioned.hpp"
 #include "rdb_protocol/protocol.hpp"
+#include "rpc/semilattice/joins/map.hpp"
 #include "stl_utils.hpp"
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_3(auth_semilattice_metadata_t, m_users);

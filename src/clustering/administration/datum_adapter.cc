@@ -2,7 +2,6 @@
 #include "clustering/administration/datum_adapter.hpp"
 
 #include "clustering/administration/metadata.hpp"
-#include "clustering/administration/tables/database_metadata.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
