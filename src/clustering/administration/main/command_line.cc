@@ -52,7 +52,6 @@
 #include "clustering/administration/main/serve.hpp"
 #include "clustering/administration/main/directory_lock.hpp"
 #include "clustering/administration/main/windows_service.hpp"
-#include "clustering/administration/metadata.hpp"
 #include "clustering/administration/logs/log_writer.hpp"
 #include "clustering/administration/main/path.hpp"
 #include "clustering/administration/persist/file.hpp"
@@ -1092,42 +1091,6 @@ bool configure_tls(
 }
 #endif /* ENABLE_TLS */
 
-void run_rethinkdb_create(const base_path_t &base_path,
-                          UNUSED const name_string_t &server_name,
-                          UNUSED const std::set<name_string_t> &server_tags,
-                          const std::string &initial_password,
-                          UNUSED optional<uint64_t> total_cache_size,
-                          const file_direct_io_mode_t direct_io_mode,
-                          const int max_concurrent_io_requests,
-                          bool *const result_out) {
-    // TODO: Deprecate server_name, or mark dormant in command line ops.
-    // TODO: Ditto server_tags, total_cache_size.
-
-    auth_semilattice_metadata_t auth_metadata;
-
-    rockstore::store rocks = rockstore::create_rockstore(base_path);
-    io_backender_t io_backender(&rocks, direct_io_mode, max_concurrent_io_requests);
-
-    perfmon_collection_t metadata_perfmon_collection;
-    perfmon_membership_t metadata_perfmon_membership(&get_global_perfmon_collection(), &metadata_perfmon_collection, "metadata");
-
-    try {
-        cond_t non_interruptor;
-        metadata_file_t metadata_file(
-            &io_backender,
-            &metadata_perfmon_collection,
-            [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
-                write_txn->write(mdkey_auth_semilattices(),
-                    auth_semilattice_metadata_t(initial_password), interruptor);
-            });
-        logINF("Created directory '%s' and a metadata file inside it.\n", base_path.path().c_str());
-        *result_out = true;
-    } catch (const file_in_use_exc_t &ex) {
-        logNTC("Directory '%s' is in use by another rethinkdb process.\n", base_path.path().c_str());
-        *result_out = false;
-    }
-}
-
 void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
                          serve_info_t *serve_info,
@@ -1159,13 +1122,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
         scoped_ptr_t<metadata_file_t> metadata_file;
         cond_t non_interruptor;
         if (our_server_id != nullptr) {
-            metadata_file.init(new metadata_file_t(
-                &io_backender,
-                &metadata_perfmon_collection,
-                [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
-                    write_txn->write(mdkey_auth_semilattices(),
-                        auth_semilattice_metadata_t(initial_password), interruptor);
-                }));
             guarantee(!static_cast<bool>(total_cache_size), "rethinkdb porcelain should "
                 "have already set up total_cache_size");
         } else {
@@ -1196,34 +1152,33 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
             }
             if (!initial_password.empty()) {
                 /* Apply the initial password if there isn't one already. */
-                // OOO: Fdb-ize this.
-                metadata_file_t::write_txn_t txn(metadata_file.get(), &non_interruptor);
-                auth_semilattice_metadata_t auth_data =
-                    txn.read(mdkey_auth_semilattices());
-                auto admin_pair = auth_data.m_users.find(auth::username_t("admin"));
-                /* `admin_pair` should always exist. But in case it somehow doesn't,
-                we still create a new admin user so that people can recover from
-                corrupted user metadata. */
-                if (admin_pair == auth_data.m_users.end()
-                    || !static_cast<bool>(admin_pair->second.get_ref())
-                    || admin_pair->second.get_ref()->get_password().is_empty()) {
-                    auto new_admin_pair =
-                        auth_semilattice_metadata_t::create_initial_admin_pair(
-                            initial_password);
-                    /* Note that the `versioned_t` timestmap of the new admin pair might
-                    be smaller than the existing one if the password was previously
-                    explicitly set to empty. This is probably ok. It just means that
-                    if we connect to another node, the configured (non-initial) password
-                    is going to win again. This is consistent with how
-                    `--initial-password` behaves in general. */
-                    auth_data.m_users[new_admin_pair.first] = new_admin_pair.second;
+                // TODO: Is there some sort of sigint interruptor we can set up earlier?
+                bool already_configured = false;
+                fdb_error_t loop_err = txn_retry_loop_coro(fdb, &non_interruptor, [&](FDBTransaction *txn) {
+                    fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, auth::username_t("admin"));
+                    auth::user_t user;
+                    if (!user_fut.block_and_deserialize(&non_interruptor, &user)) {
+                        crash("admin user not found in fdb");  // TODO: fdb error, msg, etc.
+                    }
+                    bool not_configured = user.get_password().is_empty();
+                    if (not_configured) {
+                        // TODO: Do we use this when setting up in 'rethinkdb create'?
+                        uint32_t iterations = auth::password_t::default_iteration_count;
+                        auth::password_t pw(initial_password, iterations);
+                        auth::user_t new_user = auth::user_t(std::move(pw));
+                        transaction_set_user(txn, auth::username_t("admin"), new_user);
 
-                    txn.write(mdkey_auth_semilattices(), auth_data, &non_interruptor);
-                } else {
+                        // We have changes, so commit.
+                        commit(txn, &non_interruptor);
+                    }
+                    already_configured = !not_configured;
+                });
+                guarantee_fdb_TODO(loop_err, "run_rethinkdb_serve initial_password retry loop");
+
+                if (already_configured) {
                     logNTC("Ignoring --initial-password option because the admin "
                            "password is already configured.");
                 }
-                txn.commit();
             }
         }
 
@@ -1941,8 +1896,6 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
-        const int num_workers = get_cpu_count();
-
         bool is_new_directory = false;
         directory_lock_t data_directory_lock(base_path, true, &is_new_directory);
 
@@ -1959,30 +1912,16 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
 
         recreate_temporary_directory(base_path);
 
-        const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
+        // QQQ: For fdb, remove the direct_io mode options.
+        // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
-        // TODO: Strip out local db storage (eventually).
-        bool result;
-        run_in_thread_pool(std::bind(&run_rethinkdb_create,
-                                     base_path,
-                                     server_name,
-                                     server_tag_names,
-                                     initial_password,
-                                     total_cache_size,
-                                     direct_io_mode,
-                                     max_concurrent_io_requests,
-                                     &result),
-                           num_workers);
-
-        if (result) {
-            int result2 = main_rethinkdb_create_fdb_blocking_pthread(
-                db, wipe, initial_password);
-            if (result2 == 0) {
-                // Tell the directory lock that the directory is now good to go, as it
-                //  will otherwise delete an uninitialized directory
-                data_directory_lock.directory_initialized();
-                return EXIT_SUCCESS;
-            }
+        int result2 = main_rethinkdb_create_fdb_blocking_pthread(
+            db, wipe, initial_password);
+        if (result2 == 0) {
+            // Tell the directory lock that the directory is now good to go, as it
+            //  will otherwise delete an uninitialized directory
+            data_directory_lock.directory_initialized();
+            return EXIT_SUCCESS;
         }
     } catch (const options::named_error_t &ex) {
         output_named_error(ex, help);
