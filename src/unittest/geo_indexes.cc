@@ -2,7 +2,6 @@
 #include <algorithm>
 
 #include "btree/keys.hpp"
-#include "concurrency/fifo_checker.hpp"
 #include "containers/counted.hpp"
 #include "debug.hpp"
 #include "random.hpp"
@@ -128,7 +127,6 @@ std::vector<datum_t> generate_data(size_t num_docs, rng_t *rng) {
 }
 
 void insert_data(namespace_interface_t *nsi,
-                 order_source_t *osource,
                  const std::vector<datum_t> &data) {
     for (size_t i = 0; i < data.size(); ++i) {
         store_key_t pk(strprintf("%zu", i));
@@ -144,7 +142,6 @@ void insert_data(namespace_interface_t *nsi,
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in("unittest::insert_data(geo_indexes.cc"),
             &interruptor);
 
         if (!boost::get<point_write_response_t>(&response.response)) {
@@ -157,7 +154,6 @@ void insert_data(namespace_interface_t *nsi,
 }
 
 void prepare_namespace(namespace_interface_t *nsi,
-                       order_source_t *osource,
                        store_t *store,
                        const std::vector<datum_t> &data) {
     // Create an index
@@ -180,15 +176,14 @@ void prepare_namespace(namespace_interface_t *nsi,
     wait_for_sindex(store, index_id);
 
     // Insert the test data
-    insert_data(nsi, osource, data);
+    insert_data(nsi, data);
 }
 
 std::vector<nearest_geo_read_response_t::dist_pair_t> perform_get_nearest(
         lon_lat_point_t center,
         uint64_t max_results,
         double max_distance,
-        namespace_interface_t *nsi,
-        order_source_t *osource) {
+        namespace_interface_t *nsi) {
 
     std::string table_name = "test_table"; // This is just used to print error messages
     std::string idx_name = "geo";
@@ -213,7 +208,6 @@ std::vector<nearest_geo_read_response_t::dist_pair_t> perform_get_nearest(
         auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
         read,
         &response,
-        osource->check_in("unittest::perform_get_nearest(geo_indexes.cc"),
         &interruptor);
 
     nearest_geo_read_response_t *geo_response =
@@ -269,14 +263,13 @@ std::vector<nearest_geo_read_response_t::dist_pair_t> emulate_get_nearest(
 
 void test_get_nearest(lon_lat_point_t center,
                       const std::vector<datum_t> &data,
-                      namespace_interface_t *nsi,
-                      order_source_t *osource) {
+                      namespace_interface_t *nsi) {
     const uint64_t max_results = 100;
     const double max_distance = 5000000.0; // 5000 km
 
     // 1. Run get_nearest
     std::vector<nearest_geo_read_response_t::dist_pair_t> nearest_res =
-        perform_get_nearest(center, max_results, max_distance, nsi, osource);
+        perform_get_nearest(center, max_results, max_distance, nsi);
 
     // 2. Compute an equivalent result directly from data
     std::vector<nearest_geo_read_response_t::dist_pair_t> reference_res =
@@ -295,7 +288,6 @@ void test_get_nearest(lon_lat_point_t center,
 
 void run_get_nearest_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store) {
     // To reproduce a known failure: initialize the rng seed manually.
     const int rng_seed = randint(INT_MAX);
@@ -304,14 +296,14 @@ void run_get_nearest_test(
 
     const size_t num_docs = 500;
     std::vector<datum_t> data = generate_data(num_docs, &rng);
-    prepare_namespace(nsi, osource, store, data);
+    prepare_namespace(nsi, store, data);
 
     try {
         const int num_runs = 20;
         for (int i = 0; i < num_runs; ++i) {
             double lat = rng.randdouble() * 180.0 - 90.0;
             double lon = rng.randdouble() * 360.0 - 180.0;
-            test_get_nearest(lon_lat_point_t(lon, lat), data, nsi, osource);
+            test_get_nearest(lon_lat_point_t(lon, lat), data, nsi);
         }
     } catch (const geo_exception_t &e) {
         debugf("Caught a geo exception: %s\n", e.what());
@@ -321,8 +313,7 @@ void run_get_nearest_test(
 
 std::vector<datum_t> perform_get_intersecting(
         const datum_t &query_geometry,
-        namespace_interface_t *nsi,
-        order_source_t *osource) {
+        namespace_interface_t *nsi) {
 
     std::string table_name = "test_table"; // This is just used to print error messages
     std::string idx_name = "geo";
@@ -355,7 +346,6 @@ std::vector<datum_t> perform_get_intersecting(
         auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
         read,
         &response,
-        osource->check_in("unittest::perform_get_intersecting(geo_indexes.cc"),
         &interruptor);
 
     rget_read_response_t *geo_response =
@@ -411,11 +401,10 @@ std::vector<datum_t> emulate_get_intersecting(
 
 void test_get_intersecting(const datum_t &query_geometry,
                            const std::vector<datum_t> &data,
-                           namespace_interface_t *nsi,
-                           order_source_t *osource) {
+                           namespace_interface_t *nsi) {
     // 1. Run get_intersecting
     std::vector<datum_t> intersecting_res =
-        perform_get_intersecting(query_geometry, nsi, osource);
+        perform_get_intersecting(query_geometry, nsi);
 
     // 2. Compute an equivalent result directly from data
     std::vector<datum_t> reference_res =
@@ -430,7 +419,6 @@ void test_get_intersecting(const datum_t &query_geometry,
 
 void run_get_intersecting_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store) {
     // To reproduce a known failure: initialize the rng seed manually.
     const int rng_seed = randint(INT_MAX);
@@ -439,7 +427,7 @@ void run_get_intersecting_test(
 
     const size_t num_docs = 500;
     std::vector<datum_t> data = generate_data(num_docs, &rng);
-    prepare_namespace(nsi, osource, store, data);
+    prepare_namespace(nsi, store, data);
 
     try {
         const int num_point_runs = 10;
@@ -447,15 +435,15 @@ void run_get_intersecting_test(
         const int num_polygon_runs = 20;
         for (int i = 0; i < num_point_runs; ++i) {
             datum_t query_geometry = generate_point(&rng);
-            test_get_intersecting(query_geometry, data, nsi, osource);
+            test_get_intersecting(query_geometry, data, nsi);
         }
         for (int i = 0; i < num_line_runs; ++i) {
             datum_t query_geometry = generate_line(&rng);
-            test_get_intersecting(query_geometry, data, nsi, osource);
+            test_get_intersecting(query_geometry, data, nsi);
         }
         for (int i = 0; i < num_polygon_runs; ++i) {
             datum_t query_geometry = generate_polygon(&rng);
-            test_get_intersecting(query_geometry, data, nsi, osource);
+            test_get_intersecting(query_geometry, data, nsi);
         }
     } catch (const geo_exception_t &e) {
         debugf("Caught a geo exception: %s\n", e.what());

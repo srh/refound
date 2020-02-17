@@ -415,8 +415,6 @@ ql::datum_t real_table_t::write_batched_insert(
     return std::move(result).to_datum();
 }
 
-// TODO: Remove order_token_t, which we won't use anymore?
-
 void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
         read_response_t *response) {
     PROFILE_STARTER_IF_ENABLED(

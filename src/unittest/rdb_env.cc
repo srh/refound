@@ -25,7 +25,6 @@ void mock_namespace_interface_t::read(
         UNUSED auth::user_context_t const &user_context,
         const read_t &query,
         read_response_t *response,
-        UNUSED order_token_t tok,
         const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) {
@@ -40,7 +39,6 @@ void mock_namespace_interface_t::write(
         UNUSED auth::user_context_t const &user_context,
         const write_t &query,
         write_response_t *response,
-        UNUSED order_token_t tok,
         const signal_t *interruptor)
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t) {

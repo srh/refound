@@ -7,8 +7,7 @@ namespace unittest {
 
 #if RDB_FDB_UNITTEST
 
-dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
-                                         order_source_t *order_source)
+dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n)
     : next(n) {
     cond_t interruptor;
 
@@ -16,7 +15,6 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
     next->store->new_read_token(&read_token);
 
     version_t metainfo = next->store->get_metainfo(
-        order_source->check_in("dummy_timestamper_t").with_read_mode(),
         &read_token,
         &interruptor);
 
@@ -25,8 +23,7 @@ dummy_timestamper_t::dummy_timestamper_t(dummy_performer_t *n,
 
 
 dummy_namespace_interface_t::
-dummy_namespace_interface_t(store_view_t *the_store, order_source_t
-                            *order_source,
+dummy_namespace_interface_t(store_view_t *the_store,
                             bool initialize_metadata)
 {
     /* Initialize metadata everywhere */
@@ -37,8 +34,6 @@ dummy_namespace_interface_t(store_view_t *the_store, order_source_t
         the_store->new_read_token(&read_token);
 
         region_map_t<version_t> metainfo = the_store->get_metainfo(
-            order_source->check_in("dummy_namespace_interface_t::"
-                "dummy_namespace_interface_t (get_metainfo)").with_read_mode(),
             &read_token,
             region_t::universe(),
             &interruptor);
@@ -54,15 +49,13 @@ dummy_namespace_interface_t(store_view_t *the_store, order_source_t
         the_store->set_metainfo(
                 region_map_t<version_t>(
                     region_t::universe(), version_t::zero()),
-                order_source->check_in("dummy_namespace_interface_t::"
-                    "dummy_namespace_interface_t (set_metainfo)"),
                 &write_token,
                 write_durability_t::SOFT,
                 &interruptor);
     }
 
     the_performer = make_scoped<dummy_performer_t>(the_store);
-    the_timestamper = make_scoped<dummy_timestamper_t>(the_performer.get(), order_source);
+    the_timestamper = make_scoped<dummy_timestamper_t>(the_performer.get());
     // Just one shard now.
     dummy_sharder_t::shard_t shards_of_this_db = dummy_sharder_t::shard_t(the_timestamper.get(), the_performer.get());
 

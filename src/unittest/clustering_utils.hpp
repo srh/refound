@@ -20,7 +20,7 @@ namespace unittest {
 
 class test_store_t {
 public:
-    test_store_t(io_backender_t *io_backender, order_source_t *order_source, rdb_context_t *ctx) :
+    test_store_t(io_backender_t *io_backender, rdb_context_t *ctx) :
             store(io_backender->rocks(),
                 temp_file.name().permanent_path().c_str(), true,
                 &get_global_perfmon_collection(), ctx, io_backender, base_path_t("."),
@@ -30,7 +30,7 @@ public:
         write_token_t token;
         store.new_write_token(&token);
         version_t new_metainfo = version_t::zero();
-        store.set_metainfo(new_metainfo, order_source->check_in("test_store_t"), &token,
+        store.set_metainfo(new_metainfo, &token,
             write_durability_t::SOFT, &non_interruptor);
     }
 
@@ -44,10 +44,9 @@ public:
     typedef std::map<std::string, std::string> state_t;
 
     test_inserter_t(
-            order_source_t *_osource,
             const std::string &_tag,
             state_t *state) :
-        values_inserted(state), osource(_osource), tag(_tag), next_value(0)
+        values_inserted(state), tag(_tag), next_value(0)
     {
         for (const auto &pair : *values_inserted) {
             keys_used.push_back(pair.first);
@@ -87,8 +86,6 @@ public:
             cond_t non_interruptor;
             std::string response = read(
                 it->first,
-                osource->check_in(strprintf("mock::test_inserter_t::validate(%p)", this))
-                    .with_read_mode(),
                 &non_interruptor);
             if (it->second != response) {
                 report_error(it->first, it->second, response);
@@ -106,8 +103,6 @@ public:
             cond_t non_interruptor;
             std::string actual = read(
                 pair.first,
-                osource->check_in(strprintf("mock::test_inserter_t::validate(%p)", this))
-                    .with_read_mode(),
                 &non_interruptor);
             if (expect != actual) {
                 report_error(pair.first, expect, actual);
@@ -119,8 +114,8 @@ public:
 
 protected:
     virtual void write(
-            const std::string &, const std::string &, order_token_t, const signal_t *) = 0;
-    virtual std::string read(const std::string &, order_token_t, const signal_t *) = 0;
+            const std::string &, const std::string &, const signal_t *) = 0;
+    virtual std::string read(const std::string &, const signal_t *) = 0;
     virtual std::string generate_key() = 0;
 
     virtual void report_error(
@@ -151,7 +146,7 @@ private:
         }
         (*values_inserted)[key] = value;
         cond_t interruptor;
-        write(key, value, osource->check_in(tag), &interruptor);
+        write(key, value, &interruptor);
     }
 
     void insert_forever(auto_drainer_t::lock_t keepalive) {
@@ -167,7 +162,6 @@ private:
     }
 
     std::vector<std::string> keys_used;
-    order_source_t *osource;
     std::string tag;
     int next_value;
 

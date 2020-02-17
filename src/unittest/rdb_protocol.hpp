@@ -10,7 +10,6 @@
 #include "containers/scoped.hpp"
 
 class namespace_interface_t;
-class order_source_t;
 struct sindex_name_t;
 class store_t;
 
@@ -21,7 +20,6 @@ namespace unittest {
 void run_with_namespace_interface(
         std::function<void(
             namespace_interface_t *,
-            order_source_t *,
             store_t *)> fun,
         bool oversharding = false,
         int num_restarts = 1);

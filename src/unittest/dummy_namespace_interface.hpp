@@ -22,20 +22,17 @@ public:
     explicit dummy_performer_t(store_view_t *s) :
         store(s) { }
 
-    order_source_t bs_outdated_read_source;
-
     store_view_t *store;
 };
 
 struct dummy_timestamper_t {
 
 public:
-    dummy_timestamper_t(dummy_performer_t *n, order_source_t *order_source);
+    dummy_timestamper_t(dummy_performer_t *n);
 
 private:
     dummy_performer_t *next;
     state_timestamp_t current_timestamp;
-    order_sink_t order_sink;
 };
 
 class dummy_sharder_t {
@@ -58,14 +55,12 @@ private:
 
 class dummy_namespace_interface_t : public namespace_interface_t {
 public:
-    dummy_namespace_interface_t(store_view_t *stores, order_source_t
-                                *order_source,
+    dummy_namespace_interface_t(store_view_t *stores,
                                 bool initialize_metadata);
 
     void read(UNUSED auth::user_context_t const &user_context,
               const read_t &_read,
               read_response_t *response,
-              order_token_t tok,
               const signal_t *interruptor)
                   THROWS_ONLY(cannot_perform_query_exc_t,
                               interrupted_exc_t,
@@ -76,7 +71,6 @@ public:
     void write(UNUSED auth::user_context_t const &user_context,
                const write_t &_write,
                write_response_t *response,
-               order_token_t tok,
                const signal_t *interruptor)
                    THROWS_ONLY(cannot_perform_query_exc_t,
                                interrupted_exc_t,

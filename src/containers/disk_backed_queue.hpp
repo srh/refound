@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include "concurrency/fifo_checker.hpp"
 #include "concurrency/mutex.hpp"
 #include "containers/buffer_group.hpp"
 #include "containers/archive/buffer_group_stream.hpp"

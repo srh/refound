@@ -25,7 +25,6 @@ namespace unittest {
 void run_with_namespace_interface(
         std::function<void(
             namespace_interface_t *,
-            order_source_t *,
             store_t *
             )> fun,
         bool oversharding,
@@ -65,19 +64,16 @@ void run_with_namespace_interface(
         std::vector<store_view_t *> store_ptrs;
 
         /* Set up namespace interface */
-        order_source_t order_source;
         dummy_namespace_interface_t nsi(underlying_store.get(),
-                                        &order_source,
                                         do_create);
 
-        fun(&nsi, &order_source, underlying_store.get());
+        fun(&nsi, underlying_store.get());
     }
 }
 
 void run_in_thread_pool_with_namespace_interface(
         std::function<void(
             namespace_interface_t *,
-            order_source_t *,
             store_t *)> fun,
         bool oversharded,
         int num_restarts = 1) {
@@ -92,7 +88,6 @@ void run_in_thread_pool_with_namespace_interface(
 horribly wrong */
 void run_setup_teardown_test(
         namespace_interface_t *,
-        order_source_t *,
         const store_t *) {
     /* Do nothing */
 }
@@ -107,7 +102,6 @@ TEST(RDBProtocol, OvershardedSetupTeardown) {
 /* `GetSet` tests basic get and set operations */
 void run_get_set_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *) {
     {
         write_t write(
@@ -122,7 +116,6 @@ void run_get_set_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in("unittest::run_get_set_test(rdb_protocol.cc-A)"),
             &interruptor);
 
         if (point_write_response_t *maybe_point_write_response_t = boost::get<point_write_response_t>(&response.response)) {
@@ -142,7 +135,6 @@ void run_get_set_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
             read,
             &response,
-            osource->check_in("unittest::run_get_set_test(rdb_protocol.cc-B)"),
             &interruptor);
 
         if (point_read_response_t *maybe_point_read_response = boost::get<point_read_response_t>(&response.response)) {
@@ -192,7 +184,6 @@ void drop_sindex(store_t *store,
 
 void run_create_drop_sindex_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store) {
     /* Create a secondary index. */
     std::string id = create_sindex(store).name;
@@ -222,7 +213,6 @@ void run_create_drop_sindex_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in("unittest::run_create_drop_sindex_test(rdb_protocol.cc-A"),
             &interruptor);
 
         if (point_write_response_t *maybe_point_write_response
@@ -243,7 +233,6 @@ void run_create_drop_sindex_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
             read,
             &response,
-            osource->check_in("unittest::run_create_drop_sindex_test(rdb_protocol.cc-A"),
             &interruptor);
 
         if (rget_read_response_t *rget_resp = boost::get<rget_read_response_t>(&response.response)) {
@@ -274,7 +263,6 @@ void run_create_drop_sindex_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in("unittest::run_create_drop_sindex_test(rdb_protocol.cc-A"),
             &interruptor);
 
         if (point_delete_response_t *maybe_point_delete_response = boost::get<point_delete_response_t>(&response.response)) {
@@ -294,7 +282,6 @@ void run_create_drop_sindex_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
             read,
             &response,
-            osource->check_in("unittest::run_create_drop_sindex_test(rdb_protocol.cc-A"),
             &interruptor);
 
         if (rget_read_response_t *rget_resp = boost::get<rget_read_response_t>(&response.response)) {
@@ -311,7 +298,6 @@ void run_create_drop_sindex_test(
 }
 
 void populate_sindex(namespace_interface_t *nsi,
-                     order_source_t *osource,
                      int num_docs) {
     for (int i = 0; i < num_docs; ++i) {
         std::string json_doc = strprintf("{\"id\" : %d, \"sid\" : %d}", i, i % 4);
@@ -336,8 +322,6 @@ void populate_sindex(namespace_interface_t *nsi,
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in(
-                "unittest::run_create_drop_sindex_with_data_test(rdb_protocol.cc-A"),
             &interruptor);
 
         /* The result can be either STORED or DUPLICATE (in case this
@@ -350,7 +334,6 @@ void populate_sindex(namespace_interface_t *nsi,
 
 /* Randomly inserts and drops documents */
 void fuzz_sindex(namespace_interface_t *nsi,
-                 order_source_t *osource,
                  int goal_size,
                  auto_drainer_t::lock_t drainer_lock) {
     // We assume that about half of the ids up to goal_size * 2 will be deleted at any
@@ -398,7 +381,6 @@ void fuzz_sindex(namespace_interface_t *nsi,
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in("unittest::fuzz_sindex(rdb_protocol.cc"),
             &interruptor);
 
         /* The result can be either STORED or DUPLICATE (in case this
@@ -414,7 +396,6 @@ void fuzz_sindex(namespace_interface_t *nsi,
 
 void run_fuzz_create_drop_sindex(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store) {
     const int num_docs = 500;
 
@@ -424,7 +405,7 @@ void run_fuzz_create_drop_sindex(
     /* spawn_dangerously_now so that we can capture the fuzzing_drainer inside the
     lambda.*/
     coro_t::spawn_now_dangerously([&]() {
-        fuzz_sindex(nsi, osource, num_docs, fuzzing_drainer.lock());
+        fuzz_sindex(nsi, num_docs, fuzzing_drainer.lock());
     });
 
     /* Let some time pass to allow `fuzz_sindex` to populate the table. */
@@ -447,31 +428,28 @@ TEST(RDBProtocol, SindexFuzzCreateDrop) {
 
 void run_create_drop_sindex_with_data_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store,
         int num_docs) {
     /* Create a secondary index. */
     std::string id = create_sindex(store).name;
     wait_for_sindex(store, id);
-    populate_sindex(nsi, osource, num_docs);
+    populate_sindex(nsi, num_docs);
     drop_sindex(store, id);
 }
 
 void run_repeated_sindex_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store,
         void (*fn)(
             namespace_interface_t *,
-            order_source_t *,
             store_t *,
             int)
         ) {
     // Run the test with just a few documents in it
-    fn(nsi, osource, store, 128);
+    fn(nsi, store, 128);
     // ... and just for fun sometimes do it a second time immediately after.
     if (randint(4) == 0) {
-        fn(nsi, osource, store, 128);
+        fn(nsi, store, 128);
     }
 
     // Nap for a random time before we shut down the namespace interface
@@ -510,7 +488,6 @@ void rename_sindex(store_t *store,
 }
 
 void read_sindex(namespace_interface_t *nsi,
-                 order_source_t *osource,
                  double value,
                  std::string index,
                  size_t expected_size) {
@@ -524,7 +501,6 @@ void read_sindex(namespace_interface_t *nsi,
         auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
         read,
         &response,
-        osource->check_in("unittest::run_rename_sindex_test(rdb_protocol.cc-A"),
         &interruptor);
 
     if (rget_read_response_t *rget_resp = boost::get<rget_read_response_t>(&response.response)) {
@@ -543,7 +519,6 @@ void read_sindex(namespace_interface_t *nsi,
 }
 
 void run_rename_sindex_test(namespace_interface_t *nsi,
-                            order_source_t *osource,
                             store_t *store,
                             int num_rows) {
     bool sindex_before_data = randint(2) == 0;
@@ -555,7 +530,7 @@ void run_rename_sindex_test(namespace_interface_t *nsi,
         id2 = create_sindex(store).name;
     }
 
-    populate_sindex(nsi, osource, num_rows);
+    populate_sindex(nsi, num_rows);
 
     if (!sindex_before_data) {
         id1 = create_sindex(store).name;
@@ -571,7 +546,7 @@ void run_rename_sindex_test(namespace_interface_t *nsi,
 
     // At this point the only sindex should be 'last'
     // Perform a read to make sure it survived all the moves
-    read_sindex(nsi, osource, 3.0, "last", num_rows / 4);
+    read_sindex(nsi, 3.0, "last", num_rows / 4);
 
     drop_sindex(store, "last");
 }
@@ -624,7 +599,6 @@ void check_sindexes(
 
 void run_sindex_list_test(
         UNUSED namespace_interface_t *nsi,
-        UNUSED order_source_t *osource,
         store_t *store) {
     std::set<std::string> sindexes;
 
@@ -659,7 +633,6 @@ TEST(RDBProtocol, OvershardedSindexList) {
 
 void run_sindex_oversized_keys_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store) {
     std::string sindex_id = create_sindex(store).name;
     wait_for_sindex(store, sindex_id);
@@ -702,8 +675,6 @@ void run_sindex_oversized_keys_test(
                     auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
                     write,
                     &response,
-                    osource->check_in(
-                        "unittest::run_sindex_oversized_keys_test(rdb_protocol.cc-A"),
                     &interruptor);
 
                 auto resp = boost::get<point_write_response_t>(
@@ -726,8 +697,6 @@ void run_sindex_oversized_keys_test(
                     auth::user_context_t(auth::permissions_t(tribool::True, tribool::False, tribool::False, tribool::False)),
                     read,
                     &response,
-                    osource->check_in(
-                        "unittest::run_sindex_oversized_keys_test(rdb_protocol.cc-A"),
                     &interruptor);
 
                 if (rget_read_response_t *rget_resp
@@ -762,7 +731,6 @@ TEST(RDBProtocol, OvershardedOverSizedKeys) {
 
 void run_sindex_missing_attr_test(
         namespace_interface_t *nsi,
-        order_source_t *osource,
         store_t *store) {
     create_sindex(store);
 
@@ -788,8 +756,6 @@ void run_sindex_missing_attr_test(
             auth::user_context_t(auth::permissions_t(tribool::True, tribool::True, tribool::False, tribool::False)),
             write,
             &response,
-            osource->check_in(
-                "unittest::run_sindex_missing_attr_test(rdb_protocol.cc-A"),
             &interruptor);
 
         if (!boost::get<point_write_response_t>(&response.response)) {
