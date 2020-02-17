@@ -329,8 +329,6 @@ struct read_t {
     profile_bool_t profile;
     read_mode_t read_mode;
 
-    region_t get_region() const THROWS_NOTHING;
-
     read_t() : profile(profile_bool_t::DONT_PROFILE), read_mode(read_mode_t::SINGLE) { }
     template<class T>
     read_t(T &&_read, profile_bool_t _profile, read_mode_t _read_mode)
@@ -495,10 +493,6 @@ struct write_t {
     durability_requirement_t durability_requirement;
     profile_bool_t profile;
     ql::configured_limits_t limits;
-
-#ifndef NDEBUG
-    region_t get_region() const THROWS_NOTHING;
-#endif // NDEBUG
 
     // This is currently used to improve the cache's write transaction throttling.
     int expected_document_changes() const;
