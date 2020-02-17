@@ -152,6 +152,11 @@ void real_reql_cluster_interface_t::make_single_selection(
             /* This is unlikely, but it can happen if the object is deleted between when we
             look up its name and when we call `read_row()` */
             // TODO: Ensure callers catch this.  Is this even a legit exception?  It should be a no such row exception, or something like that...  Maybe real_reql_cluster_interface_t means this to refer to the r.table() param?
+            //
+            // This shouldn't happen because we call check_cv, and
+            // table_backend->read_row will thus be reading off the same cv we had.
+            //
+            // QQQ: Maybe we should have a guarantee here.
             throw no_such_table_exc_t();
         }
         row = std::move(tmp_row);
