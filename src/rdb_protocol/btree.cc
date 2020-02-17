@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 
-#include "btree/concurrent_traversal.hpp"
 #include "concurrency/coro_pool.hpp"
 #include "concurrency/new_mutex.hpp"
 #include "concurrency/queue/unlimited_fifo.hpp"

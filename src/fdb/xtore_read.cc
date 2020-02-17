@@ -3,7 +3,6 @@
 #include "errors.hpp"
 #include <boost/variant/static_visitor.hpp>
 
-#include "btree/concurrent_traversal.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/typed.hpp"
@@ -14,6 +13,24 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
 #include "utils.hpp"
+
+enum class direction_t {
+    forward,
+    backward,
+};
+
+// rocks_traversal is basically equivalent to depth first traversal.
+class rocks_traversal_cb {
+public:
+    rocks_traversal_cb() { }
+    // The implementor must copy out key and value (if they want to use it) before returning.
+    virtual continue_bool_t handle_pair(
+            std::pair<const char *, size_t> key, std::pair<const char *, size_t> value)
+            THROWS_ONLY(interrupted_exc_t) = 0;
+protected:
+    virtual ~rocks_traversal_cb() {}
+    DISABLE_COPYING(rocks_traversal_cb);
+};
 
 using transform_variant_t = ql::transform_variant_t;
 using terminal_variant_t = ql::terminal_variant_t;
