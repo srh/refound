@@ -6,7 +6,6 @@
 #include "btree/key_edges.hpp"
 #include "btree/reql_specific.hpp"
 #include "clustering/administration/auth/user_context.hpp"
-#include "clustering/administration/tables/name_resolver.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "concurrency/interruptor.hpp"
 #include "containers/archive/boost_types.hpp"

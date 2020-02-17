@@ -15,8 +15,6 @@
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/context.hpp"
 
-template <typename T> class lifetime_t;
-class name_resolver_t;
 class server_config_client_t;
 class table_meta_client_t;
 namespace auth {

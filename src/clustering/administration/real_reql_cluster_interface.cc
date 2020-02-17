@@ -19,8 +19,6 @@
 #include "fdb/retry_loop.hpp"
 #include "rpc/semilattice/watchable.hpp"
 #include "rpc/semilattice/view/field.hpp"
-#include "clustering/administration/tables/name_resolver.hpp"
-#include "containers/lifetime.hpp"
 
 real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         FDBDatabase *fdb,
@@ -28,21 +26,16 @@ real_reql_cluster_interface_t::real_reql_cluster_interface_t(
         std::shared_ptr<semilattice_readwrite_view_t<
             auth_semilattice_metadata_t> > auth_semilattice_view,
         rdb_context_t *rdb_context,
-        table_meta_client_t *table_meta_client,
-        RDB_CF_UNUSED lifetime_t<name_resolver_t const &> name_resolver) :
+        table_meta_client_t *table_meta_client) :
     m_fdb(fdb),
     m_mailbox_manager(mailbox_manager),
     m_auth_semilattice_view(auth_semilattice_view),
     m_table_meta_client(table_meta_client),
     m_rdb_context(rdb_context)
 #if RDB_CF
-    , m_changefeed_client(
-        m_mailbox_manager,
-        name_resolver)
+    , m_changefeed_client(m_mailbox_manager)
 #endif
 {
-    guarantee(m_auth_semilattice_view->home_thread() == home_thread());
-    guarantee(m_table_meta_client->home_thread() == home_thread());
 }
 
 bool real_reql_cluster_interface_t::db_config(

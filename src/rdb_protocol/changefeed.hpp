@@ -49,7 +49,6 @@ class base_table_t;
 class btree_slice_t;
 class mailbox_manager_t;
 class namespace_interface_access_t;
-class name_resolver_t;
 class real_superblock_lock;
 struct rdb_modification_report_t;
 struct serializable_env_t;
