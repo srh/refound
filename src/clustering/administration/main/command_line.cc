@@ -1102,9 +1102,6 @@ void run_rethinkdb_create(const base_path_t &base_path,
     // TODO: Deprecate server_name, or mark dormant in command line ops.
     // TODO: Ditto server_tags, total_cache_size.
 
-    server_id_t our_server_id = server_id_t();
-
-    cluster_semilattice_metadata_t cluster_metadata;
     auth_semilattice_metadata_t auth_metadata;
 
     rockstore::store rocks = rockstore::create_rockstore(base_path);
@@ -1119,10 +1116,6 @@ void run_rethinkdb_create(const base_path_t &base_path,
             &io_backender,
             &metadata_perfmon_collection,
             [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
-                write_txn->write(mdkey_server_id(),
-                    our_server_id, interruptor);
-                write_txn->write(mdkey_cluster_semilattices(),
-                    cluster_metadata, interruptor);
                 write_txn->write(mdkey_auth_semilattices(),
                     auth_semilattice_metadata_t(initial_password), interruptor);
             });
@@ -1143,7 +1136,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                          const optional<optional<uint64_t> >
                             &total_cache_size,
                          const server_id_t *our_server_id,
-                         const cluster_semilattice_metadata_t *cluster_metadata,
                          directory_lock_t *data_directory_lock,
                          bool *const result_out) {
     logNTC("Running %s...\n", RETHINKDB_VERSION_STR);
@@ -1165,15 +1157,11 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
     try {
         scoped_ptr_t<metadata_file_t> metadata_file;
         cond_t non_interruptor;
-        if (our_server_id != nullptr && cluster_metadata != nullptr) {
+        if (our_server_id != nullptr) {
             metadata_file.init(new metadata_file_t(
                 &io_backender,
                 &metadata_perfmon_collection,
                 [&](metadata_file_t::write_txn_t *write_txn, const signal_t *interruptor) {
-                    write_txn->write(mdkey_server_id(),
-                        *our_server_id, interruptor);
-                    write_txn->write(mdkey_cluster_semilattices(),
-                        *cluster_metadata, interruptor);
                     write_txn->write(mdkey_auth_semilattices(),
                         auth_semilattice_metadata_t(initial_password), interruptor);
                 }));
@@ -2146,7 +2134,6 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
                                      max_concurrent_io_requests,
                                      total_cache_size,
                                      static_cast<server_id_t*>(nullptr),
-                                     static_cast<cluster_semilattice_metadata_t*>(nullptr),
                                      &data_directory_lock,
                                      &result),
                            num_workers);

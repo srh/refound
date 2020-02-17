@@ -23,17 +23,6 @@
 #include "rpc/serialize_macros.hpp"
 #include "time.hpp"
 
-class cluster_semilattice_metadata_t {
-public:
-    cluster_semilattice_metadata_t() { }
-
-    databases_semilattice_metadata_t databases;
-};
-
-RDB_DECLARE_SERIALIZABLE(cluster_semilattice_metadata_t);
-RDB_DECLARE_SEMILATTICE_JOINABLE(cluster_semilattice_metadata_t);
-RDB_DECLARE_EQUALITY_COMPARABLE(cluster_semilattice_metadata_t);
-
 class auth_semilattice_metadata_t {
 public:
     // For deserialization only

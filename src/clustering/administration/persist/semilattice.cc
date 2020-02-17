@@ -27,5 +27,4 @@ void semilattice_persister_t<metadata_t>::persist(const signal_t *interruptor) {
     txn.commit();
 }
 
-template class semilattice_persister_t<cluster_semilattice_metadata_t>;
 template class semilattice_persister_t<auth_semilattice_metadata_t>;

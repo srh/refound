@@ -10,9 +10,14 @@
 #include <vector>
 
 #include "arch/io/io_utils.hpp"
+#include "concurrency/auto_drainer.hpp"
+#include "concurrency/interruptor.hpp"
 #include "concurrency/mutex.hpp"
+#include "containers/archive/archive.hpp"
 #include "containers/scoped.hpp"
 #include "logger.hpp"
+#include "rpc/serialize_macros.hpp"
+#include "threading.hpp"
 #include "utils.hpp"
 
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(log_level_t, int, log_level_debug, log_level_error);

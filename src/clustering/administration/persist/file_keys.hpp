@@ -7,10 +7,8 @@
 
 class auth_semilattice_metadata_t;
 class branch_birth_certificate_t;
-class cluster_semilattice_metadata_t;
 template<class state_t> class raft_log_entry_t;
 class server_config_versioned_t;
-class server_id_t;
 class table_raft_state_t;
 class table_raft_stored_header_t;
 class table_raft_stored_snapshot_t;
@@ -18,12 +16,8 @@ class table_raft_stored_snapshot_t;
 /* This file defines the keys that are used to index the `metadata_file_t`. Changing
 these keys will break the on-disk format. */
 
-metadata_file_t::key_t<cluster_semilattice_metadata_t>
-    mdkey_cluster_semilattices();
 metadata_file_t::key_t<auth_semilattice_metadata_t>
     mdkey_auth_semilattices();
-metadata_file_t::key_t<server_id_t>
-    mdkey_server_id();
 metadata_file_t::key_t<server_config_versioned_t>
     mdkey_server_config();
 

@@ -11,7 +11,6 @@
 #include "containers/uuid.hpp"
 #include "rpc/serialize_macros.hpp"
 
-class cluster_semilattice_metadata_t;
 class table_basic_config_t;
 
 namespace auth {
