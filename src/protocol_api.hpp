@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "btree/keys.hpp"
 #include "buffer_cache/types.hpp"
 #include "concurrency/interruptor.hpp"
 #include "concurrency/signal.hpp"
@@ -16,7 +17,6 @@
 #include "containers/object_buffer.hpp"
 #include "containers/scoped.hpp"
 #include "query_state.hpp"
-#include "region/region.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "timestamps.hpp"
 #include "version.hpp"

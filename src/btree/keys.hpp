@@ -270,4 +270,6 @@ bool operator<(const key_range_t &, const key_range_t &) THROWS_NOTHING;
 #pragma GCC diagnostic pop
 #endif
 
+using region_t = key_range_t;
+
 #endif // BTREE_KEYS_HPP_

@@ -12,6 +12,7 @@
 #include "errors.hpp"
 #include <boost/variant.hpp>
 
+#include "btree/keys.hpp"
 #include "btree/key_edges.hpp"
 #include "rdb_protocol/secondary_operations.hpp"
 #include "clustering/administration/auth/user_context.hpp"
@@ -29,7 +30,6 @@
 #include "rdb_protocol/optargs.hpp"
 #include "rdb_protocol/return_changes.hpp"
 #include "rdb_protocol/shards.hpp"
-#include "region/region.hpp"
 #include "repli_timestamp.hpp"
 
 class store_t;
