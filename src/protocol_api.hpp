@@ -17,7 +17,6 @@
 #include "containers/scoped.hpp"
 #include "query_state.hpp"
 #include "region/region.hpp"
-#include "region/region_map.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "timestamps.hpp"
 #include "version.hpp"

@@ -17,6 +17,7 @@
 #include "arch/runtime/coroutines.hpp"
 #include "containers/archive/stl_types.hpp"
 #include "containers/scoped.hpp"
+#include "debug.hpp"
 #include "math.hpp"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/rapidjson.h"
