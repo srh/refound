@@ -282,14 +282,6 @@ bool do_serve(FDBDatabase *fdb,
             watchable_variable_t<cluster_directory_metadata_t>
                 our_root_directory_variable(initial_directory);
 
-            /* These `directory_*_write_manager_t`s are the counterparts to the
-            `directory_*_read_manager_t`s earlier in this file. These are responsible for
-            sending directory information over the network; the `read_manager_t`s are
-            responsible for receiving the transmissions. */
-
-            directory_write_manager_t<cluster_directory_metadata_t> directory_write_manager(
-                &connectivity_cluster, 'D', our_root_directory_variable.get_watchable());
-
             {
                 /* The `rdb_query_server_t` listens for client requests and processes the
                 queries it receives. */
