@@ -37,7 +37,6 @@
 #include "region/region.hpp"
 #include "repli_timestamp.hpp"
 #include "rockstore/rockshard.hpp"
-#include "rpc/connectivity/peer_id.hpp"
 #include "rpc/serialize_macros.hpp"
 #endif  // RDB_CF
 

@@ -29,20 +29,13 @@
 #include "rdb_protocol/wire_func.hpp"
 
 namespace auth {
-
 class user_context_t;
-class permissions_t;
-
 }  // namespace auth
 
 class artificial_reql_cluster_interface_t;
-class base_table_t;
 class reqlfdb_config_cache;
-enum class return_changes_t;
 
 namespace ql {
-class configured_limits_t;
-class datumspec_t;
 class env_t;
 class query_cache_t;
 
@@ -56,13 +49,7 @@ class client_t;
 
 struct admin_err_t;
 
-class auth_semilattice_metadata_t;
-class ellipsoid_spec_t;
 class extproc_pool_t;
-class name_string_t;
-class namespace_interface_t;
-template <class> class cross_thread_watchable_variable_t;
-template <class> class semilattice_read_view_t;
 
 class sindex_config_t {
 public:

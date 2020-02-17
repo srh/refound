@@ -134,6 +134,32 @@ bool convert_connected_server_id_to_datum(
 }
 
 #if STATS_REQUEST_IN_FDB
+bool search_db_metadata_by_name(
+        const databases_semilattice_metadata_t &metadata,
+        const name_string_t &name,
+        database_id_t *id_out,
+        admin_err_t *error_out) {
+    size_t found = 0;
+    for (const auto &pair : metadata.databases) {
+        if (!pair.second.is_deleted() && pair.second.get_ref().name.get_ref() == name) {
+            *id_out = pair.first;
+            ++found;
+        }
+    }
+    if (found == 0) {
+        *error_out = db_not_found_error(name);
+        return false;
+    } else if (found >= 2) {
+        *error_out = admin_err_t{
+            strprintf("Database `%s` is ambiguous; there are multiple "
+                      "databases with that name.", name.c_str()),
+            query_state_t::FAILED};
+        return false;
+    } else {
+        return true;
+    }
+}
+
 bool convert_table_id_to_datums(
         const namespace_id_t &table_id,
         admin_identifier_format_t identifier_format,

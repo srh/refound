@@ -19,6 +19,7 @@ namespace auth {
 class permissions_artificial_table_fdb_backend_t;
 class users_artificial_table_fdb_backend_t;
 }
+class base_table_t;
 class db_config_artificial_table_fdb_backend_t;
 class in_memory_artificial_table_fdb_backend_t;
 class jobs_artificial_table_fdb_backend_t;
