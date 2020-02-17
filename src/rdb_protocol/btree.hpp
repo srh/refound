@@ -14,8 +14,6 @@
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/protocol.hpp"
 
-class btree_slice_t;
-template <class> class promise_t;
 struct sindex_disk_info_t;
 
 struct rdb_modification_info_t;
@@ -39,14 +37,9 @@ struct btree_batched_replacer_t {
 /* Secondary Indexes */
 
 struct rdb_modification_info_t {
-    // TODO: Remove(?) data_pair_t wrapper (after figuring out
-    // serialization/non-serialization needs).
-    struct data_pair_t { ql::datum_t first; };
-    data_pair_t deleted;
-    data_pair_t added;
+    ql::datum_t deleted;
+    ql::datum_t added;
 };
-
-RDB_DECLARE_SERIALIZABLE(rdb_modification_info_t);
 
 struct rdb_modification_report_t {
     rdb_modification_report_t() { }
@@ -56,8 +49,6 @@ struct rdb_modification_report_t {
     store_key_t primary_key;
     rdb_modification_info_t info;
 };
-
-RDB_DECLARE_SERIALIZABLE(rdb_modification_report_t);
 
 // Exposed now for fdb.
 void compute_keys(const store_key_t &primary_key,

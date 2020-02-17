@@ -101,52 +101,6 @@ ql::datum_t btree_batched_replacer_t::apply_write_hook(
     return res;
 }
 
-static const int8_t HAS_VALUE = 0;
-static const int8_t HAS_NO_VALUE = 1;
-
-template <cluster_version_t W>
-void serialize(write_message_t *wm, const rdb_modification_info_t &info) {
-    if (!info.deleted.first.has()) {
-        serialize<W>(wm, HAS_NO_VALUE);
-    } else {
-        serialize<W>(wm, HAS_VALUE);
-        serialize<W>(wm, info.deleted.first);
-    }
-
-    if (!info.added.first.has()) {
-        serialize<W>(wm, HAS_NO_VALUE);
-    } else {
-        serialize<W>(wm, HAS_VALUE);
-        serialize<W>(wm, info.added.first);
-    }
-}
-
-template <cluster_version_t W>
-archive_result_t deserialize(read_stream_t *s, rdb_modification_info_t *info) {
-    int8_t has_value;
-    archive_result_t res = deserialize<W>(s, &has_value);
-    if (bad(res)) { return res; }
-
-    if (has_value == HAS_VALUE) {
-        res = deserialize<W>(s, &info->deleted.first);
-        if (bad(res)) { return res; }
-    }
-
-    res = deserialize<W>(s, &has_value);
-    if (bad(res)) { return res; }
-
-    if (has_value == HAS_VALUE) {
-        res = deserialize<W>(s, &info->added.first);
-        if (bad(res)) { return res; }
-    }
-
-    return archive_result_t::SUCCESS;
-}
-
-INSTANTIATE_SERIALIZABLE_SINCE_v1_13(rdb_modification_info_t);
-
-RDB_IMPL_SERIALIZABLE_2_SINCE_v1_13(rdb_modification_report_t, primary_key, info);
-
 std::vector<std::string> expand_geo_key(
         const ql::datum_t &key,
         const store_key_t &primary_key,

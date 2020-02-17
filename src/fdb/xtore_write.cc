@@ -98,10 +98,10 @@ void update_fdb_sindexes(
 
         std::unordered_set<store_key_t, store_key_hash> deletion_keys;
 
-        if (modification.info.deleted.first.has()) {
+        if (modification.info.deleted.has()) {
             try {
                 // TODO: datum copy performance?
-                ql::datum_t deleted = modification.info.deleted.first;
+                ql::datum_t deleted = modification.info.deleted;
 
                 // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
                 std::vector<std::pair<store_key_t, ql::datum_t> > keys;
@@ -118,10 +118,10 @@ void update_fdb_sindexes(
 
         std::unordered_set<store_key_t, store_key_hash> addition_keys;
 
-        if (modification.info.added.first.has()) {
+        if (modification.info.added.has()) {
             try {
                 // TODO: datum copy performance?
-                ql::datum_t added = modification.info.added.first;
+                ql::datum_t added = modification.info.added;
 
                 std::vector<std::pair<store_key_t, ql::datum_t> > keys;
                 compute_keys(
@@ -183,11 +183,11 @@ void rdb_fdb_set(
     fdb_value old_value = future_block_on_value(old_value_fut.fut, interruptor);
 
     if (old_value.present) {
-        mod_info->deleted.first = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
+        mod_info->deleted = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
     }
 
     // TODO: Review datum_t copy performance.
-    mod_info->added.first = data;
+    mod_info->added = data;
 
     if (overwrite || !old_value.present) {
         ql::serialization_result_t res = rfdb::kv_location_set(txn, kv_location, data);
@@ -224,7 +224,7 @@ void rdb_fdb_delete(
 
     /* Update the modification report. */
     if (old_value.present) {
-        mod_info->deleted.first = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
+        mod_info->deleted = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
         rfdb::kv_location_delete(txn, kv_location);
     }
 
@@ -319,10 +319,10 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
             /* Report the changes for sindex and change-feed purposes */
             // TODO: Can we just assign R_NULL values to deleted and added?
             if (old_val.get_type() != ql::datum_t::R_NULL) {
-                mod_info_out->deleted.first = old_val;
+                mod_info_out->deleted = old_val;
             }
             if (new_val.get_type() != ql::datum_t::R_NULL) {
-                mod_info_out->added.first = new_val;
+                mod_info_out->added = new_val;
             }
 
             return resp;
@@ -469,7 +469,7 @@ void handle_mod_reports(FDBTransaction *txn,
         std::vector<rdb_modification_report_t> &&reports,
         jobstate_futs *futs, const signal_t *interruptor) {
     for (rdb_modification_report_t &report : reports) {
-        if (report.info.deleted.first.has() || report.info.added.first.has()) {
+        if (report.info.deleted.has() || report.info.added.has()) {
             update_fdb_sindexes(txn, table_id, table_config,
                 std::move(report),
                 futs,
