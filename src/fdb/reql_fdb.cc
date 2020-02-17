@@ -36,8 +36,9 @@ Jobs:
 
 Log:
 
-    rethinkdb/log/ => table of log entries
-      not sure how indexed
+    rethinkdb/log/ => table of log entries by [node_id, counter]
+      possibly indexed by timestamp
+      possibly indexed by [node_id, timestamp]
 
 Db config:
 
@@ -47,7 +48,7 @@ Db config:
 Table config:
 
     rethinkdb/table_config/ => table of table_config_t
-      indexed by {db_uuid,table_name} => namespace_id_t.
+      indexed by [db_uuid,table_name] => namespace_id_t.
 
 Index building:
 
