@@ -10,12 +10,8 @@
 
 #include "rdb_protocol/secondary_operations.hpp"
 #include "concurrency/one_per_thread.hpp"
-#include "concurrency/promise.hpp"
-#include "concurrency/watchable.hpp"
-#include "containers/clone_ptr.hpp"
 #include "containers/counted.hpp"
 #include "containers/name_string.hpp"
-#include "containers/optional.hpp"
 #include "containers/scoped.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/fdb.hpp"

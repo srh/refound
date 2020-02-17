@@ -6,8 +6,6 @@
 #include <string>
 
 #include "clustering/administration/admin_op_exc.hpp"
-#include "concurrency/cross_thread_watchable.hpp"
-#include "concurrency/watchable.hpp"
 #include "fdb/fdb.hpp"
 #include "rdb_protocol/context.hpp"
 

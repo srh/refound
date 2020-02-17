@@ -6,8 +6,6 @@
 
 #include "stl_utils.hpp"
 
-#include "concurrency/cross_thread_signal.hpp"
-#include "concurrency/cross_thread_watchable.hpp"
 #include "containers/archive/boost_types.hpp"
 #include "containers/archive/optional.hpp"
 #include "rdb_protocol/btree.hpp"

@@ -2,7 +2,6 @@
 #include "rdb_protocol/term.hpp"
 
 #include "arch/address.hpp"
-#include "concurrency/cross_thread_watchable.hpp"
 #include "rdb_protocol/rdb_backtrace.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"
