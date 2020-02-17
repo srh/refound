@@ -129,6 +129,8 @@ optional<fdb_job_info> execute_index_create_job(
 
     // LARGEVAL: Implementing large values will need handling here.
 
+    data_fut.block_coro(interruptor);
+
     const FDBKeyValue *kvs;
     int kv_count;
     fdb_bool_t more;

@@ -447,6 +447,7 @@ bool geo_index_traversal_helper_t::skip_forward_to_seek_key(std::string *pos) co
 }
 
 continue_bool_t geo_fdb_traversal(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const sindex_id_t &sindex_id,
@@ -476,6 +477,8 @@ continue_bool_t geo_fdb_traversal(
         rfdb::datum_range_fut rfut = rfdb::kv_prefix_get_range_str(txn, fdb_kv_prefix,
             pos, rfdb::lower_bound::closed, sindex_range_right_ptr,
             0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
+
+        rfut.block_coro(interruptor);
 
         const FDBKeyValue *kvs = valgrind_undefined(nullptr);
         int kv_count = 0;
@@ -544,14 +547,15 @@ continue_bool_t geo_fdb_traversal(
                     break;
                 }
 
-                // It's important that we reassign to rfut for kvs lifetime to be correct.
-                rfut = rfdb::kv_prefix_get_range_str(
-                    txn, fdb_kv_prefix,
-                    std::string(as_char(key_slice.data), size_t(key_slice.length)),
-                    rfdb::lower_bound::open,
-                    sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
                 kv_count = 0;
                 while (more && kv_count == 0) {
+                    // It's important that we reassign to rfut for kvs lifetime to be correct.
+                    rfut = rfdb::kv_prefix_get_range_str(
+                        txn, fdb_kv_prefix,
+                        std::string(as_char(key_slice.data), size_t(key_slice.length)),
+                        rfdb::lower_bound::open,
+                        sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+                    rfut.block_coro(interruptor);
                     fdb_error_t err = fdb_future_get_keyvalue_array(rfut.fut, &kvs, &kv_count, &more);
                     check_for_fdb_transaction(err);
                 }

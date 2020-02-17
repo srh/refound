@@ -198,6 +198,7 @@ private:
 };
 
 continue_bool_t fdb_traversal(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const std::string &fdb_kv_prefix,
         const key_range_t &range,
@@ -213,7 +214,7 @@ continue_bool_t fdb_traversal(
         0, 0, FDB_STREAMING_MODE_MEDIUM,
         0, false, reverse);
 
-    // NNN: We must block on the future!  This function needs to take an interruptor!
+    fut.block_coro(interruptor);
 
     const FDBKeyValue *kvs;
     int kv_count;
@@ -246,6 +247,7 @@ continue_bool_t fdb_traversal(
 
 // TODO: Remove/merge with rdb_rget_slice again?  (Old rocksdb impl question.)
 void rdb_fdb_rget_snapshot_slice(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const key_range_t &range,
@@ -291,6 +293,7 @@ void rdb_fdb_rget_snapshot_slice(
             // OOO: Put check_cv code somewhere after the first round-trip.
             fdb_rget_cb_wrapper wrapper(&callback, pair.second);
             return fdb_traversal(
+                interruptor,
                 txn,
                 fdb_kv_prefix,
                 key_range_t::one_key(pair.first),
@@ -319,7 +322,7 @@ void rdb_fdb_rget_snapshot_slice(
     } else {
         fdb_rget_cb_wrapper wrapper(&callback, 1);
         cont = fdb_traversal(
-            txn, fdb_kv_prefix, range, direction, &wrapper);
+            interruptor, txn, fdb_kv_prefix, range, direction, &wrapper);
     }
     callback.finish(cont);
 }
@@ -700,6 +703,7 @@ private:
 
 
 void rdb_fdb_rget_secondary_snapshot_slice(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const sindex_id_t &sindex_id,
@@ -758,7 +762,7 @@ void rdb_fdb_rget_secondary_snapshot_slice(
         if (active_range.is_empty()) {
             return continue_bool_t::CONTINUE;
         }
-        return fdb_traversal(txn, kv_prefix, active_range, direction, &wrapper);
+        return fdb_traversal(interruptor, txn, kv_prefix, active_range, direction, &wrapper);
     };
     continue_bool_t cont = datumspec.iter(sorting, cb);
     // TODO: See if anybody else calls datumspec.iter, can we remove is_last parameter.
@@ -767,6 +771,7 @@ void rdb_fdb_rget_secondary_snapshot_slice(
 
 
 void do_fdb_snap_read(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
@@ -776,6 +781,7 @@ void do_fdb_snap_read(
     // TODO: Do the check_cv inside this function if it ever performs more than one round-trip.
     if (!rget.sindex.has_value()) {
         rdb_fdb_rget_snapshot_slice(
+            interruptor,
             txn,
             table_id,
             rget.region,
@@ -814,6 +820,7 @@ void do_fdb_snap_read(
             }
 
             rdb_fdb_rget_secondary_snapshot_slice(
+                interruptor,
                 txn,
                 table_id,
                 sindex_id,
@@ -841,6 +848,7 @@ void do_fdb_snap_read(
 }
 
 void rdb_fdb_get_nearest_slice(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const sindex_id_t &sindex_id,
@@ -875,7 +883,7 @@ void rdb_fdb_get_nearest_slice(
                 ql_env,
                 &state);
             geo_fdb_traversal(
-                txn, table_id, sindex_id, key_range_t::universe(), &callback);
+                interruptor, txn, table_id, sindex_id, key_range_t::universe(), &callback);
             callback.finish(&partial_response);
         } catch (const geo_exception_t &e) {
             partial_response.results_or_error =
@@ -898,6 +906,7 @@ void rdb_fdb_get_nearest_slice(
 }
 
 void rdb_fdb_get_intersecting_slice(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const sindex_id_t &sindex_id,
@@ -934,7 +943,7 @@ void rdb_fdb_get_intersecting_slice(
         response);
 
     continue_bool_t cont = geo_fdb_traversal(
-        txn, table_id, sindex_id, sindex_range, &callback);
+        interruptor, txn, table_id, sindex_id, sindex_range, &callback);
     callback.finish(cont);
 }
 
@@ -1129,6 +1138,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         // QQQ: Do we have sindex_rangespec with region?  It mentions sharding.  Maybe it only got initialized with a shard operation?  Look at what initializes it.
         guarantee(geo_read.sindex.region);
         rdb_fdb_get_intersecting_slice(
+            interruptor,
             txn_,
             table_id_,
             sindex_id,
@@ -1189,6 +1199,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         }
 
         rdb_fdb_get_nearest_slice(
+            interruptor,
             txn_,
             table_id_,
             sindex_id,
@@ -1230,7 +1241,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             interruptor,
             rget.serializable_env,
             trace);
-        do_fdb_snap_read(txn_, table_id_, *table_config_, &ql_env, rget, res);
+        do_fdb_snap_read(interruptor, txn_, table_id_, *table_config_, &ql_env, rget, res);
         // TODO: If do_fdb_snap_read performs multiple requests, check the cv after the
         // first one.
         reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);

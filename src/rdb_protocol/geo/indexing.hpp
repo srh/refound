@@ -102,6 +102,7 @@ private:
 };
 
 continue_bool_t geo_fdb_traversal(
+        const signal_t *interruptor,
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const sindex_id_t &sindex_id,

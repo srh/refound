@@ -45,6 +45,7 @@ void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
 void transaction_erase_unique_index(FDBTransaction *txn, const char *prefix,
         const ukey_string &index_key);
 
+// TODO: Remove this unused function?
 fdb_future transaction_uq_index_get_range(FDBTransaction *txn, const std::string &prefix,
     const ukey_string &lower, const ukey_string *upper_or_null,
     int limit, int target_bytes, FDBStreamingMode mode, int iteration,
