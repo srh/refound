@@ -290,17 +290,6 @@ bool do_serve(FDBDatabase *fdb,
             directory_write_manager_t<cluster_directory_metadata_t> directory_write_manager(
                 &connectivity_cluster, 'D', our_root_directory_variable.get_watchable());
 
-            scoped_ptr_t<directory_map_write_manager_t<
-                    namespace_id_t, table_manager_bcard_t> >
-                table_directory_write_manager;
-            if (i_am_a_server) {
-                table_directory_write_manager.init(
-                    new directory_map_write_manager_t<
-                            namespace_id_t, table_manager_bcard_t>(
-                        &connectivity_cluster, 'T',
-                        multi_table_manager->get_table_manager_bcards()));
-            }
-
             {
                 /* The `rdb_query_server_t` listens for client requests and processes the
                 queries it receives. */

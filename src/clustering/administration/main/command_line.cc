@@ -1207,6 +1207,7 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
             }
             if (!initial_password.empty()) {
                 /* Apply the initial password if there isn't one already. */
+                // OOO: Fdb-ize this.
                 metadata_file_t::write_txn_t txn(metadata_file.get(), &non_interruptor);
                 auth_semilattice_metadata_t auth_data =
                     txn.read(mdkey_auth_semilattices());
