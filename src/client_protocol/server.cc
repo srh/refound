@@ -42,7 +42,6 @@
 #include "rdb_protocol/query_server.hpp"
 #include "rdb_protocol/query_cache.hpp"
 #include "rdb_protocol/response.hpp"
-#include "rpc/semilattice/view.hpp"
 #include "time.hpp"
 
 http_conn_cache_t::http_conn_t::http_conn_t(rdb_context_t *rdb_ctx,

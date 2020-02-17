@@ -19,8 +19,6 @@
 #include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
-#include "rpc/semilattice/watchable.hpp"
-#include "rpc/semilattice/view/field.hpp"
 
 real_reql_cluster_interface_t::real_reql_cluster_interface_t()
 #if RDB_CF

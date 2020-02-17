@@ -11,7 +11,6 @@
 #include "concurrency/watchable.hpp"
 #include "fdb/fdb.hpp"
 #include "rdb_protocol/context.hpp"
-#include "rpc/semilattice/view.hpp"
 
 class artificial_reql_cluster_interface_t;
 class artificial_table_backend_t;

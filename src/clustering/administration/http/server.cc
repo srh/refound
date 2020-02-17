@@ -5,7 +5,6 @@
 #include "http/file_app.hpp"
 #include "http/http.hpp"
 #include "http/routing_app.hpp"
-#include "rpc/semilattice/view/field.hpp"
 
 administrative_http_server_manager_t::administrative_http_server_manager_t(
         const std::set<ip_address_t> &local_addresses,

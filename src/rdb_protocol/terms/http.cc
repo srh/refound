@@ -15,7 +15,6 @@
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/op.hpp"
 #include "rdb_protocol/terms/terms.hpp"
-#include "rpc/semilattice/view.hpp"
 
 namespace ql {
 

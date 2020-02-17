@@ -8,7 +8,6 @@
 #include "clustering/administration/metadata.hpp"
 // TODO: Ugly circular module ref here.
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
-#include "rpc/semilattice/view.hpp"
 
 namespace auth {
 

@@ -8,8 +8,6 @@
 #include "rdb_protocol/query_cache.hpp"
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
-#include "rpc/semilattice/view/field.hpp"
-#include "rpc/semilattice/watchable.hpp"
 #include "time.hpp"
 
 bool sindex_config_t::operator==(const sindex_config_t &o) const {

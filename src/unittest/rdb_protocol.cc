@@ -17,7 +17,6 @@
 #include "rdb_protocol/store.hpp"
 #include "stl_utils.hpp"
 #include "unittest/dummy_namespace_interface.hpp"
-#include "unittest/dummy_metadata_controller.hpp"
 #include "unittest/gtest.hpp"
 #include "unittest/unittest_utils.hpp"
 
