@@ -10,23 +10,7 @@
 #include "concurrency/promise.hpp"
 
 class cache_t;
-class rockshard;
 class version_t;
-
-class superblock_passback_guard {
-public:
-    superblock_passback_guard(real_superblock_lock *_superblock, promise_t<real_superblock_lock *> *_pass_back)
-        : superblock(_superblock), pass_back_superblock(_pass_back) {
-        rassert(superblock != nullptr);
-        rassert(pass_back_superblock != nullptr);
-    }
-    DISABLE_COPYING(superblock_passback_guard);
-    ~superblock_passback_guard() {
-        pass_back_superblock->pulse(superblock);
-    }
-    real_superblock_lock *superblock;
-    promise_t<real_superblock_lock *> *pass_back_superblock;
-};
 
 enum class index_type_t {
     PRIMARY,
@@ -101,50 +85,6 @@ private:
     sz_t value_size;
     const char *value_ptr;
 };
-
-
-// Metainfo functions
-void get_superblock_metainfo(
-    rockshard rocksh,
-    real_superblock_lock *superblock,
-    std::vector< std::pair<std::vector<char>, std::vector<char> > > *kv_pairs_out);
-
-void set_superblock_metainfo(real_superblock_lock *superblock,
-                             rockshard rocksh,
-                             const std::vector<char> &key,
-                             const version_t &value);
-
-void set_superblock_metainfo(real_superblock_lock *superblock,
-                             rockshard rocksh,
-                             const std::vector<std::vector<char> > &keys,
-                             const std::vector<version_t> &values);
-
-// Convenience functions for accessing the superblock
-void get_btree_superblock(
-        txn_t *txn,
-        access_t access,
-        scoped_ptr_t<real_superblock_lock> *got_superblock_out);
-
-/* Variant for writes that go through a superblock write semaphore */
-void get_btree_superblock(
-        txn_t *txn,
-        write_access_t access,
-        new_semaphore_in_line_t &&write_sem_acq,
-        scoped_ptr_t<real_superblock_lock> *got_superblock_out);
-
-void get_btree_superblock_and_txn_for_writing(
-        cache_conn_t *cache_conn,
-        new_semaphore_t *superblock_write_semaphore,
-        write_access_t superblock_access,
-        int expected_change_count,
-        write_durability_t durability,
-        scoped_ptr_t<real_superblock_lock> *got_superblock_out,
-        scoped_ptr_t<txn_t> *txn_out);
-
-void get_btree_superblock_and_txn_for_reading(
-        cache_conn_t *cache_conn,
-        scoped_ptr_t<real_superblock_lock> *got_superblock_out,
-        scoped_ptr_t<txn_t> *txn_out);
 
 #endif /* BTREE_REQL_SPECIFIC_HPP_ */
 

@@ -213,6 +213,8 @@ continue_bool_t fdb_traversal(
         0, 0, FDB_STREAMING_MODE_MEDIUM,
         0, false, reverse);
 
+    // NNN: We must block on the future!  This function needs to take an interruptor!
+
     const FDBKeyValue *kvs;
     int kv_count;
     fdb_bool_t more;

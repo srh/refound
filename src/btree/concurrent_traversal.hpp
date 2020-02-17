@@ -7,10 +7,6 @@
 #include "containers/archive/archive.hpp"
 
 class key_range_t;
-namespace rocksdb {
-    class Snapshot;
-}
-namespace rockstore { class store; }
 
 enum class direction_t {
     forward,
@@ -32,16 +28,5 @@ protected:
     virtual ~rocks_traversal_cb() {}
     DISABLE_COPYING(rocks_traversal_cb);
 };
-
-
-// TODO: This should freaking take an interruptor, no?
-
-continue_bool_t rocks_traversal(
-        rockstore::store *rocks,
-        const rocksdb::Snapshot *rocksnap,
-        const std::string &rocks_kv_prefix,
-        const key_range_t &range,
-        direction_t direction,
-        rocks_traversal_cb *cb);
 
 #endif  // BTREE_CONCURRENT_TRAVERSAL_HPP_
