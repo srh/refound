@@ -3,6 +3,8 @@
 
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/grant.hpp"
+#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/tables/table_config.hpp"
@@ -17,6 +19,8 @@
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/retry_loop.hpp"
+#include "fdb/typed.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rpc/semilattice/watchable.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
@@ -45,14 +49,20 @@ bool real_reql_cluster_interface_t::db_config(
         admin_err_t *error_out) {
     // TODO: fdb-ize this function (for writing?  for making a single section?  fdb-ize artificial table?)
     try {
+        // NNN: These config permission checks will need to happen in the fdb txn.
         user_context.require_config_permission(m_rdb_context, db->id);
 
         make_single_selection(
             user_context,
             name_string_t::guarantee_valid("db_config"),
+            db->cv,
             db->id.value,
             backtrace_id,
             env,
+            [&](FDBTransaction *txn) {
+                auth::fdb_user_fut<auth::db_config_permission> auth_fut = user_context.transaction_require_db_config_permission(txn, db->id);
+                auth_fut.block_and_check(env->interruptor);
+            },
             selection_out);
         return true;
     } catch (const no_such_table_exc_t &) {
@@ -80,6 +90,7 @@ admin_err_t table_already_exists_error(
 bool real_reql_cluster_interface_t::table_config(
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
+        config_version_checker cv_checker,
         const namespace_id_t &table_id,
         const name_string_t &name,
         ql::backtrace_id_t bt,
@@ -92,14 +103,20 @@ bool real_reql_cluster_interface_t::table_config(
 
         // QQQ: No more name errors to catch, probblay.
 
+        // NNN: Put into the fdb txn
         user_context.require_config_permission(m_rdb_context, db->id, table_id);
 
         make_single_selection(
             user_context,
             name_string_t::guarantee_valid("table_config"),
+            cv_checker,
             table_id.value,
             bt,
             env,
+            [&](FDBTransaction *txn) {
+                auth::fdb_user_fut<auth::db_table_config_permission> auth_fut = user_context.transaction_require_db_and_table_config_permission(txn, db->id, table_id);
+                auth_fut.block_and_check(env->interruptor);
+            },
             selection_out);
         return true;
     } catch (const admin_op_exc_t &admin_op_exc) {
@@ -110,6 +127,7 @@ bool real_reql_cluster_interface_t::table_config(
 
 bool real_reql_cluster_interface_t::table_status(
         counted_t<const ql::db_t> db,
+        config_version_checker cv_checker,
         const namespace_id_t &table_id,
         const name_string_t &name,
         ql::backtrace_id_t bt,
@@ -120,14 +138,20 @@ bool real_reql_cluster_interface_t::table_status(
     try {
         // OOO: We do need a cv check to ensure that the table id we used isn't wildly ou of date.  Then we construct a single selection on the config table.  That can't carry its own cv checker, can it?  Or can it?
 
+        // NNN: We need a table status, right?
+
+        // NNN: There is no table status table.
+
 
         // QQQ: No more name errors to catch, probblay.
         make_single_selection(
             env->get_user_context(),
             name_string_t::guarantee_valid("table_status"),
+            cv_checker,
             table_id.value,
             bt,
             env,
+            [&](FDBTransaction *) { },
             selection_out);
         return true;
     } catch (const admin_op_exc_t &admin_op_exc) {
@@ -155,9 +179,11 @@ void copy_value(const T *in, T *out) {
 void real_reql_cluster_interface_t::make_single_selection(
         auth::user_context_t const &user_context,
         const name_string_t &table_name,
+        config_version_checker cv_checker,
         const uuid_u &primary_key,
         ql::backtrace_id_t bt,
         ql::env_t *env,
+        std::function<void(FDBTransaction *)> cfg_checker,  // OOO: Hideous!
         scoped_ptr_t<ql::val_t> *selection_out)
         THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t) {
     artificial_table_fdb_backend_t *table_backend =
@@ -172,6 +198,10 @@ void real_reql_cluster_interface_t::make_single_selection(
     ql::datum_t row;
     fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
+        fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+        reqlfdb_config_version cv = cv_fut.block_and_deserialize(env->interruptor);
+        check_cv(cv_checker, cv);
+        cfg_checker(txn);
         admin_err_t error;
         ql::datum_t tmp_row;
         if (!table_backend->read_row(

@@ -86,6 +86,7 @@ bool artificial_reql_cluster_interface_t::table_find(
 bool artificial_reql_cluster_interface_t::table_config(
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
+        config_version_checker cv_checker,
         const namespace_id_t &table_id,
         const name_string_t &name,
         ql::backtrace_id_t bt,
@@ -99,11 +100,13 @@ bool artificial_reql_cluster_interface_t::table_config(
         return false;
     }
     return next_or_error(error_out) && m_next->table_config(
-        user_context, db, table_id, name, bt, env, selection_out, error_out);
+        user_context, db, cv_checker, table_id, name, bt, env, selection_out, error_out);
 }
 
 bool artificial_reql_cluster_interface_t::table_status(
-        counted_t<const ql::db_t> db, const namespace_id_t &table_id,
+        counted_t<const ql::db_t> db,
+        config_version_checker cv_checker,
+        const namespace_id_t &table_id,
         const name_string_t &name,
         ql::backtrace_id_t bt, ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out, admin_err_t *error_out) {
@@ -115,7 +118,7 @@ bool artificial_reql_cluster_interface_t::table_status(
         return false;
     }
     return next_or_error(error_out) && m_next->table_status(
-        db, table_id, name, bt, env, selection_out, error_out);
+        db, cv_checker, table_id, name, bt, env, selection_out, error_out);
 }
 
 void artificial_reql_cluster_interface_t::set_next_reql_cluster_interface(

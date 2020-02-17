@@ -169,6 +169,7 @@ public:
     virtual bool table_config(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
+            config_version_checker cv_checker,
             const namespace_id_t &table_id,
             const name_string_t &name,
             ql::backtrace_id_t bt,
@@ -177,6 +178,7 @@ public:
             admin_err_t *error_out) = 0;
     virtual bool table_status(
             counted_t<const ql::db_t> db,
+            config_version_checker cv_checker,
             const namespace_id_t &table_id,
             const name_string_t &name,
             ql::backtrace_id_t bt,

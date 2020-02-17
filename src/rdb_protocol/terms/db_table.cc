@@ -616,6 +616,7 @@ private:
                 if (!env->env->reql_cluster_interface()->table_config(
                         env->env->get_user_context(),
                         table->db,
+                        table->tbl->cv,
                         table->get_id(),
                         table_name, backtrace(),
                         env->env,
@@ -656,7 +657,7 @@ private:
             // real_reql_cluster_interface_t.
             admin_err_t error;
             if (!env->env->reql_cluster_interface()->table_status(
-                    table->db, table->get_id(),
+                    table->db, table->tbl->cv, table->get_id(),
                     table_name, backtrace(), env->env, &selection, &error)) {
                 REQL_RETHROW(error);
             }

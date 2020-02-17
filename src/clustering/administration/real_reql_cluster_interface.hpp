@@ -44,6 +44,7 @@ public:
     bool table_config(
             auth::user_context_t const &user_context,
             counted_t<const ql::db_t> db,
+            config_version_checker cv_checker,
             const namespace_id_t &table_id,
             const name_string_t &name,
             ql::backtrace_id_t bt,
@@ -52,6 +53,7 @@ public:
             admin_err_t *error_out) override;
     bool table_status(
             counted_t<const ql::db_t> db,
+            config_version_checker cv_checker,
             const namespace_id_t &table_id,
             const name_string_t &name,
             ql::backtrace_id_t bt,
@@ -84,9 +86,11 @@ private:
     void make_single_selection(
             auth::user_context_t const &user_context,
             const name_string_t &table_name,
+            config_version_checker cv_checker,
             const uuid_u &primary_key,
             ql::backtrace_id_t bt,
             ql::env_t *env,
+            std::function<void(FDBTransaction *)> cfg_checker,  // OOO: Hideous!
             scoped_ptr_t<ql::val_t> *selection_out)
             THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t);
 
