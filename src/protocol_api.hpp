@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "btree/keys.hpp"
-#include "buffer_cache/types.hpp"
+#include "write_durability.hpp"
 #include "concurrency/interruptor.hpp"
 #include "concurrency/signal.hpp"
 #include "containers/archive/stl_types.hpp"

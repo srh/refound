@@ -1,8 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
-#ifndef BUFFER_CACHE_TYPES_HPP_
-#define BUFFER_CACHE_TYPES_HPP_
+#ifndef RETHINKDB_WRITE_DURABILITY_HPP_
+#define RETHINKDB_WRITE_DURABILITY_HPP_
 
-#include <limits.h>
 #include <stdint.h>
 
 #include "containers/archive/archive.hpp"
@@ -13,4 +12,4 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(write_durability_t, int8_t,
                                       write_durability_t::SOFT,
                                       write_durability_t::HARD);
 
-#endif /* BUFFER_CACHE_TYPES_HPP_ */
+#endif  // RETHINKDB_WRITE_DURABILITY_HPP_

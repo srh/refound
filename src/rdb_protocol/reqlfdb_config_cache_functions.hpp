@@ -1,7 +1,7 @@
 #ifndef RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_
 #define RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_
 
-#include "buffer_cache/types.hpp"
+#include "write_durability.hpp"
 #include "containers/counted.hpp"
 #include "containers/optional.hpp"
 #include "containers/uuid.hpp"

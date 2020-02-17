@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "btree/keys.hpp"
-#include "buffer_cache/types.hpp"
+#include "write_durability.hpp"
 #include "containers/archive/archive.hpp"
 #include "containers/uuid.hpp"
 #include "rdb_protocol/wire_func.hpp"
