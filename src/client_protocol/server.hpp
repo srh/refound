@@ -15,7 +15,6 @@
 #include "arch/runtime/runtime.hpp"
 #include "arch/timing.hpp"
 #include "concurrency/auto_drainer.hpp"
-#include "concurrency/cross_thread_signal.hpp"
 #include "containers/archive/archive.hpp"
 #include "containers/counted.hpp"
 #include "http/http.hpp"

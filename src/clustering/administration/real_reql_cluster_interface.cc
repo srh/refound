@@ -7,7 +7,6 @@
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/tables/table_config.hpp"
-#include "concurrency/cross_thread_signal.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/env.hpp"

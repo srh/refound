@@ -7,8 +7,6 @@
 #include "clustering/administration/jobs/jobs_backend.hpp"
 #include "clustering/administration/tables/db_config.hpp"
 #include "clustering/administration/tables/table_config.hpp"
-#include "concurrency/cross_thread_signal.hpp"
-#include "containers/lifetime.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/artificial_table/in_memory.hpp"
 #include "rdb_protocol/env.hpp"

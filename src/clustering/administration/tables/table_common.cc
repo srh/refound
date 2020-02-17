@@ -4,7 +4,6 @@
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
-#include "concurrency/cross_thread_signal.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/system_tables.hpp"
 

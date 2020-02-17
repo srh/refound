@@ -34,8 +34,6 @@
 
 class store_t;
 template <class> class clone_ptr_t;
-template <class> class cross_thread_watchable_variable_t;
-class cross_thread_signal_t;
 struct secondary_index_t;
 template <class> class watchable_t;
 
