@@ -23,7 +23,6 @@
 #include "fdb/node_holder.hpp"
 #include "rdb_protocol/query_server.hpp"
 #include "rpc/connectivity/cluster.hpp"
-#include "rpc/mailbox/mailbox.hpp"
 #include "rpc/semilattice/view/field.hpp"
 
 peer_address_set_t look_up_peers_addresses(const std::vector<host_and_port_t> &names) {
@@ -118,11 +117,6 @@ bool do_serve(FDBDatabase *fdb,
         /* The `connectivity_cluster_t` maintains TCP connections to other servers in the
         cluster. */
         connectivity_cluster_t connectivity_cluster;
-
-        // TODO: Hopefully, remove mailbox_manager_t.
-        /* The `mailbox_manager_t` maintains a local index of mailboxes that exist on
-        this server, and routes mailbox messages received from other servers. */
-        mailbox_manager_t mailbox_manager(&connectivity_cluster, 'M');
 
         /* `connectivity_cluster_run` is the other half of the `connectivity_cluster_t`.
         Before it's created, the `connectivity_cluster_t` won't process any connections

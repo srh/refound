@@ -31,10 +31,6 @@ metadata_file_t::key_t<server_config_versioned_t>
 
 /* These prefixes should be followed by the table's UUID as formatted by `uuid_to_str()`.
 */
-metadata_file_t::key_t<table_active_persistent_state_t>
-    mdprefix_table_active();
-metadata_file_t::key_t<table_inactive_persistent_state_t>
-    mdprefix_table_inactive();
 metadata_file_t::key_t<table_raft_stored_header_t>
     mdprefix_table_raft_header();
 metadata_file_t::key_t<table_raft_stored_snapshot_t>
