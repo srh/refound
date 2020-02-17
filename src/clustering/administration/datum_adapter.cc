@@ -4,7 +4,6 @@
 #include "clustering/administration/metadata.hpp"
 #include "clustering/administration/tables/database_metadata.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 #include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
 
@@ -134,6 +133,7 @@ bool convert_connected_server_id_to_datum(
     return true;
 }
 
+#if STATS_REQUEST_IN_FDB
 bool convert_table_id_to_datums(
         const namespace_id_t &table_id,
         admin_identifier_format_t identifier_format,
@@ -232,6 +232,7 @@ bool convert_database_id_from_datum(
         return true;
     }
 }
+#endif  // STATS_REQUEST_IN_FDB
 
 ql::datum_t convert_port_to_datum(
         uint16_t value) {

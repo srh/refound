@@ -8,7 +8,6 @@
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/main/watchable_fields.hpp"
 #include "clustering/administration/tables/table_config.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 #include "concurrency/cross_thread_signal.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"

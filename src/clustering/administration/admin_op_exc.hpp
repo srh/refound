@@ -6,6 +6,38 @@
 #include "query_state.hpp"
 #include "utils.hpp"
 
+// TODO: Remove any of these four exceptions that aren't used.  In fact, perhaps remove
+// them entirely.  They were rescued from table_meta_client.
+
+class no_such_table_exc_t : public std::runtime_error {
+public:
+    no_such_table_exc_t() :
+        std::runtime_error("There is no table with the given name / UUID.") { }
+};
+
+class ambiguous_table_exc_t : public std::runtime_error {
+public:
+    ambiguous_table_exc_t() :
+        std::runtime_error("There are multiple tables with the given name.") { }
+};
+
+class failed_table_op_exc_t : public std::runtime_error {
+public:
+    failed_table_op_exc_t() : std::runtime_error("The attempt to read or modify the "
+        "table's configuration failed because none of the servers were accessible.  If "
+        "it was an attempt to modify, the modification did not take place.") { }
+};
+
+class maybe_failed_table_op_exc_t : public std::runtime_error {
+public:
+    maybe_failed_table_op_exc_t() : std::runtime_error("The attempt to modify the "
+        "table's configuration failed because we lost contact with the servers after "
+        "initiating the modification, or the Raft leader lost contact with its "
+        "followers, or we timed out while waiting for the changes to propagate.  The "
+        "modification may or may not have taken place.") { }
+};
+
+
 struct admin_err_t {
     std::string msg;
     query_state_t query_state;
@@ -66,6 +98,8 @@ They're designed to be used as follows:
 
 TODO: Probably these should re-throw `admin_op_exc_t` instead of setting `*error_out` and
 returning `false`. */
+
+// NNN: Remove these.
 
 #define CATCH_NAME_ERRORS(db, name, error_out)                                        \
     catch (const no_such_table_exc_t &) {                                             \

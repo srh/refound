@@ -4,12 +4,15 @@
 
 // We don't use stats request in fdb yet, but we keep the code around except for a few
 // parts that won't compile, so we can maintain it in-situ.
-#define STATS_REQUEST_IN_FDB 0
 
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
+
+#include "errors.hpp"
+// "outer" STATS_REQUEST_IN_FDB, added because we've dropped table_meta_client and other information-gathering stuff this file uses.
+#if STATS_REQUEST_IN_FDB
 
 #include "clustering/administration/metadata.hpp"
 #include "containers/uuid.hpp"
@@ -243,5 +246,7 @@ public:
                           admin_identifier_format_t admin_format,
                           ql::datum_t *result_out) const;
 };
+
+#endif  // outer STATS_REQUEST_IN_FDB
 
 #endif // CLUSTERING_ADMINISTRATION_STATS_REQUEST_HPP_

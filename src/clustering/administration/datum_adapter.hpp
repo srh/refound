@@ -14,9 +14,6 @@
 #include "time.hpp"
 
 enum class admin_identifier_format_t;
-class cluster_semilattice_metadata_t;
-class server_config_client_t;
-class table_meta_client_t;
 
 /* Note that we generally use `ql::configured_limits_t::unlimited` when converting
 things to datum, rather than using a user-specified limit. This is mostly for consistency
@@ -75,6 +72,7 @@ bool convert_connected_server_id_to_datum(
         ql::datum_t *server_name_or_uuid_out,
         name_string_t *server_name_out);
 
+#if STATS_REQUEST_IN_FDB
 /* `convert_table_id_to_datums()` will return `false` if the table ID corresponds to a
 deleted table. If the table still exists but the database does not, it will return `true`
 but set the database to `__deleted_database__`. */
@@ -104,6 +102,7 @@ bool convert_database_id_from_datum(
         database_id_t *db_id_out,
         name_string_t *db_name_out,
         admin_err_t *error_out);
+#endif  // STATS_REQUEST_IN_FDB
 
 ql::datum_t convert_port_to_datum(
         uint16_t value);

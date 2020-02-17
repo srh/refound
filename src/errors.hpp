@@ -275,6 +275,9 @@ vestigial. */
 #define RDB_CF_UNUSED UNUSED
 #else
 #define RDB_CF_UNUSED
+#error "RDB_CF must be set to 0 right now"
 #endif  // RDB_CF
+
+#define STATS_REQUEST_IN_FDB 0
 
 #endif /* ERRORS_HPP_ */

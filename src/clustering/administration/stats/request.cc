@@ -4,8 +4,6 @@
 #if STATS_REQUEST_IN_FDB
 
 #include "clustering/administration/datum_adapter.hpp"
-#include "clustering/administration/servers/config_client.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 
 const char *cluster_stats_request_t::cluster_request_type = "cluster";
 const char *server_stats_request_t::server_request_type = "server";

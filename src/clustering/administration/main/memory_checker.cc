@@ -7,7 +7,6 @@
 #endif
 
 #include "clustering/administration/metadata.hpp"
-#include "clustering/table_manager/table_meta_client.hpp"
 #include "logger.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
