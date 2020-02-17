@@ -28,26 +28,5 @@ struct write_token_t {
     object_buffer_t<fifo_enforcer_sink_t::exit_write_t> main_write_token;
 };
 
-/* `store_view_t` is an abstract class that represents a region of a key-value store
-for some protocol.  It covers some `region_t`, which is returned by `get_region()`.
-
-In addition to the actual data, `store_view_t` is responsible for keeping track of
-metadata which is keyed by region. The metadata is currently implemented as opaque
-binary blob (`version_t`).
-*/
-
-class store_view_t : public home_thread_mixin_t {
-public:
-    virtual ~store_view_t() {
-        home_thread_mixin_t::assert_thread();
-    }
-
-protected:
-    store_view_t() { }
-
-private:
-    DISABLE_COPYING(store_view_t);
-};
-
 
 #endif  // STORE_VIEW_HPP_

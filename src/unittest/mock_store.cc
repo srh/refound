@@ -39,49 +39,5 @@ std::string mock_parse_read_response(const read_response_t &rr) {
     return prr->data.get_field("value").as_str().to_std();
 }
 
-#if RDB_FDB_UNITTEST
-std::string mock_lookup(store_view_t *store, std::string key) {
-#ifndef NDEBUG
-    metainfo_checker_t checker(region_t::universe(),
-        [](const region_t &, const version_t &) { });
-#endif
-    read_token_t token;
-    store->new_read_token(&token);
-
-    read_t r = mock_read(key);
-    read_response_t rr;
-    cond_t dummy_cond;
-    store->read(DEBUG_ONLY(checker, )
-                r,
-                &rr,
-                &token,
-                &dummy_cond);
-    return mock_parse_read_response(rr);
-}
-#endif  // RDB_FDB_UNITTEST
-
-mock_store_t::mock_store_t(version_t universe_metainfo)
-    : store_view_t(),
-      metainfo_(universe_metainfo) { }
-mock_store_t::~mock_store_t() { }
-
-std::string mock_store_t::values(std::string key) {
-    auto it = table_.find(store_key_t(key));
-    if (it == table_.end()) {
-        // Behave like the old dummy_protocol_t.
-        return "";
-    }
-    return it->second.second.get_field("value").as_str().to_std();
-}
-
-repli_timestamp_t mock_store_t::timestamps(std::string key) {
-    auto it = table_.find(store_key_t(key));
-    if (it == table_.end()) {
-        return repli_timestamp_t::distant_past;
-    }
-    return it->second.first;
-}
-
-
 
 }  // namespace unittest

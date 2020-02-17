@@ -14,65 +14,6 @@
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/table_common.hpp"
 
-void store_t::help_construct_bring_sindexes_up_to_date() {
-    // Make sure to continue bringing sindexes up-to-date if it was interrupted earlier
-
-    // This uses a dummy interruptor because this is the only thing using the store at
-    //  the moment (since we are still in the constructor), so things should complete
-    //  rather quickly.
-    cond_t dummy_interruptor;
-    write_token_t token;
-    new_write_token(&token);
-
-    scoped_ptr_t<txn_t> txn;
-    scoped_ptr_t<real_superblock_lock> superblock;
-    acquire_superblock_for_write(1,
-                                 write_durability_t::SOFT,
-                                 &token,
-                                 &txn,
-                                 &superblock,
-                                 &dummy_interruptor);
-
-    superblock->sindex_block_write_signal()->wait();
-
-    auto clear_sindex = [this](uuid_u sindex_id,
-                               auto_drainer_t::lock_t store_keepalive) {
-        try {
-            /* Clear the sindex. */
-            clear_sindex_data(
-                sindex_id,
-                key_range_t::universe(),
-                store_keepalive.get_drain_signal());
-
-            /* Drop the sindex, now that it's empty. */
-            drop_sindex(sindex_id);
-        } catch (const interrupted_exc_t &e) {
-            /* Ignore */
-        }
-    };
-
-    // Get the map of indexes and check if any were postconstructing or being deleted.
-    // Kick off coroutines to finish the respective operations
-    {
-        std::map<sindex_name_t, secondary_index_t> sindexes;
-        get_secondary_indexes(rocksh(), superblock.get(), &sindexes);
-        for (auto it = sindexes.begin(); it != sindexes.end(); ++it) {
-            if (it->second.being_deleted) {
-                coro_t::spawn_sometime(std::bind(clear_sindex,
-                                                 it->second.id, drainer.lock()));
-            } else if (!it->second.post_construction_complete()) {
-                // TODO: rocks read operations in resume_construct_sindex.
-                coro_t::spawn_sometime(std::bind(&rdb_protocol::resume_construct_sindex,
-                                                 it->second.id,
-                                                 it->second.needs_post_construction_range,
-                                                 this,
-                                                 drainer.lock()));
-            }
-        }
-    }
-
-    txn->commit(rocks, std::move(superblock));
-}
 
 #if RDB_CF
 void acquire_sindex_for_read(
@@ -196,31 +137,6 @@ void do_read_for_changefeed(rockshard rocksh,
 }
 #endif  // RDB_CF
 
-void store_t::delayed_clear_and_drop_sindex(
-        secondary_index_t sindex,
-        auto_drainer_t::lock_t store_keepalive)
-        THROWS_NOTHING {
-    try {
-        /* Clear the sindex */
-        clear_sindex_data(sindex.id,
-                          key_range_t::universe(),
-                          store_keepalive.get_drain_signal());
-
-        /* Drop the sindex, now that it's empty. */
-        drop_sindex(sindex.id);
-    } catch (const interrupted_exc_t &e) {
-        /* Ignore. The sindex deletion will continue when the store
-        is next started up. */
-    }
-}
-
-namespace_id_t const &store_t::get_table_id() const {
-    return table_id;
-}
-
-store_t::sindex_context_map_t *store_t::get_sindex_context_map() {
-    return &sindex_context;
-}
 
 // TODO: Cleanup this fluff.
 #if RDB_CF

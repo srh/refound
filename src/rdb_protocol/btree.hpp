@@ -107,16 +107,6 @@ struct rdb_modification_report_t {
 
 RDB_DECLARE_SERIALIZABLE(rdb_modification_report_t);
 
-void rdb_update_sindexes(
-    rockshard rocksh,
-    store_t *store,
-    real_superblock_lock *superblock,
-    const store_t::sindex_access_vector_t &sindexes,
-    const rdb_modification_report_t *modification,
-    cond_t *keys_available_cond,
-    index_vals_t *old_keys_out,
-    index_vals_t *new_keys_out);
-
 void post_construct_secondary_index_range(
         store_t *store,
         const std::set<uuid_u> &sindexes_to_post_construct,

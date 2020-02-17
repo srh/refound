@@ -18,6 +18,8 @@
 
 namespace unittest {
 
+#if RDB_FDB_UNITTEST
+
 class test_store_t {
 public:
     test_store_t(io_backender_t *io_backender, order_source_t *order_source, rdb_context_t *ctx) :
@@ -189,6 +191,8 @@ inline std::string dummy_key_gen() {
 inline std::string mc_key_gen() {
     return alpha_key_gen(100);
 }
+
+#endif  // RDB_FDB_UNITTEST
 
 }  // namespace unittest
 

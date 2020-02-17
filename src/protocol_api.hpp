@@ -32,8 +32,6 @@ class username_t;
 
 struct read_t;
 struct read_response_t;
-class store_t;
-class store_view_t;
 struct write_t;
 struct write_response_t;
 
