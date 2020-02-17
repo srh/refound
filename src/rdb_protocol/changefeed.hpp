@@ -38,7 +38,6 @@
 #include "repli_timestamp.hpp"
 #include "rockstore/rockshard.hpp"
 #include "rpc/connectivity/peer_id.hpp"
-#include "rpc/mailbox/typed.hpp"
 #include "rpc/serialize_macros.hpp"
 #endif  // RDB_CF
 
@@ -47,7 +46,6 @@ class artificial_table_backend_t;
 class auto_drainer_t;
 class base_table_t;
 class btree_slice_t;
-class mailbox_manager_t;
 class namespace_interface_access_t;
 class real_superblock_lock;
 struct rdb_modification_report_t;

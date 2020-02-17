@@ -15,6 +15,7 @@
 #include "btree/key_edges.hpp"
 #include "rdb_protocol/secondary_operations.hpp"
 #include "clustering/administration/auth/user_context.hpp"
+#include "concurrency/auto_drainer.hpp"
 #include "concurrency/cond_var.hpp"
 #include "containers/optional.hpp"
 #include "perfmon/perfmon.hpp"
@@ -30,7 +31,6 @@
 #include "rdb_protocol/shards.hpp"
 #include "region/region.hpp"
 #include "repli_timestamp.hpp"
-#include "rpc/mailbox/typed.hpp"
 
 class store_t;
 template <class> class clone_ptr_t;
