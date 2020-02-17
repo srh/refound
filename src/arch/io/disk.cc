@@ -30,33 +30,6 @@
 #include "utils.hpp"
 
 
-// TODO: Beware of _direct_io_mode -- we need to pay attention to this when
-// using rockstore (or remove the option).
-// TODO: We don't need the max_concurrent_io_requests option anymore, do we?
-io_backender_t::io_backender_t(rockstore::store *rocks,
-                               file_direct_io_mode_t _direct_io_mode,
-                               UNUSED int max_concurrent_io_requests)
-    : direct_io_mode(_direct_io_mode),
-      rocks_(rocks) { }
-
-io_backender_t::~io_backender_t() { }
-
-file_direct_io_mode_t io_backender_t::get_direct_io_mode() const { return direct_io_mode; }
-
-
-// For growing in large chunks at a time.
-int64_t chunk_factor(int64_t size, int64_t extent_size) {
-    // x is at most 12.5% of size. Overall we align to chunks no larger than 64 extents.
-    // This ratio was increased from 6.25% for performance reasons.  Resizing a file
-    // (with ftruncate) doesn't actually use disk space, so it's OK if we pick a value
-    // that's too big.
-
-    // We round off at an extent_size because it would be silly to allocate a partial
-    // extent.
-    int64_t x = (size / (extent_size * 8)) * extent_size;
-    return clamp<int64_t>(x, extent_size, extent_size * 64);
-}
-
 // Upon error, returns the errno value.
 int perform_datasync(fd_t fd) {
     // On OS X, we use F_FULLFSYNC because fsync lies.  fdatasync is not available.  On
