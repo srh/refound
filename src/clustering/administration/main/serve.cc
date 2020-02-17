@@ -8,7 +8,6 @@
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/http/server.hpp"
 #include "clustering/administration/logs/log_writer.hpp"
-#include "clustering/administration/main/initial_join.hpp"
 #include "clustering/administration/main/ports.hpp"
 #include "clustering/administration/main/memory_checker.hpp"
 #include "clustering/administration/metadata.hpp"
@@ -100,7 +99,6 @@ bool do_serve(FDBDatabase *fdb,
         thread_pool_log_writer_t log_writer;
 
         auth_semilattice_metadata_t auth_metadata;
-        server_id_t server_id = server_id_t();
         if (true) {
             cond_t non_interruptor;
             metadata_file_t::read_txn_t txn(metadata_file, &non_interruptor);
@@ -108,23 +106,10 @@ bool do_serve(FDBDatabase *fdb,
         }
 
 #ifndef NDEBUG
-        logNTC("Our server ID is %s", server_id.print().c_str());
+        logNTC("Our server ID is %s", server_id_t().print().c_str());
 #endif
 
         fdb_node_holder node_holder{fdb, stop_cond};
-
-        /* The `connectivity_cluster_t` maintains TCP connections to other servers in the
-        cluster. */
-        connectivity_cluster_t connectivity_cluster;
-
-        /* `connectivity_cluster_run` is the other half of the `connectivity_cluster_t`.
-        Before it's created, the `connectivity_cluster_t` won't process any connections
-        or messages. So it's only safe to create now that we've set up all of our message
-        handlers. */
-        scoped_ptr_t<connectivity_cluster_t::run_t> connectivity_cluster_run(
-            new connectivity_cluster_t::run_t(
-                &connectivity_cluster,
-                server_id));
 
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
@@ -252,9 +237,9 @@ bool do_serve(FDBDatabase *fdb,
                         // TODO: "theserver" in user output.
                         logNTC("Server ready, \"%s\" %s\n",
                                "theserver",
-                               server_id.print().c_str());
+                               server_id_t().print().c_str());
                     } else {
-                        logNTC("Proxy ready, %s", server_id.print().c_str());
+                        logNTC("Proxy ready, %s", server_id_t().print().c_str());
                     }
 
                     /* This is the end of the startup process. `stop_cond` will be pulsed
