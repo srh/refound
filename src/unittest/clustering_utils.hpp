@@ -17,7 +17,6 @@
 #include "random.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/store.hpp"
-#include "rpc/connectivity/cluster.hpp"
 
 namespace unittest {
 
@@ -192,22 +191,6 @@ inline std::string dummy_key_gen() {
 inline std::string mc_key_gen() {
     return alpha_key_gen(100);
 }
-
-peer_address_t get_cluster_local_address(connectivity_cluster_t *cm);
-
-class test_cluster_run_t {
-public:
-    explicit test_cluster_run_t(connectivity_cluster_t *c)
-        : run(c, server_id_t()) { }
-
-    operator connectivity_cluster_t::run_t&() {
-        return run;
-    }
-
-private:
-    dummy_semilattice_controller_t<auth_semilattice_metadata_t> auth_manager;
-    connectivity_cluster_t::run_t run;
-};
 
 }  // namespace unittest
 
