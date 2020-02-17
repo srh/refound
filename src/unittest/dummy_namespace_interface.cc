@@ -43,13 +43,9 @@ dummy_namespace_interface_t(store_view_t *the_store,
             guarantee(b == version_t::zero());
         });
 
-        write_token_t write_token;
-        the_store->new_write_token(&write_token);
-
         the_store->set_metainfo(
                 region_map_t<version_t>(
                     region_t::universe(), version_t::zero()),
-                &write_token,
                 write_durability_t::SOFT,
                 &interruptor);
     }

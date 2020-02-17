@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "buffer_cache/types.hpp"
-#include "concurrency/fifo_enforcer.hpp"
 #include "concurrency/interruptor.hpp"
 #include "concurrency/signal.hpp"
 #include "containers/archive/stl_types.hpp"

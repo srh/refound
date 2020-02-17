@@ -27,10 +27,8 @@ public:
                 namespace_id_t{generate_uuid()}, update_sindexes_t::UPDATE) {
         /* Initialize store metadata */
         cond_t non_interruptor;
-        write_token_t token;
-        store.new_write_token(&token);
         version_t new_metainfo = version_t::zero();
-        store.set_metainfo(new_metainfo, &token,
+        store.set_metainfo(new_metainfo,
             write_durability_t::SOFT, &non_interruptor);
     }
 

@@ -18,15 +18,4 @@ public:
 
 #endif  // NDEBUG
 
-/* {read,write}_token_t hold the lock held when getting in line for the
-   superblock. */
-struct read_token_t {
-    object_buffer_t<fifo_enforcer_sink_t::exit_read_t> main_read_token;
-};
-
-struct write_token_t {
-    object_buffer_t<fifo_enforcer_sink_t::exit_write_t> main_write_token;
-};
-
-
 #endif  // STORE_VIEW_HPP_
