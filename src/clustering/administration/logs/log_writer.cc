@@ -682,16 +682,14 @@ void log_internal(const char *src_file, int src_line, log_level_t level, const c
 }
 
 void vlog_internal(UNUSED const char *src_file, UNUSED int src_line, log_level_t level, const char *format, va_list args) {
+    std::string message = vstrprintf(format, args);
     thread_pool_log_writer_t *writer;
     if ((writer = TLS_get_global_log_writer()) && TLS_get_log_writer_block() == 0) {
         auto_drainer_t::lock_t lock(TLS_get_global_log_drainer());
 
-        std::string message = vstrprintf(format, args);
         coro_t::spawn_sometime(std::bind(&log_coro, writer, level, message, lock));
 
     } else {
-        std::string message = vstrprintf(format, args);
-
         fallback_log_writer.initiate_write(level, message);
     }
 }
