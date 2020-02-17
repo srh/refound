@@ -6,7 +6,6 @@
 
 #include "arch/io/disk.hpp"
 #include "arch/runtime/thread_pool.hpp"
-#include "buffer_cache/alt.hpp"
 #include "paths.hpp"
 
 void create_directory(const std::string &dirname) {
