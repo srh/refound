@@ -187,12 +187,6 @@ region_t quick_region(const char *bounds) {
     return region_t(quick_range(bounds));
 }
 
-state_timestamp_t make_state_timestamp(int n) {
-    state_timestamp_t t;
-    t.num = n;
-    return t;
-}
-
 std::string random_letter_string(rng_t *rng, int min_length, int max_length) {
     std::string ret;
     int size = min_length + rng->randint(max_length - min_length + 1);

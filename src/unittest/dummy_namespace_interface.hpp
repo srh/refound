@@ -7,7 +7,6 @@
 
 #include "containers/scoped.hpp"
 #include "protocol_api.hpp"
-#include "timestamps.hpp"
 #include "unittest/unittest_utils.hpp"  // TODO: Included only for RDB_FDB_UNITTEST
 
 class rdb_context_t;
@@ -32,7 +31,6 @@ public:
 
 private:
     dummy_performer_t *next;
-    state_timestamp_t current_timestamp;
 };
 
 class dummy_sharder_t {

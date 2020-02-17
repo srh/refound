@@ -30,7 +30,6 @@
 #include "rdb_protocol/optargs.hpp"
 #include "rdb_protocol/return_changes.hpp"
 #include "rdb_protocol/shards.hpp"
-#include "repli_timestamp.hpp"
 
 class store_t;
 template <class> class clone_ptr_t;
