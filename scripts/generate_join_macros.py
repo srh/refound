@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # Copyright 2010-2013 RethinkDB, all rights reserved.
 
-"""This script is used to generate the RDB_MAKE_SEMILATTICE_JOINABLE_*() macro
-definitions.
+"""This script is used to generate the
+RDB_MAKE_SEMILATTICE_JOINABLE_*() macro definitions.  Actually, those
+don't exist anymore, but we have some EQUALITY_COMPARABLE macros still
+in use.
 
 This script is meant to be run as follows (assuming you are in the
 "rethinkdb/src" directory):
@@ -19,23 +21,6 @@ try:
     xrange
 except NameError:
     xrange = range
-
-def help_generate_semilattice_joinable_macro(nfields, impl):
-    print("#define RDB_%s_SEMILATTICE_JOINABLE_%d(type_t%s) \\" % \
-        (("IMPL" if impl else "MAKE"), nfields, "".join(", field%d" % (i + 1) for i in xrange(nfields))))
-    unused = "UNUSED " if nfields == 0 else ""
-    print("    %svoid semilattice_join(%stype_t *_a_, %sconst type_t &_b_) { \\" % ("" if impl else "inline ", unused, unused))
-    for i in xrange(nfields):
-        print("        semilattice_join(&_a_->field%d, _b_.field%d); \\" % (i + 1, i + 1))
-    print("    } \\")
-    # Putting this here makes us require a semicolon after macro invocation.
-    print("    extern int semilattice_joinable_force_semicolon_declaration")
-
-def generate_make_semilattice_joinable_macro(nfields):
-    help_generate_semilattice_joinable_macro(nfields, False)
-
-def generate_impl_semilattice_joinable_macro(nfields):
-    help_generate_semilattice_joinable_macro(nfields, True)
 
 def help_generate_equality_comparable_macro(nfields, impl):
     print("#define RDB_%s_EQUALITY_COMPARABLE_%d(type_t%s) \\" % \
@@ -80,38 +65,11 @@ if __name__ == "__main__":
     print()
 
     print("""
-/* The purpose of these macros is to make it easier to define semilattice joins
-for types that consist of a fixed set of fields which it is a simple product of.
-In the same namespace as the type, call `RDB_MAKE_SEMILATTICE_JOINABLE_[n]()`,
-where `[n]` is the number of fields in the type. The first parameter is the name
-of the type; the remaining parameters are the fields. You will also need an
-`==` operator; for this you can use `RDB_MAKE_EQUALITY_COMPARABLE_[n]()`.
-
-Example:
-    struct point_t {
-        vclock_t<int> x, y;
-    };
-    RDB_MAKE_SEMILATTICE_JOINABLE_2(point_t, x, y)
-
-You can also use this with templated types, but it's pretty hacky:
-    template<class T>
-    struct pair_t {
-        T a, b;
-    };
-    template<class T>
-    RDB_MAKE_SEMILATTICE_JOINABLE_2(pair_t<T>, a, b)
-*/
-
-#define RDB_DECLARE_SEMILATTICE_JOINABLE(type_t) \\
-  void semilattice_join(type_t *, const type_t &)
-
 #define RDB_DECLARE_EQUALITY_COMPARABLE(type_t) \\
   bool operator==(const type_t &, const type_t &)
     """.strip())
 
     for nfields in xrange(0, 20):
-        generate_make_semilattice_joinable_macro(nfields)
-        generate_impl_semilattice_joinable_macro(nfields)
         generate_make_equality_comparable_macro(nfields)
         generate_impl_equality_comparable_macro(nfields)
         generate_make_me_equality_comparable_macro(nfields)
