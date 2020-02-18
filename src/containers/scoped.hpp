@@ -118,9 +118,11 @@ private:
     DISABLE_COPYING(scoped_ptr_t);
 };
 
+template <class T> using scoped = scoped_ptr_t<T>;
+
 template <class T, class... Args>
-scoped_ptr_t<T> make_scoped(Args&&... args) {
-    return scoped_ptr_t<T>(new T(std::forward<Args>(args)...));
+scoped<T> make_scoped(Args&&... args) {
+    return scoped<T>(new T(std::forward<Args>(args)...));
 }
 
 // Not really like boost::scoped_array.  A fascist array.

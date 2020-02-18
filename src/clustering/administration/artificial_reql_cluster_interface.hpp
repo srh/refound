@@ -31,13 +31,13 @@ public:
 
     // Just for human sanity, are in alphabetical order by table name (with
     // "_debug_scratch" being underscore-prefixed).
-    scoped_ptr_t<db_config_artificial_table_fdb_backend_t> db_config_backend;
-    scoped_ptr_t<jobs_artificial_table_fdb_backend_t> jobs_backend[2];
-    scoped_ptr_t<auth::permissions_artificial_table_fdb_backend_t>
+    scoped<db_config_artificial_table_fdb_backend_t> db_config_backend;
+    scoped<jobs_artificial_table_fdb_backend_t> jobs_backend[2];
+    scoped<auth::permissions_artificial_table_fdb_backend_t>
         permissions_backend[2];
-    scoped_ptr_t<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
-    scoped_ptr_t<auth::users_artificial_table_fdb_backend_t> users_backend;
-    scoped_ptr_t<in_memory_artificial_table_fdb_backend_t> debug_scratch_backend;
+    scoped<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
+    scoped<auth::users_artificial_table_fdb_backend_t> users_backend;
+    scoped<in_memory_artificial_table_fdb_backend_t> debug_scratch_backend;
 
     /* QQQ: Reimplement these backends:
 
