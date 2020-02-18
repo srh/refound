@@ -587,11 +587,9 @@ private:
             if (target->get_type().is_convertible(val_t::type_t::DB)) {
                 counted_t<const ql::db_t> db = target->as_db(env->env);
                 if (db->name == artificial_reql_cluster_interface_t::database_name) {
-                    admin_err_t error{
-                        strprintf("Database `%s` is special; you can't configure it.",
-                            artificial_reql_cluster_interface_t::database_name.c_str()),
-                        query_state_t::FAILED};
-                    REQL_RETHROW(error);
+                    rfail(ql::base_exc_t::OP_FAILED,
+                        "Database `%s` is special; you can't configure it.",
+                            artificial_reql_cluster_interface_t::database_name.c_str());
                 }
 
                 // OOO: Fdb-ize this here.  Look at make_single_selection in
@@ -608,6 +606,13 @@ private:
                 }
             } else {
                 counted_t<table_t> table = target->as_table(env->env);
+
+                if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+                    rfail(ql::base_exc_t::OP_FAILED,
+                          "Database `%s` is special; you can't configure the tables in it.",
+                          artificial_reql_cluster_interface_t::database_name.c_str());
+                }
+
                 name_string_t table_name = table->name;
                 admin_err_t error;
                 /// OOO: Fdb-ize this here.  Look at make_single_selection in

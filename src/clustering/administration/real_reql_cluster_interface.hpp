@@ -24,6 +24,17 @@ class real_reql_cluster_interface_t :
 public:
     real_reql_cluster_interface_t();
 
+    // These functions are now accessible as static functions.
+
+    static bool make_db_config_selection(
+            artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
+            auth::user_context_t const &user_context,
+            const counted_t<const ql::db_t> &db,
+            ql::backtrace_id_t bt,
+            ql::env_t *env,
+            scoped_ptr_t<ql::val_t> *selection_out,
+            admin_err_t *error_out);
+
     bool db_config(
             auth::user_context_t const &user_context,
             const counted_t<const ql::db_t> &db,
@@ -31,6 +42,19 @@ public:
             ql::env_t *env,
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) override;
+
+    static bool make_table_config_selection(
+            artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
+            auth::user_context_t const &user_context,
+            counted_t<const ql::db_t> db,
+            config_version_checker cv_checker,
+            const namespace_id_t &table_id,
+            const name_string_t &name,
+            ql::backtrace_id_t bt,
+            ql::env_t *env,
+            scoped_ptr_t<ql::val_t> *selection_out,
+            admin_err_t *error_out);
+
 
     bool table_config(
             auth::user_context_t const &user_context,
@@ -49,7 +73,8 @@ public:
 
 private:
 
-    void make_single_selection(
+    static void make_single_selection(
+            artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
             auth::user_context_t const &user_context,
             const name_string_t &table_name,
             config_version_checker cv_checker,

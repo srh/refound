@@ -160,10 +160,6 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) = 0;
 
-#if RDB_CF
-    virtual ql::changefeed::client_t *get_changefeed_client() = 0;
-#endif
-
 protected:
     virtual ~reql_cluster_interface_t() { }   // silence compiler warnings
 };

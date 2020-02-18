@@ -21,7 +21,8 @@
 
 real_reql_cluster_interface_t::real_reql_cluster_interface_t() { }
 
-bool real_reql_cluster_interface_t::db_config(
+bool real_reql_cluster_interface_t::make_db_config_selection(
+        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         const counted_t<const ql::db_t> &db,
         ql::backtrace_id_t backtrace_id,
@@ -30,7 +31,8 @@ bool real_reql_cluster_interface_t::db_config(
         admin_err_t *error_out) {
     // TODO: fdb-ize this function (for writing?  for making a single section?  fdb-ize artificial table?)
     try {
-        make_single_selection(
+        real_reql_cluster_interface_t::make_single_selection(
+            artificial_reql_cluster_interface,
             user_context,
             name_string_t::guarantee_valid("db_config"),
             db->cv,
@@ -54,6 +56,17 @@ bool real_reql_cluster_interface_t::db_config(
     }
 }
 
+bool real_reql_cluster_interface_t::db_config(
+        auth::user_context_t const &user_context,
+        const counted_t<const ql::db_t> &db,
+        ql::backtrace_id_t backtrace_id,
+        ql::env_t *env,
+        scoped_ptr_t<ql::val_t> *selection_out,
+        admin_err_t *error_out) {
+    return real_reql_cluster_interface_t::make_db_config_selection(
+        artificial_reql_cluster_interface,
+        user_context, db, backtrace_id, env, selection_out, error_out);
+}
 // TODO: Move elsewhere.
 admin_err_t table_already_exists_error(
     const name_string_t &db_name, const name_string_t &table_name) {
@@ -65,7 +78,8 @@ admin_err_t table_already_exists_error(
 
 // TODO: Remove sharding UI.
 
-bool real_reql_cluster_interface_t::table_config(
+bool real_reql_cluster_interface_t::make_table_config_selection(
+        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
         config_version_checker cv_checker,
@@ -81,7 +95,8 @@ bool real_reql_cluster_interface_t::table_config(
 
         // QQQ: No more name errors to catch, probblay.
 
-        make_single_selection(
+        real_reql_cluster_interface_t::make_single_selection(
+            artificial_reql_cluster_interface,
             user_context,
             name_string_t::guarantee_valid("table_config"),
             cv_checker,
@@ -100,10 +115,23 @@ bool real_reql_cluster_interface_t::table_config(
     } CATCH_NAME_ERRORS(db->name, name, error_out)
 }
 
+bool real_reql_cluster_interface_t::table_config(
+        auth::user_context_t const &user_context,
+        counted_t<const ql::db_t> db,
+        config_version_checker cv_checker,
+        const namespace_id_t &table_id,
+        const name_string_t &name,
+        ql::backtrace_id_t bt,
+        ql::env_t *env,
+        scoped_ptr_t<ql::val_t> *selection_out,
+        admin_err_t *error_out) {
+    return real_reql_cluster_interface_t::make_table_config_selection(
+        artificial_reql_cluster_interface,
+        user_context, db, cv_checker, table_id, name, bt, env, selection_out, error_out);
+}
 
-// TODO: fdb-ize functions (for writing) below.
-// TODO: fdb-ize this, somehow.  (Caller passes in txn and uses it to mutate, probably.)
 void real_reql_cluster_interface_t::make_single_selection(
+        artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         const name_string_t &table_name,
         config_version_checker cv_checker,
