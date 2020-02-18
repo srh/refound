@@ -76,13 +76,6 @@ public:
     table_fdb_backends_map_t *get_table_fdb_backends_map_mutable();
     table_fdb_backends_map_t const &get_table_fdb_backends_map() const;
 
-#if RDB_CF
-    ql::changefeed::client_t *get_changefeed_client() override {
-        guarantee(m_next != nullptr);
-        return m_next->get_changefeed_client();
-    }
-#endif  // RDB_CF
-
 private:
     bool next_or_error(admin_err_t *error_out) const;
 

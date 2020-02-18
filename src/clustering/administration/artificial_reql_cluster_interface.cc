@@ -13,12 +13,13 @@
 #include "fdb/reql_fdb.hpp"
 
 
-/* static */ const name_string_t artificial_reql_cluster_interface_t::database_name =
-    name_string_t::guarantee_valid("rethinkdb");
+constexpr const char *SYSTEM_DB_NAME = "rethinkdb";
 
-// Note, can't use the above as order of initialization isn't guaranteed
-/* static */ const database_id_t artificial_reql_cluster_interface_t::database_id =
-    database_id_t{uuid_u::from_hash(str_to_uuid("39a24924-14ec-4deb-99f1-742eda7aba5e"), "rethinkdb")};
+const name_string_t artificial_reql_cluster_interface_t::database_name =
+    name_string_t::guarantee_valid(SYSTEM_DB_NAME);
+
+const database_id_t artificial_reql_cluster_interface_t::database_id =
+    database_id_t{uuid_u::from_hash(str_to_uuid("39a24924-14ec-4deb-99f1-742eda7aba5e"), SYSTEM_DB_NAME)};
 
 artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t() :
     m_next(nullptr) {

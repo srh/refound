@@ -43,21 +43,11 @@ public:
             scoped_ptr_t<ql::val_t> *selection_out,
             admin_err_t *error_out) override;
 
-#if RDB_CF
-    ql::changefeed::client_t *get_changefeed_client() override {
-        return &m_changefeed_client;
-    }
-#endif  // RDB_CF
-
     /* This is public because it needs to be set after we're created to solve a certain
     chicken-and-egg problem */
-    artificial_reql_cluster_interface_t *artificial_reql_cluster_interface;
+    artificial_reql_cluster_interface_t *artificial_reql_cluster_interface = nullptr;
 
 private:
-
-#if RDB_CF
-    ql::changefeed::client_t m_changefeed_client;
-#endif
 
     void make_single_selection(
             auth::user_context_t const &user_context,

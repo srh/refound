@@ -1,6 +1,7 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
+#include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
@@ -253,7 +254,7 @@ bool config_cache_db_create(
         const signal_t *interruptor) {
     // TODO: This function must read and verify user permissions when performing this
     // operation.
-    guarantee(db_name.str() != "rethinkdb",
+    guarantee(db_name != artificial_reql_cluster_interface_t::database_name,
         "config_cache_db_create should never get queries for system tables");
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);

@@ -19,12 +19,7 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 
-real_reql_cluster_interface_t::real_reql_cluster_interface_t()
-#if RDB_CF
-    : m_changefeed_client()
-#endif
-{
-}
+real_reql_cluster_interface_t::real_reql_cluster_interface_t() { }
 
 bool real_reql_cluster_interface_t::db_config(
         auth::user_context_t const &user_context,
