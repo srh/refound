@@ -14,6 +14,79 @@
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
 
+/*
+Some ranting about the config cache and config versions...
+
+We suffer a basic problem: If we get a config_version_exc_t, we have to re-evaluate the
+query.  At which point do we have to reevaluate the query?  I suppose, the largest
+containing expression which contains both the r.table or r.db expression that carried
+the out-of-date information, and the code which triggered the exception.
+
+A few things:
+
+1. The expression might have had side effects on the db.  Then we'd be doubling the side
+effect on the db.  That's different than an incomplete write.  And it might be a side
+effect like tableCreate.  A basic query like
+
+r.expr(["alpha", "beta", "cuck"]).forEach(x => r.db('test').tableCreate(x))
+
+would fail because the db's CV is out-of-date (assuming we don't manually wipe the
+config cache after the first tableCreate) -- and the second round would get a conflict
+on the table "alpha".
+
+One workaround is to simply always track the provenance of some db/table object or
+database id.  Oh, we used the cached name->id mapping as of config version X.  How about
+that.
+
+Also possible:  We used the cached table name -> id -> db id mapping as of config version X.
+
+Then, if the config version is out-of-date, we just retry that lookup.  And if that
+fails... we're in trouble.
+
+2. It sure is a good thing that we can't put r.db or r.table in a variable.  It isn't a datum.
+
+3. I was going to say that we need to make sure our side effects are in order.  Let's
+say we run the query
+
+    r.db('d').table('foo').insert({value: r.http(...)});
+
+Or, God forbid, imagine inserting `{value: r.range(1000).map(x => r.http(...))}`.)
+
+We will want to fail on the db/table lookup _before_ the HTTP query.  Not simply because
+it's slow, but because it is very polite not to have an external side effect, period, if
+the db or table lookup would have failed.  (I think `insert` unofficially promises the
+table argument gets evaluated before the rhs.)
+
+Less dramatically, it's pretty gauche to have
+
+    r.table('dne').insert(r.table('alpha').get(666))
+
+with a lookup failure on `'dne'` happening *after* retrieval from `'alpha'`.  What's
+more, we might get a document not found error retrieving from ``alpha'`.
+
+4. I think the solution is a global (per-query) sequence of lookups that got cached and
+need to be verified.  And they'd be verified by checking the config version, and if that
+fails, by re-performing the lookup.
+
+They'd have to get verified before they actually get *used* in any way.
+
+Once we have to use a value, that means a trip to FDB, at which point we perform _all
+prior lookups_ that had been cached.  And then we fill in the data, update the caches,
+etc.  (We presumably perform the prior lookups by checking the cv hasn't changed, and
+then if it has changed, we re-attempt the lookup.)
+
+5. Here's a problem: When evaluating, we end up throwing exceptions from the wrong
+expression.  We might need some work to ensure the "backtrace" is correct.  Fortunately,
+general errors aren't handleable by the users, so maybe we can just blithely spit out
+the exception.
+
+6. The purpose of the config cache is that we can calculate keys and request documents
+from tables without performing a table name -> id lookup.  We _will_ need to handle the
+case (in the middle of an fdb transaction) where we operated based on out-of-date data.
+
+*/
+
+
 reqlfdb_config_cache::reqlfdb_config_cache()
     : config_version{0} {}
 reqlfdb_config_cache::~reqlfdb_config_cache() {}
