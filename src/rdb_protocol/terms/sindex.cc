@@ -371,11 +371,10 @@ public:
         }
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
-            admin_err_t error{
-                strprintf("Database `%s` is special; you can't create secondary "
-                          "indexes on the tables in it.", artificial_reql_cluster_interface_t::database_name.c_str()),
-                query_state_t::FAILED};
-            REQL_RETHROW(error);
+            rfail(ql::base_exc_t::OP_FAILED,
+                "Database `%s` is special; you can't create secondary "
+                "indexes on the tables in it.",
+                artificial_reql_cluster_interface_t::database_name.c_str());
         }
 
         sindex_id_t new_sindex_id{generate_uuid()};
@@ -407,11 +406,9 @@ public:
         }
 
         if (!fdb_result) {
-            admin_err_t error{
-                strprintf("Index `%s` already exists on table `%s`.",
-                          index_name.c_str(), table->display_name().c_str()),
-                query_state_t::FAILED};
-            REQL_RETHROW(error);
+            rfail(ql::base_exc_t::OP_FAILED,
+                "Index `%s` already exists on table `%s`.",
+                index_name.c_str(), table->display_name().c_str());
         }
         // TODO: We could wipe the config cache here.
 
@@ -434,11 +431,9 @@ public:
 
         if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
             // TODO: Dedup index dne errors.
-            admin_err_t error{
-                strprintf("Index `%s` does not exist on table `%s`.",
-                          index_name.c_str(), table->display_name().c_str()),
-                query_state_t::FAILED};
-            REQL_RETHROW(error);
+            rfail(ql::base_exc_t::OP_FAILED,
+                "Index `%s` does not exist on table `%s`.",
+                index_name.c_str(), table->display_name().c_str());
         }
 
         bool fdb_result = valgrind_undefined(false);
@@ -464,11 +459,9 @@ public:
         }
 
         if (!fdb_result) {
-            admin_err_t error{
-                strprintf("Index `%s` does not exist on table `%s`.",
-                          index_name.c_str(), table->display_name().c_str()),
-                query_state_t::FAILED};
-            REQL_RETHROW(error);
+            rfail(ql::base_exc_t::OP_FAILED,
+                "Index `%s` does not exist on table `%s`.",
+                index_name.c_str(), table->display_name().c_str());
         }
         // TODO: We could wipe the config cache here.
 
@@ -732,18 +725,14 @@ public:
         switch (fdb_result) {
         case rename_result::success: break;
         case rename_result::old_not_found: {
-            admin_err_t error{
-                strprintf("Index `%s` does not exist on table `%s`.",
-                          old_name.c_str(), table->display_name().c_str()),
-                query_state_t::FAILED};
-            REQL_RETHROW(error);
+            rfail(ql::base_exc_t::OP_FAILED,
+                  "Index `%s` does not exist on table `%s`.",
+                  old_name.c_str(), table->display_name().c_str());
         } break;
         case rename_result::new_already_exists: {
-            admin_err_t error{
-                strprintf("Index `%s` already exists on table `%s`.",
-                          new_name.c_str(), table->display_name().c_str()),
-                query_state_t::FAILED};
-            REQL_RETHROW(error);
+            rfail(ql::base_exc_t::OP_FAILED,
+                  "Index `%s` already exists on table `%s`.",
+                  new_name.c_str(), table->display_name().c_str());
         } break;
         default: unreachable();
         }
