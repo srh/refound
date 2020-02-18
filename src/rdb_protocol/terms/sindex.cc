@@ -502,9 +502,11 @@ public:
 
         /* Convert into an array and return it */
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-        for (const auto &pair : table_config.sindex_configs) {
+        res.reserve(table_config.sindexes.size());
+        for (const auto &pair : table_config.sindexes) {
             res.add(ql::datum_t(datum_string_t(pair.first)));
         }
+        res.sort();
         return new_val(std::move(res).to_datum());
     }
 
@@ -550,19 +552,27 @@ public:
             });
             guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
 
-            for (const auto &pair : table_config.sindex_configs) {
+            // We iterate the sindex configs in name order (preserving existing behavior).
+            std::vector<std::string> names;
+            names.reserve(table_config.sindexes.size());
+            for (const auto &pair : table_config.sindexes) {
+                names.push_back(pair.first);
+            }
+            std::sort(names.begin(), names.end());
+            for (const std::string &index_name : names) {
                 if (!sindexes.empty()) {
-                    if (sindexes.count(pair.first) == 0) {
+                    if (sindexes.count(index_name) == 0) {
                         continue;
                     } else {
-                        remaining_sindexes.erase(pair.first);
+                        remaining_sindexes.erase(index_name);
                     }
                 }
 
-                sindex_status_t status = build_status(pair.second);
+                auto it = table_config.sindexes.find(index_name);
 
+                sindex_status_t status = build_status(it->second);
                 res.add(sindex_status_to_datum(
-                    pair.first, pair.second, status));
+                    index_name, it->second, status));
             }
         }
 
@@ -630,7 +640,7 @@ public:
             // Verify all requested sindexes exist.
             for (const auto &sindex : sindexes) {
                 // TODO: Dedup error message creation.
-                rcheck(table_config->sindex_configs.count(sindex) == 1, base_exc_t::OP_FAILED,
+                rcheck(table_config->sindexes.count(sindex) == 1, base_exc_t::OP_FAILED,
                     strprintf("Index `%s` was not found on table `%s`.",
                               sindex.c_str(),
                               table->display_name().c_str()));
@@ -638,7 +648,7 @@ public:
 
             ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
             bool all_ready = true;
-            for (const auto &pair : table_config->sindex_configs) {
+            for (const auto &pair : table_config->sindexes) {
                 if (!sindexes.empty() && sindexes.count(pair.first) == 0) {
                     continue;
                 }

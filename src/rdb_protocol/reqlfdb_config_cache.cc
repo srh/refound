@@ -471,7 +471,7 @@ void help_remove_table(
 
     // TODO: Parallelize this.
     // For any sindexes with jobs, remove their jobs.
-    for (auto &&pair : config.sindex_configs) {
+    for (auto &&pair : config.sindexes) {
         fdb_shared_task_id task = pair.second.creation_task_or_nil;
         if (!task.value.is_nil()) {
             remove_fdb_task_and_jobs(txn, task, interruptor);
@@ -746,7 +746,7 @@ MUST_USE bool config_cache_sindex_create(
     const fdb_shared_task_id task_id_or_nil
         = table_has_data ? new_index_create_task_id : fdb_shared_task_id{nil_uuid()};
 
-    if (!table_config.sindex_configs.emplace(index_name,
+    if (!table_config.sindexes.emplace(index_name,
             sindex_metaconfig_t{sindex_config, new_sindex_id, task_id_or_nil}).second) {
         return false;
     }
@@ -825,15 +825,15 @@ bool config_cache_sindex_drop(
         crash("table config not present, when id matched config version");
     }
 
-    auto sindexes_it = table_config.sindex_configs.find(index_name);
-    if (sindexes_it == table_config.sindex_configs.end()) {
+    auto sindexes_it = table_config.sindexes.find(index_name);
+    if (sindexes_it == table_config.sindexes.end()) {
         // Index simply doesn't exist.
         return false;
     }
 
     help_erase_sindex_content(txn, table_id, sindexes_it->second, interruptor);
 
-    table_config.sindex_configs.erase(sindexes_it);
+    table_config.sindexes.erase(sindexes_it);
 
     // Table by name index unchanged.
     transaction_set_uq_index<table_config_by_id>(txn, table_id, table_config);
@@ -907,8 +907,8 @@ rename_result config_cache_sindex_rename(
         crash("table config not present, when id matched config version");
     }
 
-    auto sindexes_it = table_config.sindex_configs.find(old_name);
-    if (sindexes_it == table_config.sindex_configs.end()) {
+    auto sindexes_it = table_config.sindexes.find(old_name);
+    if (sindexes_it == table_config.sindexes.end()) {
         // Index simply doesn't exist.
         return rename_result::old_not_found;
     }
@@ -920,17 +920,17 @@ rename_result config_cache_sindex_rename(
     }
 
     sindex_metaconfig_t fdb_sindex_config = std::move(sindexes_it->second);
-    table_config.sindex_configs.erase(sindexes_it);
+    table_config.sindexes.erase(sindexes_it);
 
     if (overwrite) {
-        auto new_name_it = table_config.sindex_configs.find(new_name);
-        if (new_name_it != table_config.sindex_configs.end()) {
+        auto new_name_it = table_config.sindexes.find(new_name);
+        if (new_name_it != table_config.sindexes.end()) {
             help_erase_sindex_content(txn, table_id, new_name_it->second, interruptor);
-            table_config.sindex_configs.erase(new_name_it);
+            table_config.sindexes.erase(new_name_it);
         }
     }
 
-    bool inserted = table_config.sindex_configs.emplace(new_name, std::move(fdb_sindex_config)).second;
+    bool inserted = table_config.sindexes.emplace(new_name, std::move(fdb_sindex_config)).second;
     if (!inserted) {
         return rename_result::new_already_exists;
     }

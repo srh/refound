@@ -49,7 +49,6 @@ class extproc_pool_t;
 
 class sindex_config_t {
 public:
-    sindex_config_t() { }
     sindex_config_t(const ql::deterministic_func &_func, reql_version_t _func_version,
             sindex_multi_bool_t _multi, sindex_geo_bool_t _geo) :
         func(_func), func_version(_func_version), multi(_multi), geo(_geo) { }
@@ -63,6 +62,12 @@ public:
     reql_version_t func_version;
     sindex_multi_bool_t multi;
     sindex_geo_bool_t geo;
+
+    sindex_config_t() = default;
+    sindex_config_t(sindex_config_t &&) = default;
+    sindex_config_t &operator=(sindex_config_t &&) = default;
+    sindex_config_t(const sindex_config_t &) = default;
+    sindex_config_t &operator=(const sindex_config_t &) = default;
 };
 RDB_DECLARE_SERIALIZABLE(sindex_config_t);
 

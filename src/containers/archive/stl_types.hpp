@@ -12,35 +12,14 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <utility>
 
 #include "containers/archive/archive.hpp"
+#include "containers/archive/stl/pair.hpp"
 #include "containers/archive/varint.hpp"
 #include "version.hpp"
 
 // Implementations for deque, pair, map, set, string, vector, and array.
 
-template <cluster_version_t W, class T, class U>
-size_t serialized_size(const std::pair<T, U> &p) {
-    return serialized_size<W>(p.first) + serialized_size<W>(p.second);
-}
-
-// Keep in sync with serialized_size.
-template <cluster_version_t W, class T, class U>
-void serialize(write_message_t *wm, const std::pair<T, U> &p) {
-    serialize<W>(wm, p.first);
-    serialize<W>(wm, p.second);
-}
-
-template <cluster_version_t W, class T, class U>
-MUST_USE archive_result_t deserialize(read_stream_t *s, std::pair<T, U> *p) {
-    archive_result_t res = deserialize<W>(s, &p->first);
-    if (bad(res)) { return res; }
-    res = deserialize<W>(s, &p->second);
-    return res;
-}
-
-// Keep in sync with serialize.
 template <cluster_version_t W, class K, class V, class C>
 size_t serialized_size(const std::map<K, V, C> &m) {
     size_t ret = varint_uint64_serialized_size(m.size());
@@ -50,7 +29,6 @@ size_t serialized_size(const std::map<K, V, C> &m) {
     return ret;
 }
 
-// Keep in sync with serialized_size.
 template <cluster_version_t W, class K, class V, class C>
 void serialize(write_message_t *wm, const std::map<K, V, C> &m) {
     serialize_varint_uint64(wm, m.size());
@@ -79,7 +57,7 @@ MUST_USE archive_result_t deserialize(read_stream_t *s, std::map<K, V, C> *m) {
         std::pair<K, V> p;
         res = deserialize<W>(s, &p);
         if (bad(res)) { return res; }
-        position = m->insert(position, p);
+        position = m->insert(position, std::move(p));
     }
 
     return archive_result_t::SUCCESS;

@@ -8,6 +8,7 @@
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/term.hpp"
+#include "rdb_protocol/types.hpp"
 #include "stl_utils.hpp"
 #include "thread_local.hpp"
 

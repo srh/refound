@@ -1917,6 +1917,10 @@ void datum_array_builder_t::add(datum_t val) {
     rcheck_array_size_datum(vector, limits);
 }
 
+void datum_array_builder_t::sort() {
+    std::sort(vector.begin(), vector.end());
+}
+
 void datum_array_builder_t::change(size_t index, datum_t val) {
     rcheck_datum(index < vector.size(),
                  base_exc_t::NON_EXISTENCE,

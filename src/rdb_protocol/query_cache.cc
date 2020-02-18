@@ -6,6 +6,7 @@
 #include "rdb_protocol/pseudo_time.hpp"
 #include "rdb_protocol/response.hpp"
 #include "rdb_protocol/term_walker.hpp"
+#include "rdb_protocol/val.hpp"
 
 namespace ql {
 

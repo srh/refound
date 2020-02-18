@@ -6,8 +6,8 @@
 #include "rdb_protocol/datum.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/ql2proto.hpp"
-#include "rdb_protocol/val.hpp"
 #include "rdb_protocol/term_storage.hpp"
+#include "rdb_protocol/types.hpp"
 
 /* Here is some basic info about ReQL code to be aware of:
 
@@ -36,11 +36,7 @@ class table_slice_t;
 class var_captures_t;
 class compile_env_t;
 class deterministic_t;
-
-enum eval_flags_t {
-    NO_FLAGS = 0,
-    LITERAL_OK = 1,
-};
+class val_t;
 
 class runtime_term_t : public slow_atomic_countable_t<runtime_term_t>,
                        public bt_rcheckable_t {
@@ -57,9 +53,7 @@ public:
     scoped_ptr_t<val_t> new_val(Args... args) const {
         return make_scoped<val_t>(std::forward<Args>(args)..., backtrace());
     }
-    scoped_ptr_t<val_t> new_val_bool(bool b) const {
-        return new_val(datum_t::boolean(b));
-    }
+    scoped_ptr_t<val_t> new_val_bool(bool b) const;
 
 protected:
     explicit runtime_term_t(backtrace_id_t bt);
@@ -98,10 +92,6 @@ private:
     const raw_term_t src;
     DISABLE_COPYING(term_t);
 };
-
-inline scoped_ptr_t<val_t> get_global_optarg(env_t *env, const std::string &key) {
-    return env->get_all_optargs().get_optarg(env, key);
-}
 
 
 counted_t<const term_t> compile_term(compile_env_t *env, const raw_term_t &t);

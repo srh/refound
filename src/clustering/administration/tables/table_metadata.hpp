@@ -2,10 +2,8 @@
 #ifndef CLUSTERING_ADMINISTRATION_TABLES_TABLE_METADATA_HPP_
 #define CLUSTERING_ADMINISTRATION_TABLES_TABLE_METADATA_HPP_
 
-#include <map>
-#include <set>
+#include <unordered_map>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "containers/name_string.hpp"
@@ -71,8 +69,7 @@ RDB_DECLARE_EQUALITY_COMPARABLE(sindex_metaconfig_t);
 class table_config_t {
 public:
     table_basic_config_t basic;
-    // Two parallel maps.
-    std::map<std::string, sindex_metaconfig_t> sindex_configs;
+    std::unordered_map<std::string, sindex_metaconfig_t> sindexes;
     optional<write_hook_config_t> write_hook;
     user_data_t user_data;  // has user-exposed name "data"
 };

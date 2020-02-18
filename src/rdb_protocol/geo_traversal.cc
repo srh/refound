@@ -18,6 +18,7 @@
 #include "rdb_protocol/geo/s2/s2latlng.h"
 #include "rdb_protocol/profile.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
+#include "rdb_protocol/val.hpp"
 
 using geo::S2Point;
 using geo::S2LatLng;

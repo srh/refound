@@ -8,6 +8,8 @@
 #include "rdb_protocol/pseudo_literal.hpp"
 #include "rdb_protocol/ql2proto.hpp"
 #include "rdb_protocol/term_walker.hpp"
+#include "rdb_protocol/types.hpp"
+#include "rdb_protocol/val.hpp"
 #include "stl_utils.hpp"
 
 namespace ql {

@@ -12,19 +12,22 @@
 
 #include "containers/counted.hpp"
 #include "containers/uuid.hpp"
+#include "extproc/js_runner.hpp"
 #include "rdb_protocol/datum.hpp"
-#include "rdb_protocol/env.hpp"
-#include "rdb_protocol/op.hpp"
 #include "rdb_protocol/sym.hpp"
 #include "rdb_protocol/term.hpp"
 #include "rdb_protocol/term_storage.hpp"
-#include "rpc/serialize_macros.hpp"
+#include "rdb_protocol/types.hpp"
+#include "rdb_protocol/var_types.hpp"
 
 class js_runner_t;
 
 namespace ql {
-
+class compile_env_t;
+class deterministic_t;
+class env_t;
 class func_visitor_t;
+class term_t;
 
 class func_t : public slow_atomic_countable_t<func_t>, public bt_rcheckable_t {
 public:

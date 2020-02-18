@@ -5,6 +5,7 @@
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/term_walker.hpp"
+#include "rdb_protocol/val.hpp"
 
 #include "debug.hpp"
 

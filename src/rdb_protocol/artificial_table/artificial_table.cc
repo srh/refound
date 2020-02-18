@@ -6,10 +6,11 @@
 #include "clustering/administration/auth/user_fut.hpp"
 #include "fdb/retry_loop.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
+#include "rdb_protocol/datum_stream/readers.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/table_common.hpp"
-#include "rdb_protocol/datum_stream/readers.hpp"
+#include "rdb_protocol/val.hpp"
 
 /* Determines how many coroutines we spawn for a batched replace or insert. */
 // TODO: Remove.

@@ -492,6 +492,8 @@ public:
 
     void reserve(size_t n);
 
+    void sort();
+
     // Note that these methods produce behavior that is actually specific to the
     // definition of certain ReQL terms.
     void add(datum_t val);

@@ -6,8 +6,9 @@
 
 #include "containers/counted.hpp"
 #include "containers/optional.hpp"
-#include "rdb_protocol/sym.hpp"
 #include "rdb_protocol/error.hpp"
+#include "rdb_protocol/func.hpp"
+#include "rdb_protocol/sym.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "version.hpp"
 
@@ -21,8 +22,10 @@ public:
     wire_func_t();
     explicit wire_func_t(const counted_t<const func_t> &f);
     ~wire_func_t();
-    wire_func_t(const wire_func_t &copyee);
-    wire_func_t &operator=(const wire_func_t &assignee);
+    wire_func_t(const wire_func_t &) = default;
+    wire_func_t &operator=(const wire_func_t &) = default;
+    wire_func_t(wire_func_t &&) = default;
+    wire_func_t &operator=(wire_func_t &&) = default;
 
     // Constructs a wire_func_t with a body and arglist, but no scope.
     wire_func_t(const raw_term_t &body,

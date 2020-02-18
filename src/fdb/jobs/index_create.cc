@@ -114,8 +114,8 @@ optional<fdb_job_info> execute_index_create_job(
     }
 
     // sindexes_it is casually used to mutate table_config, much later.
-    const auto sindexes_it = table_config.sindex_configs.find(index_create_info.sindex_name);
-    guarantee(sindexes_it != table_config.sindex_configs.end());  // TODO: msg, graceful
+    const auto sindexes_it = table_config.sindexes.find(index_create_info.sindex_name);
+    guarantee(sindexes_it != table_config.sindexes.end());  // TODO: msg, graceful
 
     const sindex_metaconfig_t &sindex_config = sindexes_it->second;
     guarantee(sindex_config.sindex_id == index_create_info.sindex_id);  // TODO: msg, graceful

@@ -4,7 +4,7 @@
 #include "clustering/id_types.hpp"
 #include "containers/archive/archive.hpp"
 #include "containers/archive/boost_types.hpp"
-#include "containers/archive/stl_types.hpp"
+#include "containers/archive/stl/unordered_map.hpp"
 #include "containers/archive/versioned.hpp"
 #include "containers/archive/optional.hpp"
 #include "rdb_protocol/protocol.hpp"
@@ -33,7 +33,7 @@ RDB_IMPL_EQUALITY_COMPARABLE_3(sindex_metaconfig_t,
     config, sindex_id, creation_task_or_nil);
 
 RDB_IMPL_SERIALIZABLE_4_SINCE_v2_5(table_config_t,
-    basic, sindex_configs, write_hook, user_data);
+    basic, sindexes, write_hook, user_data);
 
 RDB_IMPL_EQUALITY_COMPARABLE_4(table_config_t,
-    basic, sindex_configs, write_hook, user_data);
+    basic, sindexes, write_hook, user_data);

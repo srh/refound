@@ -247,7 +247,7 @@ scoped_ptr_t<val_t> op_term_t::optarg(scope_env_t *env, const std::string &key) 
         return it->second->eval(env);
     }
     // returns scoped_ptr_t<val_t>() if the key isn't found
-    return get_global_optarg(env->env, key);
+    return env->env->get_all_optargs().get_optarg(env->env, key);
 }
 
 counted_t<const func_term_t> op_term_t::lazy_literal_optarg(

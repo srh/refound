@@ -2,8 +2,10 @@
 #include "rdb_protocol/configured_limits.hpp"
 
 #include <limits>
+
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/pseudo_time.hpp"
+#include "rdb_protocol/val.hpp"
 #include "rdb_protocol/wire_func.hpp"
 
 namespace ql {

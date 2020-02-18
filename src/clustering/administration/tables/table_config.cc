@@ -83,11 +83,12 @@ bool convert_durability_from_datum(
 }
 
 ql::datum_t convert_sindexes_to_datum(
-        const std::map<std::string, sindex_metaconfig_t> &sindex_configs) {
+        const std::unordered_map<std::string, sindex_metaconfig_t> &sindexes) {
     ql::datum_array_builder_t sindexes_builder(ql::configured_limits_t::unlimited);
-    for (const auto &sindex : sindex_configs) {
-        sindexes_builder.add(convert_string_to_datum(sindex.first));
+    for (const auto &sindex : sindexes) {
+        sindexes_builder.add(ql::datum_t(sindex.first));
     }
+    sindexes_builder.sort();
     return std::move(sindexes_builder).to_datum();
 }
 
@@ -146,7 +147,7 @@ ql::datum_t convert_table_config_to_datum(
     builder.overwrite("name", convert_name_to_datum(config.basic.name));
     builder.overwrite("db", db_name_or_uuid);
     builder.overwrite("id", convert_uuid_to_datum(table_id.value));
-    builder.overwrite("indexes", convert_sindexes_to_datum(config.sindex_configs));
+    builder.overwrite("indexes", convert_sindexes_to_datum(config.sindexes));
     builder.overwrite("write_hook", convert_write_hook_to_datum(config.write_hook));
     builder.overwrite("primary_key", convert_string_to_datum(config.basic.primary_key));
     // TODO: Could we remove this from the table config datum?
@@ -227,8 +228,8 @@ bool convert_table_config_and_name_from_datum(
         }
 
         if (existed_before) {
-            bool equal = sindexes.size() == old_config.sindex_configs.size();
-            for (const auto &old_sindex : old_config.sindex_configs) {
+            bool equal = sindexes.size() == old_config.sindexes.size();
+            for (const auto &old_sindex : old_config.sindexes) {
                 equal &= sindexes.count(old_sindex.first) == 1;
             }
             if (!equal) {
@@ -236,7 +237,7 @@ bool convert_table_config_and_name_from_datum(
                                  "create or drop indexes.";
                 return false;
             }
-            config_out->sindex_configs = old_config.sindex_configs;
+            config_out->sindexes = old_config.sindexes;
         } else if (!sindexes.empty()) {
             error_out->msg = "The `indexes` field is read-only and can't be used to "
                              "create indexes.";

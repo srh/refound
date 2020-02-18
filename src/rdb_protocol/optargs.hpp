@@ -12,6 +12,7 @@
 
 namespace ql {
 class env_t;
+class raw_term_t;
 class val_t;
 
 class global_optargs_t {

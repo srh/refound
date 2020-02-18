@@ -2,6 +2,7 @@
 #include "rdb_protocol/table_common.hpp"
 
 #include "rdb_protocol/func.hpp"
+#include "rdb_protocol/val.hpp"
 
 std::string error_message_index_not_found(
         const std::string &sindex, const std::string &table) {

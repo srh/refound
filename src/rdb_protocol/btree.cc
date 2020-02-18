@@ -15,6 +15,8 @@
 #include "containers/archive/buffer_group_stream.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "containers/scoped.hpp"
+#include "debug.hpp"
+#include "rdb_protocol/env.hpp"
 #include "rdb_protocol/geo/exceptions.hpp"
 #include "rdb_protocol/geo/indexing.hpp"
 #include "rdb_protocol/func.hpp"
@@ -23,8 +25,7 @@
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
 #include "rdb_protocol/shards.hpp"
 #include "rdb_protocol/table_common.hpp"
-
-#include "debug.hpp"
+#include "rdb_protocol/val.hpp"
 
 
 ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, std::string *out) {

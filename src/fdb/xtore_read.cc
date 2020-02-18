@@ -12,6 +12,7 @@
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
+#include "rdb_protocol/val.hpp"
 #include "utils.hpp"
 
 enum class direction_t {
@@ -351,8 +352,8 @@ void acquire_fdb_sindex_for_read(
         const std::string &sindex_name,
         sindex_disk_info_t *sindex_info_out,
         sindex_id_t *sindex_id_out) {
-    auto sindexes_it = table_config.sindex_configs.find(sindex_name);
-    if (sindexes_it == table_config.sindex_configs.end()) {
+    auto sindexes_it = table_config.sindexes.find(sindex_name);
+    if (sindexes_it == table_config.sindexes.end()) {
         // TODO: Dedup index not found error messages.
         rfail_toplevel(ql::base_exc_t::OP_FAILED,
                 "Index `%s` was not found on table `%s`.",

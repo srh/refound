@@ -10,6 +10,7 @@
 #include "rdb_protocol/response.hpp"
 #include "rdb_protocol/term_walker.hpp"
 #include "rdb_protocol/terms/terms.hpp"
+#include "rdb_protocol/val.hpp"
 #include "thread_local.hpp"
 
 namespace ql {
@@ -228,6 +229,10 @@ runtime_term_t::runtime_term_t(backtrace_id_t _bt)
     : bt_rcheckable_t(_bt) { }
 
 runtime_term_t::~runtime_term_t() { }
+
+scoped_ptr_t<val_t> runtime_term_t::new_val_bool(bool b) const {
+    return new_val(datum_t::boolean(b));
+}
 
 term_t::term_t(const raw_term_t &_src)
     : runtime_term_t(_src.bt()),

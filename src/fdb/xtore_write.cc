@@ -16,6 +16,7 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"
 #include "rdb_protocol/table_common.hpp"
+#include "rdb_protocol/val.hpp"
 
 // This isn't in btree/keys.hpp only because I don't want to include <functional> in it.
 // Stupid, yeah.
@@ -55,7 +56,7 @@ struct jobstate_futs {
 jobstate_futs get_jobstates(
         FDBTransaction *txn, const table_config_t &table_config) {
     jobstate_futs ret;
-    for (const auto &el : table_config.sindex_configs) {
+    for (const auto &el : table_config.sindexes) {
         const sindex_metaconfig_t &second = el.second;
         if (!second.creation_task_or_nil.value.is_nil()) {
             ret.futs_by_sindex.emplace_back(el.first,
@@ -78,7 +79,7 @@ void update_fdb_sindexes(
     // TODO: We only need to block on jobstates whose sindexes have a mutation.
     const auto &jobstates = jobstate_futs->block_on_jobstates(interruptor);
 
-    for (const auto &pair : table_config.sindex_configs) {
+    for (const auto &pair : table_config.sindexes) {
         const sindex_metaconfig_t &fdb_sindex_config = pair.second;
         const sindex_config_t &sindex_config = fdb_sindex_config.config;
 
