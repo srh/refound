@@ -424,15 +424,17 @@ private:
 class datum_fdb_replacer_t : public btree_batched_replacer_t {
 public:
     explicit datum_fdb_replacer_t(ql::env_t *_env,
-                                  const batched_insert_t &bi)
+                                  const batched_insert_t &bi,
+                                  const table_config_t &table_config)
         : env(_env),
           datums(&bi.inserts),
           conflict_behavior(bi.conflict_behavior),
           pkey(bi.pkey),
           return_changes(bi.return_changes),
           conflict_func(bi.conflict_func) {
-        if (bi.write_hook.has_value()) {
-            write_hook = bi.write_hook->det_func.compile_wire_func();
+        if (bi.ignore_write_hook == ignore_write_hook_t::NO && table_config.write_hook.has_value()) {
+            // TODO: We pay no attention to write_hook->func_version.
+            write_hook = table_config.write_hook->func.det_func.compile_wire_func();
         }
     }
     ql::datum_t replace(const ql::datum_t &d,
@@ -491,8 +493,8 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 
         // TODO: Make func_fdb_replacer_t take a deterministic_func write hook.
         counted_t<const ql::func_t> write_hook;
-        if (br.write_hook.has_value()) {
-            write_hook = br.write_hook->det_func.compile_wire_func();
+        if (br.ignore_write_hook == ignore_write_hook_t::NO && table_config_->write_hook.has_value()) {
+            write_hook = table_config_->write_hook->func.det_func.compile_wire_func();
         }
 
         func_fdb_replacer_t replacer(&ql_env, br.pkey, br.f,
@@ -526,7 +528,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             bi.serializable_env,
             trace);
         // TODO: Does the type datum_replacer_t or datum_fdb_replacer_t really need to exist?
-        datum_fdb_replacer_t replacer(&ql_env, bi);
+        datum_fdb_replacer_t replacer(&ql_env, bi, *table_config_);
         std::vector<store_key_t> keys;
         keys.reserve(bi.inserts.size());
         for (auto it = bi.inserts.begin(); it != bi.inserts.end(); ++it) {

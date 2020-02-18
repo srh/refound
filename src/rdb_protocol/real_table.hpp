@@ -34,17 +34,10 @@ public:
     real_table_t(
             namespace_id_t _uuid,
             reqlfdb_config_version _cv,
-            counted<const rc_wrapper<table_config_t>> _table_config
-#if RDB_CF
-            , ql::changefeed::client_t *_changefeed_client
-#endif
-            ) :
+            counted<const rc_wrapper<table_config_t>> _table_config) :
         base_table_t(config_version_checker{_cv.value}),
         uuid(_uuid),
         table_config(std::move(_table_config))
-#if RDB_CF
-        , changefeed_client(_changefeed_client)
-#endif
         { }
 
     namespace_id_t get_id() const;
@@ -124,14 +117,8 @@ public:
     void write_with_profile(ql::env_t *env, write_t *, write_response_t *response);
 
 private:
-    optional<ql::deterministic_func> get_write_hook(
-        ignore_write_hook_t ignore_write_hook);
-
     namespace_id_t uuid;
     counted<const rc_wrapper<table_config_t>> table_config;
-#if RDB_CF
-    ql::changefeed::client_t *changefeed_client;
-#endif
 };
 
 #endif /* RDB_PROTOCOL_REAL_TABLE_HPP_ */

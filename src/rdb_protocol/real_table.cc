@@ -303,17 +303,6 @@ std::vector<std::vector<T> > split(std::vector<T> &&v) {
     return out;
 }
 
-optional<ql::deterministic_func> real_table_t::get_write_hook(
-        ignore_write_hook_t ignore_write_hook) {
-    optional<ql::deterministic_func> write_hook;
-    if (ignore_write_hook != ignore_write_hook_t::YES &&
-            table_config->write_hook.has_value()) {
-        write_hook.set(table_config->write_hook->func);
-    }
-
-    return write_hook;
-}
-
 ql::datum_t real_table_t::write_batched_replace(
     ql::env_t *env,
     const std::vector<ql::datum_t> &keys,
@@ -321,10 +310,6 @@ ql::datum_t real_table_t::write_batched_replace(
     return_changes_t return_changes,
     durability_requirement_t durability,
     ignore_write_hook_t ignore_write_hook) {
-
-    // Get write_hook function
-    optional<ql::deterministic_func> write_hook =
-        get_write_hook(ignore_write_hook);
 
     std::vector<store_key_t> store_keys;
     store_keys.reserve(keys.size());
@@ -345,7 +330,6 @@ ql::datum_t real_table_t::write_batched_replace(
                 get_pkey(),
                 func,
                 ignore_write_hook,
-                write_hook,
                 env->get_serializable_env(),
                 return_changes);
             write_t w(std::move(write), durability, env->profile(), env->limits());
@@ -383,10 +367,6 @@ ql::datum_t real_table_t::write_batched_insert(
     durability_requirement_t durability,
     ignore_write_hook_t ignore_write_hook) {
 
-    // Get write_hook function
-    optional<ql::deterministic_func> write_hook =
-        get_write_hook(ignore_write_hook);
-
     ql::datum_t stats((std::map<datum_string_t, ql::datum_t>()));
     std::set<std::string> conditions;
     std::vector<std::vector<ql::datum_t> > batches = split(std::move(inserts));
@@ -396,7 +376,6 @@ ql::datum_t real_table_t::write_batched_insert(
             std::move(batch),
             get_pkey(),
             ignore_write_hook,
-            write_hook,
             conflict_behavior,
             conflict_func,
             env->limits(),
