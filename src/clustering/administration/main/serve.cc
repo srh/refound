@@ -103,22 +103,17 @@ bool do_serve(FDBDatabase *fdb,
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
 
+        artificial_reql_cluster_interface_t artificial_reql_cluster_interface;
+
         /* We thread the `rdb_context_t` through every function that evaluates ReQL
         terms. It contains pointers to all the things that the ReQL term evaluation code
         needs. */
         rdb_context_t rdb_ctx(fdb,
                               &extproc_pool,
-                              nullptr,   /* we'll fill this in later */
+                              &artificial_reql_cluster_interface,
                               &get_global_perfmon_collection(),
                               serve_info.reql_http_proxy);
         {
-            // TODO: This could be cleaned up a bit.  artificial_reql_cluster_interface
-            // now just holds a pointer to the backends field...  Both the interface and
-            // backends are actually stateless; these objects could simply not exist.
-            artificial_reql_cluster_interface_t artificial_reql_cluster_interface;
-
-            artificial_reql_cluster_backends_t artificial_reql_cluster_backends(
-                &artificial_reql_cluster_interface);
 
             /* Kick off a coroutine to log any outdated indexes. */
             // TODO: Do something like this at startup -- but make only one node do it, after there's a centralized logging infrastructure?
@@ -128,16 +123,6 @@ bool do_serve(FDBDatabase *fdb,
                 semilattice_manager_cluster.get_root_view()->get(),
                 stop_cond);
 #endif  // 0
-
-            // TODO: This comment, and the requirement, is out of date.
-            /* `rdb_context_t` needs access to the `reql_cluster_interface_t` so that it
-            can find tables and run meta-queries, but the `real_reql_cluster_interface_t`
-            needs access to the `rdb_context_t` so that it can construct instances of
-            `cluster_namespace_interface_t`. Again, we solve this problem by having a
-            circular reference. Note that the cluster interface is a chain of command,
-            the `artificial_reql_cluster_interface` proxies to the
-            `real_reql_cluster_interface`. */
-            rdb_ctx.artificial_interface_or_null = &artificial_reql_cluster_interface;
 
             /* `memory_checker` periodically checks to see if we are using swap
                     memory, and will log a warning. */

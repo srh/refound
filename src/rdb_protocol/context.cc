@@ -84,6 +84,7 @@ rdb_context_t::rdb_context_t(
         extproc_pool_t *_extproc_pool)
     : fdb(_fdb),
       extproc_pool(_extproc_pool),
+      artificial_interface_or_null(nullptr),
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) {
 }
