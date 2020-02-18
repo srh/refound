@@ -584,6 +584,10 @@ private:
             argument. So `r.config()` is an error rather than the configuration for the
             current database. This is why we don't subclass from `table_or_db_meta_term_t`.
             */
+            artificial_reql_cluster_interface_t *art_or_null
+                = env->env->get_rdb_ctx()->artificial_interface_or_null;
+            guarantee(art_or_null != nullptr);  // We're not a deterministic term.
+
             if (target->get_type().is_convertible(val_t::type_t::DB)) {
                 counted_t<const ql::db_t> db = target->as_db(env->env);
                 if (db->name == artificial_reql_cluster_interface_t::database_name) {
@@ -595,7 +599,8 @@ private:
                 // OOO: Fdb-ize this here.  Look at make_single_selection in
                 // real_reql_cluster_interface_t.
                 admin_err_t error;
-                if (!env->env->reql_cluster_interface()->db_config(
+                if (!real_reql_cluster_interface_t::make_db_config_selection(
+                        art_or_null,
                         env->env->get_user_context(),
                         db,
                         backtrace(),
@@ -617,7 +622,8 @@ private:
                 admin_err_t error;
                 /// OOO: Fdb-ize this here.  Look at make_single_selection in
                 /// real_reql_cluster_interface_t.
-                if (!env->env->reql_cluster_interface()->table_config(
+                if (!real_reql_cluster_interface_t::make_table_config_selection(
+                        art_or_null,
                         env->env->get_user_context(),
                         table->db,
                         table->tbl->cv,
