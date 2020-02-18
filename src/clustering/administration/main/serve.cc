@@ -151,6 +151,7 @@ bool do_serve(FDBDatabase *fdb,
             the `artificial_reql_cluster_interface` proxies to the
             `real_reql_cluster_interface`. */
             rdb_ctx.cluster_interface = &artificial_reql_cluster_interface;
+            rdb_ctx.artificial_interface_or_null = &artificial_reql_cluster_interface;
 
             /* `memory_checker` periodically checks to see if we are using swap
                     memory, and will log a warning. */
