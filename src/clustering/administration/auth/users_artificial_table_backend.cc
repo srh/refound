@@ -113,12 +113,12 @@ bool users_artificial_table_fdb_backend_t::write_row(
 
     username_t username(primary_key.as_str().to_std());
 
-    // NNN: Update config version in all cases.
+    fdb_value_fut<reqlfdb_config_version> cv_fut;
     if (new_value_inout->has()) {
         try {
             // TODO: See if .merge() is what can throw the admin_op_exc_t.
             fdb_value_fut<user_t> user_fut = transaction_get_user(txn, username);
-            fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+            cv_fut = transaction_get_config_version(txn);
             // TODO: new_value_inout doesn't really get written back out.  It didn't
             // pre-fdb, either.  Should it be?
             user_t user;
@@ -129,11 +129,7 @@ bool users_artificial_table_fdb_backend_t::write_row(
             }
 
             transaction_set_user(txn, username, user);
-            reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-            cv.value++;
-            transaction_set_config_version(txn, cv);
-            return true;
-        } catch(admin_op_exc_t const &admin_op_exc) {
+        } catch (admin_op_exc_t const &admin_op_exc) {
             *error_out = admin_op_exc.to_admin_err();
             return false;
         }
@@ -146,7 +142,7 @@ bool users_artificial_table_fdb_backend_t::write_row(
         }
 
         fdb_value_fut<user_t> user_fut = transaction_get_user(txn, username);
-        fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+        cv_fut = transaction_get_config_version(txn);
 
         user_t user;
         if (!user_fut.block_and_deserialize(interruptor, &user)) {
@@ -158,15 +154,15 @@ bool users_artificial_table_fdb_backend_t::write_row(
 
         // User exists.  Delete it.
         transaction_erase_user(txn, username);
-        reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-        cv.value++;
-        transaction_set_config_version(txn, cv);
 
         // TODO (long run): Any metadata referencing the user (log entries) might
         // identify it with a uuid.  Then if we drop/recreate a user, we don't use the
         // uuid.
     }
 
+    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
+    cv.value++;
+    transaction_set_config_version(txn, cv);
     return true;
 }
 
