@@ -596,10 +596,8 @@ private:
                             artificial_reql_cluster_interface_t::database_name.c_str());
                 }
 
-                // OOO: Fdb-ize this here.  Look at make_single_selection in
-                // real_reql_cluster_interface_t.
                 admin_err_t error;
-                if (!real_reql_cluster_interface_t::make_db_config_selection(
+                if (!real_reql_cluster_interface::make_db_config_selection(
                         art_or_null,
                         env->env->get_user_context(),
                         db,
@@ -620,9 +618,7 @@ private:
 
                 name_string_t table_name = table->name;
                 admin_err_t error;
-                /// OOO: Fdb-ize this here.  Look at make_single_selection in
-                /// real_reql_cluster_interface_t.
-                if (!real_reql_cluster_interface_t::make_table_config_selection(
+                if (!real_reql_cluster_interface::make_table_config_selection(
                         art_or_null,
                         env->env->get_user_context(),
                         table->db,

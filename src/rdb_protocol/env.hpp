@@ -76,8 +76,6 @@ public:
     // already been called.
     js_runner_t *get_js_runner();
 
-    reql_cluster_interface_t *reql_cluster_interface();
-
     std::string get_reql_http_proxy();
 
     // This is a callback used in unittests to control things during a query

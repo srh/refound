@@ -75,19 +75,15 @@ rdb_context_t::stats_t::stats_t(perfmon_collection_t *global_stats)
 rdb_context_t::rdb_context_t()
     : fdb(nullptr),
       extproc_pool(nullptr),
-      cluster_interface(nullptr),
       artificial_interface_or_null(nullptr),
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) { }
 
 rdb_context_t::rdb_context_t(
         FDBDatabase *_fdb,
-        extproc_pool_t *_extproc_pool,
-        reql_cluster_interface_t *_cluster_interface)
+        extproc_pool_t *_extproc_pool)
     : fdb(_fdb),
       extproc_pool(_extproc_pool),
-      cluster_interface(_cluster_interface),
-      artificial_interface_or_null(nullptr),
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) {
 }
@@ -100,7 +96,6 @@ rdb_context_t::rdb_context_t(
         const std::string &_reql_http_proxy)
     : fdb(_fdb),
       extproc_pool(_extproc_pool),
-      cluster_interface(_cluster_interface),
       artificial_interface_or_null(_cluster_interface),
       reql_http_proxy(_reql_http_proxy),
       stats(global_stats) {

@@ -112,14 +112,10 @@ bool do_serve(FDBDatabase *fdb,
                               &get_global_perfmon_collection(),
                               serve_info.reql_http_proxy);
         {
+            // TODO: This could be cleaned up a bit.  artificial_reql_cluster_interface
+            // now just holds a pointer to the backends field...  Both the interface and
+            // backends are actually stateless; these objects could simply not exist.
             artificial_reql_cluster_interface_t artificial_reql_cluster_interface;
-
-            /* The `real_reql_cluster_interface_t` is the interface that the ReQL logic
-            uses to create, destroy, and reconfigure databases and tables. */
-            real_reql_cluster_interface_t real_reql_cluster_interface;
-
-            artificial_reql_cluster_interface.set_next_reql_cluster_interface(
-                &real_reql_cluster_interface);
 
             artificial_reql_cluster_backends_t artificial_reql_cluster_backends(
                 &artificial_reql_cluster_interface);
@@ -133,16 +129,7 @@ bool do_serve(FDBDatabase *fdb,
                 stop_cond);
 #endif  // 0
 
-            /* `real_reql_cluster_interface_t` needs access to the admin tables so that
-            it can return rows from the `table_status` and `table_config` artificial
-            tables when the user calls the corresponding porcelains. But
-            `admin_artificial_tables_t` needs access to the
-            `real_reql_cluster_interface_t` because `table_config` needs to be able to
-            run distribution queries. The simplest solution is for them to have
-            references to each other. This is the place where we "close the loop". */
-            real_reql_cluster_interface.artificial_reql_cluster_interface =
-                &artificial_reql_cluster_interface;
-
+            // TODO: This comment, and the requirement, is out of date.
             /* `rdb_context_t` needs access to the `reql_cluster_interface_t` so that it
             can find tables and run meta-queries, but the `real_reql_cluster_interface_t`
             needs access to the `rdb_context_t` so that it can construct instances of
@@ -150,7 +137,6 @@ bool do_serve(FDBDatabase *fdb,
             circular reference. Note that the cluster interface is a chain of command,
             the `artificial_reql_cluster_interface` proxies to the
             `real_reql_cluster_interface`. */
-            rdb_ctx.cluster_interface = &artificial_reql_cluster_interface;
             rdb_ctx.artificial_interface_or_null = &artificial_reql_cluster_interface;
 
             /* `memory_checker` periodically checks to see if we are using swap

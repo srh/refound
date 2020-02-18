@@ -21,32 +21,13 @@ const name_string_t artificial_reql_cluster_interface_t::database_name =
 const database_id_t artificial_reql_cluster_interface_t::database_id =
     database_id_t{uuid_u::from_hash(str_to_uuid("39a24924-14ec-4deb-99f1-742eda7aba5e"), SYSTEM_DB_NAME)};
 
-artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t() :
-    m_next(nullptr) {
+artificial_reql_cluster_interface_t::artificial_reql_cluster_interface_t() {
 }
 
 admin_err_t db_already_exists_error(const name_string_t &db_name) {
     return admin_err_t{
             strprintf("Database `%s` already exists.", db_name.c_str()),
             query_state_t::FAILED};
-}
-
-bool artificial_reql_cluster_interface_t::db_config(
-        auth::user_context_t const &user_context,
-        const counted_t<const ql::db_t> &db,
-        ql::backtrace_id_t bt,
-        ql::env_t *env,
-        scoped_ptr_t<ql::val_t> *selection_out,
-        admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; you can't configure it.",
-                      artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->db_config(
-        user_context, db, bt, env, selection_out, error_out);
 }
 
 std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorted() {
@@ -79,31 +60,6 @@ bool artificial_reql_cluster_interface_t::table_find(
     }
 }
 
-bool artificial_reql_cluster_interface_t::table_config(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        config_version_checker cv_checker,
-        const namespace_id_t &table_id,
-        const name_string_t &name,
-        ql::backtrace_id_t bt,
-        ql::env_t *env,
-        scoped_ptr_t<ql::val_t> *selection_out, admin_err_t *error_out) {
-    if (db->name == artificial_reql_cluster_interface_t::database_name) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` is special; you can't configure the "
-                      "tables in it.", artificial_reql_cluster_interface_t::database_name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    }
-    return next_or_error(error_out) && m_next->table_config(
-        user_context, db, cv_checker, table_id, name, bt, env, selection_out, error_out);
-}
-
-void artificial_reql_cluster_interface_t::set_next_reql_cluster_interface(
-        reql_cluster_interface_t *next) {
-    m_next = next;
-}
-
 artificial_table_fdb_backend_t *
 artificial_reql_cluster_interface_t::get_table_backend_or_null(
         name_string_t const &table_name,
@@ -130,17 +86,6 @@ artificial_reql_cluster_interface_t::get_table_fdb_backends_map_mutable() {
 artificial_reql_cluster_interface_t::table_fdb_backends_map_t const &
 artificial_reql_cluster_interface_t::get_table_fdb_backends_map() const {
     return m_table_fdb_backends;
-}
-
-bool artificial_reql_cluster_interface_t::next_or_error(admin_err_t *error_out) const {
-    if (m_next == nullptr) {
-        if (error_out != nullptr) {
-            *error_out = admin_err_t{
-                "Failed to find an interface.", query_state_t::FAILED};
-        }
-        return false;
-    }
-    return true;
 }
 
 artificial_reql_cluster_backends_t::~artificial_reql_cluster_backends_t() { }

@@ -14,8 +14,6 @@ class routing_http_app_t;
 class file_http_app_t;
 class cyanide_http_app_t;
 
-class real_reql_cluster_interface_t;
-
 class administrative_http_server_manager_t {
 
 public:

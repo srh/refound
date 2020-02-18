@@ -123,55 +123,13 @@ namespace ql {
 class reader_t;
 }
 
-class reql_cluster_interface_t {
-public:
-    /* All of these methods return `true` on success and `false` on failure; if they
-    fail, they will set `*error_out` to a description of the problem. They can all throw
-    `interrupted_exc_t`.
-
-    These methods are safe to call from any thread, and the calls can overlap
-    concurrently in arbitrary ways. By the time a method returns, any changes it makes
-    must be visible on every thread. */
-
-    /* From the user's point of view, many of these are methods on the table object. The
-    reason they're internally defined on `reql_cluster_interface_t` rather than
-    `base_table_t` is because their implementations fits better with the implementations
-    of the other methods of `reql_cluster_interface_t` than `base_table_t`. */
-
-    // The remaining methods (besides write hook methods, getters, and those called only
-    // for artificial_reql_cluster_interface_t behavior) all return single selectinos.
-
-    virtual bool db_config(
-            auth::user_context_t const &user_context,
-            const counted_t<const ql::db_t> &db,
-            ql::backtrace_id_t bt,
-            ql::env_t *env,
-            scoped_ptr_t<ql::val_t> *selection_out,
-            admin_err_t *error_out) = 0;
-
-    virtual bool table_config(
-            auth::user_context_t const &user_context,
-            counted_t<const ql::db_t> db,
-            config_version_checker cv_checker,
-            const namespace_id_t &table_id,
-            const name_string_t &name,
-            ql::backtrace_id_t bt,
-            ql::env_t *env,
-            scoped_ptr_t<ql::val_t> *selection_out,
-            admin_err_t *error_out) = 0;
-
-protected:
-    virtual ~reql_cluster_interface_t() { }   // silence compiler warnings
-};
-
 class rdb_context_t {
 public:
     // Used by unit tests.
     rdb_context_t();
     // Also used by unit tests.
     rdb_context_t(FDBDatabase *_fdb,
-                  extproc_pool_t *_extproc_pool,
-                  reql_cluster_interface_t *_cluster_interface);
+                  extproc_pool_t *_extproc_pool);
 
     // The "real" constructor used outside of unit tests.
     rdb_context_t(
@@ -186,8 +144,7 @@ public:
     FDBDatabase *fdb = nullptr;
     one_per_thread_t<reqlfdb_config_cache> config_caches;
     extproc_pool_t *extproc_pool;
-    // TODO: Clean this stuff up someday.
-    reql_cluster_interface_t *cluster_interface;
+    // OOO: Just replace artificial_interface_or_null with the backends field it contains.
     // This is null in unit tests.
     artificial_reql_cluster_interface_t *artificial_interface_or_null = nullptr;
 

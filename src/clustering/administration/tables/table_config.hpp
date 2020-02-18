@@ -10,7 +10,6 @@
 #include "containers/uuid.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
 
-class real_reql_cluster_interface_t;
 class table_config_t;
 class write_hook_config_t;
 

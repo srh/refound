@@ -32,8 +32,6 @@ int rdb_query_server_t::get_port() const {
 void rdb_query_server_t::run_query(ql::query_params_t *query_params,
                                    ql::response_t *response_out,
                                    const signal_t *interruptor) {
-    guarantee(interruptor != nullptr);
-    guarantee(rdb_ctx->cluster_interface != nullptr);
     try {
         // TODO: make this perfmon correct now that we have parallelized queries
         scoped_perfmon_counter_t client_active(&rdb_ctx->stats.clients_active);

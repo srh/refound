@@ -19,9 +19,31 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 
-real_reql_cluster_interface_t::real_reql_cluster_interface_t() { }
+// TODO: Move elsewhere.
+admin_err_t table_already_exists_error(
+    const name_string_t &db_name, const name_string_t &table_name) {
+    return admin_err_t{
+        strprintf("Table `%s.%s` already exists.", db_name.c_str(), table_name.c_str()),
+        query_state_t::FAILED
+    };
+}
 
-bool real_reql_cluster_interface_t::make_db_config_selection(
+namespace real_reql_cluster_interface {
+
+// Defined below.
+void make_single_selection(
+    artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
+    auth::user_context_t const &user_context,
+    const name_string_t &table_name,
+    config_version_checker cv_checker,
+    const uuid_u &primary_key,
+    ql::backtrace_id_t bt,
+    ql::env_t *env,
+    std::function<void(FDBTransaction *)> cfg_checker,  // OOO: Hideous!
+    scoped_ptr_t<ql::val_t> *selection_out)
+    THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t);
+
+bool make_db_config_selection(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         const counted_t<const ql::db_t> &db,
@@ -31,7 +53,7 @@ bool real_reql_cluster_interface_t::make_db_config_selection(
         admin_err_t *error_out) {
     // TODO: fdb-ize this function (for writing?  for making a single section?  fdb-ize artificial table?)
     try {
-        real_reql_cluster_interface_t::make_single_selection(
+        real_reql_cluster_interface::make_single_selection(
             artificial_reql_cluster_interface,
             user_context,
             name_string_t::guarantee_valid("db_config"),
@@ -56,29 +78,9 @@ bool real_reql_cluster_interface_t::make_db_config_selection(
     }
 }
 
-bool real_reql_cluster_interface_t::db_config(
-        auth::user_context_t const &user_context,
-        const counted_t<const ql::db_t> &db,
-        ql::backtrace_id_t backtrace_id,
-        ql::env_t *env,
-        scoped_ptr_t<ql::val_t> *selection_out,
-        admin_err_t *error_out) {
-    return real_reql_cluster_interface_t::make_db_config_selection(
-        artificial_reql_cluster_interface,
-        user_context, db, backtrace_id, env, selection_out, error_out);
-}
-// TODO: Move elsewhere.
-admin_err_t table_already_exists_error(
-    const name_string_t &db_name, const name_string_t &table_name) {
-    return admin_err_t{
-        strprintf("Table `%s.%s` already exists.", db_name.c_str(), table_name.c_str()),
-        query_state_t::FAILED
-    };
-}
-
 // TODO: Remove sharding UI.
 
-bool real_reql_cluster_interface_t::make_table_config_selection(
+bool make_table_config_selection(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         counted_t<const ql::db_t> db,
@@ -95,7 +97,7 @@ bool real_reql_cluster_interface_t::make_table_config_selection(
 
         // QQQ: No more name errors to catch, probblay.
 
-        real_reql_cluster_interface_t::make_single_selection(
+        make_single_selection(
             artificial_reql_cluster_interface,
             user_context,
             name_string_t::guarantee_valid("table_config"),
@@ -115,22 +117,7 @@ bool real_reql_cluster_interface_t::make_table_config_selection(
     } CATCH_NAME_ERRORS(db->name, name, error_out)
 }
 
-bool real_reql_cluster_interface_t::table_config(
-        auth::user_context_t const &user_context,
-        counted_t<const ql::db_t> db,
-        config_version_checker cv_checker,
-        const namespace_id_t &table_id,
-        const name_string_t &name,
-        ql::backtrace_id_t bt,
-        ql::env_t *env,
-        scoped_ptr_t<ql::val_t> *selection_out,
-        admin_err_t *error_out) {
-    return real_reql_cluster_interface_t::make_table_config_selection(
-        artificial_reql_cluster_interface,
-        user_context, db, cv_checker, table_id, name, bt, env, selection_out, error_out);
-}
-
-void real_reql_cluster_interface_t::make_single_selection(
+void make_single_selection(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         const name_string_t &table_name,
@@ -145,7 +132,7 @@ void real_reql_cluster_interface_t::make_single_selection(
         artificial_reql_cluster_interface->get_table_backend_or_null(
             table_name,
             admin_identifier_format_t::name);
-    guarantee(table_backend != nullptr, "real_reql_cluster_interface_t::make_single_selection missing backend");
+    guarantee(table_backend != nullptr, "real_reql_cluster_interface::make_single_selection missing backend");
     counted_t<const ql::db_t> db = make_counted<ql::db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name, config_version_checker::empty());
 
     // TODO: Do we really need to read the row up-front?
@@ -172,7 +159,7 @@ void real_reql_cluster_interface_t::make_single_selection(
         } else if (!row.has()) {
             /* This is unlikely, but it can happen if the object is deleted between when we
             look up its name and when we call `read_row()` */
-            // TODO: Ensure callers catch this.  Is this even a legit exception?  It should be a no such row exception, or something like that...  Maybe real_reql_cluster_interface_t means this to refer to the r.table() param?
+            // TODO: Ensure callers catch this.  Is this even a legit exception?  It should be a no such row exception, or something like that...  Maybe real_reql_cluster_interface_t means this to refer to the r.table() param?  One caller catches this and then reports a db cannot be found.
             //
             // This shouldn't happen because we call check_cv, and
             // table_backend->read_row will thus be reading off the same cv we had.
@@ -182,7 +169,7 @@ void real_reql_cluster_interface_t::make_single_selection(
         }
         row = std::move(tmp_row);
     });
-    guarantee_fdb_TODO(loop_err, "real_reql_cluster_interface_t::make_single_selection retry loop");
+    guarantee_fdb_TODO(loop_err, "real_reql_cluster_interface::make_single_selection retry loop");
 
     counted_t<ql::table_t> table = make_counted<ql::table_t>(
         make_counted<artificial_table_fdb_t>(table_backend),
@@ -195,3 +182,5 @@ void real_reql_cluster_interface_t::make_single_selection(
         ql::single_selection_t::from_row(bt, table, row),
         bt);
 }
+
+}  // namespace real_reql_cluster_interface

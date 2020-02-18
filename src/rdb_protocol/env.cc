@@ -44,11 +44,6 @@ profile_bool_t env_t::profile() const {
     return trace != nullptr ? profile_bool_t::PROFILE : profile_bool_t::DONT_PROFILE;
 }
 
-reql_cluster_interface_t *env_t::reql_cluster_interface() {
-    r_sanity_check(rdb_ctx_ != NULL);
-    return rdb_ctx_->cluster_interface;
-}
-
 std::string env_t::get_reql_http_proxy() {
     r_sanity_check(rdb_ctx_ != NULL);
     return rdb_ctx_->reql_http_proxy;
