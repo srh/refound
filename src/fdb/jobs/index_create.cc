@@ -135,11 +135,7 @@ optional<fdb_job_info> execute_index_create_job(
     // sindex_reql_version_info_t.
 
     // TODO: Making this copy is gross -- would be better if compute_keys took sindex_config.
-    sindex_disk_info_t index_info{
-        sindex_config.config.func,
-        sindex_reql_version_info_t{sindex_config.config.func_version, sindex_config.config.func_version, sindex_config.config.func_version},  // TODO: Verify we just dumbly use latest_compatible_reql_version.
-        sindex_config.config.multi,
-        sindex_config.config.geo};
+    sindex_disk_info_t index_info = rfdb::sindex_config_to_disk_info(sindex_config.config);
 
     // Okay, now compute the sindex write.
 
