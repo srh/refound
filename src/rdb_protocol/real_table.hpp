@@ -40,10 +40,10 @@ public:
         table_config(std::move(_table_config))
         { }
 
-    namespace_id_t get_id() const;
-    const std::string &get_pkey() const;
+    namespace_id_t get_id() const override;
+    const std::string &get_pkey() const override;
 
-    ql::datum_t read_row(ql::env_t *env, ql::datum_t pval, read_mode_t read_mode);
+    ql::datum_t read_row(ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) override;
     counted_t<ql::datum_stream_t> read_all(
         ql::env_t *env,
         const std::string &sindex,
@@ -51,20 +51,14 @@ public:
         const std::string &table_name, // The table's own name, for display purposes.
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode);
-#if RDB_CF
-    counted_t<ql::datum_stream_t> read_changes(
-        ql::env_t *env,
-        const ql::changefeed::streamspec_t &ss,
-        ql::backtrace_id_t bt);
-#endif
+        read_mode_t read_mode) override;
     counted_t<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,
         const std::string &table_name,
         read_mode_t read_mode,
-        const ql::datum_t &query_geometry);
+        const ql::datum_t &query_geometry) override;
     ql::datum_t read_nearest(
         ql::env_t *env,
         const std::string &sindex,
@@ -75,7 +69,7 @@ public:
         uint64_t max_results,
         const ellipsoid_spec_t &geo_system,
         dist_unit_t dist_unit,
-        const ql::configured_limits_t &limits);
+        const ql::configured_limits_t &limits) override;
 
     ql::datum_t write_batched_replace(
         ql::env_t *env,
@@ -83,7 +77,7 @@ public:
         const ql::deterministic_func &func,
         return_changes_t _return_changes,
         durability_requirement_t durability,
-        ignore_write_hook_t ignore_write_hook);
+        ignore_write_hook_t ignore_write_hook) override;
     ql::datum_t write_batched_insert(
         ql::env_t *env,
         std::vector<ql::datum_t> &&inserts,
@@ -92,7 +86,7 @@ public:
         optional<ql::deterministic_func> conflict_func,
         return_changes_t return_changes,
         durability_requirement_t durability,
-        ignore_write_hook_t ignore_write_hook);
+        ignore_write_hook_t ignore_write_hook) override;
 
     scoped_ptr_t<ql::reader_t> read_all_with_sindexes(
         ql::env_t *env,
@@ -101,7 +95,7 @@ public:
         const std::string &table_name,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) final;
+        read_mode_t read_mode) override;
 
     /* These are not part of the `base_table_t` interface. They wrap the `read()`,
     and `write()` methods of the underlying `namespace_interface_t` to add profiling

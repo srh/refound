@@ -165,30 +165,6 @@ scoped_ptr_t<ql::reader_t> artificial_table_fdb_t::read_all_with_sindexes(
     return make_scoped<ql::vector_reader_t>(std::move(items_vector));
 }
 
-#if RDB_CF
-counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_changes(
-        ql::env_t *env,
-        const ql::changefeed::streamspec_t &ss,
-        ql::backtrace_id_t bt) {
-    counted_t<ql::datum_stream_t> stream;
-
-    try {
-        env->get_user_context().require_read_permission(
-            env->get_rdb_ctx(), artificial_reql_cluster_interface_t::database_id, m_backend->get_table_id());
-
-        admin_err_t error;
-        if (!m_backend->read_changes(
-                env, ss, bt, env->interruptor, &stream, &error)) {
-            REQL_RETHROW_DATUM(error);
-        }
-    } catch (auth::permission_error_t const &permission_error) {
-        rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
-    }
-
-    return stream;
-}
-#endif  // RDB_CF
-
 counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
