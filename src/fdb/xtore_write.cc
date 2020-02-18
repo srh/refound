@@ -55,7 +55,7 @@ struct jobstate_futs {
 jobstate_futs get_jobstates(
         FDBTransaction *txn, const table_config_t &table_config) {
     jobstate_futs ret;
-    for (const auto &el : table_config.fdb_sindexes) {
+    for (const auto &el : table_config.sindex_configs) {
         const sindex_metaconfig_t &second = el.second;
         if (!second.creation_task_or_nil.value.is_nil()) {
             ret.futs_by_sindex.emplace_back(el.first,
@@ -78,11 +78,9 @@ void update_fdb_sindexes(
     // TODO: We only need to block on jobstates whose sindexes have a mutation.
     const auto &jobstates = jobstate_futs->block_on_jobstates(interruptor);
 
-    for (const auto &pair : table_config.sindexes) {
-        const sindex_config_t &sindex_config = pair.second;
-        const auto fdb_sindexes_it = table_config.fdb_sindexes.find(pair.first);
-        guarantee(fdb_sindexes_it != table_config.fdb_sindexes.end());
-        const sindex_metaconfig_t &fdb_sindex_config = fdb_sindexes_it->second;
+    for (const auto &pair : table_config.sindex_configs) {
+        const sindex_metaconfig_t &fdb_sindex_config = pair.second;
+        const sindex_config_t &sindex_config = fdb_sindex_config.config;
 
         auto jobstates_it = jobstates.find(pair.first);
         if (jobstates_it != jobstates.end()) {

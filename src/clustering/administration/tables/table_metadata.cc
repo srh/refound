@@ -27,8 +27,13 @@ RDB_IMPL_SERIALIZABLE_3_SINCE_v2_1(table_basic_config_t,
 RDB_IMPL_EQUALITY_COMPARABLE_3(table_basic_config_t,
     name, database, primary_key);
 
+RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(sindex_metaconfig_t,
+    config, sindex_id, creation_task_or_nil);
+RDB_IMPL_EQUALITY_COMPARABLE_3(sindex_metaconfig_t,
+    config, sindex_id, creation_task_or_nil);
+
 RDB_IMPL_SERIALIZABLE_4_SINCE_v2_5(table_config_t,
-    basic, sindexes, write_hook, user_data);
+    basic, sindex_configs, write_hook, user_data);
 
 RDB_IMPL_EQUALITY_COMPARABLE_4(table_config_t,
-    basic, write_hook, sindexes, user_data);
+    basic, sindex_configs, write_hook, user_data);

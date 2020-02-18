@@ -113,19 +113,13 @@ optional<fdb_job_info> execute_index_create_job(
         crash("Missing table config referencing job");  // TODO: msg, graceful, etc.
     }
 
-    const auto sindexes_it = table_config.sindexes.find(index_create_info.sindex_name);
-    guarantee(sindexes_it != table_config.sindexes.end());  // TODO: msg, graceful
-    // fdb_sindexes_it is (very casually) used to mutate table_config and write the
-    // updated version later).
-    const auto fdb_sindexes_it = table_config.fdb_sindexes.find(index_create_info.sindex_name);
-    guarantee(fdb_sindexes_it != table_config.fdb_sindexes.end());  // TODO: msg, graceful
+    // sindexes_it is casually used to mutate table_config, much later.
+    const auto sindexes_it = table_config.sindex_configs.find(index_create_info.sindex_name);
+    guarantee(sindexes_it != table_config.sindex_configs.end());  // TODO: msg, graceful
 
-    const sindex_config_t &sindex_config = sindexes_it->second;
-    {
-        const sindex_metaconfig_t &sindex_metaconfig = fdb_sindexes_it->second;
-        guarantee(sindex_metaconfig.sindex_id == index_create_info.sindex_id);  // TODO: msg, graceful
-        guarantee(sindex_metaconfig.creation_task_or_nil == info.shared_task_id);  // TODO: msg, graceful
-    }
+    const sindex_metaconfig_t &sindex_config = sindexes_it->second;
+    guarantee(sindex_config.sindex_id == index_create_info.sindex_id);  // TODO: msg, graceful
+    guarantee(sindex_config.creation_task_or_nil == info.shared_task_id);  // TODO: msg, graceful
 
     // LARGEVAL: Implementing large values will need handling here.
 
@@ -142,10 +136,10 @@ optional<fdb_job_info> execute_index_create_job(
 
     // TODO: Making this copy is gross -- would be better if compute_keys took sindex_config.
     sindex_disk_info_t index_info{
-        sindex_config.func,
-        sindex_reql_version_info_t{sindex_config.func_version,sindex_config.func_version,sindex_config.func_version},  // TODO: Verify we just dumbly use latest_compatible_reql_version.
-        sindex_config.multi,
-        sindex_config.geo};
+        sindex_config.config.func,
+        sindex_reql_version_info_t{sindex_config.config.func_version, sindex_config.config.func_version, sindex_config.config.func_version},  // TODO: Verify we just dumbly use latest_compatible_reql_version.
+        sindex_config.config.multi,
+        sindex_config.config.geo};
 
     // Okay, now compute the sindex write.
 
@@ -209,8 +203,8 @@ optional<fdb_job_info> execute_index_create_job(
 
         remove_fdb_job(txn, info);
 
-        // fdb_sindexes_it points into table_config.
-        fdb_sindexes_it->second.creation_task_or_nil = fdb_shared_task_id{nil_uuid()};
+        // sindexes_it still points into table_config.
+        sindexes_it->second.creation_task_or_nil = fdb_shared_task_id{nil_uuid()};
         // Table by name index unchanged.
         transaction_set_uq_index<table_config_by_id>(txn, index_create_info.table_id,
             table_config);

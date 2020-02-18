@@ -283,10 +283,14 @@ std::string format_index_create_query(
 
 ql::datum_t sindex_status_to_datum(
         const std::string &name,
-        const sindex_config_t &config,
+        const sindex_metaconfig_t &metaconfig,
         const sindex_status_t &status) {
+    const sindex_config_t &config = metaconfig.config;
     ql::datum_object_builder_t stat;
     stat.overwrite("index", ql::datum_t(datum_string_t(name)));
+
+    // TODO: Some of this information is bogus, and some metaconfig information is missing.  Such as creation task id.
+
     if (!status.ready) {
         stat.overwrite("progress",
             ql::datum_t(status.progress_numerator /
@@ -498,7 +502,7 @@ public:
 
         /* Convert into an array and return it */
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-        for (const auto &pair : table_config.sindexes) {
+        for (const auto &pair : table_config.sindex_configs) {
             res.add(ql::datum_t(datum_string_t(pair.first)));
         }
         return new_val(std::move(res).to_datum());
@@ -546,7 +550,7 @@ public:
             });
             guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
 
-            for (const auto &pair : table_config.sindexes) {
+            for (const auto &pair : table_config.sindex_configs) {
                 if (!sindexes.empty()) {
                     if (sindexes.count(pair.first) == 0) {
                         continue;
@@ -555,10 +559,7 @@ public:
                     }
                 }
 
-                auto it = table_config.fdb_sindexes.find(pair.first);
-                guarantee(it != table_config.fdb_sindexes.end());  // TODO: msg, fdb, etc.
-
-                sindex_status_t status = build_status(it->second);
+                sindex_status_t status = build_status(pair.second);
 
                 res.add(sindex_status_to_datum(
                     pair.first, pair.second, status));
@@ -628,7 +629,8 @@ public:
 
             // Verify all requested sindexes exist.
             for (const auto &sindex : sindexes) {
-                rcheck(table_config->sindexes.count(sindex) == 1, base_exc_t::OP_FAILED,
+                // TODO: Dedup error message creation.
+                rcheck(table_config->sindex_configs.count(sindex) == 1, base_exc_t::OP_FAILED,
                     strprintf("Index `%s` was not found on table `%s`.",
                               sindex.c_str(),
                               table->display_name().c_str()));
@@ -636,14 +638,12 @@ public:
 
             ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
             bool all_ready = true;
-            for (const auto &pair : table_config->sindexes) {
+            for (const auto &pair : table_config->sindex_configs) {
                 if (!sindexes.empty() && sindexes.count(pair.first) == 0) {
                     continue;
                 }
-                auto it = table_config->fdb_sindexes.find(pair.first);
-                guarantee(it != table_config->fdb_sindexes.end());  // TODO: msg, fdb, etc.
-                if (sindex_is_ready(it->second)) {
-                    sindex_status_t status = build_status(it->second);
+                if (sindex_is_ready(pair.second)) {
+                    sindex_status_t status = build_status(pair.second);
                     statuses.add(sindex_status_to_datum(
                         pair.first, pair.second, status));
                 } else {

@@ -415,7 +415,7 @@ private:
 
             {
                 ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-                for (const auto &pair : config.sindexes) {
+                for (const auto &pair : config.sindex_configs) {
                     res.add(ql::datum_t(datum_string_t(pair.first)));
                 }
                 b |= info.add("indexes", std::move(res).to_datum());

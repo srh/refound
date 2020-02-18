@@ -351,17 +351,15 @@ void acquire_fdb_sindex_for_read(
         const std::string &sindex_name,
         sindex_disk_info_t *sindex_info_out,
         sindex_id_t *sindex_id_out) {
-    auto sindexes_it = table_config.sindexes.find(sindex_name);
-    if (sindexes_it == table_config.sindexes.end()) {
+    auto sindexes_it = table_config.sindex_configs.find(sindex_name);
+    if (sindexes_it == table_config.sindex_configs.end()) {
         // TODO: Dedup index not found error messages.
         rfail_toplevel(ql::base_exc_t::OP_FAILED,
                 "Index `%s` was not found on table `%s`.",
                           sindex_name.c_str(), rget_table_name.c_str());
     }
 
-    auto fdb_sindexes_it = table_config.fdb_sindexes.find(sindex_name);
-    guarantee(fdb_sindexes_it != table_config.fdb_sindexes.end());  // TODO: fdb, msg, etc.
-    if (!fdb_sindexes_it->second.creation_task_or_nil.value.is_nil()) {
+    if (!sindexes_it->second.creation_task_or_nil.value.is_nil()) {
         // TODO: Dedup with or remove sindex_not_ready_exc_t.
         std::string msg = strprintf("Index `%s` on table `%s` "
                          "was accessed before its construction was finished.",
@@ -371,8 +369,8 @@ void acquire_fdb_sindex_for_read(
             ql::base_exc_t::OP_FAILED, msg, ql::backtrace_id_t::empty());
     }
 
-    *sindex_info_out = rfdb::sindex_config_to_disk_info(sindexes_it->second);
-    *sindex_id_out = fdb_sindexes_it->second.sindex_id;
+    *sindex_info_out = rfdb::sindex_config_to_disk_info(sindexes_it->second.config);
+    *sindex_id_out = sindexes_it->second.sindex_id;
 }
 
 // TODO: Rename to rget_sindex_data_t when that's gone.

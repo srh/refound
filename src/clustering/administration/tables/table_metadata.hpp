@@ -58,20 +58,21 @@ artificial table. */
 // with sindex_config_t.  Or move func_version out to this.
 class sindex_metaconfig_t {
 public:
+    sindex_config_t config;
+
     // The id is used for fdb key prefix.
     sindex_id_t sindex_id;
     // The sindex isn't ready until this is nil.
     fdb_shared_task_id creation_task_or_nil;
 };
-RDB_MAKE_SERIALIZABLE_2(sindex_metaconfig_t, sindex_id, creation_task_or_nil);
+RDB_DECLARE_SERIALIZABLE(sindex_metaconfig_t);
+RDB_DECLARE_EQUALITY_COMPARABLE(sindex_metaconfig_t);
 
 class table_config_t {
 public:
     table_basic_config_t basic;
     // Two parallel maps.
-    // TODO: Combine these maps after non-FDB code is stripped out.
-    std::map<std::string, sindex_config_t> sindexes;
-    std::map<std::string, sindex_metaconfig_t> fdb_sindexes;
+    std::map<std::string, sindex_metaconfig_t> sindex_configs;
     optional<write_hook_config_t> write_hook;
     user_data_t user_data;  // has user-exposed name "data"
 };
