@@ -204,7 +204,7 @@ void query_cache_t::ref_t::fill_response(response_t *res) {
             query_cache->rdb_ctx,
             query_cache->return_empty_normal_batches,
             &combined_interruptor,
-            serializable,
+            std::move(serializable),
             trace.get_or_null());
 
         if (entry->state == entry_t::state_t::START) {
