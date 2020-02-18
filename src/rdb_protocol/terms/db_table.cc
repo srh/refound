@@ -478,8 +478,7 @@ private:
         }
 
         if (!fdb_result.has_value()) {
-            admin_err_t error = table_not_found_error(db->name, tbl_name);
-            REQL_RETHROW(error);
+            rfail_table_dne(db->name, tbl_name);
         }
 
         // TODO: Wipe the config cache after the txn succeeds?
@@ -1175,14 +1174,9 @@ private:
                 table.reset(new real_table_t(
                     table_id,
                     result.ci_cv,
-                    std::move(table_config)
-#if RDB_CF
-                    , env->env->reql_cluster_interface()->get_changefeed_client()
-#endif
-                    ));
+                    std::move(table_config)));
             } else {
-                admin_err_t error = table_not_found_error(db->name, db_table_name.second);
-                REQL_RETHROW(error);
+                rfail_table_dne(db->name, db_table_name.second);
             }
         }
 

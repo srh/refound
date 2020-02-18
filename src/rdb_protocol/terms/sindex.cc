@@ -623,8 +623,7 @@ public:
             guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
 
             if (!table_config.has_value()) {
-                admin_err_t error = table_not_found_error(table->db->name, table->name);
-                REQL_RETHROW(error);
+                rfail_table_dne(table->db->name, table->name);
             }
 
             // Verify all requested sindexes exist.

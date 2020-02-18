@@ -54,13 +54,17 @@ private:
     query_state_t m_query_state;
 };
 
-inline admin_err_t table_not_found_error(
+inline admin_err_t table_dne_error(
         const name_string_t &db_name, const name_string_t &table_name) {
     return admin_err_t{
         strprintf("Table `%s.%s` does not exist.", db_name.c_str(), table_name.c_str()),
         query_state_t::FAILED
     };
 }
+
+#define rfail_table_dne(db_name, table_name) \
+    rfail(ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
+          (db_name).c_str(), (table_name).c_str())
 
 /* `CATCH_NAME_ERRORS` is a helper macro for catching the
 exceptions thrown by the `table_meta_client_t` and producing consistent error messages.
@@ -77,7 +81,7 @@ returning `false`. */
 
 #define CATCH_NAME_ERRORS(db, name, error_out)                                        \
     catch (const no_such_table_exc_t &) {                                             \
-        *(error_out) = table_not_found_error((db), (name));                           \
+        *(error_out) = table_dne_error((db), (name));                                 \
         return false;                                                                 \
     }
 

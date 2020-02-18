@@ -73,7 +73,7 @@ bool artificial_reql_cluster_interface_t::table_find(
         table_out->reset(new artificial_table_fdb_t(backend));
         return true;
     } else {
-        *error_out = table_not_found_error(
+        *error_out = table_dne_error(
                       artificial_reql_cluster_interface_t::database_name, name);
         return false;
     }
