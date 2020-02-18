@@ -106,7 +106,7 @@ void run_get_set_test(
     {
         write_t write(
                 point_write_t(store_key_t("a"), ql::datum_t::null()),
-                DURABILITY_REQUIREMENT_DEFAULT,
+                durability_requirement_t::DEFAULT,
                 profile_bool_t::PROFILE,
                 ql::configured_limits_t());
         write_response_t response;
@@ -203,7 +203,7 @@ void run_create_drop_sindex_test(
          * index). */
         write_t write(
             point_write_t(pk, ql::to_datum(data, limits, reql_version_t::LATEST)),
-            DURABILITY_REQUIREMENT_DEFAULT,
+            durability_requirement_t::DEFAULT,
             profile_bool_t::PROFILE,
             ql::configured_limits_t());
         write_response_t response;
@@ -254,7 +254,7 @@ void run_create_drop_sindex_test(
     {
         /* Delete the data. */
         point_delete_t del(pk);
-        write_t write(del, DURABILITY_REQUIREMENT_DEFAULT, profile_bool_t::PROFILE,
+        write_t write(del, durability_requirement_t::DEFAULT, profile_bool_t::PROFILE,
                       ql::configured_limits_t());
         write_response_t response;
 
@@ -314,7 +314,7 @@ void populate_sindex(namespace_interface_t *nsi,
          * index). */
         write_t write(point_write_t(pk, ql::to_datum(data, limits,
                                                      reql_version_t::LATEST)),
-                      DURABILITY_REQUIREMENT_SOFT, profile_bool_t::PROFILE, limits);
+                      durability_requirement_t::SOFT, profile_bool_t::PROFILE, limits);
         write_response_t response;
 
         cond_t interruptor;
@@ -359,7 +359,7 @@ void fuzz_sindex(namespace_interface_t *nsi,
 
             write = write_t(point_write_t(pk, ql::to_datum(data, limits,
                                                          reql_version_t::LATEST)),
-                            DURABILITY_REQUIREMENT_SOFT, profile_bool_t::PROFILE, limits);
+                            durability_requirement_t::SOFT, profile_bool_t::PROFILE, limits);
             doc_exists[id] = true;
         } else {
             // Delete
@@ -371,7 +371,7 @@ void fuzz_sindex(namespace_interface_t *nsi,
             store_key_t pk = store_key_t(d.print_primary());
 
             write = write_t(point_delete_t(pk),
-                            DURABILITY_REQUIREMENT_SOFT, profile_bool_t::PROFILE, limits);
+                            durability_requirement_t::SOFT, profile_bool_t::PROFILE, limits);
             doc_exists[id] = false;
         }
         write_response_t response;
@@ -665,7 +665,7 @@ void run_sindex_oversized_keys_test(
                  * index). */
                 write_t write(point_write_t(pk, ql::to_datum(data, limits,
                                                              reql_version_t::LATEST)),
-                              DURABILITY_REQUIREMENT_DEFAULT,
+                              durability_requirement_t::DEFAULT,
                               profile_bool_t::PROFILE,
                               limits);
                 write_response_t response;
@@ -746,7 +746,7 @@ void run_sindex_missing_attr_test(
          * index). */
         write_t write(point_write_t(pk, ql::to_datum(data, limits,
                                                      reql_version_t::LATEST)),
-                      DURABILITY_REQUIREMENT_DEFAULT,
+                      durability_requirement_t::DEFAULT,
                       profile_bool_t::PROFILE,
                       ql::configured_limits_t());
         write_response_t response;

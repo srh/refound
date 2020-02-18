@@ -132,7 +132,7 @@ void insert_data(namespace_interface_t *nsi,
         store_key_t pk(strprintf("%zu", i));
         write_t write(
             point_write_t(pk, data[i]),
-            DURABILITY_REQUIREMENT_SOFT,
+            durability_requirement_t::SOFT,
             profile_bool_t::PROFILE,
             ql::configured_limits_t());
         write_response_t response;

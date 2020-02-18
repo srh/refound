@@ -49,10 +49,10 @@ conflict_behavior_t parse_conflict_optarg(env_t *env, const scoped_ptr_t<val_t> 
 }
 
 durability_requirement_t parse_durability_optarg(env_t *env, const scoped_ptr_t<val_t> &arg) {
-    if (!arg.has()) { return DURABILITY_REQUIREMENT_DEFAULT; }
+    if (!arg.has()) { return durability_requirement_t::DEFAULT; }
     const datum_string_t &str = arg->as_str(env);
-    if (str == "hard") { return DURABILITY_REQUIREMENT_HARD; }
-    if (str == "soft") { return DURABILITY_REQUIREMENT_SOFT; }
+    if (str == "hard") { return durability_requirement_t::HARD; }
+    if (str == "soft") { return durability_requirement_t::SOFT; }
     rfail_target(arg.get(),
                  base_exc_t::LOGIC,
                  "Durability option `%s` unrecognized "

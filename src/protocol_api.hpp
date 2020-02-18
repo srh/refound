@@ -86,19 +86,17 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(ignore_write_hook_t,
                                       ignore_write_hook_t::YES);
 
 // Specifies the durability requirements of a write operation.
-//  - DURABILITY_REQUIREMENT_DEFAULT: Use the table's durability settings.
-//  - DURABILITY_REQUIREMENT_HARD: Override the table's durability settings with
+//  - durability_requirement_t::DEFAULT: Use the table's durability settings.
+//  - durability_requirement_t::HARD: Override the table's durability settings with
 //    hard durability.
-//  - DURABILITY_REQUIREMENT_SOFT: Override the table's durability settings with
+//  - durability_requirement_t::SOFT: Override the table's durability settings with
 //    soft durability.
-enum durability_requirement_t { DURABILITY_REQUIREMENT_DEFAULT,
-                                DURABILITY_REQUIREMENT_HARD,
-                                DURABILITY_REQUIREMENT_SOFT };
+enum class durability_requirement_t { DEFAULT, HARD, SOFT };
 
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(durability_requirement_t,
                                       int8_t,
-                                      DURABILITY_REQUIREMENT_DEFAULT,
-                                      DURABILITY_REQUIREMENT_SOFT);
+                                      durability_requirement_t::DEFAULT,
+                                      durability_requirement_t::SOFT);
 
 enum class read_mode_t { MAJORITY, SINGLE, OUTDATED, DEBUG_DIRECT };
 

@@ -505,20 +505,20 @@ struct write_t {
         sync.region = region;
         return write_t(
             sync,
-            DURABILITY_REQUIREMENT_HARD,
+            durability_requirement_t::HARD,
             profile,
             ql::configured_limits_t());
     }
 
     write_t() :
-        durability_requirement(DURABILITY_REQUIREMENT_DEFAULT),
+        durability_requirement(durability_requirement_t::DEFAULT),
         profile(profile_bool_t::DONT_PROFILE),
         limits() {}
-    /*  Note that for durability != DURABILITY_REQUIREMENT_HARD, sync might
+    /*  Note that for durability != durability_requirement_t::HARD, sync might
      *  not have the desired effect (of writing unsaved data to disk).
      *  However there are cases where we use sync internally (such as when
      *  splitting up batched replaces/inserts) and want it to only have an
-     *  effect if DURABILITY_REQUIREMENT_DEFAULT resolves to hard
+     *  effect if durability_requirement_t::DEFAULT resolves to hard
      *  durability. */
     template<class T>
     write_t(T &&t,
@@ -532,7 +532,7 @@ struct write_t {
     write_t(T &&t, profile_bool_t _profile,
             const ql::configured_limits_t &_limits)
         : write(std::forward<T>(t)),
-          durability_requirement(DURABILITY_REQUIREMENT_DEFAULT),
+          durability_requirement(durability_requirement_t::DEFAULT),
           profile(_profile),
           limits(_limits) { }
 };

@@ -293,7 +293,7 @@ private:
 
         UNUSED write_durability_t durability =
             parse_durability_optarg(env->env, args->optarg(env, "durability")) ==
-                DURABILITY_REQUIREMENT_SOFT ?
+                durability_requirement_t::SOFT ?
                     write_durability_t::SOFT : write_durability_t::HARD;
         // TODO: Can we emit a warning somehow if durability wasn't HARD?
 
