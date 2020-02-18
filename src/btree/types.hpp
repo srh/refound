@@ -6,7 +6,6 @@
 
 enum class continue_bool_t { CONTINUE = 0, ABORT = 1 };
 
-// OOO: With no cfeeds... remove?  Clean out usages?
 enum class is_stamp_read_t { NO, YES };
 
 #endif /* BTREE_TYPES_HPP_ */

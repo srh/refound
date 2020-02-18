@@ -1091,6 +1091,11 @@ bool configure_tls(
 }
 #endif /* ENABLE_TLS */
 
+
+// TODO: With porcelain creation, make sure we create 'test' db.
+
+// NNN: Next thing to do is to handle config_version_exc_t.  We never handle it and wipe the cache.
+
 void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
                          serve_info_t *serve_info,
