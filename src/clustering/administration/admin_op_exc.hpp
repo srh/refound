@@ -6,37 +6,13 @@
 #include "query_state.hpp"
 #include "utils.hpp"
 
-// TODO: Remove any of these four exceptions that aren't used.  In fact, perhaps remove
-// them entirely.  They were rescued from table_meta_client.
+// TODO: Remove no_such_table_exc_t, if it's used sparingly.
 
 class no_such_table_exc_t : public std::runtime_error {
 public:
     no_such_table_exc_t() :
         std::runtime_error("There is no table with the given name / UUID.") { }
 };
-
-class ambiguous_table_exc_t : public std::runtime_error {
-public:
-    ambiguous_table_exc_t() :
-        std::runtime_error("There are multiple tables with the given name.") { }
-};
-
-class failed_table_op_exc_t : public std::runtime_error {
-public:
-    failed_table_op_exc_t() : std::runtime_error("The attempt to read or modify the "
-        "table's configuration failed because none of the servers were accessible.  If "
-        "it was an attempt to modify, the modification did not take place.") { }
-};
-
-class maybe_failed_table_op_exc_t : public std::runtime_error {
-public:
-    maybe_failed_table_op_exc_t() : std::runtime_error("The attempt to modify the "
-        "table's configuration failed because we lost contact with the servers after "
-        "initiating the modification, or the Raft leader lost contact with its "
-        "followers, or we timed out while waiting for the changes to propagate.  The "
-        "modification may or may not have taken place.") { }
-};
-
 
 struct admin_err_t {
     std::string msg;
@@ -86,9 +62,7 @@ inline admin_err_t table_not_found_error(
     };
 }
 
-// TODO: There will be no ambiguous table exc.
-
-/* `CATCH_NAME_ERRORS` and `CATCH_OP_ERRORS` are helper macros for catching the
+/* `CATCH_NAME_ERRORS` is a helper macro for catching the
 exceptions thrown by the `table_meta_client_t` and producing consistent error messages.
 They're designed to be used as follows:
 
@@ -104,35 +78,6 @@ returning `false`. */
 #define CATCH_NAME_ERRORS(db, name, error_out)                                        \
     catch (const no_such_table_exc_t &) {                                             \
         *(error_out) = table_not_found_error((db), (name));                           \
-        return false;                                                                 \
-    } catch (const ambiguous_table_exc_t &) {                                         \
-        *(error_out) = admin_err_t{                                                   \
-            strprintf("Table `%s.%s` is ambiguous; there are multiple "               \
-                      "tables with that name.", (db).c_str(), (name).c_str()),        \
-            query_state_t::FAILED};                                                   \
-        return false;                                                                 \
-    }
-
-/* For read operations, `no_msg` and `maybe_msg` should both be `""`. For write
-operations, `no_msg` should be a string literal stating that the operation was not
-performed, and `maybe_msg` should be a string literal stating that the operation may or
-may not have been performed. */
-#define CATCH_OP_ERRORS(db, name, error_out, no_msg, maybe_msg)                       \
-    catch (const failed_table_op_exc_t &) {                                           \
-        *(error_out) = admin_err_t{                                                   \
-            strprintf("The server(s) hosting table `%s.%s` are currently "            \
-                      "unreachable. " no_msg " If you do not expect the server(s) "   \
-                      "to recover, you can use `emergency_repair` to restore "        \
-                      "availability of the table. "                                   \
-                      "<http://rethinkdb.com/api/javascript/reconfigure/"             \
-                      "#emergency-repair-mode>", (db).c_str(), (name).c_str()),       \
-            query_state_t::FAILED};                                                   \
-        return false;                                                                 \
-    } catch (const maybe_failed_table_op_exc_t &) {                                   \
-        *(error_out) = admin_err_t{                                                   \
-            strprintf("We lost contact with the server(s) hosting table "             \
-                      "`%s.%s`. " maybe_msg, (db).c_str(), (name).c_str()),           \
-            query_state_t::INDETERMINATE};                                            \
         return false;                                                                 \
     }
 
