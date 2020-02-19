@@ -6,7 +6,6 @@
 #include <string>
 
 #include "rdb_protocol/protocol.hpp"
-#include "store_view.hpp"
 #include "unittest/unittest_utils.hpp"
 
 namespace unittest {
