@@ -12,7 +12,7 @@
 #include "protocol_api.hpp"
 #include "rdb_protocol/context.hpp"
 #include "rdb_protocol/protocol.hpp"
-#include "rpc/semilattice/joins/macros.hpp"
+#include "rpc/equality_macros.hpp"
 #include "rpc/serialize_macros.hpp"
 
 /* This is the metadata for a single table. */

@@ -287,13 +287,13 @@ $(PROTO_DIR)/%.pb.h $(PROTO_DIR)/%.pb.cc: $(SOURCE_DIR)/%.proto $(PROTOC_BIN_DEP
 
 	$(PROTOC) $(PROTOCFLAGS_CXX) --cpp_out $(PROTO_DIR) $<
 
-$(TOP)/src/rpc/semilattice/joins/macros.hpp: $(TOP)/scripts/generate_join_macros.py
+$(TOP)/src/rpc/equality_macros.hpp: $(TOP)/scripts/generate_equality_macros.py
 $(TOP)/src/rpc/serialize_macros.hpp: $(TOP)/scripts/generate_serialize_macros.py
-$(TOP)/src/rpc/semilattice/joins/macros.hpp $(TOP)/src/rpc/serialize_macros.hpp:
+$(TOP)/src/rpc/equality_macros.hpp $(TOP)/src/rpc/serialize_macros.hpp:
 	$P GEN $@
 	$< > $@
 
-generate-headers: $(TOP)/src/rpc/semilattice/joins/macros.hpp $(TOP)/src/rpc/serialize_macros.hpp
+generate-headers: $(TOP)/src/rpc/equality_macros.hpp $(TOP)/src/rpc/serialize_macros.hpp
 
 .PHONY: rethinkdb
 rethinkdb: $(BUILD_DIR)/$(SERVER_EXEC_NAME)

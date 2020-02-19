@@ -7,7 +7,7 @@
 #include "fdb/id_types.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "rpc/serialize_macros.hpp"
-#include "rpc/semilattice/joins/macros.hpp"
+#include "rpc/equality_macros.hpp"
 
 struct skey_string;
 struct ukey_string;

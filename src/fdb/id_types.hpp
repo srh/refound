@@ -2,7 +2,7 @@
 #define RETHINKDB_FDB_ID_TYPES_HPP_
 
 #include "containers/uuid.hpp"
-#include "rpc/semilattice/joins/macros.hpp"
+#include "rpc/equality_macros.hpp"
 #include "rpc/serialize_macros.hpp"
 
 // TODO: Many fdb id types (any used in a key) could be a small integer instead of a

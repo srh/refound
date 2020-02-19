@@ -6,7 +6,7 @@
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
 #include "rpc/serialize_macros.hpp"
-#include "rpc/semilattice/joins/macros.hpp"
+#include "rpc/equality_macros.hpp"
 
 class signal_t;
 
