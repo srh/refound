@@ -66,7 +66,6 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
-#include "rpc/connectivity/server_id.hpp"
 
 #define RETHINKDB_EXPORT_SCRIPT "rethinkdb-export"
 #define RETHINKDB_IMPORT_SCRIPT "rethinkdb-import"
@@ -1100,9 +1099,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
                          serve_info_t *serve_info,
                          const std::string &initial_password,
-                         const optional<optional<uint64_t> >
-                            &total_cache_size,
-                         const server_id_t *our_server_id,
                          directory_lock_t *data_directory_lock,
                          bool *const result_out) {
     logNTC("Running %s...\n", RETHINKDB_VERSION_STR);
@@ -1117,10 +1113,7 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
 
     try {
         cond_t non_interruptor;
-        if (our_server_id != nullptr) {
-            guarantee(!static_cast<bool>(total_cache_size), "rethinkdb porcelain should "
-                "have already set up total_cache_size");
-        } else {
+        {
             if (!initial_password.empty()) {
                 /* Apply the initial password if there isn't one already. */
                 // TODO: Is there some sort of sigint interruptor we can set up earlier?
@@ -1981,7 +1974,8 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
-        optional<optional<uint64_t> > total_cache_size =
+        // TODO: We don't use total_cache_size.
+        UNUSED optional<optional<uint64_t> > total_cache_size =
             parse_total_cache_size_option(opts);
 
         optional<int> join_delay_secs = parse_join_delay_secs_option(opts);
@@ -2039,8 +2033,6 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
                                      base_path,
                                      &serve_info,
                                      initial_password,
-                                     total_cache_size,
-                                     static_cast<server_id_t*>(nullptr),
                                      &data_directory_lock,
                                      &result),
                            num_workers);

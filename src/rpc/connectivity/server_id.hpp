@@ -5,7 +5,8 @@
 #include <string>
 
 #include "containers/uuid.hpp"
-#include "rpc/serialize_macros.hpp"
+
+// TODO: Get rid of this type, maybe just figure out / get rid of the datum_adapter file.
 
 /* `server_id_t` is a `uuid_u`, but now there's just one value...
 
@@ -26,12 +27,13 @@ public:
     }
 
     uuid_u get_uuid() const {
-        return str_to_uuid("07ca73b5-80de-4f78-b7f7-dfa5fab59512");
+        return str_to_uuid(print());
     }
 
-    std::string print() const;
-
-    RDB_DECLARE_ME_SERIALIZABLE(server_id_t);
+    std::string print() const {
+        // Just some arbitrary UUID.
+        return "07ca73b5-80de-4f78-b7f7-dfa5fab59512";
+    }
 };
 
 // Inverse of `server_id_t::print`.

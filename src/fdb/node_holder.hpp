@@ -15,6 +15,8 @@ public:
     // Shuts down the node holder coro.
     void shutdown(const signal_t *interruptor);
 
+    fdb_node_id get_node_id() const { return node_id_; }
+
 private:
     FDBDatabase *fdb_;
     // TODO: Remove server_id_t entirely, or pass it in.

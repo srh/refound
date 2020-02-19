@@ -94,11 +94,12 @@ bool do_serve(FDBDatabase *fdb,
         log messages will be written using the event loop instead of blocking. */
         thread_pool_log_writer_t log_writer;
 
-#ifndef NDEBUG
-        logNTC("Our server ID is %s", server_id_t().print().c_str());
-#endif
-
         fdb_node_holder node_holder{fdb, stop_cond};
+
+#ifndef NDEBUG
+        logNTC("Ephemeral node ID is %s",
+            uuid_to_str(node_holder.get_node_id().value).c_str());
+#endif
 
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());
@@ -195,12 +196,10 @@ bool do_serve(FDBDatabase *fdb,
                     }
 
                     if (i_am_a_server) {
-                        // TODO: "theserver" in user output.
-                        logNTC("Server ready, \"%s\" %s\n",
-                               "theserver",
-                               server_id_t().print().c_str());
+                        logNTC("Server ready, ephemeral node id %s\n",
+                               uuid_to_str(node_holder.get_node_id().value).c_str());
                     } else {
-                        logNTC("Proxy ready, %s", server_id_t().print().c_str());
+                        logNTC("Proxy ready.\n");
                     }
 
                     /* This is the end of the startup process. `stop_cond` will be pulsed
