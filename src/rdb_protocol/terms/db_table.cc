@@ -727,24 +727,26 @@ private:
             rfail(base_exc_t::LOGIC, "`wait` can only be called on a table or database.");
         }
 
-        // Handle 'wait_for' optarg
-        table_readiness_t readiness = table_readiness_t::finished;
-        if (scoped_ptr_t<val_t> wait_for = args->optarg(env, "wait_for")) {
-            if (wait_for->as_str(env) == wait_outdated_str) {
-                readiness = table_readiness_t::outdated_reads;
-            } else if (wait_for->as_str(env) == wait_reads_str) {
-                readiness = table_readiness_t::reads;
-            } else if (wait_for->as_str(env) == wait_writes_str) {
-                readiness = table_readiness_t::writes;
-            } else if (wait_for->as_str(env) == wait_all_str) {
-                readiness = table_readiness_t::finished;
-            } else {
-                rfail_target(wait_for, base_exc_t::LOGIC,
-                             "Unknown table readiness state: '%s', must be one of "
-                             "'%s', '%s', '%s', or '%s'",
-                             wait_for->as_str(env).to_std().c_str(),
-                             wait_outdated_str, wait_reads_str,
-                             wait_writes_str, wait_all_str);
+        // Check 'wait_for' optarg is valid -- but we ignore it, post-fdb.
+        {
+            table_readiness_t readiness = table_readiness_t::finished;
+            if (scoped_ptr_t<val_t> wait_for = args->optarg(env, "wait_for")) {
+                if (wait_for->as_str(env) == wait_outdated_str) {
+                    readiness = table_readiness_t::outdated_reads;
+                } else if (wait_for->as_str(env) == wait_reads_str) {
+                    readiness = table_readiness_t::reads;
+                } else if (wait_for->as_str(env) == wait_writes_str) {
+                    readiness = table_readiness_t::writes;
+                } else if (wait_for->as_str(env) == wait_all_str) {
+                    readiness = table_readiness_t::finished;
+                } else {
+                    rfail_target(wait_for, base_exc_t::LOGIC,
+                                 "Unknown table readiness state: '%s', must be one of "
+                                 "'%s', '%s', '%s', or '%s'",
+                                 wait_for->as_str(env).to_std().c_str(),
+                                 wait_outdated_str, wait_reads_str,
+                                 wait_writes_str, wait_all_str);
+                }
             }
         }
 

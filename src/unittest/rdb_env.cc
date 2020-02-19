@@ -57,10 +57,6 @@ std::string mock_namespace_interface_t::get_primary_key() const {
     return primary_key.to_std();
 }
 
-bool mock_namespace_interface_t::check_readiness(table_readiness_t, const signal_t *) {
-    throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
-}
-
 void mock_namespace_interface_t::read_visitor_t::operator()(const point_read_t &get) {
     ql::configured_limits_t limits;
     response->response = point_read_response_t();

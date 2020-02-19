@@ -76,10 +76,6 @@ public:
         return sharder->write(_write, response, tok, interruptor);
     }
 
-    bool check_readiness(table_readiness_t, const signal_t *) {
-        throw cannot_perform_query_exc_t("unimplemented", query_state_t::FAILED);
-    }
-
 private:
     // Just one performer and timestamper now.
     scoped_ptr_t<dummy_performer_t> the_performer;

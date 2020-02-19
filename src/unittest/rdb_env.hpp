@@ -49,8 +49,6 @@ public:
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t);
 
-    bool check_readiness(table_readiness_t readiness, const signal_t *interruptor);
-
     std::map<store_key_t, ql::datum_t> *get_data();
 
     std::string get_primary_key() const;
