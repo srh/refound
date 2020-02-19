@@ -1,6 +1,4 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
-#include "unittest/rdb_protocol.hpp"
-
 #include <functional>
 #include <vector>
 

@@ -33,7 +33,6 @@
 
 class store_t;
 template <class> class clone_ptr_t;
-struct secondary_index_t;
 template <class> class watchable_t;
 
 enum class profile_bool_t {
