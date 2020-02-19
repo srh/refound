@@ -12,6 +12,7 @@
 namespace auth {
 class username_t;
 class user_t;
+class user_context_t;
 }
 
 namespace ql {
@@ -19,6 +20,8 @@ class db_t;
 }
 
 struct ukey_string;
+class sindex_config_t;
+class write_hook_config_t;
 
 // TODO: Move somewhere appropriate.
 ukey_string table_by_name_key(

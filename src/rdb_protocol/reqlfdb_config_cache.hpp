@@ -12,7 +12,9 @@
 #include "containers/counted.hpp"
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"
-#include "rdb_protocol/context.hpp"
+#include "fdb/id_types.hpp"
+
+template <class T> class optional;
 
 // TODO: Handle this exception.
 class config_version_exc_t : public std::exception {

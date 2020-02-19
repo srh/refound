@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "btree/keys.hpp"
 #include "write_durability.hpp"
 #include "concurrency/interruptor.hpp"
 #include "concurrency/signal.hpp"
