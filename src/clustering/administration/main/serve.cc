@@ -18,7 +18,6 @@
 #include "extproc/extproc_pool.hpp"
 #include "fdb/node_holder.hpp"
 #include "rdb_protocol/query_server.hpp"
-#include "rpc/connectivity/server_id.hpp"
 
 peer_address_set_t look_up_peers_addresses(const std::vector<host_and_port_t> &names) {
     peer_address_set_t peers;

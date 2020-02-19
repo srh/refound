@@ -8,7 +8,6 @@
 #include "rdb_protocol/query_cache.hpp"
 #include "rdb_protocol/query_params.hpp"
 #include "rdb_protocol/response.hpp"
-#include "rpc/connectivity/server_id.hpp"
 
 rdb_query_server_t::rdb_query_server_t(
     fdb_node_id node_id,
