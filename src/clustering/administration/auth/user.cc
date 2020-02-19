@@ -4,9 +4,6 @@
 #include <set>
 #include <string>
 
-#include "errors.hpp"
-#include <boost/algorithm/string/join.hpp>
-
 #include "arch/runtime/runtime_utils.hpp"
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
@@ -70,7 +67,7 @@ void user_t::merge(ql::datum_t const &datum) {
         keys.erase("password");
 
         throw admin_op_exc_t(
-            "Unexpected key(s) `" + boost::algorithm::join(keys, "`, `") + "`.",
+            "Unexpected key(s) `" + string_join(keys, "`, `") + "`.",
             query_state_t::FAILED);
     }
 

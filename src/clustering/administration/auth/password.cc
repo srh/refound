@@ -1,13 +1,11 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/administration/auth/password.hpp"
 
-#include "errors.hpp"
-#include <boost/algorithm/string/join.hpp>
-
 #include "clustering/administration/admin_op_exc.hpp"
 #include "containers/archive/stl_types.hpp"
 #include "crypto/pbkcs5_pbkdf2_hmac.hpp"
 #include "crypto/random.hpp"
+#include "stl_utils.hpp"
 
 namespace auth {
 
@@ -70,7 +68,7 @@ password_t::password_t(ql::datum_t const &datum) {
 
     if (!keys.empty()) {
         throw admin_op_exc_t(
-            "Unexpected key(s) `" + boost::algorithm::join(keys, "`, `") + "`.",
+            "Unexpected key(s) `" + string_join(keys, "`, `") + "`.",
             query_state_t::FAILED);
     }
 }

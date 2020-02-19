@@ -449,18 +449,9 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
         }
 
         if (!keys.empty()) {
-            std::string msg = "Unexpected key(s) `";
-            // TODO: Make a string_join util function
-            bool first = true;
-            for (const std::string &key : keys) {
-                if (!first) {
-                    msg += "`, `";
-                }
-                msg += key;
-            }
-            msg += "`.";
-
-            *error_out = admin_err_t{msg, query_state_t::FAILED};
+            *error_out = admin_err_t{
+                "Unexpected key(s) `" + string_join(keys, "`, `") + "`.",
+                query_state_t::FAILED};
             return false;
         }
 

@@ -18,3 +18,15 @@ std::vector<std::string> split_string(const std::string &s, char sep) {
     }
 }
 
+std::string string_join(const std::set<std::string> &container, const std::string &sep) {
+    std::string builder;
+    bool first = true;
+    for (const std::string &el : container) {
+        if (!first) {
+            builder += sep;
+        }
+        builder += el;
+        first = false;
+    }
+    return builder;
+}

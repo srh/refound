@@ -56,6 +56,8 @@ std::map<K, V> make_map(const std::pair<K, V> &arg, Args... args) {
 
 std::vector<std::string> split_string(const std::string &s, char sep);
 
+std::string string_join(const std::set<std::string> &container, const std::string &sep);
+
 #include "stl_utils.tcc"
 
 #endif /* STL_UTILS_HPP_ */

@@ -1,12 +1,10 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "clustering/administration/auth/permissions.hpp"
 
-#include "errors.hpp"
-#include <boost/algorithm/string/join.hpp>
-
 #include "clustering/administration/admin_op_exc.hpp"
 #include "containers/archive/optional.hpp"
 #include "containers/archive/versioned.hpp"
+#include "stl_utils.hpp"
 
 namespace auth {
 
@@ -103,7 +101,7 @@ void permissions_t::merge(ql::datum_t const &datum) {
 
     if (!keys.empty()) {
         throw admin_op_exc_t(
-            "Unexpected key(s) `" + boost::algorithm::join(keys, "`, `") + "`.",
+            "Unexpected key(s) `" + string_join(keys, "`, `") + "`.",
             query_state_t::FAILED);
     }
 }
