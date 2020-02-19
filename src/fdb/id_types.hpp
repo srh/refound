@@ -26,6 +26,12 @@ struct sindex_id_t {
 RDB_MAKE_SERIALIZABLE_1(sindex_id_t, value);
 RDB_MAKE_EQUALITY_COMPARABLE_1(sindex_id_t, value);
 
+struct fdb_node_id {
+    uuid_u value;
+};
+RDB_MAKE_SERIALIZABLE_1(fdb_node_id, value);
+RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_node_id, value);
+
 // Not an id type, so maybe this file is misnamed.  Well, maybe it identifies the
 // version.
 struct reqlfdb_config_version {

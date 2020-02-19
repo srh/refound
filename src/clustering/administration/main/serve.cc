@@ -97,6 +97,8 @@ bool do_serve(FDBDatabase *fdb,
         fdb_node_holder node_holder{fdb, stop_cond};
 
 #ifndef NDEBUG
+        // The node id could be non-ephemeral (we could reuse it after a node goes down
+        // and back up) for what it's worth.
         logNTC("Ephemeral node ID is %s",
             uuid_to_str(node_holder.get_node_id().value).c_str());
 #endif
@@ -136,6 +138,7 @@ bool do_serve(FDBDatabase *fdb,
                 /* The `rdb_query_server_t` listens for client requests and processes the
                 queries it receives. */
                 rdb_query_server_t rdb_query_server(
+                    node_holder.get_node_id(),
                     serve_info.ports.local_addresses_driver,
                     serve_info.ports.reql_port,
                     &rdb_ctx,

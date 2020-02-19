@@ -5,7 +5,7 @@
 #include "concurrency/signal.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/fdb.hpp"
-#include "fdb/reql_fdb.hpp"
+#include "fdb/id_types.hpp"
 
 class fdb_node_holder {
 public:

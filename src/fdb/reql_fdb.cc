@@ -195,4 +195,3 @@ void future_block_coro(FDBFuture *fut, const signal_t *interruptor) {
 #endif
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_clock, value);
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_node_id, value);

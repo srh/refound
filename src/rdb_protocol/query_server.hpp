@@ -8,6 +8,7 @@
 #include "arch/io/openssl.hpp"
 #include "concurrency/one_per_thread.hpp"
 #include "client_protocol/server.hpp"
+#include "fdb/id_types.hpp"
 
 namespace ql {
 class query_params_t;
@@ -20,8 +21,9 @@ class rdb_context_t;
 class rdb_query_server_t : public query_handler_t {
 public:
     rdb_query_server_t(
-      const std::set<ip_address_t> &local_addresses, int port,
-      rdb_context_t *_rdb_ctx, tls_ctx_t *tls_ctx);
+        fdb_node_id node_id,
+        const std::set<ip_address_t> &local_addresses, int port,
+        rdb_context_t *_rdb_ctx, tls_ctx_t *tls_ctx);
 
     http_app_t *get_http_app();
     int get_port() const;
@@ -33,6 +35,8 @@ private:
     void fill_server_info(ql::response_t *out);
 
     static const uint32_t default_http_timeout_sec = 300;
+
+    const fdb_node_id node_id_;
 
     query_server_t server;
     rdb_context_t *rdb_ctx;
