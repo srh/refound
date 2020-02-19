@@ -28,34 +28,6 @@ private:
 
 static const char *TEMPORARY_DIRECTORY_NAME = "tmp";
 
-// TODO: Cleanup usage of this?
-// Contains the name of a serializer file.
-class serializer_filepath_t {
-public:
-    serializer_filepath_t(const base_path_t& directory, const std::string& relative_path)
-        : permanent_path_(directory.path() + PATH_SEPARATOR + relative_path),
-          temporary_path_(directory.path() + PATH_SEPARATOR + TEMPORARY_DIRECTORY_NAME + PATH_SEPARATOR + relative_path + ".create") {
-        guarantee(!relative_path.empty());
-    }
-
-    // A serializer_file_opener_t will first open the file in a temporary location, then move it to
-    // the permanent location when it's finished being created.  These give the names of those
-    // locations.
-    std::string permanent_path() const { return permanent_path_; }
-    std::string temporary_path() const { return temporary_path_; }
-
-    static serializer_filepath_t manual_path(const std::string &permanent, const std::string &temporary) {
-        return serializer_filepath_t(permanent, temporary);
-    }
-
-private:
-    serializer_filepath_t(const std::string& _permanent_path, const std::string& _temporary_path)
-        : permanent_path_(_permanent_path), temporary_path_(_temporary_path) { }
-
-    const std::string permanent_path_;
-    const std::string temporary_path_;
-};
-
 void recreate_temporary_directory(const base_path_t& base_path);
 
 void remove_directory_recursive(const char *path);

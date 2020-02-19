@@ -94,14 +94,10 @@ temp_file_t::temp_file_t() {
 
 temp_file_t::~temp_file_t() {
     // Unlink both possible locations of the file.
-    const int res1 = ::unlink(name().temporary_path().c_str());
+    const int res1 = ::unlink((filename + temp_file_create_suffix).c_str());
     EXPECT_TRUE(res1 == 0 || get_errno() == ENOENT);
-    const int res2 = ::unlink(name().permanent_path().c_str());
+    const int res2 = ::unlink(filename.c_str());
     EXPECT_TRUE(res2 == 0 || get_errno() == ENOENT);
-}
-
-serializer_filepath_t temp_file_t::name() const {
-    return serializer_filepath_t::manual_path(filename, filename + temp_file_create_suffix);
 }
 
 temp_directory_t::temp_directory_t() {

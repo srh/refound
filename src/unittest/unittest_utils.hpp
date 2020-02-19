@@ -42,14 +42,10 @@ inline void nap(int64_t ms) {
 
 std::string rand_string(int len);
 
-serializer_filepath_t make_unittest_filepaths(const std::string &permanent_path,
-                                              const std::string &temporary_path);
-
 class temp_file_t {
 public:
     temp_file_t();
     ~temp_file_t();
-    serializer_filepath_t name() const;
 
 private:
     std::string filename;
