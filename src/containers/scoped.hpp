@@ -242,14 +242,6 @@ private:
     mutable T it;
 };
 
-#ifdef __clang__
-#define CAN_ALIAS_TEMPLATES 1
-#elif __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7)
-#define CAN_ALIAS_TEMPLATES 0
-#else
-#define CAN_ALIAS_TEMPLATES 1
-#endif
-
 /*
  * For pointers with custom allocators and deallocators
  */
@@ -303,9 +295,6 @@ public:
         swap(tmp);
     }
 
-#if !CAN_ALIAS_TEMPLATES
-protected:
-#endif
     ~scoped_alloc_t() {
         static_assert(std::is_pod<T>::value || std::is_same<T, void>::value,
                       "refusing to malloc non-POD, non-void type");
@@ -334,40 +323,14 @@ void *raw_malloc_aligned(size_t size) {
     return raw_malloc_aligned(size, alignment);
 }
 
-#if !CAN_ALIAS_TEMPLATES
-
-// GCC 4.6 doesn't support template aliases
-
-#define TEMPLATE_ALIAS(type_t, ...)                                     \
-    struct type_t : public __VA_ARGS__ {                                \
-        template <class ... arg_ts>                                     \
-        type_t(arg_ts&&... args) : /* NOLINT */                         \
-            __VA_ARGS__(std::forward<arg_ts>(args)...) { }              \
-    }
-
-#else
-
-#define TEMPLATE_ALIAS(type_t, ...) using type_t = __VA_ARGS__;
-
-#endif
-
 // A type for pointers using rmalloc/free
 template <class T>
-TEMPLATE_ALIAS(scoped_malloc_t, scoped_alloc_t<T, rmalloc, free>);
-
-// A type for aligned pointers
-// Needed because, on Windows, raw_free_aligned doesn't call free
-template <class T, int alignment>
-TEMPLATE_ALIAS(scoped_aligned_ptr_t, scoped_alloc_t<T, raw_malloc_aligned<alignment>, raw_free_aligned>);
+using scoped_malloc_t = scoped_alloc_t<T, rmalloc, free>;
 
 #ifndef _WIN32
 // A type for page-aligned pointers
 template <class T>
-TEMPLATE_ALIAS(scoped_page_aligned_ptr_t, scoped_alloc_t<T, raw_malloc_page_aligned, raw_free_aligned>);
+using scoped_page_aligned_ptr_t = scoped_alloc_t<T, raw_malloc_page_aligned, raw_free_aligned>;
 #endif
-
-// A type for device-block-aligned pointers
-template <class T>
-TEMPLATE_ALIAS(scoped_device_block_aligned_ptr_t, scoped_alloc_t<T, raw_malloc_aligned<DEVICE_BLOCK_SIZE>, raw_free_aligned>);
 
 #endif  // CONTAINERS_SCOPED_HPP_
