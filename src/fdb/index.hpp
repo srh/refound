@@ -160,5 +160,12 @@ void transaction_set_plain_index(
         value);
 }
 
+template <class index_traits>
+std::string plain_index_skey_prefix(
+        const typename index_traits::skey_type &sindex_key) {
+    return plain_index_skey_prefix(
+        index_traits::prefix, index_traits::skey_str(sindex_key));
+}
+
 
 #endif  // RETHINKDB_FDB_INDEX_HPP_

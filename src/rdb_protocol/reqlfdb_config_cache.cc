@@ -378,6 +378,35 @@ bool config_cache_db_create(
     return true;
 }
 
+// TODO: Note that when we drop a db, we pretend its tables don't exist.  But the user still retains references to the table until the cleanup job has removed the table.  Do system tables expose this information inconsistently at all?
+
+// TODO: Be sure to test that we can actually remove tables as non-admin user with specific config permissions on that... whatever.  That is, make sure we don't do 
+
+void help_remove_user_uuid_references(
+        FDBTransaction *txn,
+        const uuid_u &db_or_table_id,
+        const signal_t *interruptor) {
+    std::string prefix = plain_index_skey_prefix<users_by_ids>(db_or_table_id);
+    std::vector<std::pair<auth::username_t, fdb_value_fut<auth::user_t>>> user_futs;
+    transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
+            [&](const FDBKeyValue &kv) {
+        key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+        key_view key = whole_key.guarantee_without_prefix(prefix);
+
+        auth::username_t username = users_by_username::parse_ukey(key);
+        user_futs.push_back(std::make_pair(username,
+            transaction_lookup_uq_index<users_by_username>(txn, username)));
+        return true;
+    });
+
+    for (auto &pair : user_futs) {
+        auth::user_t old_user = pair.second.block_and_deserialize(interruptor);
+        auth::user_t new_user = old_user;
+        new_user.set_db_or_table_permissions_indeterminate(db_or_table_id);
+        transaction_modify_user(txn, pair.first, old_user, new_user);
+    }
+}
+
 // TODO: Use uniform reql datum primary key serialization, how about that idea?
 
 // db_name must come from the db (in the same txn).
@@ -427,6 +456,13 @@ void config_cache_db_drop_uuid(
 
     // Check the auth fut after a round-trip in add_fdb_job.
     auth_fut.block_and_check(interruptor);
+
+    // I'll note we call help_remove_user_uuid_references *after* checking the auth_fut,
+    // so we don't somehow overwrite the user_t in such a way that removes our
+    // permissions to drop the db or its tables.
+
+    // TODO: Parallize this relative to add_fdb_job, maybe the auth fut.
+    help_remove_user_uuid_references(txn, db_id.value, interruptor);
 
     transaction_erase_uq_index<db_config_by_id>(txn, db_id);
     transaction_erase_uq_index<db_config_by_name>(txn, db_name);
@@ -501,6 +537,10 @@ void help_remove_table(
         }
     }
 
+    // TODO: And also, parallelize this with it.
+    help_remove_user_uuid_references(txn, table_id.value, interruptor);
+
+    // Delete table data.
     std::string prefix = rfdb::table_key_prefix(table_id);
     transaction_clear_prefix_range(txn, prefix);
 }
@@ -1013,7 +1053,6 @@ fdb_value_fut<auth::user_t> transaction_get_user(
     return transaction_lookup_uq_index<users_by_username>(txn, username);
 }
 
-// NNN: Needs old user
 void transaction_set_user(
         FDBTransaction *txn,
         const auth::username_t &username,

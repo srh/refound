@@ -182,6 +182,13 @@ void user_t::set_table_permissions(
     }
 }
 
+void user_t::set_db_or_table_permissions_indeterminate(
+        const uuid_u &db_or_table_id) {
+    // Only one of these can succeed, of course.
+    m_table_permissions.erase(namespace_id_t{db_or_table_id});
+    m_database_permissions.erase(database_id_t{db_or_table_id});
+}
+
 bool user_t::has_read_permission(
         database_id_t const &database_id,
         namespace_id_t const &table_id) const {

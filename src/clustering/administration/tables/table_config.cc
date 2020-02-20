@@ -456,6 +456,7 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
                     table_pkey_value);
             }
 
+            // users_by_ids index is unchanged.
             transaction_set_uq_index<table_config_by_id>(txn, table_id, new_config);
 
             reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);

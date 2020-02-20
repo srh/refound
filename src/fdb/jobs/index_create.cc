@@ -202,6 +202,7 @@ optional<fdb_job_info> execute_index_create_job(
         // sindexes_it still points into table_config.
         sindexes_it->second.creation_task_or_nil = fdb_shared_task_id{nil_uuid()};
         // Table by name index unchanged.
+        // users_by_ids unchanged.
         transaction_set_uq_index<table_config_by_id>(txn, index_create_info.table_id,
             table_config);
         reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);

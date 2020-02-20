@@ -144,7 +144,8 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
         const signal_t *interruptor,
         ql::datum_t *row_out,
         UNUSED admin_err_t *error_out) {
-    // NNN: We should filter out outdated user perms referencing table or dbs that d.n.e.
+    // NNN: We should filter out outdated user perms referencing tables of db's that
+    // d.n.e. (but the user permissions still references tables in them).
 
     username_t username;
     database_id_t database_id;
@@ -683,6 +684,10 @@ bool permissions_artificial_table_fdb_backend_t::table_to_datum(
     // resolver.  Every user permission should check if the table exists -- or user
     // permissions by construction should not reference tables or databases that don't
     // exist.
+    //
+    // Note that right now, tables of deleted db's will sit around in user permissions,
+    // and I think we'll list them in this table.  In any case we need to check if the
+    // db exists.
 
     ql::datum_t permissions_datum = permissions.to_datum();
     if (permissions_datum.get_type() != ql::datum_t::R_NULL) {

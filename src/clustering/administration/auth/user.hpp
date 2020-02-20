@@ -44,6 +44,10 @@ public:
     void set_table_permissions(
         namespace_id_t const &table_id,
         permissions_t permissions);
+    // This exists because we just mix table/db uuid's in the user_by_ids index and want
+    // to reuse some code that updates a user when we delete a table or db.  We don't
+    // have to do that; maybe we shouldn't (on general principle).
+    void set_db_or_table_permissions_indeterminate(uuid_u const &db_or_table_id);
 
     bool has_read_permission(
         database_id_t const &database_id,

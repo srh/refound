@@ -305,8 +305,7 @@ void remove_fdb_task_and_jobs(FDBTransaction *txn, fdb_shared_task_id task_id,
 
         // We know the key is a UUID, fwiw; we don't even bother to parse it.
         ukey_string job_id_key{std::string(as_char(key.data), size_t(key.length))};
-        job_futs.push_back(fdb_value_fut<fdb_job_info>{
-            transaction_lookup_uq_index_raw<jobs_by_id>(txn, job_id_key)});
+        job_futs.push_back(transaction_lookup_uq_index_raw<jobs_by_id>(txn, job_id_key));
 
         return true;
     });
