@@ -3,7 +3,7 @@
 
 #include <limits.h>
 
-#include <map>
+#include <unordered_map>
 
 // TODO: Uncomment or remove.
 // #include "clustering/administration/auth/username.hpp"
@@ -51,6 +51,31 @@ public:
 
 class table_config_t;
 
+struct name_string_hasher {
+    size_t operator()(const name_string_t &ns) const {
+        return std::hash<std::string>()(ns.str());
+    }
+};
+struct database_id_hasher {
+    size_t operator()(const database_id_t &db_id) const {
+        return std::hash<uuid_u>()(db_id.value);
+    }
+};
+struct namespace_id_hasher {
+    size_t operator()(const namespace_id_t &db_id) const {
+        return std::hash<uuid_u>()(db_id.value);
+    }
+};
+struct cc_pair_hasher {
+    size_t operator()(const std::pair<database_id_t, name_string_t> &p) const {
+        size_t db_hash = database_id_hasher()(p.first);
+        size_t name_hash = name_string_hasher()(p.second);
+
+        // This is the same formula used in boost's hash_combine.
+        return db_hash ^ (name_hash + 0x9e3779b9 + (db_hash << 6) + (db_hash >> 2));
+    }
+};
+
 class reqlfdb_config_cache {
 public:
     reqlfdb_config_cache();
@@ -60,14 +85,14 @@ public:
 
     // These maps do _not_ contain the "rethinkdb" database or its system tables.
 
-    // TODO: unordered maps?
     // These two maps are kept in sync.
-    std::map<name_string_t, database_id_t> db_name_index;
-    std::map<database_id_t, name_string_t> db_id_index;
+    std::unordered_map<name_string_t, database_id_t, name_string_hasher> db_name_index;
+    std::unordered_map<database_id_t, name_string_t, database_id_hasher> db_id_index;
 
     // These two maps are kept in sync.
-    std::map<std::pair<database_id_t, name_string_t>, namespace_id_t> table_name_index;
-    std::map<namespace_id_t, counted_t<const rc_wrapper<table_config_t>>> table_id_index;
+    std::unordered_map<std::pair<database_id_t, name_string_t>, namespace_id_t, cc_pair_hasher> table_name_index;
+    std::unordered_map<namespace_id_t, counted_t<const rc_wrapper<table_config_t>>,
+        namespace_id_hasher> table_id_index;
 
     // TODO: Uncomment auth_index or remove.
     //
@@ -78,7 +103,7 @@ public:
     // we add the ability to recover from check_cv failures when it doesn't affect the
     // config key in question.
     //
-    // std::map<auth::username_t, auth::user_t> auth_index;
+    // std::unordered_map<auth::username_t, auth::user_t> auth_index;
 
     void wipe();
 
