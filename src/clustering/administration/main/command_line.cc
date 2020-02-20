@@ -1130,7 +1130,8 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                         uint32_t iterations = auth::password_t::default_iteration_count;
                         auth::password_t pw(initial_password, iterations);
                         auth::user_t new_user = auth::user_t(std::move(pw));
-                        transaction_set_user(txn, auth::username_t("admin"), new_user);
+                        transaction_modify_user(txn, auth::username_t("admin"),
+                            user, new_user);
 
                         // We have changes, so commit.
                         commit(txn, &non_interruptor);
@@ -1791,7 +1792,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
             ;
 
             auth::user_t user(auth::password_t(initial_password, iterations));
-            transaction_set_user(txn, username, user);
+            transaction_create_user(txn, username, user);
         }
 
         {

@@ -254,6 +254,7 @@ constexpr const char *REQLFDB_JOBS_BY_LEASE_EXPIRATION = "rethinkdb/jobs/by_expi
 constexpr const char *REQLFDB_JOBS_BY_TASK = "rethinkdb/jobs/by_task/";
 
 constexpr const char *REQLFDB_USERS_BY_USERNAME = "rethinkdb/users//";
+constexpr const char *REQLFDB_USERS_BY_IDS = "rethinkdb/users/ids/";
 
 constexpr const char *REQLFDB_CONFIG_VERSION_KEY = "rethinkdb/config_version";
 

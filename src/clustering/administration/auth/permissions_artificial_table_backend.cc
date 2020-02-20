@@ -489,7 +489,7 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
     }
 
     if (user != old_user) {
-        transaction_set_user(txn, username_primary, user);
+        transaction_modify_user(txn, username_primary, old_user, user);
         reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
         cv.value++;
         transaction_set_config_version(txn, cv);

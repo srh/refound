@@ -63,8 +63,6 @@ void transaction_erase_pkey_index(FDBTransaction *txn, const char *prefix,
     const ukey_string &index_key);
 
 
-// Beware: The set of index_key values for the index must survive lexicographic ordering
-// when combined with a pkey.
 void transaction_set_plain_index(FDBTransaction *txn, const char *prefix,
     const skey_string &index_key, const ukey_string &pkey,
     const std::string &value);
@@ -134,6 +132,32 @@ void transaction_set_uq_index(
     std::string valstr = serialize_for_cluster_to_string(value);
     transaction_set_unique_index(txn, index_traits::prefix,
         index_traits::ukey_str(index_key), valstr);
+}
+
+template <class index_traits>
+void transaction_erase_plain_index(
+        FDBTransaction *txn,
+        const typename index_traits::skey_type &sindex_key,
+        const typename index_traits::pkey_type &pkey) {
+    transaction_erase_plain_index(txn,
+        index_traits::prefix,
+        index_traits::skey_str(sindex_key),
+        index_traits::pkey_str(pkey));
+}
+
+// At some point, we might have a value_type instead of the std::string value.  (Right
+// now it's only used as an empty string, so I don't care to bother.)
+template <class index_traits>
+void transaction_set_plain_index(
+        FDBTransaction *txn,
+        const typename index_traits::skey_type &sindex_key,
+        const typename index_traits::pkey_type &pkey,
+        const std::string &value) {
+    transaction_set_plain_index(txn,
+        index_traits::prefix,
+        index_traits::skey_str(sindex_key),
+        index_traits::pkey_str(pkey),
+        value);
 }
 
 

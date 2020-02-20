@@ -74,5 +74,20 @@ struct users_by_username {
     }
 };
 
+struct users_by_ids {
+    // As mentioned, the uuid is a database id or namespace id.
+    using skey_type = uuid_u;
+    using pkey_type = auth::username_t;
+    static constexpr const char *prefix = REQLFDB_USERS_BY_IDS;
+
+    static skey_string skey_str(const skey_type &k) {
+        return skey_string{uuid_to_str(k)};
+    }
+
+    static ukey_string pkey_str(const pkey_type &k) {
+        return ukey_string{k.to_string()};
+    }
+};
+
 
 #endif  // RETHINKDB_FDB_SYSTEM_TABLES_HPP_

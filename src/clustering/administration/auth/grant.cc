@@ -49,6 +49,7 @@ bool grant(
             "User `" + username.to_string() + "` not found.", query_state_t::FAILED};
         return false;
     }
+    user_t old_user = user;
 
     ql::datum_t old_permissions;
     ql::datum_t new_permissions;
@@ -63,7 +64,7 @@ bool grant(
     }
 
     // We have a new user value.  Write it!
-    transaction_set_user(txn, username, user);
+    transaction_modify_user(txn, username, old_user, user);
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
     cv.value++;

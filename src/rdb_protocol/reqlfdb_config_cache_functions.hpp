@@ -187,13 +187,20 @@ fdb_value_fut<auth::user_t> transaction_get_user(
     FDBTransaction *txn,
     const auth::username_t &username);
 
-void transaction_set_user(
+void transaction_create_user(
     FDBTransaction *txn,
     const auth::username_t &username,
     const auth::user_t &user);
 
-void transaction_erase_user(
+void transaction_modify_user(
     FDBTransaction *txn,
-    const auth::username_t &username);
+    const auth::username_t &username,
+    const auth::user_t &old_user,
+    const auth::user_t &new_user);
+
+void transaction_erase_user(
+        FDBTransaction *txn,
+        const auth::username_t &username,
+        const auth::user_t &old_user_value);
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_FUNCTIONS_HPP_

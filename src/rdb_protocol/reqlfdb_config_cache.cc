@@ -1,6 +1,8 @@
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
+#include <unordered_set>
+
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
@@ -1011,6 +1013,7 @@ fdb_value_fut<auth::user_t> transaction_get_user(
     return transaction_lookup_uq_index<users_by_username>(txn, username);
 }
 
+// NNN: Needs old user
 void transaction_set_user(
         FDBTransaction *txn,
         const auth::username_t &username,
@@ -1018,9 +1021,54 @@ void transaction_set_user(
     transaction_set_uq_index<users_by_username>(txn, username, user);
 }
 
+void transaction_create_user(
+        FDBTransaction *txn,
+        const auth::username_t &username,
+        const auth::user_t &user) {
+    transaction_set_uq_index<users_by_username>(txn, username, user);
+
+    std::unordered_set<uuid_u> uuids = get_index_uuids(user);
+    for (const uuid_u &uuid : uuids) {
+        transaction_set_plain_index<users_by_ids>(txn, uuid, username, "");
+    }
+}
+
+void transaction_modify_user(
+        FDBTransaction *txn,
+        const auth::username_t &username,
+        const auth::user_t &old_user,
+        const auth::user_t &new_user) {
+    transaction_set_uq_index<users_by_username>(txn, username, new_user);
+
+    std::unordered_set<uuid_u> old_uuids = get_index_uuids(old_user);
+    std::unordered_set<uuid_u> new_uuids = get_index_uuids(new_user);
+
+    for (const uuid_u &uuid : old_uuids) {
+        auto it = new_uuids.find(uuid);
+        if (it != new_uuids.end()) {
+            new_uuids.erase(it);
+        } else {
+            // It's in old but not in new -- erase.
+            transaction_erase_plain_index<users_by_ids>(txn, uuid, username);
+        }
+    }
+
+    for (const uuid_u &uuid : new_uuids) {
+        transaction_set_plain_index<users_by_ids>(txn, uuid, username, "");
+    }
+}
+
+
 void transaction_erase_user(
         FDBTransaction *txn,
-        const auth::username_t &username) {
+        const auth::username_t &username,
+        const auth::user_t &old_user_value) {
     guarantee(!username.is_admin(), "transaction_erase_user on admin user");
     transaction_erase_uq_index<users_by_username>(txn, username);
+
+    std::unordered_set<uuid_u> uuids = get_index_uuids(old_user_value);
+
+    for (const uuid_u &uuid : uuids) {
+        transaction_erase_plain_index<users_by_ids>(txn, uuid, username);
+    }
 }

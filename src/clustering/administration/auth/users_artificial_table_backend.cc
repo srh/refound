@@ -121,14 +121,16 @@ bool users_artificial_table_fdb_backend_t::write_row(
             cv_fut = transaction_get_config_version(txn);
             // TODO: new_value_inout doesn't really get written back out.  It didn't
             // pre-fdb, either.  Should it be?
-            user_t user;
-            if (user_fut.block_and_deserialize(interruptor, &user)) {
-                user.merge(*new_value_inout);
+            user_t old_user;
+            if (user_fut.block_and_deserialize(interruptor, &old_user)) {
+                user_t new_user = old_user;
+                new_user.merge(*new_value_inout);
+                transaction_modify_user(txn, username, old_user, new_user);
             } else {
-                user = user_t(*new_value_inout);
+                user_t new_user = user_t(*new_value_inout);
+                transaction_create_user(txn, username, new_user);
             }
 
-            transaction_set_user(txn, username, user);
         } catch (admin_op_exc_t const &admin_op_exc) {
             *error_out = admin_op_exc.to_admin_err();
             return false;
@@ -153,7 +155,7 @@ bool users_artificial_table_fdb_backend_t::write_row(
         }
 
         // User exists.  Delete it.
-        transaction_erase_user(txn, username);
+        transaction_erase_user(txn, username, user);
 
         // TODO (long run): Any metadata referencing the user (log entries) might
         // identify it with a uuid.  Then if we drop/recreate a user, we don't use the

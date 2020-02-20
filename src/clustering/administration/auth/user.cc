@@ -284,6 +284,17 @@ bool user_t::operator==(user_t const &rhs) const {
         m_table_permissions == rhs.m_table_permissions;
 }
 
+std::unordered_set<uuid_u> get_index_uuids(const user_t &user) {
+    std::unordered_set<uuid_u> ret;
+    for (const auto &pair : user.get_database_permissions()) {
+        ret.insert(pair.first.value);
+    }
+    for (const auto &pair : user.get_table_permissions()) {
+        ret.insert(pair.first.value);
+    }
+    return ret;
+}
+
 RDB_IMPL_SERIALIZABLE_4(
     user_t,
     m_password,

@@ -4,6 +4,7 @@
 
 #include <map>
 #include <string>
+#include <unordered_set>
 
 #include "clustering/administration/auth/password.hpp"
 #include "clustering/administration/auth/permissions.hpp"
@@ -69,10 +70,13 @@ public:
 private:
     // TODO: unordered_map.
     password_t m_password;
+    // TODO: The connect permission shouldn't be part of every single permissions_t.
     permissions_t m_global_permissions;
     std::map<database_id_t, permissions_t> m_database_permissions;
     std::map<namespace_id_t, permissions_t> m_table_permissions;
 };
+
+std::unordered_set<uuid_u> get_index_uuids(const user_t &user);
 
 }  // namespace auth
 

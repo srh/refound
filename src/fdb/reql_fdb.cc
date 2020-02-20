@@ -58,7 +58,7 @@ User config:
 
     rethinkdb/users/ => table of user_t, primary key being username_t.
     Admin user is present (since we have password stuff).
-    TODO: User logins always need to check fdb.
+      multi-indexed by uuid -- every database id or table id referenced by the user_t, with keys [uuid, username]
 
 Config version:
 
