@@ -84,6 +84,27 @@ the exception.
 from tables without performing a table name -> id lookup.  We _will_ need to handle the
 case (in the middle of an fdb transaction) where we operated based on out-of-date data.
 
+7. We also want to plan ahead for when we'll do parallelized evaluation of the same
+query, or at least cooperatively concurrent communication to fdb.
+
+*/
+
+
+/*
+So, here's the plan.  Each operation on the db comes with some sequence of "assumed
+get-results" (in a particular order) that need to be verified.  If there's
+parallelization, these might form a bit of a spaghetti stack.  We can either verify them
+by seeing that the reqlfdb_config_version hasn't changed, or by performing the actual
+get.
+
+Since we start other FDB operations under the assumption the gets will get a certain result, we may have to retry the FDBTransaction _without_ the assumptions (or with new results for the "assumed get-results" values).
+
+The sequence of assumed get results does not imply causality -- but there might be
+causality.
+
+The reqlfdb_config_cache will still wipe the entire cache whenever the config version
+updates.  This way we don't have to worry about garbage collecting stale entries to
+deleted tables from the cache (some worst case scenario like that).
 */
 
 
