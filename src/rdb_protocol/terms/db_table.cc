@@ -1157,11 +1157,7 @@ private:
             table.reset(new real_table_t(
                 cached->ci_value,
                 cached->ci_cv,
-                std::move(table_config)
-#if RDB_CF
-                , env->env->reql_cluster_interface()->get_changefeed_client()
-#endif
-                ));
+                std::move(table_config)));
         } else {
             reqlfdb_config_version prior_cv = cc->config_version;
             config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
