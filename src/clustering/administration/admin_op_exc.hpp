@@ -6,14 +6,6 @@
 #include "query_state.hpp"
 #include "utils.hpp"
 
-// TODO: Remove no_such_table_exc_t, if it's used sparingly.
-
-class no_such_table_exc_t : public std::runtime_error {
-public:
-    no_such_table_exc_t() :
-        std::runtime_error("There is no table with the given name / UUID.") { }
-};
-
 struct admin_err_t {
     std::string msg;
     query_state_t query_state;
@@ -65,25 +57,6 @@ inline admin_err_t table_dne_error(
 #define rfail_table_dne(db_name, table_name) \
     rfail(ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
           (db_name).c_str(), (table_name).c_str())
-
-/* `CATCH_NAME_ERRORS` is a helper macro for catching the
-exceptions thrown by the `table_meta_client_t` and producing consistent error messages.
-They're designed to be used as follows:
-
-    try {
-        something_that_might_throw()
-    } CATCH_NAME_ERRORS(db, name, error_out);
-
-TODO: Probably these should re-throw `admin_op_exc_t` instead of setting `*error_out` and
-returning `false`. */
-
-// NNN: Remove these.
-
-#define CATCH_NAME_ERRORS(db, name, error_out)                                        \
-    catch (const no_such_table_exc_t &) {                                             \
-        *(error_out) = table_dne_error((db), (name));                                 \
-        return false;                                                                 \
-    }
 
 #endif /* CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_ */
 

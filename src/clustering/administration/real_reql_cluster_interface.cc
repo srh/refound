@@ -1,6 +1,9 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/real_reql_cluster_interface.hpp"
 
+#include "errors.hpp"
+#include <boost/variant.hpp>
+
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/grant.hpp"
 #include "clustering/administration/auth/user_context.hpp"
@@ -30,8 +33,10 @@ admin_err_t table_already_exists_error(
 
 namespace real_reql_cluster_interface {
 
+struct no_such_row { };
+
 // Defined below.
-void make_single_selection(
+boost::variant<scoped<ql::val_t>, no_such_row, admin_err_t> make_single_selection(
     artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
     auth::user_context_t const &user_context,
     const name_string_t &table_name,
@@ -39,9 +44,8 @@ void make_single_selection(
     const uuid_u &primary_key,
     ql::backtrace_id_t bt,
     ql::env_t *env,
-    std::function<void(FDBTransaction *)> cfg_checker,  // OOO: Hideous!
-    scoped_ptr_t<ql::val_t> *selection_out)
-    THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t);
+    std::function<void(FDBTransaction *)> cfg_checker /* OOO: Hideous! */)
+    THROWS_ONLY(interrupted_exc_t);
 
 bool make_db_config_selection(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
@@ -51,9 +55,7 @@ bool make_db_config_selection(
         ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out,
         admin_err_t *error_out) {
-    // TODO: fdb-ize this function (for writing?  for making a single section?  fdb-ize artificial table?)
-    try {
-        real_reql_cluster_interface::make_single_selection(
+    auto res = real_reql_cluster_interface::make_single_selection(
             artificial_reql_cluster_interface,
             user_context,
             name_string_t::guarantee_valid("db_config"),
@@ -64,18 +66,21 @@ bool make_db_config_selection(
             [&](FDBTransaction *txn) {
                 auth::fdb_user_fut<auth::db_config_permission> auth_fut = user_context.transaction_require_db_config_permission(txn, db->id);
                 auth_fut.block_and_check(env->interruptor);
-            },
-            selection_out);
+            });
+    if (auto *p = boost::get<scoped<ql::val_t>>(&res)) {
+        *selection_out = std::move(*p);
         return true;
-    } catch (const no_such_table_exc_t &) {
-        *error_out = admin_err_t{
-            strprintf("Database `%s` does not exist.", db->name.c_str()),
-            query_state_t::FAILED};
-        return false;
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
+    }
+    if (auto *p = boost::get<admin_err_t>(&res)) {
+        *error_out = std::move(*p);
         return false;
     }
+    // TODO: This error case might be impossible, but dedup this database_dne_error msg.
+    // no_such_row{} case:
+    *error_out = admin_err_t{
+        strprintf("Database `%s` does not exist.", db->name.c_str()),
+        query_state_t::FAILED};
+    return false;
 }
 
 // TODO: Remove sharding UI.
@@ -91,13 +96,7 @@ bool make_table_config_selection(
         ql::env_t *env,
         scoped_ptr_t<ql::val_t> *selection_out,
         admin_err_t *error_out) {
-    // TODO: fdb-ize this or the single selection function.
-    try {
-        // OOO: We do need a cv check to ensure that the table id we used isn't wildly ou of date.  Then we construct a single selection on the config table.  That can't carry its own cv checker, can it?  Or can it?
-
-        // QQQ: No more name errors to catch, probblay.
-
-        make_single_selection(
+    auto res = make_single_selection(
             artificial_reql_cluster_interface,
             user_context,
             name_string_t::guarantee_valid("table_config"),
@@ -108,16 +107,24 @@ bool make_table_config_selection(
             [&](FDBTransaction *txn) {
                 auth::fdb_user_fut<auth::db_table_config_permission> auth_fut = user_context.transaction_require_db_and_table_config_permission(txn, db->id, table_id);
                 auth_fut.block_and_check(env->interruptor);
-            },
-            selection_out);
+            });
+
+    if (auto *p = boost::get<scoped<ql::val_t>>(&res)) {
+        *selection_out = std::move(*p);
         return true;
-    } catch (const admin_op_exc_t &admin_op_exc) {
-        *error_out = admin_op_exc.to_admin_err();
+    }
+    if (auto *p = boost::get<admin_err_t>(&res)) {
+        *error_out = std::move(*p);
         return false;
-    } CATCH_NAME_ERRORS(db->name, name, error_out)
+    }
+    // no_such_row{} case:
+    *error_out = table_dne_error(db->name, name);
+    return false;
 }
 
-void make_single_selection(
+// "True" return means success, "false" means no such table, admin_err_t means we got such an error.
+boost::variant<scoped<ql::val_t>, no_such_row, admin_err_t>
+make_single_selection(
         artificial_reql_cluster_interface_t *artificial_reql_cluster_interface,
         auth::user_context_t const &user_context,
         const name_string_t &table_name,
@@ -125,9 +132,8 @@ void make_single_selection(
         const uuid_u &primary_key,
         ql::backtrace_id_t bt,
         ql::env_t *env,
-        std::function<void(FDBTransaction *)> cfg_checker,  // OOO: Hideous!
-        scoped_ptr_t<ql::val_t> *selection_out)
-        THROWS_ONLY(interrupted_exc_t, no_such_table_exc_t, admin_op_exc_t) {
+        std::function<void(FDBTransaction *)> cfg_checker /* OOO: Hideous! */)
+        THROWS_ONLY(interrupted_exc_t) {
     artificial_table_fdb_backend_t *table_backend =
         artificial_reql_cluster_interface->get_table_backend_or_null(
             table_name,
@@ -138,6 +144,10 @@ void make_single_selection(
     // TODO: Do we really need to read the row up-front?
 
     // TODO: Verify that we didn't check read permissions on the system table pre-fdb.
+
+    bool got_admin_err = false;
+    admin_err_t error_result;
+    bool got_no_such_row = false;
 
     ql::datum_t row;
     fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
@@ -155,21 +165,27 @@ void make_single_selection(
                 env->interruptor,
                 &tmp_row,
                 &error)) {
-            throw admin_op_exc_t(error);
+            got_admin_err = true;
+            error_result = std::move(error);
+            return;
         } else if (!row.has()) {
-            /* This is unlikely, but it can happen if the object is deleted between when we
-            look up its name and when we call `read_row()` */
-            // TODO: Ensure callers catch this.  Is this even a legit exception?  It should be a no such row exception, or something like that...  Maybe real_reql_cluster_interface_t means this to refer to the r.table() param?  One caller catches this and then reports a db cannot be found.
-            //
             // This shouldn't happen because we call check_cv, and
             // table_backend->read_row will thus be reading off the same cv we had.
             //
             // QQQ: Maybe we should have a guarantee here.
-            throw no_such_table_exc_t();
+            got_no_such_row = true;
+            return;
         }
         row = std::move(tmp_row);
     });
     guarantee_fdb_TODO(loop_err, "real_reql_cluster_interface::make_single_selection retry loop");
+
+    if (got_admin_err) {
+        return error_result;
+    }
+    if (got_no_such_row) {
+        return no_such_row{};
+    }
 
     counted_t<ql::table_t> table = make_counted<ql::table_t>(
         make_counted<artificial_table_fdb_t>(table_backend),
@@ -178,7 +194,7 @@ void make_single_selection(
         read_mode_t::SINGLE,
         bt);
 
-    *selection_out = make_scoped<ql::val_t>(
+    return make_scoped<ql::val_t>(
         ql::single_selection_t::from_row(bt, table, row),
         bt);
 }
