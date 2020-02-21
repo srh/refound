@@ -196,7 +196,7 @@ private:
             cc->add_db(db_id, db_name);
 
             // OOO: Put config_info into db_t (or into val's version of it).
-            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name,
+            counted_t<db_t> db = make_counted<db_t>(*result.ci_value, db_name,
                 config_version_checker{result.ci_cv.value});
             return new_val(counted_t<const db_t>(std::move(db)));
         } else {
