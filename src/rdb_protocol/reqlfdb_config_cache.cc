@@ -194,29 +194,32 @@ std::string table_config_by_name_prefix(const database_id_t &db_id) {
         ukey_string{table_by_name_ukey_prefix(db_id)});
 }
 
-optional<config_info<database_id_t>> try_lookup_cached_db(
-        const reqlfdb_config_cache *cache, const name_string_t &db_name) {
+optional<config_info<database_id_t>> reqlfdb_config_cache::try_lookup_cached_db(
+        const name_string_t &db_name) const {
     optional<config_info<database_id_t>> ret;
     ASSERT_NO_CORO_WAITING;  // mutex assertion
-    auto it = cache->db_name_index.find(db_name);
-    if (it != cache->db_name_index.end()) {
+    auto it = db_name_index.find(db_name);
+    if (it != db_name_index.end()) {
         ret.emplace();
         ret->ci_value = it->second;
-        ret->ci_cv = cache->config_version;
+        ret->ci_cv = config_version;
     }
     return ret;
 }
 
-optional<config_info<namespace_id_t>> try_lookup_cached_table(
-        const reqlfdb_config_cache *cache,
-        const std::pair<database_id_t, name_string_t> &table_name) {
-    optional<config_info<namespace_id_t>> ret;
+optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>>
+reqlfdb_config_cache::try_lookup_cached_table(
+        const std::pair<database_id_t, name_string_t> &table_name) const {
+    optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>> ret;
     ASSERT_NO_CORO_WAITING;  // mutex assertion
-    auto it = cache->table_name_index.find(table_name);
-    if (it != cache->table_name_index.end()) {
+    auto it = table_name_index.find(table_name);
+    if (it != table_name_index.end()) {
+        auto jt = table_id_index.find(it->second);
+        r_sanity_check(jt != table_id_index.end());
+
         ret.emplace();
-        ret->ci_value = it->second;
-        ret->ci_cv = cache->config_version;
+        ret->ci_value = std::make_pair(it->second, jt->second);
+        ret->ci_cv = config_version;
     }
     return ret;
 }

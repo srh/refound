@@ -83,6 +83,7 @@ public:
 
     reqlfdb_config_version config_version;
 
+private:
     // These maps do _not_ contain the "rethinkdb" database or its system tables.
 
     // These two maps are kept in sync.
@@ -94,6 +95,7 @@ public:
     std::unordered_map<namespace_id_t, counted_t<const rc_wrapper<table_config_t>>,
         namespace_id_hasher> table_id_index;
 
+public:
     // TODO: Uncomment auth_index or remove.
     //
     // The table and db indexes are useful for implementing r.db() and r.table() terms
@@ -118,16 +120,18 @@ public:
     void add_db(const database_id_t &db_id, const name_string_t &db_name);
     void add_table(const namespace_id_t &table_id, counted_t<const rc_wrapper<table_config_t>> config);
 
+    optional<config_info<database_id_t>>
+    try_lookup_cached_db(const name_string_t &db_name) const;
+
+    optional<config_info<std::pair<namespace_id_t, counted_t<const rc_wrapper<table_config_t>>>>>
+    try_lookup_cached_table(
+        const std::pair<database_id_t, name_string_t> &table_name) const;
+
     MOVABLE_BUT_NOT_COPYABLE(reqlfdb_config_cache);
 };
 
 // Returns r_nullopt if the cache doesn't have it.
-optional<config_info<database_id_t>>
-try_lookup_cached_db(const reqlfdb_config_cache *cache, const name_string_t &db_name);
 
-optional<config_info<namespace_id_t>>
-try_lookup_cached_table(const reqlfdb_config_cache *cache,
-    const std::pair<database_id_t, name_string_t> &table_name);
 
 // TODO: Uncomment or remove
 #if 0

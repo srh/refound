@@ -170,8 +170,8 @@ private:
 
         reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
 
-        optional<config_info<database_id_t>> cached = try_lookup_cached_db(
-            cc, db_name);
+        optional<config_info<database_id_t>> cached
+            = cc->try_lookup_cached_db(db_name);
         if (cached.has_value()) {
             // OOO: Put config_info into db_t (or into val's version of it).
             counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name,
@@ -1139,25 +1139,17 @@ private:
                 backtrace()));
         }
 
-        optional<config_info<namespace_id_t>> cached = try_lookup_cached_table(
-            cc, db_table_name);
+        optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>> cached
+            = cc->try_lookup_cached_table(db_table_name);
 
         counted_t<real_table_t> table;
         if (cached.has_value()) {
             check_cv(db->cv.assert_nonempty(), cached->ci_cv);
 
-            counted<const rc_wrapper<table_config_t>> table_config;
-            {
-                ASSERT_NO_CORO_WAITING;  // cc mutex assertion
-                auto it = cc->table_id_index.find(cached->ci_value);
-                r_sanity_check(it != cc->table_id_index.end());
-                table_config = it->second;
-            }
-
             table.reset(new real_table_t(
-                cached->ci_value,
+                cached->ci_value.first,
                 cached->ci_cv,
-                std::move(table_config)));
+                cached->ci_value.second));
         } else {
             reqlfdb_config_version prior_cv = cc->config_version;
             config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
