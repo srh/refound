@@ -30,6 +30,8 @@ struct read_response_t;
 struct write_t;
 struct write_response_t;
 
+// Don't remove this or the code that catches it -- guarantee_fdb_TODO will turn into
+// this in some places (or something like that).
 class cannot_perform_query_exc_t : public std::exception {
 public:
     cannot_perform_query_exc_t(const std::string &s, query_state_t _query_state)
