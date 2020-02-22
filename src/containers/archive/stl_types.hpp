@@ -7,7 +7,6 @@
 #include <array>
 #include <deque>
 #include <limits>
-#include <list>  // ugh
 #include <map>
 #include <set>
 #include <string>
@@ -166,37 +165,6 @@ void serialize(write_message_t *wm, const std::deque<T> &v) {
 
 template <cluster_version_t W, class T>
 MUST_USE archive_result_t deserialize(read_stream_t *s, std::deque<T> *v) {
-    uint64_t sz;
-    archive_result_t res = deserialize_varint_uint64(s, &sz);
-    if (bad(res)) { return res; }
-
-    if (sz > std::numeric_limits<size_t>::max()) {
-        return archive_result_t::RANGE_ERROR;
-    }
-
-    for (uint64_t i = 0; i < sz; ++i) {
-        // We avoid copying a non-empty value.
-        v->push_back(T());
-        res = deserialize<W>(s, &v->back());
-        if (bad(res)) { return res; }
-    }
-
-    return archive_result_t::SUCCESS;
-}
-
-// TODO: Stop using std::list! What are you thinking?
-template <cluster_version_t W, class T>
-void serialize(write_message_t *wm, const std::list<T> &v) {
-    serialize_varint_uint64(wm, v.size());
-    for (typename std::list<T>::const_iterator it = v.begin(), e = v.end(); it != e; ++it) {
-        serialize<W>(wm, *it);
-    }
-}
-
-template <cluster_version_t W, class T>
-MUST_USE archive_result_t deserialize(read_stream_t *s, std::list<T> *v) {
-    // Omit assertions because it's not a shame if a std::list gets corrupted.
-
     uint64_t sz;
     archive_result_t res = deserialize_varint_uint64(s, &sz);
     if (bad(res)) { return res; }
