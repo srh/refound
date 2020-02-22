@@ -162,8 +162,8 @@ private:
                                 old_row,
                                 r.var(old_row).merge(r.var(new_row))))(
                                     r.expr(arg1)(r.var(old_row),
-                                        r.optarg("_EVAL_FLAGS_", LITERAL_OK)),
-                                    r.optarg("_EVAL_FLAGS_", LITERAL_OK)))));
+                                        r.optarg("_EVAL_FLAGS_", static_cast<double>(eval_flags_t::LITERAL_OK))),
+                                    r.optarg("_EVAL_FLAGS_", static_cast<double>(eval_flags_t::LITERAL_OK))))));
 
         term.copy_optargs_from_term(in);
         return term;

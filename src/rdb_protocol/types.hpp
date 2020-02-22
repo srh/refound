@@ -3,7 +3,7 @@
 
 namespace ql {
 // TODO: Make this an enum class.
-enum eval_flags_t {
+enum class eval_flags_t {
     NO_FLAGS = 0,
     LITERAL_OK = 1,
 };

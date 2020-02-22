@@ -42,7 +42,7 @@ class runtime_term_t : public slow_atomic_countable_t<runtime_term_t>,
                        public bt_rcheckable_t {
 public:
     virtual ~runtime_term_t();
-    scoped_ptr_t<val_t> eval(scope_env_t *env, eval_flags_t eval_flags = NO_FLAGS) const;
+    scoped_ptr_t<val_t> eval(scope_env_t *env, eval_flags_t eval_flags = eval_flags_t::NO_FLAGS) const;
     virtual deterministic_t is_deterministic() const = 0;
     // TODO: Make this = 0.
     virtual bool is_fdb_only() const { return false; }

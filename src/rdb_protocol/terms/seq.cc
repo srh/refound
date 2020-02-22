@@ -424,7 +424,7 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v0 = args->arg(env, 0);
-        scoped_ptr_t<val_t> v1 = args->arg(env, 1, LITERAL_OK);
+        scoped_ptr_t<val_t> v1 = args->arg(env, 1, eval_flags_t::LITERAL_OK);
         counted_t<const func_t> f = v1->as_func(env->env, CONSTANT_SHORTCUT);
         optional<wire_func_t> defval;
         if (default_filter_term.has()) {

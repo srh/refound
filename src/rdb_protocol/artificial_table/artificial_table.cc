@@ -241,7 +241,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_replace(
         try {
             do_single_update(env, keys[i], false,
                 [&] (ql::datum_t old_row) {
-                    return func->call(env, old_row, ql::LITERAL_OK)->as_datum(env);
+                    return func->call(env, old_row, ql::eval_flags_t::LITERAL_OK)->as_datum(env);
                 },
                 return_changes, env->interruptor, &stats, &conditions);
         } catch (auth::permission_error_t const &permission_error) {

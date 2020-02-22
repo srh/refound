@@ -11,9 +11,9 @@
 const size_t MIN_TERM_DESTRUCT_STACK_SPACE = 16 * KILOBYTE;
 
 namespace ql {
-argspec_t::argspec_t(int n) : min(n), max(n), eval_flags(NO_FLAGS) { }
+argspec_t::argspec_t(int n) : min(n), max(n), eval_flags(eval_flags_t::NO_FLAGS) { }
 argspec_t::argspec_t(int _min, int _max)
-    : min(_min), max(_max), eval_flags(NO_FLAGS) { }
+    : min(_min), max(_max), eval_flags(eval_flags_t::NO_FLAGS) { }
 argspec_t::argspec_t(int _min, int _max, eval_flags_t _eval_flags)
     : min(_min), max(_max), eval_flags(_eval_flags) { }
 std::string argspec_t::print() const {
@@ -106,7 +106,7 @@ arg_terms_t::arg_terms_t(const raw_term_t &_src, argspec_t _argspec,
 
 argvec_t arg_terms_t::start_eval(scope_env_t *env, eval_flags_t flags) const {
     eval_flags_t new_flags = static_cast<eval_flags_t>(
-        flags | argspec.get_eval_flags());
+        static_cast<int>(flags) | static_cast<int>(argspec.get_eval_flags()));
     std::vector<counted_t<const runtime_term_t> > args;
     for (const auto &arg : original_args) {
         if (arg->get_src().type() == Term::ARGS) {

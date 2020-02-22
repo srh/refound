@@ -36,7 +36,7 @@ public:
     virtual scoped_ptr_t<val_t> call(
         env_t *env,
         const std::vector<datum_t> &args,
-        eval_flags_t eval_flags = NO_FLAGS) const = 0;
+        eval_flags_t eval_flags = eval_flags_t::NO_FLAGS) const = 0;
 
     virtual optional<size_t> arity() const = 0;
 
@@ -59,14 +59,14 @@ public:
                      counted_t<const func_t> default_filter_val) const;
 
     // These are simple, they call the vector version of call.
-    scoped_ptr_t<val_t> call(env_t *env, eval_flags_t eval_flags = NO_FLAGS) const;
+    scoped_ptr_t<val_t> call(env_t *env, eval_flags_t eval_flags = eval_flags_t::NO_FLAGS) const;
     scoped_ptr_t<val_t> call(env_t *env,
                              datum_t arg,
-                             eval_flags_t eval_flags = NO_FLAGS) const;
+                             eval_flags_t eval_flags = eval_flags_t::NO_FLAGS) const;
     scoped_ptr_t<val_t> call(env_t *env,
                              datum_t arg1,
                              datum_t arg2,
-                             eval_flags_t eval_flags = NO_FLAGS) const;
+                             eval_flags_t eval_flags = eval_flags_t::NO_FLAGS) const;
 
     virtual bool is_simple_selector() const {
         return false;

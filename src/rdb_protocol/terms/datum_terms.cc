@@ -91,8 +91,8 @@ public:
     }
 
     scoped_ptr_t<val_t> term_eval(scope_env_t *env, eval_flags_t flags) const {
-        bool literal_ok = flags & LITERAL_OK;
-        eval_flags_t new_flags = literal_ok ? LITERAL_OK : NO_FLAGS;
+        bool literal_ok = static_cast<int>(flags) & static_cast<int>(eval_flags_t::LITERAL_OK);
+        eval_flags_t new_flags = literal_ok ? eval_flags_t::LITERAL_OK : eval_flags_t::NO_FLAGS;
         datum_object_builder_t acc;
         {
             profile::sampler_t sampler("Evaluating elements in make_obj.", env->env->trace);

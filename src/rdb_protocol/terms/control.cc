@@ -78,7 +78,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         function_shortcut_t shortcut = CONSTANT_SHORTCUT;
-        eval_flags_t flags = NO_FLAGS;
+        eval_flags_t flags = eval_flags_t::NO_FLAGS;
         if (scoped_ptr_t<val_t> v = args->optarg(env, "_SHORTCUT_")) {
             shortcut = static_cast<function_shortcut_t>(v->as_int(env));
         }

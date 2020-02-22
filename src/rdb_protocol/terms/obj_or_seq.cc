@@ -196,7 +196,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t flags) const {
-        rcheck(flags & LITERAL_OK, base_exc_t::LOGIC,
+        rcheck(static_cast<int>(flags) & static_cast<int>(eval_flags_t::LITERAL_OK), base_exc_t::LOGIC,
                "Stray literal keyword found: literal is only legal inside of "
                "the object passed to merge or update and cannot nest inside "
                "other literals.");
@@ -218,13 +218,13 @@ private:
 class merge_term_t : public obj_or_seq_op_term_t {
 public:
     merge_term_t(compile_env_t *env, const raw_term_t &term)
-        : obj_or_seq_op_term_t(env, term, MAP, argspec_t(1, -1, LITERAL_OK)) { }
+        : obj_or_seq_op_term_t(env, term, MAP, argspec_t(1, -1, eval_flags_t::LITERAL_OK)) { }
 private:
     virtual scoped_ptr_t<val_t> obj_eval(
         scope_env_t *env, args_t *args, const scoped_ptr_t<val_t> &v0) const {
         datum_t d = v0->as_datum(env);
         for (size_t i = 1; i < args->num_args(); ++i) {
-            scoped_ptr_t<val_t> v = args->arg(env, i, LITERAL_OK);
+            scoped_ptr_t<val_t> v = args->arg(env, i, eval_flags_t::LITERAL_OK);
 
             // We branch here because compiling functions is expensive, and
             // `obj_eval` may be called many many times.
@@ -240,7 +240,7 @@ private:
                 d = d.merge(d0);
             } else {
                 auto f = v->as_func(env->env, CONSTANT_SHORTCUT);
-                datum_t d0 = f->call(env->env, d, LITERAL_OK)->as_datum(env);
+                datum_t d0 = f->call(env->env, d, eval_flags_t::LITERAL_OK)->as_datum(env);
                 if (d0.get_type() == datum_t::R_OBJECT) {
                     rcheck_target(v,
                                   !d0.is_ptype() || d0.is_ptype("LITERAL"),
