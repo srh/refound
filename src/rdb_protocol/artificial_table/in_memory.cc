@@ -51,7 +51,7 @@ bool in_memory_artificial_table_fdb_backend_t::read_row(
     if (it != data.end()) {
         *row_out = it->second;
     } else {
-        *row_out = ql::datum_t();
+        *row_out = ql::datum_t::null();
     }
     return true;
 }
