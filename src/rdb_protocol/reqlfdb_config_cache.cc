@@ -637,13 +637,8 @@ bool config_cache_table_create(
         const namespace_id_t &new_table_id,
         const table_config_t &config,
         const signal_t *interruptor) {
-    // TODO: This function must read and verify user permissions when performing this
-    // operation.
-
     const database_id_t db_id = config.basic.database;
     const name_string_t &table_name = config.basic.name;
-
-    // TODO: Ensure caller doesn't try to create table for "rethinkdb" database.
 
     const ukey_string table_index_key = table_by_name_key(db_id, table_name);
 
