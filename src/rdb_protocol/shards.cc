@@ -292,7 +292,7 @@ private:
                 raw_stream_t *raw_stream = &stream->substreams.begin()->second.stream;
                 guarantee(raw_stream->size() > 0);
                 rget_item_t *last = &raw_stream->back();
-                if (start_sindex) {
+                if (start_sindex.has_value()) {
                     std::string cur =
                         datum_t::extract_secondary(key_to_unescaped_str(last->key));
                     size_t minlen = ql::datum_t::max_trunc_size();
@@ -413,7 +413,7 @@ private:
                                              pair.second.stream.end(),
                                              sindex_compare_t(sorting));
                         }
-                        if (is_sindex_sort) {
+                        if (is_sindex_sort.has_value()) {
                             r_sanity_check(*is_sindex_sort == is_sindex);
                         } else {
                             is_sindex_sort.set(is_sindex);
@@ -428,7 +428,7 @@ private:
                     raw_stream_t::iterator *best = nullptr;
                     for (auto &&pair : v) {
                         if (pair.first != pair.second) {
-                            r_sanity_check(is_sindex_sort);
+                            r_sanity_check(is_sindex_sort.has_value());
                             if ((best == nullptr)
                                 || (*is_sindex_sort
                                     ? is_better(pair.first->sindex_key,

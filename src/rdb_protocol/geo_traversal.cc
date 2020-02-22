@@ -406,7 +406,7 @@ bool nearest_pairs_less(
 void nearest_traversal_cb_t::finish(
         nearest_geo_read_response_t *resp_out) {
     guarantee(resp_out != NULL);
-    if (error) {
+    if (error.has_value()) {
         resp_out->results_or_error = error.get();
     } else {
         std::sort(result_acc.begin(), result_acc.end(), &nearest_pairs_less);

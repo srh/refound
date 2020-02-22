@@ -166,14 +166,14 @@ private:
     std::vector<datum_t> utf8_aware_split(const std::string &s,
                                           const optional<std::string> &delim,
                                           size_t maxnum) const {
-        const bool is_delim_empty = (delim && delim->size() == 0);
+        const bool is_delim_empty = (delim.has_value() && delim->size() == 0);
         std::vector<datum_t> res;
         std::string::const_iterator current = s.cbegin();
         std::string::const_iterator end = s.cend();
         bool done = false;
         while (!done) {
             if (res.size() == maxnum) {
-                if (delim) {
+                if (delim.has_value()) {
                     if (delim->size() > 0 || current != end) {
                         push_datum(&res, current, end);
                     }
@@ -194,7 +194,7 @@ private:
                 }
                 current = with_combining;
                 done = (current == end);
-            } else if (delim) {
+            } else if (delim.has_value()) {
                 auto next = std::search(current, end, delim->begin(), delim->end());
                 push_datum(&res, current, next);
                 if (next == end) {

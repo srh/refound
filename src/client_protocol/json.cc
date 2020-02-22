@@ -107,7 +107,7 @@ void write_response_internal(ql::response_t *response,
         writer.Key("t", 1);
         writer.Int(response->type());
         if (response->type() == Response::RUNTIME_ERROR &&
-            response->error_type()) {
+            response->error_type().has_value()) {
             writer.Key("e", 1);
             writer.Int(*response->error_type());
         }
@@ -154,11 +154,11 @@ void write_response_internal(ql::response_t *response,
             }
         }
         writer.EndArray();
-        if (response->backtrace()) {
+        if (response->backtrace().has_value()) {
             writer.Key("b", 1);
             response->backtrace()->write_json(&writer);
         }
-        if (response->profile()) {
+        if (response->profile().has_value()) {
             writer.Key("p", 1);
             response->profile()->write_json(&writer);
         }

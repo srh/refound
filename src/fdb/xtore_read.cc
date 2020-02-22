@@ -485,7 +485,7 @@ public:
         bool remember_key_for_sindex_batching =
             (ql::datum_t::extract_secondary(key_to_unescaped_str(key)).size()
                >= ql::datum_t::max_trunc_size());
-        if (last_truncated_secondary_for_abort) {
+        if (last_truncated_secondary_for_abort.has_value()) {
             std::string cur_truncated_secondary =
                 ql::datum_t::extract_truncated_secondary(key_to_unescaped_str(key));
             if (cur_truncated_secondary != *last_truncated_secondary_for_abort) {
@@ -1152,7 +1152,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         }
 
         // QQQ: Do we have sindex_rangespec with region?  It mentions sharding.  Maybe it only got initialized with a shard operation?  Look at what initializes it.
-        guarantee(geo_read.sindex.region);
+        guarantee(geo_read.sindex.region.has_value());
         rdb_fdb_get_intersecting_slice(
             interruptor,
             txn_,
@@ -1243,7 +1243,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         }
 #endif  // RDB_CF
 
-        if (rget.transforms.size() != 0 || rget.terminal) {
+        if (rget.transforms.size() != 0 || rget.terminal.has_value()) {
             // This asserts that the optargs have been initialized.  (There is always
             // a 'db' optarg.)  We have the same assertion in
             // rdb_r_unshard_visitor_t.

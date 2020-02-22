@@ -34,7 +34,7 @@ std::string plaintext_authenticator_t::next_message(
     guarantee_fdb_TODO(loop_err, "next_message loading user");
 
 
-    if (!static_cast<bool>(user)) {
+    if (!user.has_value()) {
         // The user doesn't exist
         throw authentication_error_t(17, "Unknown user");
     }

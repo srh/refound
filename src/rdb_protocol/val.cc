@@ -142,14 +142,14 @@ table_slice_t::table_slice_t(counted_t<table_t> _tbl,
 counted_t<datum_stream_t> table_slice_t::as_seq(
     env_t *env, backtrace_id_t _bt) {
     // Empty bounds will be handled by as_seq with empty_reader_t
-    return tbl->as_seq(env, idx ? *idx : tbl->get_pkey(), _bt, bounds, sorting);
+    return tbl->as_seq(env, idx.has_value() ? *idx : tbl->get_pkey(), _bt, bounds, sorting);
 }
 
 counted_t<table_slice_t>
 table_slice_t::with_sorting(std::string _idx, sorting_t _sorting) {
     rcheck(sorting == sorting_t::UNORDERED, base_exc_t::LOGIC,
            "Cannot perform multiple indexed ORDER_BYs on the same table.");
-    bool idx_legal = idx ? (*idx == _idx) : true;
+    bool idx_legal = idx.has_value() ? (*idx == _idx) : true;
     r_sanity_check(idx_legal || !bounds.is_universe());
     rcheck(idx_legal, base_exc_t::LOGIC,
            strprintf("Cannot order by index `%s` after calling BETWEEN on index `%s`.",
@@ -161,7 +161,7 @@ counted_t<table_slice_t>
 table_slice_t::with_bounds(std::string _idx, datum_range_t _bounds) {
     rcheck(bounds.is_universe(), base_exc_t::LOGIC,
            "Cannot perform multiple BETWEENs on the same table.");
-    bool idx_legal = idx ? (*idx == _idx) : true;
+    bool idx_legal = idx.has_value() ? (*idx == _idx) : true;
     r_sanity_check(idx_legal || sorting != sorting_t::UNORDERED);
     rcheck(idx_legal, base_exc_t::LOGIC,
            strprintf("Cannot call BETWEEN on index `%s` after ordering on index `%s`.",

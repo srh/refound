@@ -99,7 +99,7 @@ public:
         {
             optional<size_t> arity = config->func.det_func.compile_wire_func()->arity();
 
-            rcheck(static_cast<bool>(arity) && arity.get() == 3,
+            rcheck(arity.has_value() && arity.get() == 3,
                    base_exc_t::LOGIC,
                    strprintf("Write hook functions must expect 3 arguments."));
         }

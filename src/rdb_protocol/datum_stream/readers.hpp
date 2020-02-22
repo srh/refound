@@ -152,10 +152,10 @@ public:
 protected:
     raw_stream_t unshard(sorting_t sorting, rget_read_response_t &&res);
     bool shards_exhausted() const {
-        return active_ranges ? active_ranges->totally_exhausted() : false;
+        return active_ranges.has_value() ? active_ranges->totally_exhausted() : false;
     }
     void mark_shards_exhausted() {
-        r_sanity_check(!active_ranges);
+        r_sanity_check(!active_ranges.has_value());
         active_ranges.set(active_ranges_t());
     }
 

@@ -426,7 +426,7 @@ private:
             counted_t<table_slice_t> ts = v->as_table_slice(env);
             b |= info.add("table", val_info(env, new_val(ts->get_tbl())));
             b |= info.add("index",
-                          ts->idx ? datum_t(ts->idx->c_str()) : datum_t::null());
+                          ts->idx.has_value() ? datum_t(ts->idx->c_str()) : datum_t::null());
             switch (ts->sorting) {
             case sorting_t::UNORDERED:
                 b |= info.add("sorting", datum_t("UNORDERED"));

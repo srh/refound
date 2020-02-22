@@ -245,7 +245,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_replace(
                 },
                 return_changes, env->interruptor, &stats, &conditions);
         } catch (auth::permission_error_t const &permission_error) {
-            if (!static_cast<bool>(permission_error_what)) {
+            if (!permission_error_what.has_value()) {
                 permission_error_what.set(permission_error.what());
             }
         } catch (const interrupted_exc_t &) {
@@ -253,7 +253,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_replace(
         }
     }, max_parallel_ops);
 
-    if (static_cast<bool>(permission_error_what)) {
+    if (permission_error_what.has_value()) {
         rfail_datum(
             ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error_what->c_str());
     } else if (env->interruptor->is_pulsed()) {
@@ -303,7 +303,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_insert(
                 &stats,
                 &conditions);
         } catch (auth::permission_error_t const &permission_error) {
-            if (!static_cast<bool>(permission_error_what)) {
+            if (!permission_error_what.has_value()) {
                 permission_error_what.set(permission_error.what());
             }
         } catch (const interrupted_exc_t &) {
@@ -311,7 +311,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_insert(
         }
     }, max_parallel_ops);
 
-    if (static_cast<bool>(permission_error_what)) {
+    if (permission_error_what.has_value()) {
         rfail_datum(
             ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error_what->c_str());
     } else if (env->interruptor->is_pulsed()) {

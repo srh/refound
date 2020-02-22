@@ -646,7 +646,7 @@ void query_server_t::handle(const http_req_t &req,
     }
 
     optional<std::string> optional_conn_id = req.find_query_param("conn_id");
-    if (!optional_conn_id) {
+    if (!optional_conn_id.has_value()) {
         *result = http_res_t(http_status_code_t::BAD_REQUEST, "application/text",
                              "Required parameter \"conn_id\" missing\n");
         return;
@@ -714,7 +714,7 @@ void query_server_t::handle(const http_req_t &req,
                 handler->run_query(query.get(), &response, &true_interruptor);
                 ticks_t ticks = ticks_t{get_ticks().nanos - start.nanos};
 
-                if (!response.profile()) {
+                if (!response.profile().has_value()) {
                     ql::datum_array_builder_t array_builder(
                         ql::configured_limits_t::unlimited);
                     ql::datum_object_builder_t object_builder;

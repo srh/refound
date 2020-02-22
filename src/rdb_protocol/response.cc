@@ -38,7 +38,7 @@ void response_t::set_data(std::vector<ql::datum_t> &&_data) {
 }
 
 void response_t::set_profile(const ql::datum_t &_profile) {
-    guarantee(!profile_);
+    guarantee(!profile_.has_value());
     profile_.set(_profile);
 }
 

@@ -156,7 +156,7 @@ std::string http_req_t::get_sanitized_body() const {
 int content_length(const http_req_t &msg) {
     optional<std::string> content_length = msg.find_header_line("Content-Length");
 
-    if (!content_length)
+    if (!content_length.has_value())
         return 0;
 
     return atoi(content_length.get().c_str());
@@ -213,7 +213,7 @@ bool maybe_gzip_response(const http_req_t &req, http_res_t *res) {
     // We do not implement the entire standard, that is, we will always fallback to
     // the 'identity' encoding if anything fails, even if 'identity' has a qvalue of 0
     optional<std::string> supported_encoding = req.find_header_line("accept-encoding");
-    if (!supported_encoding || supported_encoding.get().empty()) {
+    if (!supported_encoding.has_value() || supported_encoding.get().empty()) {
         return false;
     }
     std::map<std::string, std::string> encodings;
@@ -280,15 +280,15 @@ bool maybe_gzip_response(const http_req_t &req, http_res_t *res) {
         }
     }
 
-    if (gzip_q) {
+    if (gzip_q.has_value()) {
         if (gzip_q.get() == 0.0 ||
-            (identity_q && identity_q.get() > gzip_q.get()) ||
-            (star_q && star_q.get() > gzip_q.get())) {
+            (identity_q.has_value() && identity_q.get() > gzip_q.get()) ||
+            (star_q.has_value() && star_q.get() > gzip_q.get())) {
             return false;
         }
-    } else if (star_q) {
+    } else if (star_q.has_value()) {
         if (star_q.get() == 0.0 ||
-            (identity_q && identity_q.get() > star_q.get())) {
+            (identity_q.has_value() && identity_q.get() > star_q.get())) {
             return false;
         }
     } else {

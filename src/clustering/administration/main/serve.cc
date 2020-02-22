@@ -186,7 +186,7 @@ bool do_serve(FDBDatabase *fdb,
                            addresses_string.c_str());
 
                     if (!service_address_ports_t::is_bind_all(serve_info.ports.local_addresses)) {
-                        if(serve_info.config_file) {
+                        if(serve_info.config_file.has_value()) {
                             logNTC("To fully expose RethinkDB on the network, bind to "
                                    "all addresses by adding `bind=all' to the config "
                                    "file (%s).", (*serve_info.config_file).c_str());

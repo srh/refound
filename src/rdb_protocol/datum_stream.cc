@@ -149,7 +149,7 @@ active_ranges_t new_active_ranges(
     std::set<uuid_u> covered_shards;
     for (auto &&pair : stream.substreams) {
         uuid_u cfeed_shard_id = nil_uuid();
-        if (shard_ids) {
+        if (shard_ids.has_value()) {
             auto shard_id_it = shard_ids->find(pair.first);
             r_sanity_check(shard_id_it != shard_ids->end());
             cfeed_shard_id = shard_id_it->second;
@@ -167,7 +167,7 @@ active_ranges_t new_active_ranges(
     }
 
     // Add ranges for missing shards (we get this if some shards didn't return any data)
-    if (shard_ids) {
+    if (shard_ids.has_value()) {
         for (const auto &shard_pair : *shard_ids) {
             if (covered_shards.count(shard_pair.second) > 0) {
                 continue;
@@ -324,7 +324,7 @@ raw_stream_t rget_response_reader_t::unshard(
     grouped_t<stream_t> *gs = boost::get<grouped_t<stream_t> >(&res.result);
     r_sanity_check(gs != nullptr);
     auto stream = groups_to_batch(gs->get_underlying_map());
-    if (!active_ranges) {
+    if (!active_ranges.has_value()) {
         optional<std::map<region_t, uuid_u> > opt_shard_ids;
 #if RDB_CF
         if (res.stamp_response.has_value()) {
@@ -337,7 +337,7 @@ raw_stream_t rget_response_reader_t::unshard(
 #endif  // RDB_CF
         active_ranges.set(new_active_ranges(
             stream, readgen->original_keyrange(), opt_shard_ids,
-            readgen->sindex_name() ? is_secondary_t::YES : is_secondary_t::NO));
+            readgen->sindex_name().has_value() ? is_secondary_t::YES : is_secondary_t::NO));
         readgen->restrict_active_ranges(sorting, &*active_ranges);
     }
 
@@ -703,7 +703,7 @@ bool rget_reader_t::load_items(env_t *env, const batchspec_t &batchspec) {
                 stamp,
 #endif
                 transforms, batchspec));
-        r_sanity_check(active_ranges);
+        r_sanity_check(active_ranges.has_value());
         readgen->sindex_sort(&items, batchspec);
     }
     return items_index < items.size();
@@ -826,7 +826,7 @@ bool intersecting_reader_t::load_items(env_t *env, const batchspec_t &batchspec)
             for (size_t i = 0; i < unfiltered_items.size(); ++i) {
                 r_sanity_check(unfiltered_items[i].key.size() > 0);
 
-                if (old_query_geometry) {
+                if (old_query_geometry.has_value()) {
                     if (!geo_does_intersect(unfiltered_items[i].sindex_key,
                                             *old_query_geometry)) {
                         continue;
@@ -1042,7 +1042,7 @@ rget_read_t primary_readgen_t::next_read_impl(
 #endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
-    region_t region = active_ranges
+    region_t region = active_ranges.has_value()
         ? to_key_range(active_ranges_to_range(*active_ranges))
         : datumspec.covering_range().to_primary_keyrange();
     r_sanity_check(!region.is_empty());
@@ -1148,7 +1148,7 @@ rget_read_t sindex_readgen_t::next_read_impl(
 
     optional<region_t> region;
     datumspec_t ds;
-    if (active_ranges) {
+    if (active_ranges.has_value()) {
         region.set(to_key_range(active_ranges_to_range(*active_ranges)));
         ds = datumspec.trim_secondary(*region);
     } else {
@@ -1271,7 +1271,7 @@ intersecting_geo_read_t intersecting_readgen_t::next_read_impl(
 #endif
     std::vector<transform_variant_t> transforms,
     const batchspec_t &batchspec) const {
-    region_t region = active_ranges
+    region_t region = active_ranges.has_value()
         ? to_key_range(active_ranges_to_range(*active_ranges))
         : key_range_t::universe();
     // For stamped reads, we disable batching. This is a temporary work-around for the

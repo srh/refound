@@ -192,7 +192,7 @@ private:
         counted_t<const func_t> func =
             args->arg(env, args->num_args() - 1)->as_func(env->env);
         optional<std::size_t> func_arity = func->arity();
-        if (!!func_arity) {
+        if (func_arity.has_value()) {
             rcheck(func_arity.get() == 0 || func_arity.get() == args->num_args() - 1,
                    base_exc_t::LOGIC,
                    strprintf("The function passed to `map` expects %zu argument%s, "
@@ -280,7 +280,7 @@ private:
             args->arg(env, 2)->as_func(env->env);
         optional<std::size_t> acc_func_arity = acc_func->arity();
 
-        if (static_cast<bool>(acc_func_arity)) {
+        if (acc_func_arity.has_value()) {
             rcheck(acc_func_arity.get() == 0 || acc_func_arity.get() == 2,
                    base_exc_t::LOGIC,
                    strprintf("The accumulator function passed to `fold`"
@@ -716,7 +716,7 @@ private:
             idx = sindex->as_str(env).to_std();
         } else {
             optional<std::string> old_idx = tbl_slice->get_idx();
-            idx = old_idx ? *old_idx : tbl_slice->get_tbl()->get_pkey();
+            idx = old_idx.has_value() ? *old_idx : tbl_slice->get_tbl()->get_pkey();
         }
         return new_val(
             // `table_slice_t` can handle emtpy / invalid `datum_range_t`'s, checking is
@@ -755,7 +755,7 @@ private:
 
         counted_t<datum_stream_t> union_stream;
 
-        if (r_interleave_arg_op) {
+        if (r_interleave_arg_op.has_value()) {
 
             if (r_interleave_arg_op->type() == Term::MAKE_ARRAY) {
                 // Array of elements which may contain functions or r.desc/asc.

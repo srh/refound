@@ -266,7 +266,7 @@ void get_user_group(const std::map<std::string, options::values_t> &opts,
     group_name_out->clear();
     user_name_out->clear();
 
-    if (rungroup) {
+    if (rungroup.has_value()) {
         group_name_out->assign(*rungroup);
         if (!get_group_id(rungroup->c_str(), group_id_out)) {
             throw std::runtime_error(strprintf("Group '%s' not found: %s",
@@ -277,7 +277,7 @@ void get_user_group(const std::map<std::string, options::values_t> &opts,
         *group_id_out = INVALID_GID;
     }
 
-    if (runuser) {
+    if (runuser.has_value()) {
         user_name_out->assign(*runuser);
         gid_t user_group_id;
         if (!get_user_ids(runuser->c_str(), user_id_out, &user_group_id)) {
@@ -285,7 +285,7 @@ void get_user_group(const std::map<std::string, options::values_t> &opts,
                                                runuser->c_str(),
                                                errno_string(get_errno()).c_str()).c_str());
         }
-        if (!rungroup) {
+        if (!rungroup.has_value()) {
             // No group specified, use the user's group
             group_name_out->assign(*runuser);
             *group_id_out = user_group_id;
@@ -338,7 +338,7 @@ void get_and_set_user_group_and_directory(
 
 int check_pid_file(const std::map<std::string, options::values_t> &opts) {
     optional<std::string> pid_filepath = get_optional_option(opts, "--pid-file");
-    if (!pid_filepath || pid_filepath->empty()) {
+    if (!pid_filepath.has_value() || pid_filepath->empty()) {
         return EXIT_SUCCESS;
     }
 
@@ -348,7 +348,7 @@ int check_pid_file(const std::map<std::string, options::values_t> &opts) {
 // Maybe writes a pid file, using the --pid-file option, if it's present.
 int write_pid_file(const std::map<std::string, options::values_t> &opts) {
     optional<std::string> pid_filepath = get_optional_option(opts, "--pid-file");
-    if (!pid_filepath || pid_filepath->empty()) {
+    if (!pid_filepath.has_value() || pid_filepath->empty()) {
         return EXIT_SUCCESS;
     }
 
@@ -363,7 +363,7 @@ std::string get_single_option(const std::map<std::string, options::values_t> &op
     std::string source;
     optional<std::string> value = get_optional_option(opts, name, &source);
 
-    if (!value) {
+    if (!value.has_value()) {
         throw std::logic_error(strprintf("Missing option '%s'.  (It does not have a default value.)", name.c_str()));
     }
 
@@ -464,7 +464,7 @@ void initialize_logfile(const std::map<std::string, options::values_t> &opts,
 std::string get_web_path(optional<std::string> web_static_directory) {
     path_t result;
 
-    if (web_static_directory) {
+    if (web_static_directory.has_value()) {
         result = parse_as_path(*web_static_directory);
     } else {
         return std::string();
@@ -812,7 +812,7 @@ bool configure_web_tls(
     optional<std::string> key_file = get_optional_option(opts, "--http-tls-key");
     optional<std::string> cert_file = get_optional_option(opts, "--http-tls-cert");
 
-    if (!(key_file && cert_file)) {
+    if (!(key_file.has_value() && cert_file.has_value())) {
         logERR("--http-tls-key and --http-tls-cert must be specified together.");
         return false;
     }
@@ -828,11 +828,11 @@ bool configure_driver_tls(
         opts, "--driver-tls-cert");
     optional<std::string> ca_file = get_optional_option(opts, "--driver-tls-ca");
 
-    if (!(key_file && cert_file)) {
-        if (key_file || cert_file) {
+    if (!(key_file.has_value() && cert_file.has_value())) {
+        if (key_file.has_value() || cert_file.has_value()) {
             logERR("--driver-tls-key and --driver-tls-cert must be specified together.");
         } else {
-            rassert(ca_file);
+            rassert(ca_file.has_value());
             logERR("--driver-tls-key and --driver-tls-cert must be specified if "
                    "--driver-tls-ca is specified.");
         }
@@ -843,7 +843,7 @@ bool configure_driver_tls(
         return false;
     }
 
-    if (ca_file) {
+    if (ca_file.has_value()) {
         if (!SSL_CTX_load_verify_locations(driver_tls, ca_file->c_str(), nullptr)) {
             ERR_print_errors_fp(stderr);
             return false;
@@ -865,7 +865,7 @@ bool configure_cluster_tls(
         opts, "--cluster-tls-cert");
     optional<std::string> ca_file = get_optional_option(opts, "--cluster-tls-ca");
 
-    if (!(key_file && cert_file && ca_file)) {
+    if (!(key_file.has_value() && cert_file.has_value() && ca_file.has_value())) {
         logERR("--cluster-tls-key, --cluster-tls-cert, and --cluster-tls-ca must be "
                "specified together.");
         return false;
@@ -921,7 +921,7 @@ bool initialize_tls_ctx(
         opts, "--tls-min-protocol");
     long protocol_flags = // NOLINT(runtime/int)
         SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3|SSL_OP_NO_TLSv1|SSL_OP_NO_TLSv1_1;
-    if (min_protocol_opt) {
+    if (min_protocol_opt.has_value()) {
         if (*min_protocol_opt == "TLSv1") {
             protocol_flags ^= SSL_OP_NO_TLSv1|SSL_OP_NO_TLSv1_1;
         } else if (*min_protocol_opt == "TLSv1.1") {
@@ -953,7 +953,7 @@ bool initialize_tls_ctx(
     OpenSSL do not seem to like 'ECDHE' even though the matching cipher suites
     have that prefix. Yeah, I know... it's very frustrating. Both older (1.0.1)
     and newer (1.0.2) versions seem to be okay with 'EECDH' though. */
-    std::string ciphers = ciphers_opt ? *ciphers_opt : "EECDH+AESGCM";
+    std::string ciphers = ciphers_opt.has_value() ? *ciphers_opt : "EECDH+AESGCM";
     if (0 == SSL_CTX_set_cipher_list(tls_ctx_out->get(), ciphers.c_str())) {
         logERR("No secure cipher suites available.\n");
         return false;
@@ -976,7 +976,7 @@ bool initialize_tls_ctx(
     curve since OpenSSL is ridiculous. */
     optional<std::string> curve_opt = get_optional_option(
         opts, "--tls-ecdh-curve");
-    std::string curve_name = curve_opt ? *curve_opt : "prime256v1";
+    std::string curve_name = curve_opt.has_value() ? *curve_opt : "prime256v1";
 
     int curve_nid = OBJ_txt2nid(curve_name.c_str());
     if (NID_undef == curve_nid) {
@@ -1015,7 +1015,7 @@ bool initialize_tls_ctx(
     admin must specify a file containing parameters for DHE. */
     optional<std::string> dhparams_filename = get_optional_option(
         opts, "--tls-dhparams");
-    if (dhparams_filename) {
+    if (dhparams_filename.has_value()) {
         fp_wrapper_t dhparams_fp(dhparams_filename->c_str(), "r");
         if (nullptr == dhparams_fp.get()) {
             logERR(
@@ -1264,7 +1264,7 @@ name_string_t parse_server_name_option(
         const std::map<std::string, options::values_t> &opts) {
     optional<std::string> server_name_str =
         get_optional_option(opts, "--server-name");
-    if (static_cast<bool>(server_name_str)) {
+    if (server_name_str.has_value()) {
         name_string_t server_name;
         if (!server_name.assign_value(*server_name_str)) {
             throw std::runtime_error(strprintf("server-name '%s' is invalid.  (%s)\n",
@@ -1296,7 +1296,7 @@ std::string parse_initial_password_option(
         const std::map<std::string, options::values_t> &opts) {
     optional<std::string> initial_password_str =
         get_optional_option(opts, "--initial-password");
-    if (static_cast<bool>(initial_password_str)) {
+    if (initial_password_str.has_value()) {
         if (*initial_password_str == "auto") {
             std::array<unsigned char, 16> random_data = crypto::random_bytes<16>();
             const uuid_u base_uuid = str_to_uuid("4a3a5542-6a45-4668-a09a-d775e63a52cd");
@@ -1654,7 +1654,7 @@ std::map<std::string, options::values_t> parse_commands_deep(int argc, char **ar
                                                              std::vector<options::option_t> options) {
     std::map<std::string, options::values_t> opts = options::parse_command_line(argc, argv, options);
     const optional<std::string> config_file_name = get_optional_option(opts, "--config-file");
-    if (config_file_name) {
+    if (config_file_name.has_value()) {
         opts = options::merge(opts, parse_config_file_flat(*config_file_name, options));
     }
     opts = options::merge(opts, default_values_map(options));

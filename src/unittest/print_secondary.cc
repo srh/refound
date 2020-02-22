@@ -7,7 +7,7 @@
 namespace unittest {
 void test_mangle(const std::string &pkey, const std::string &skey, optional<uint64_t> tag = optional<uint64_t>()) {
     std::string tag_string;
-    if (tag) {
+    if (tag.has_value()) {
         // Encode tag in little endian.
         tag_string = encode_le64(*tag);
     }
@@ -17,8 +17,8 @@ void test_mangle(const std::string &pkey, const std::string &skey, optional<uint
     ASSERT_EQ(pkey, ql::datum_t::extract_primary(mangled));
     ASSERT_EQ(skey, ql::datum_t::extract_secondary(mangled));
     optional<uint64_t> extracted_tag = ql::datum_t::extract_tag(mangled);
-    ASSERT_EQ(static_cast<bool>(tag), extracted_tag.has_value());
-    if (tag) {
+    ASSERT_EQ(tag.has_value(), extracted_tag.has_value());
+    if (tag.has_value()) {
         ASSERT_EQ(*tag, *extracted_tag);
     }
 }

@@ -160,7 +160,7 @@ private:
 
             // Check correct arity on function
             optional<size_t> arity = f->arity();
-            rcheck(static_cast<bool>(arity) && (arity.get() == 0 || arity.get() == 3),
+            rcheck(arity.has_value() && (arity.get() == 0 || arity.get() == 3),
                    base_exc_t::LOGIC,
                    strprintf("The conflict function passed to `insert` should "
                              "expect 3 arguments."));

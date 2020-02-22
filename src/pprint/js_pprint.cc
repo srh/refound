@@ -392,7 +392,7 @@ private:
         bool last_is_dot = false;
         bool last_should_r_wrap = false;
         optional<ql::raw_term_t> var(t);
-        while (var && should_continue_string(*var)) {
+        while (var.has_value() && should_continue_string(*var)) {
             if (last_is_dot) {
                 stack.push_back([this]() {
                     add_dot_linebreak();
@@ -401,7 +401,7 @@ private:
             var = visit_stringing(*var, &stack, &last_is_dot, &last_should_r_wrap);
         }
 
-        if (!var) {
+        if (!var.has_value()) {
             if (last_should_r_wrap) {
                 prepend_r_dot prep(this);
                 if (last_is_dot) {

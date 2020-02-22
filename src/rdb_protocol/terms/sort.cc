@@ -154,7 +154,7 @@ private:
                 counted_t<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
                 s->add_transformation(std::move(mwf), backtrace());
                 return new_val(env->env, s);
-            } else if (!tbl_slice->get_idx() || *tbl_slice->get_idx() == idx_str) {
+            } else if (!tbl_slice->get_idx().has_value() || *tbl_slice->get_idx() == idx_str) {
                 if (tbl_slice->sorting == sorting_t::UNORDERED) {
                     tbl_slice = tbl_slice->with_sorting(idx_str, sorting_t::ASCENDING);
                 }

@@ -96,7 +96,7 @@ ql::datum_t convert_write_hook_to_datum(
     const optional<write_hook_config_t> &write_hook) {
 
     ql::datum_t res = ql::datum_t::null();
-    if (write_hook) {
+    if (write_hook.has_value()) {
         write_message_t wm;
         serialize<cluster_version_t::LATEST_DISK>(
             &wm, write_hook->func);
@@ -298,7 +298,7 @@ bool convert_table_config_and_name_from_datum(
             return false;
         }
         if (write_hook_datum.has()) {
-            if ((!old_config.write_hook &&
+            if ((!old_config.write_hook.has_value() &&
                  write_hook_datum.get_type() != ql::datum_t::type_t::R_NULL ) ||
                 write_hook_datum
                 != convert_write_hook_to_datum(old_config.write_hook)) {
