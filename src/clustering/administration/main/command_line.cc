@@ -1789,7 +1789,6 @@ int main_rethinkdb_create_fdb_blocking_pthread(
             // Use a single iteration for better efficiency when starting out with an
             // empty password.
             uint32_t iterations = initial_password.empty() ? 1 : auth::password_t::default_iteration_count;
-            ;
 
             auth::user_t user(auth::password_t(initial_password, iterations));
             transaction_create_user(txn, username, user);

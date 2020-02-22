@@ -27,7 +27,7 @@ namespace changefeed {
 class streamspec_t;
 }
 #endif
-}
+}  // namespace ql
 
 enum class dist_unit_t;
 class ellipsoid_spec_t;

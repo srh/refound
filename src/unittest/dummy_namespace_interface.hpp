@@ -27,7 +27,7 @@ public:
 struct dummy_timestamper_t {
 
 public:
-    dummy_timestamper_t(dummy_performer_t *n);
+    explicit dummy_timestamper_t(dummy_performer_t *n);
 
 private:
     dummy_performer_t *next;

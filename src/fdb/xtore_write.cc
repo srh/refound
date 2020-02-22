@@ -698,4 +698,4 @@ struct needs_config_permission_visitor : public boost::static_visitor<bool> {
 bool needs_config_permission(const write_t &write) {
     needs_config_permission_visitor v;
     return boost::apply_visitor(v, write.write);
-};
+}

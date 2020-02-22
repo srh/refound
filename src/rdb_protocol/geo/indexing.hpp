@@ -44,7 +44,7 @@ std::vector<geo::S2CellId> compute_interior_cell_covering(
 // TODO (daniel): Support compound indexes somehow.
 class geo_index_traversal_helper_t {
 public:
-    geo_index_traversal_helper_t(const signal_t *interruptor);
+    explicit geo_index_traversal_helper_t(const signal_t *interruptor);
 
     void init_query(
         const std::vector<geo::S2CellId> &query_cell_covering,
