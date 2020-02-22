@@ -27,7 +27,6 @@
 #include "clustering/administration/auth/username.hpp"
 #include "concurrency/coro_pool.hpp"
 #include "concurrency/cross_thread_signal.hpp"
-#include "concurrency/queue/limited_fifo.hpp"
 #include "crypto/error.hpp"
 #include "logger.hpp"
 #include "perfmon/perfmon.hpp"
