@@ -1,6 +1,9 @@
 #include "rdb_protocol/artificial_table/in_memory.hpp"
 
+#include "arch/timing.hpp"
+#include "clustering/administration/auth/user_context.hpp"
 #include "random.hpp"
+#include "rdb_protocol/serialize_datum.hpp"
 
 /* The purpose of `random_delay()` is to mix things up a bit to increase the
 likelihood of exposing a bug in `artificial_table_t`. */
@@ -95,8 +98,5 @@ bool in_memory_artificial_table_fdb_backend_t::write_row(
     } else {
         data.erase(primary_key.print_primary());
     }
-#if RDB_CF
-    notify_row(primary_key);
-#endif
     return true;
 }

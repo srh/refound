@@ -6,19 +6,15 @@
 #include <string>
 #include <vector>
 
-#include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 #include "rdb_protocol/admin_identifier_format.hpp"
+#include "rdb_protocol/artificial_table/backend.hpp"
 
 namespace auth {
 class user_context_t;
 }
 
 class jobs_artificial_table_fdb_backend_t final :
-#if RDB_CF
-    public timer_cfeed_artificial_table_fdb_backend_t
-#else
     public artificial_table_fdb_backend_t
-#endif
 {
 public:
     explicit jobs_artificial_table_fdb_backend_t(

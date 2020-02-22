@@ -10,11 +10,7 @@
 common_table_artificial_table_fdb_backend_t::common_table_artificial_table_fdb_backend_t(
         name_string_t const &table_name,
         admin_identifier_format_t _identifier_format)
-#if RDB_CF
-    : timer_cfeed_artificial_table_fdb_backend_t(table_name),
-#else
     : artificial_table_fdb_backend_t(table_name),
-#endif
       identifier_format(_identifier_format) {
 }
 

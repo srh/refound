@@ -1,6 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/administration/tables/db_config.hpp"
 
+#include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
@@ -58,13 +59,8 @@ bool convert_db_config_and_name_from_datum(
 }
 
 db_config_artificial_table_fdb_backend_t::db_config_artificial_table_fdb_backend_t() :
-#if RDB_CF
-    caching_cfeed_artificial_table_fdb_backend_t(
-        name_string_t::guarantee_valid("db_config"))
-#else
     artificial_table_fdb_backend_t(
         name_string_t::guarantee_valid("db_config"))
-#endif
     { }
 
 db_config_artificial_table_fdb_backend_t::~db_config_artificial_table_fdb_backend_t() {

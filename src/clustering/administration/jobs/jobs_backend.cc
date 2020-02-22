@@ -4,6 +4,7 @@
 
 #include <string>
 
+#include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/datum_adapter.hpp"
@@ -12,20 +13,12 @@
 
 jobs_artificial_table_fdb_backend_t::jobs_artificial_table_fdb_backend_t(
         admin_identifier_format_t _identifier_format)
-#if RDB_CF
-    : timer_cfeed_artificial_table_fdb_backend_t(
-        name_string_t::guarantee_valid("jobs")),
-#else
     : artificial_table_fdb_backend_t(
         name_string_t::guarantee_valid("jobs")),
-#endif
       identifier_format(_identifier_format) {
 }
 
 jobs_artificial_table_fdb_backend_t::~jobs_artificial_table_fdb_backend_t() {
-#if RDB_CF
-    begin_changefeed_destruction();
-#endif
 }
 
 std::string jobs_artificial_table_fdb_backend_t::get_primary_key_name() const {

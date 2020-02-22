@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "clustering/administration/admin_op_exc.hpp"
-#include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
 #include "rdb_protocol/admin_identifier_format.hpp"
+#include "rdb_protocol/artificial_table/backend.hpp"
 
 // TODO: There is only one subclass.  So just combine this all together.
 
@@ -18,11 +18,7 @@ class table_config_t;
 pseudo-tables. Subclasses should implement `format_row()` and `write_row()`. */
 
 class common_table_artificial_table_fdb_backend_t :
-#if RDB_CF
-    public timer_cfeed_artificial_table_fdb_backend_t
-#else
     public artificial_table_fdb_backend_t
-#endif
 {
 public:
     common_table_artificial_table_fdb_backend_t(

@@ -7,7 +7,11 @@
 #include <vector>
 
 #include "containers/uuid.hpp"
-#include "rdb_protocol/artificial_table/caching_cfeed_backend.hpp"
+#include "rdb_protocol/artificial_table/backend.hpp"
+
+namespace ql {
+class datum_t;
+}
 
 /* This is public because it's used by `db_table.cc`. It's kind of a trivial function
 right now, but it will become non-trivial if we ever add more configuration to
@@ -18,11 +22,7 @@ ql::datum_t convert_db_or_table_config_and_name_to_datum(
 
 
 class db_config_artificial_table_fdb_backend_t :
-#if RDB_CF
-    public caching_cfeed_artificial_table_fdb_backend_t
-#else
     public artificial_table_fdb_backend_t
-#endif
 {
 public:
     db_config_artificial_table_fdb_backend_t();
