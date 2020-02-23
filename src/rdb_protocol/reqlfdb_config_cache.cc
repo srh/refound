@@ -160,20 +160,6 @@ std::string unserialize_table_by_name_table_name_part(key_view table_name_part) 
     return std::string(as_char(table_name_part.data), table_name_part.length);
 }
 
-std::pair<database_id_t, std::string> unserialize_table_by_name_key(key_view key) {
-    std::string prefix = REQLFDB_TABLE_CONFIG_BY_NAME;
-    key_view chopped = key.guarantee_without_prefix(prefix);
-    std::pair<database_id_t, std::string> ret;
-    key_view table_name = chopped.without_prefix(uuid_u::kStringSize + strlen(table_by_name_separator));
-    // TODO: rassert_prefix function, that I can lower to an assertion at some point.
-    guarantee(chopped.data[uuid_u::kStringSize] == table_by_name_separator[0] &&
-              strlen(table_by_name_separator) == 1);
-    ret.second = unserialize_table_by_name_table_name_part(table_name);
-    bool is_uuid = str_to_uuid(as_char(chopped.data), uuid_u::kStringSize, &ret.first.value);
-    guarantee(is_uuid);
-    return ret;
-}
-
 std::string unserialize_table_by_name_table_name(key_view key, database_id_t db_id) {
     std::string prefix = unique_index_fdb_key(REQLFDB_TABLE_CONFIG_BY_NAME,
         ukey_string{table_by_name_ukey_prefix(db_id)});
