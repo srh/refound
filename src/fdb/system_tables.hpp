@@ -25,6 +25,39 @@ struct table_config_by_id {
     }
 };
 
+constexpr const char *table_by_name_separator = ".";
+
+// The thing to which we append the table name.
+inline std::string table_by_name_ukey_prefix(const database_id_t db_id) {
+    // We make an aesthetic key.  UUID's are fixed-width so it's OK.
+    return uuid_to_str(db_id.value) + table_by_name_separator;
+}
+
+// Takes a std::string we don't know is a valid table name.  If the format ever changes
+// such that an invalid name wouldn't work as a key, we'd have to remove this function.
+inline ukey_string table_by_unverified_name_key(
+        const database_id_t &db_id,
+        const std::string &table_name) {
+    // TODO: Use standard compound index key format, so db_list works well.
+    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name};
+}
+
+inline ukey_string table_by_name_key(
+        const database_id_t &db_id,
+        const name_string_t &table_name) {
+    return table_by_unverified_name_key(db_id, table_name.str());
+}
+
+struct table_config_by_name {
+    using ukey_type = std::pair<database_id_t, name_string_t>;
+    using value_type = namespace_id_t;
+    static constexpr const char *prefix = REQLFDB_TABLE_CONFIG_BY_NAME;
+
+    static ukey_string ukey_str(const ukey_type &k) {
+        return table_by_unverified_name_key(k.first, k.second.str());
+    }
+};
+
 struct db_config_by_id {
     using ukey_type = database_id_t;
     using value_type = name_string_t;

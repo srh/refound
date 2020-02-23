@@ -133,29 +133,6 @@ void reqlfdb_config_cache::add_table(
     table_id_index.emplace(table_id, std::move(config));
 }
 
-constexpr const char *table_by_name_separator = ".";
-
-// The thing to which we append the table name.
-std::string table_by_name_ukey_prefix(const database_id_t db_id) {
-    // We make an aesthetic key.  UUID's are fixed-width so it's OK.
-    return uuid_to_str(db_id) + table_by_name_separator;
-}
-
-// Takes a std::string we don't know is a valid table name.  If the format ever changes
-// such that an invalid name wouldn't work as a key, we'd have to remove this function.
-ukey_string table_by_unverified_name_key(
-        const database_id_t &db_id,
-        const std::string &table_name) {
-    // TODO: Use standard compound index key format, so db_list works well.
-    return ukey_string{table_by_name_ukey_prefix(db_id) + table_name};
-}
-
-ukey_string table_by_name_key(
-        const database_id_t &db_id,
-        const name_string_t &table_name) {
-    return table_by_unverified_name_key(db_id, table_name.str());
-}
-
 std::string unserialize_table_by_name_table_name_part(key_view table_name_part) {
     return std::string(as_char(table_name_part.data), table_name_part.length);
 }
@@ -267,8 +244,8 @@ config_cache_retrieve_table_by_name(
     const ukey_string table_index_key = table_by_name_key(
         db_table_name.first, db_table_name.second);
 
-    fdb_future table_id_fut = transaction_lookup_unique_index(
-        txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    fdb_value_fut<namespace_id_t> table_id_fut = transaction_lookup_uq_index<table_config_by_name>(
+        txn, db_table_name);
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
@@ -280,10 +257,8 @@ config_cache_retrieve_table_by_name(
     }
     // TODO: Examine this, the db function, and the user function for some config_version exception?
 
-    fdb_value table_id_value = future_block_on_value(table_id_fut.fut, interruptor);
-
     namespace_id_t table_id;
-    bool present = deserialize_off_fdb_value(table_id_value, &table_id);
+    bool present = table_id_fut.block_and_deserialize(interruptor, &table_id);
 
     config_info<optional<std::pair<namespace_id_t, table_config_t>>> ret;
     ret.ci_cv = cv;
@@ -510,12 +485,10 @@ void help_remove_table(
         const namespace_id_t &table_id,
         const table_config_t &config,
         const signal_t *interruptor) {
-    ukey_string table_index_key
-        = table_by_name_key(config.basic.database, config.basic.name);
-
     // Wipe table config (from pkey and indices), and wipe table contents.
     transaction_erase_uq_index<table_config_by_id>(txn, table_id);
-    transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    transaction_erase_uq_index<table_config_by_name>(txn,
+        std::make_pair(config.basic.database, config.basic.name));
 
     // TODO: Parallelize this.
     // For any sindexes with jobs, remove their jobs.
@@ -565,14 +538,14 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         FDBTransaction *txn,
         reqlfdb_config_version expected_cv,
         const auth::user_context_t &user_context,
-        const database_id_t &db_id, const name_string_t &table_name,
+        const database_id_t &db_id,
+        const name_string_t &table_name,
         const signal_t *interruptor) {
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
 
-    const ukey_string table_index_key = table_by_name_key(db_id, table_name);
-    fdb_future table_by_name_fut = transaction_lookup_unique_index(
-        txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    fdb_value_fut<namespace_id_t> table_by_name_fut = transaction_lookup_uq_index<table_config_by_name>(
+        txn, std::make_pair(db_id, table_name));
     fdb_future db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(
         txn, db_id);
 
@@ -584,10 +557,8 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         guarantee(db_by_id_value.present, "db missing, fdb state invalid");  // TODO: Fdb, error message, etc.
     }
 
-    fdb_value table_by_name_value
-        = future_block_on_value(table_by_name_fut.fut, interruptor);
     namespace_id_t table_id;
-    if (!deserialize_off_fdb_value(table_by_name_value, &table_id)) {
+    if (!table_by_name_fut.block_and_deserialize(interruptor, &table_id)) {
         return r_nullopt;
     }
 
@@ -626,13 +597,13 @@ bool config_cache_table_create(
     const database_id_t db_id = config.basic.database;
     const name_string_t &table_name = config.basic.name;
 
-    const ukey_string table_index_key = table_by_name_key(db_id, table_name);
+    std::pair<database_id_t, name_string_t> table_index_key{db_id, table_name};
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
     auth::fdb_user_fut<auth::db_config_permission> auth_fut
         = user_context.transaction_require_db_config_permission(txn, db_id);
-    fdb_future table_by_name_fut = transaction_lookup_unique_index(
-        txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key);
+    fdb_value_fut<namespace_id_t> table_by_name_fut = transaction_lookup_uq_index<table_config_by_name>(
+        txn, table_index_key);
     fdb_future db_by_id_fut
         = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
@@ -657,12 +628,8 @@ bool config_cache_table_create(
 
     // Okay, the db's present, the table is not present.  Create the table.
 
-    // TODO: Figure out how to name these sorts of variables.
-    std::string table_pkey_value = serialize_for_cluster_to_string(new_table_id);
-
     transaction_set_uq_index<table_config_by_id>(txn, new_table_id, config);
-    transaction_set_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, table_index_key,
-        table_pkey_value);
+    transaction_set_uq_index<table_config_by_name>(txn, table_index_key, new_table_id);
 
     cv.value++;
     transaction_set_config_version(txn, cv);

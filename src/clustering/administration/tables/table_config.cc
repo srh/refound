@@ -437,11 +437,11 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
                 // We'll have to update the index entry and check for name conflicts
                 // (either with the new name in the same db, or the name in the new
                 // db).
-                ukey_string old_table_index_key = table_by_name_key(old_config.basic.database,
-                    old_config.basic.name);
-                ukey_string new_table_index_key = table_by_name_key(new_config.basic.database,
-                    new_config.basic.name);
-                fdb_future fut = transaction_lookup_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME,
+                std::pair<database_id_t, name_string_t> old_table_index_key{old_config.basic.database,
+                    old_config.basic.name};
+                std::pair<database_id_t, name_string_t> new_table_index_key{new_config.basic.database,
+                    new_config.basic.name};
+                fdb_value_fut<namespace_id_t> fut = transaction_lookup_uq_index<table_config_by_name>(txn,
                     new_table_index_key);
 
                 fdb_value new_table_index_value = future_block_on_value(fut.fut, interruptor);
@@ -450,10 +450,9 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
                     return false;
                 }
 
-                std::string table_pkey_value = serialize_for_cluster_to_string(new_table_id);
-                transaction_erase_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, old_table_index_key);
-                transaction_set_unique_index(txn, REQLFDB_TABLE_CONFIG_BY_NAME, new_table_index_key,
-                    table_pkey_value);
+                transaction_erase_uq_index<table_config_by_name>(txn, old_table_index_key);
+                transaction_set_uq_index<table_config_by_name>(txn, new_table_index_key,
+                    new_table_id);
             }
 
             // users_by_ids index is unchanged.
