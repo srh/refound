@@ -12,7 +12,8 @@
 // it's constant).
 
 // NNN: Maybe this should have a backtrace_id_t in it.
-struct provisional_db_id {
+class provisional_db_id {
+public:
     name_string_t db_name;
     ql::backtrace_id_t bt;
 };

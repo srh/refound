@@ -284,6 +284,19 @@ config_cache_retrieve_db_and_table_by_name(
     return ret;
 }
 
+database_id_t
+expect_retrieve_db(
+        FDBTransaction *txn, const provisional_db_id &prov_db,
+        const signal_t *interruptor) {
+    fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(txn, prov_db.db_name);
+    database_id_t ret;
+    if (!fut.block_and_deserialize(interruptor, &ret)) {
+        rfail_src(prov_db.bt, ql::base_exc_t::OP_FAILED,
+            "Database `%s` does not exist.", prov_db.db_name.c_str());
+    }
+    return ret;
+}
+
 config_info<std::pair<namespace_id_t, table_config_t>>
 expect_retrieve_table(
         FDBTransaction *txn, const provisional_table_id &prov_table,

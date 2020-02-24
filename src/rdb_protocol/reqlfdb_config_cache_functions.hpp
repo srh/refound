@@ -21,6 +21,7 @@ class db_t;
 }
 
 struct ukey_string;
+class provisional_db_id;
 class provisional_table_id;
 class sindex_config_t;
 class write_hook_config_t;
@@ -47,10 +48,15 @@ config_cache_retrieve_db_and_table_by_name(
     FDBTransaction *txn, const name_string_t &db_name, const name_string_t &table_name,
     const signal_t *interruptor);
 
+database_id_t
+expect_retrieve_db(
+    FDBTransaction *txn, const provisional_db_id &prov_db,
+    const signal_t *interruptor);
+
 config_info<std::pair<namespace_id_t, table_config_t>>
 expect_retrieve_table(
-        FDBTransaction *txn, const provisional_table_id &prov_table,
-        const signal_t *interruptor);
+    FDBTransaction *txn, const provisional_table_id &prov_table,
+    const signal_t *interruptor);
 
 config_info<optional<auth::user_t>>
 config_cache_retrieve_user_by_name(

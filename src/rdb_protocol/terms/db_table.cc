@@ -599,47 +599,35 @@ private:
             guarantee(art_or_null != nullptr);  // We're not a deterministic term.
 
             if (target->get_type().is_convertible(val_t::type_t::DB)) {
-                counted_t<const ql::db_t> db = target->as_db(env->env);
-                if (db->name == artificial_reql_cluster_interface_t::database_name) {
+                provisional_db_id db = target->as_prov_db(env->env);
+                if (db.db_name == artificial_reql_cluster_interface_t::database_name) {
                     rfail(ql::base_exc_t::OP_FAILED,
                         "Database `%s` is special; you can't configure it.",
                             artificial_reql_cluster_interface_t::database_name.c_str());
                 }
 
-                admin_err_t error;
-                if (!real_reql_cluster_interface::make_db_config_selection(
+                selection = real_reql_cluster_interface::make_db_config_selection(
                         art_or_null,
                         env->env->get_user_context(),
                         db,
                         backtrace(),
-                        env->env,
-                        &selection,
-                        &error)) {
-                    REQL_RETHROW(error);
-                }
+                        env->env);
             } else {
-                counted_t<table_t> table = target->as_table(env->env);
+                provisional_table_id table = target->as_prov_table(env->env);
 
-                if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+                if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+                    // NNN: We should fail with a table d.n.e. error if the table dne.
                     rfail(ql::base_exc_t::OP_FAILED,
                           "Database `%s` is special; you can't configure the tables in it.",
                           artificial_reql_cluster_interface_t::database_name.c_str());
                 }
 
-                name_string_t table_name = table->name;
-                admin_err_t error;
-                if (!real_reql_cluster_interface::make_table_config_selection(
+                selection = real_reql_cluster_interface::make_table_config_selection(
                         art_or_null,
                         env->env->get_user_context(),
-                        table->db,
-                        table->tbl->cv,
-                        table->get_id(),
-                        table_name, backtrace(),
-                        env->env,
-                        &selection,
-                        &error)) {
-                    REQL_RETHROW(error);
-                }
+                        table,
+                        backtrace(),
+                        env->env);
             }
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
