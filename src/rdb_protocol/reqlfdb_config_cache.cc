@@ -723,16 +723,13 @@ std::vector<std::pair<database_id_t, name_string_t>> config_cache_db_list_sorted
 // This is listed in ascending order.
 std::vector<name_string_t> config_cache_table_list_sorted(
         FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
-        const database_id_t &db_id,
+        provisional_db_id prov_db,
         const signal_t *interruptor) {
 
-    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-
-    std::vector<name_string_t> table_names;
+    database_id_t db_id = expect_retrieve_db(txn, prov_db, interruptor);
 
     std::string prefix = table_config_by_name_prefix(db_id);
-
+    std::vector<name_string_t> table_names;
     transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
     [&prefix, &table_names](const FDBKeyValue &kv) {
         key_view whole_key{void_as_uint8(kv.key), kv.key_length};
@@ -747,9 +744,6 @@ std::vector<name_string_t> config_cache_table_list_sorted(
         table_names.push_back(std::move(name));
         return true;
     });
-
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-    check_cv(expected_cv, cv);
 
     return table_names;
 }

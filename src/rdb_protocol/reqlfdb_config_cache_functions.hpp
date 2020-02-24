@@ -128,8 +128,7 @@ std::vector<std::pair<database_id_t, name_string_t>> config_cache_db_list_sorted
 
 std::vector<name_string_t> config_cache_table_list_sorted(
     FDBTransaction *txn,
-    reqlfdb_config_version expected_cv,
-    const database_id_t &db_id,
+    provisional_db_id prov_db,
     const signal_t *interruptor);
 
 MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(

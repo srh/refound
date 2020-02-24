@@ -544,17 +544,17 @@ public:
         : meta_op_term_t(env, term, argspec_t(0, 1)) { }
 private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
-        counted_t<const ql::db_t> db;
+        provisional_db_id db;
         if (args->num_args() == 0) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_db(env->env);
+            db = dbv->as_prov_db(env->env);
         } else {
-            db = args->arg(env, 0)->as_db(env->env);
+            db = args->arg(env, 0)->as_prov_db(env->env);
         }
 
         std::vector<name_string_t> table_list;
-        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (db.db_name == artificial_reql_cluster_interface_t::database_name) {
             artificial_reql_cluster_interface_t *art_or_null
                 = env->env->get_rdb_ctx()->artificial_interface_or_null;
             r_sanity_check(art_or_null != nullptr);
@@ -563,7 +563,7 @@ private:
         } else {
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
-                table_list = config_cache_table_list_sorted(txn, db->cv.assert_nonempty(), db->id, env->env->interruptor);
+                table_list = config_cache_table_list_sorted(txn, db, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "db_list txn failed");
         }
@@ -675,19 +675,20 @@ public:
         : meta_op_term_t(env, term, argspec_t(0, 1), std::move(_optargs)) { }
 
 protected:
-    // .second is empty if called on a db.
-    std::pair<counted_t<const ql::db_t>, counted_t<table_t>> parse_args(scope_env_t *env, args_t *args) const {
-        std::pair<counted_t<const ql::db_t>, counted_t<table_t>> ret;
+    // .second is empty if called on a db.  .first == .second->prov_db otherwise.
+    std::pair<provisional_db_id, optional<provisional_table_id>>
+    parse_args(scope_env_t *env, args_t *args) const {
         if (args->num_args() == 0) {
             rfail(base_exc_t::LOGIC, "`%s` can only be called on a table or database.",
                 name());
         }
         scoped_ptr_t<val_t> target = args->arg(env, 0);
+        std::pair<provisional_db_id, optional<provisional_table_id>> ret;
         if (target->get_type().is_convertible(val_t::type_t::DB)) {
-            ret.first = target->as_db(env->env);
+            ret.first = target->as_prov_db(env->env);
         } else {
-            ret.second = target->as_table(env->env);
-            ret.first = ret.second->db;
+            ret.second.set(target->as_prov_table(env->env));
+            ret.first = ret.second->prov_db;
         }
         return ret;
     }
@@ -708,9 +709,8 @@ private:
 
     scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const override {
-        auto args_pair = parse_args(env, args);
-        counted_t<const ql::db_t> db = std::move(args_pair.first);
-        counted_t<table_t> table_or_null = std::move(args_pair.second);
+        std::pair<provisional_db_id, optional<provisional_table_id>> args_pair
+            = parse_args(env, args);
 
         // TODO: Maybe this could do some fdb shard readiness query to check table
         // availability.
@@ -748,7 +748,7 @@ private:
         }
 
         // Handle system db cases.
-        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (args_pair.first.db_name == artificial_reql_cluster_interface_t::database_name) {
             admin_err_t error{
                 strprintf("Database `%s` is special; the system tables in it are "
                           "always available and don't need to be waited on.",
@@ -767,25 +767,22 @@ private:
         // Perform db or table wait
         double result;
         try {
-            if (table_or_null.has()) {
-                table_config_t config;
+            if (args_pair.second.has_value()) {
+                config_info<std::pair<namespace_id_t, table_config_t>> config;
                 fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                     // TODO: Use a snapshot read for this?  Config txn appropriately?
-
-                    config = config_cache_get_table_config(txn, db->cv.assert_nonempty(), table_or_null->get_id(), env->env->interruptor);
+                    config = expect_retrieve_table(txn, *args_pair.second,
+                        env->env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
 
-                // (We never get table not found here, as we did pre-fdb, because we
-                // check cv above, creating a table not found error when we re-evaluate
-                // the query.)
-                // TODO: At some point we will in fact need to reevaluate queries when config version gets out of whack.
                 result = 1.0;
             } else {
                 std::vector<name_string_t> table_list;
                 fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                     // TODO: Use a snapshot read for this?  Config txn appropriately?
-                    table_list = config_cache_table_list_sorted(txn, db->cv.assert_nonempty(), db->id, env->env->interruptor);
+                    table_list = config_cache_table_list_sorted(txn, args_pair.first,
+                        env->env->interruptor);
                 });
                 guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
 
@@ -829,9 +826,8 @@ private:
 
     scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const override {
-        auto args_pair = parse_args(env, args);
-        counted_t<const ql::db_t> db = std::move(args_pair.first);
-        counted_t<table_t> table_or_null = std::move(args_pair.second);
+        std::pair<provisional_db_id, optional<provisional_table_id>> args_pair
+            = parse_args(env, args);
 
         // Parse the 'dry_run' optarg
         bool dry_run = false;
@@ -901,7 +897,7 @@ private:
                     "specify shards, replicas, etc.");
             }
 
-            if (!table_or_null.has()) {
+            if (!args_pair.second.has_value()) {
                 rfail(base_exc_t::LOGIC, "Can't emergency repair an entire database "
                     "at once; instead you should run `reconfigure()` on each table "
                     "individually.");
