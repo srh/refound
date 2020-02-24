@@ -148,6 +148,50 @@ private:
     deterministic_t is_deterministic() const final { return deterministic_t::no(); }
 };
 
+counted_t<const db_t> provisional_to_db(
+        FDBDatabase *fdb,
+        reqlfdb_config_cache *cc,
+        const signal_t *interruptor,
+        const provisional_db_id &prov_db) {
+    if (prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+        return make_counted<db_t>(
+            artificial_reql_cluster_interface_t::database_id,
+            artificial_reql_cluster_interface_t::database_name,
+            config_version_checker::empty());
+    }
+
+    optional<config_info<database_id_t>> cached
+        = cc->try_lookup_cached_db(prov_db.db_name);
+    if (cached.has_value()) {
+        return make_counted<const db_t>(
+            cached->ci_value, prov_db.db_name,
+            config_version_checker{cached->ci_cv.value});
+    }
+
+    config_info<optional<database_id_t>> result;
+    reqlfdb_config_version prior_cv = cc->config_version;
+    // TODO: Read-only txn.
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            [&](FDBTransaction *txn) {
+        result = config_cache_retrieve_db_by_name(
+            prior_cv, txn, prov_db.db_name, interruptor);
+    });
+    guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_by_name loop");
+
+    cc->note_version(result.ci_cv);
+
+    if (result.ci_value.has_value()) {
+        database_id_t db_id = *result.ci_value;
+        cc->add_db(db_id, prov_db.db_name);
+
+        return make_counted<const db_t>(
+            *result.ci_value, prov_db.db_name,
+            config_version_checker{result.ci_cv.value});
+    } else {
+        rfail_db_not_found(prov_db.bt, prov_db.db_name);
+    }
+}
+
 // TODO: QQQ comments -- must be done later (much later, see how stuff plays out)
 // TODO: OOO comments -- must be done later (soon)
 // TODO: NNN comments -- must be done later (now-ish, immediate cleanup)
@@ -161,45 +205,10 @@ private:
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
         name_string_t db_name = get_name(env->env, args->arg(env, 0), "Database");
 
-        if (db_name == artificial_reql_cluster_interface_t::database_name) {
-            return new_val(artificial_reql_cluster_interface_t::make_prov_db_id());
-        }
-
-        reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
-
-        optional<config_info<database_id_t>> cached
-            = cc->try_lookup_cached_db(db_name);
-        if (cached.has_value()) {
-            return new_val(provisional_db_id{
-                config_version_checker{cached->ci_cv.value},
-                db_name,
-                cached->ci_value});
-        }
-
-        config_info<optional<database_id_t>> result;
-        reqlfdb_config_version prior_cv = cc->config_version;
-        // TODO: Read-only txn.
-        fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
-                [&](FDBTransaction *txn) {
-            result = config_cache_retrieve_db_by_name(
-                prior_cv, txn, db_name, env->env->interruptor);
+        return new_val(provisional_db_id{
+            db_name,
+            backtrace(),
         });
-        guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_by_name loop");
-
-        cc->note_version(result.ci_cv);
-
-        if (result.ci_value.has_value()) {
-            database_id_t db_id = *result.ci_value;
-            cc->add_db(db_id, db_name);
-
-            return new_val(provisional_db_id{
-                config_version_checker{result.ci_cv.value},
-                db_name,
-                *result.ci_value});
-        } else {
-            admin_err_t error = db_not_found_error(db_name);
-            REQL_RETHROW(error);
-        }
     }
     const char *name() const override { return "db"; }
 };

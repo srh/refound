@@ -7,6 +7,7 @@
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/minidriver.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/term.hpp"
 #include "rdb_protocol/types.hpp"
 #include "stl_utils.hpp"
@@ -800,12 +801,23 @@ counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut)
     }
 }
 
+// OOO: Move decl up to header, or something, or move code out of db_table.cc, however this shakes out.
+counted_t<const db_t> provisional_to_db(
+        FDBDatabase *fdb,
+        reqlfdb_config_cache *cc,
+        const signal_t *interruptor,
+        const provisional_db_id &prov_db);
+
 counted_t<const db_t> val_t::as_db(env_t *env) const {
     rcheck_literal_type(env, type_t::DB);
     const provisional_db_id &id = db();
 
     // NNN: Remove as_db entirely.
-    return make_counted<const db_t>(id.provisional_db_id, id.db_name, id.cv);
+    return provisional_to_db(
+        env->get_rdb_ctx()->fdb,
+        env->get_rdb_ctx()->config_caches.get(),
+        env->interruptor,
+        id);
 }
 
 datum_t val_t::as_ptype(env_t *env, const std::string s) const {

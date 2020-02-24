@@ -98,6 +98,7 @@ public:
         return it->second;
     }
 private:
+    // TODO: Unordered map?
     std::map<std::string, int> map;
     std::map<int, std::string> rmap;
 
@@ -372,7 +373,15 @@ private:
         return new_val(val_info(env->env, args->arg(env, 0)));
     }
 
-    datum_t val_info(env_t *env, scoped_ptr_t<val_t> v, bool cv_check_done = false) const {
+    static void add_db_info(datum_object_builder_t *onto,
+        const name_string_t &db_name, const database_id_t &db_id) {
+        bool ign = onto->add("name", datum_t(db_name.str()));
+        ign = onto->add("id", datum_t(uuid_to_str(db_id)));
+        (void)ign;
+    }
+
+    // NNN: Do we pass cv_check_done anymore?
+    datum_t val_info(env_t *env, scoped_ptr_t<val_t> v) const {
         datum_object_builder_t info;
         int type = val_type(env, v);
         bool b = info.add("type", typename_of(env, v));
@@ -381,20 +390,21 @@ private:
         case DB_TYPE: {
             counted_t<const db_t> database = v->as_db(env);
             r_sanity_check(!database->id.value.is_nil());
-            if (!cv_check_done) {
-                fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
-                        env->interruptor, [&](FDBTransaction *txn) {
-                    config_cache_cv_check(txn, database->cv.assert_nonempty() /* OOO: What if system db? */, env->interruptor);
-                });
-                guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
-            }
-            b |= info.add("name", datum_t(database->name.str()));
-            b |= info.add("id", datum_t(uuid_to_str(database->id)));
+
+            // NNN: Handle system db case.
+            fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
+                    env->interruptor, [&](FDBTransaction *txn) {
+                config_cache_cv_check(txn, database->cv.assert_nonempty() /* OOO: What if system db? */, env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
+
+            add_db_info(&info, database->name, database->id);
         } break;
         case TABLE_TYPE: {
             counted_t<table_t> table = v->as_table(env);
             r_sanity_check(!table->get_id().value.is_nil());
 
+            // NNN: Handle system table case.
             table_config_t config;
             fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
                     env->interruptor, [&](FDBTransaction *txn) {
@@ -405,11 +415,14 @@ private:
 
             b |= info.add("name", datum_t(table->name.str()));
             b |= info.add("primary_key", datum_t(table->get_pkey()));
-            // NNN: Uncomment and fix this.
-            // b |= info.add("db", val_info(env, new_val(table->db), true));
+            {
+                datum_object_builder_t db_info;
+                // QQQ: Test that this is "DB" or refactor a tad...
+                UNUSED bool ign = db_info.add("type", datum_t(get_name(DB_TYPE)));
+                add_db_info(&db_info, table->db->name, table->db->id);
+                b |= info.add("db", std::move(db_info).to_datum());
+            }
             b |= info.add("id", datum_t(uuid_to_str(table->get_id())));
-            name_string_t table_name =
-                name_string_t::guarantee_valid(table->name.c_str());
             /* TODO: Add doc_count_estimates, which is an array of doubles, of size
                num_shards. */
             // b |= info.add("doc_count_estimates", std::move(arr).to_datum());

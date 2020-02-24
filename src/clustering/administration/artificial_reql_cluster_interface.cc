@@ -21,14 +21,6 @@ const name_string_t artificial_reql_cluster_interface_t::database_name =
 const database_id_t artificial_reql_cluster_interface_t::database_id =
     database_id_t{uuid_u::from_hash(str_to_uuid("39a24924-14ec-4deb-99f1-742eda7aba5e"), SYSTEM_DB_NAME)};
 
-provisional_db_id artificial_reql_cluster_interface_t::make_prov_db_id() {
-    return provisional_db_id{
-        config_version_checker::empty(),
-        artificial_reql_cluster_interface_t::database_name,
-        artificial_reql_cluster_interface_t::database_id
-    };
-}
-
 admin_err_t db_already_exists_error(const name_string_t &db_name) {
     return admin_err_t{
             strprintf("Database `%s` already exists.", db_name.c_str()),

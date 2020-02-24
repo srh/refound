@@ -5,7 +5,7 @@
 #include "containers/name_string.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/id_types.hpp"
-
+#include "rdb_protocol/error.hpp"
 
 // Represents a db_name -> db_id lookup as of config version cv.  If cv is ::empty(),
 // the db was the artificial db and the id lookup doesn't need to be verified (because
@@ -13,9 +13,8 @@
 
 // NNN: Maybe this should have a backtrace_id_t in it.
 struct provisional_db_id {
-    config_version_checker cv;
     name_string_t db_name;
-    database_id_t provisional_db_id;
+    ql::backtrace_id_t bt;
 };
 
 namespace ql {
