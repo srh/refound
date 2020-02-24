@@ -6,6 +6,7 @@
 #include <string>
 
 #include "clustering/administration/admin_op_exc.hpp"
+#include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "fdb/retry_loop.hpp"
@@ -380,6 +381,7 @@ private:
         return b;
     }
 
+    // TODO: Remove this eventually.
     static MUST_USE bool add_table_info(
             FDBDatabase *fdb,
             const signal_t *interruptor,
@@ -422,6 +424,60 @@ private:
         return b;
     }
 
+    static MUST_USE bool add_table_info(
+            FDBDatabase *fdb,
+            const signal_t *interruptor,
+            datum_object_builder_t *onto,
+            const provisional_table_id &prov_table) {
+        namespace_id_t table_id;
+        table_config_t config;
+        if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            optional<namespace_id_t> maybe_table_id = artificial_reql_cluster_interface_t::get_table_id(prov_table.table_name);
+            if (!maybe_table_id.has_value()) {
+                rfail_prov_table_dne(prov_table);
+            }
+            table_id = *maybe_table_id;
+            // Just set the information that gets used below.  config.sindexes remains
+            // empty, because artificial tables have no sindexes.
+            config.basic.database = artificial_reql_cluster_interface_t::database_id;
+            config.basic.primary_key = artificial_table_fdb_backend_t::get_primary_key_name();
+        } else {
+            std::pair<namespace_id_t, table_config_t> info;
+            fdb_error_t loop_err = txn_retry_loop_coro(fdb,
+                    interruptor, [&](FDBTransaction *txn) {
+                info = expect_retrieve_table(txn, prov_table, interruptor).ci_value;
+            });
+            guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
+            table_id = info.first;
+            config = std::move(info.second);
+        }
+
+        bool b = onto->add("name", datum_t(prov_table.table_name.str()));
+        b |= onto->add("primary_key", datum_t(config.basic.primary_key));
+        {
+            datum_object_builder_t db_info;
+            // QQQ: Test that this is "DB" or refactor a tad...
+            bool ign = db_info.add("type", datum_t(get_name(DB_TYPE)));
+            ign = add_db_info(&db_info, prov_table.prov_db.db_name, config.basic.database);
+            (void)ign;
+            b |= onto->add("db", std::move(db_info).to_datum());
+        }
+        b |= onto->add("id", datum_t(uuid_to_str(table_id)));
+        /* TODO: Add doc_count_estimates, which is an array of doubles, of size
+           num_shards. */
+        // b |= onto->add("doc_count_estimates", std::move(arr).to_datum());
+
+        {
+            ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
+            for (const auto &pair : config.sindexes) {
+                res.add(ql::datum_t(datum_string_t(pair.first)));
+            }
+            res.sort();
+            b |= onto->add("indexes", std::move(res).to_datum());
+        }
+        return b;
+    }
+
     static ql::datum_t table_info_datum(
             FDBDatabase *fdb,
             const signal_t *interruptor,
@@ -433,7 +489,6 @@ private:
         return std::move(table_info).to_datum();
     }
 
-    // NNN: Do we pass cv_check_done anymore?
     datum_t val_info(env_t *env, scoped_ptr_t<val_t> v) const {
         datum_object_builder_t info;
         int type = val_type(env, v);
@@ -441,22 +496,26 @@ private:
 
         switch (type) {
         case DB_TYPE: {
-            counted_t<const db_t> database = v->as_db(env);
-            r_sanity_check(!database->id.value.is_nil());
+            provisional_db_id database = v->as_prov_db(env);
 
-            // NNN: Handle system db case.
-            fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
-                    env->interruptor, [&](FDBTransaction *txn) {
-                config_cache_cv_check(txn, database->cv.assert_nonempty() /* OOO: What if system db? */, env->interruptor);
-            });
-            guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
+            database_id_t db_id;
+            if (database.db_name == artificial_reql_cluster_interface_t::database_name) {
+                db_id = artificial_reql_cluster_interface_t::database_id;
+            } else {
+                fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
+                        env->interruptor, [&](FDBTransaction *txn) {
+                    // TODO: Read-only txn
+                    db_id = expect_retrieve_db(txn, database, env->interruptor);
+                });
+                guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
+            }
 
-            b |= add_db_info(&info, database->name, database->id);
+            b |= add_db_info(&info, database.db_name, db_id);
         } break;
         case TABLE_TYPE: {
-            counted_t<const table_t> table = v->as_table(env);
+            provisional_table_id table = v->as_prov_table(env);
             b |= add_table_info(env->get_rdb_ctx()->fdb, env->interruptor,
-                &info, table.get());
+                &info, table);
         } break;
         case TABLE_SLICE_TYPE: {
             counted_t<table_slice_t> ts = v->as_table_slice(env);
