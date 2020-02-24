@@ -477,27 +477,27 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
 
-        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            // NNN: We should be checking if table exists here.
             return new_val(datum_t::empty_array());
         }
 
         // TODO: Is there really no user access control for this?
-        table_config_t table_config;
+        config_info<std::pair<namespace_id_t, table_config_t>> fdb_result;
         fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
             // TODO: Read-only txn.
-            table_config = config_cache_get_table_config(txn,
-                table->tbl->cv.assert_nonempty(),
-                table->get_id(),
-                env->env->interruptor);
+            fdb_result = expect_retrieve_table(txn, table, env->env->interruptor);
         });
         guarantee_fdb_TODO(loop_err, "sindex_list txn failed");
 
+        env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
+
         /* Convert into an array and return it */
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-        res.reserve(table_config.sindexes.size());
-        for (const auto &pair : table_config.sindexes) {
+        res.reserve(fdb_result.ci_value.second.sindexes.size());
+        for (const auto &pair : fdb_result.ci_value.second.sindexes) {
             res.add(ql::datum_t(datum_string_t(pair.first)));
         }
         res.sort();

@@ -875,6 +875,7 @@ optional<reqlfdb_config_version> config_cache_sindex_drop(
     return make_optional(cv);
 }
 
+// NNN: Do we use this anymore?
 table_config_t config_cache_get_table_config(
         FDBTransaction *txn,
         reqlfdb_config_version expected_cv,
