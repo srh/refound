@@ -21,10 +21,6 @@ jobs_artificial_table_fdb_backend_t::jobs_artificial_table_fdb_backend_t(
 jobs_artificial_table_fdb_backend_t::~jobs_artificial_table_fdb_backend_t() {
 }
 
-std::string jobs_artificial_table_fdb_backend_t::get_primary_key_name() const {
-    return "id";
-}
-
 ql::datum_t clock_datum(reqlfdb_clock clk) {
     return ql::datum_t(double(clk.value));
 }

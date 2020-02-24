@@ -25,8 +25,6 @@ public:
             name_string_t const &table_name,
             admin_identifier_format_t _identifier_format);
 
-    std::string get_primary_key_name() const override;
-
     bool read_all_rows_as_vector(
             FDBDatabase *fdb,
             auth::user_context_t const &user_context,

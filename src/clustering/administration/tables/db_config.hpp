@@ -28,8 +28,6 @@ public:
     db_config_artificial_table_fdb_backend_t();
     ~db_config_artificial_table_fdb_backend_t();
 
-    std::string get_primary_key_name() const override;
-
     bool read_all_rows_as_vector(
             FDBDatabase *fdb,
             auth::user_context_t const &user_context,

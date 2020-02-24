@@ -14,10 +14,6 @@ common_table_artificial_table_fdb_backend_t::common_table_artificial_table_fdb_b
       identifier_format(_identifier_format) {
 }
 
-std::string common_table_artificial_table_fdb_backend_t::get_primary_key_name() const {
-    return "id";
-}
-
 bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
         auth::user_context_t const &user_context,

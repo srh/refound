@@ -13,10 +13,6 @@ void random_delay(const signal_t *interruptor) {
     }
 }
 
-std::string in_memory_artificial_table_fdb_backend_t::get_primary_key_name() const {
-    return "id";
-}
-
 bool in_memory_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         UNUSED FDBDatabase *fdb,
         auth::user_context_t const &user_context,

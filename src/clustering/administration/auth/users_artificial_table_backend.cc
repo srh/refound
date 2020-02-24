@@ -24,11 +24,6 @@ ql::datum_t user_to_datum(username_t const &username, user_t const &user) {
     return std::move(builder).to_datum();
 }
 
-std::string users_artificial_table_fdb_backend_t::get_primary_key_name() const {
-    return "id";
-}
-
-
 bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
         user_context_t const &user_context,

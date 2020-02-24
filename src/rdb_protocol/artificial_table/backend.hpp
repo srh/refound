@@ -52,7 +52,7 @@ public:
 
     /* Returns the name of the primary key for the table. The return value must not
     change. This must not block. */
-    virtual std::string get_primary_key_name() const = 0;
+    static std::string get_primary_key_name() { return "id"; }
 
     // Returns the full dataset in a vector (in `rows_out`) after applying the filtering
     // and sorting specified by `datumspec` and `sorting`.
