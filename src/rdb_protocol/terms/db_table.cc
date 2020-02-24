@@ -148,16 +148,20 @@ private:
     deterministic_t is_deterministic() const final { return deterministic_t::no(); }
 };
 
+counted_t<const db_t> make_artificial_db() {
+    return make_counted<db_t>(
+            artificial_reql_cluster_interface_t::database_id,
+            artificial_reql_cluster_interface_t::database_name,
+            config_version_checker::empty());
+}
+
 counted_t<const db_t> provisional_to_db(
         FDBDatabase *fdb,
         reqlfdb_config_cache *cc,
         const signal_t *interruptor,
         const provisional_db_id &prov_db) {
     if (prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-        return make_counted<db_t>(
-            artificial_reql_cluster_interface_t::database_id,
-            artificial_reql_cluster_interface_t::database_name,
-            config_version_checker::empty());
+        return make_artificial_db();
     }
 
     optional<config_info<database_id_t>> cached
@@ -1069,6 +1073,82 @@ private:
     }
 };
 
+// NNN: Remove
+read_mode_t dummy_read_mode() { return read_mode_t::SINGLE; }
+
+counted_t<table_t> provisional_to_table(
+        FDBDatabase *fdb,
+        const signal_t *interruptor,
+        reqlfdb_config_cache *cc,
+        artificial_reql_cluster_interface_t *art_or_null,
+        const provisional_table_id &prov_table) {
+    r_sanity_check(art_or_null != nullptr);
+
+    if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+        admin_err_t error;
+        counted_t<base_table_t> table;
+        if (!art_or_null->table_find(prov_table.table_name,
+                prov_table.identifier_format.value_or(admin_identifier_format_t::name),
+                &table, &error)) {
+            REQL_RETHROW_SRC(prov_table.bt, error);
+        }
+        return make_counted<table_t>(
+            std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode(),
+            prov_table.bt);
+    }
+
+    // NNN: This is unacceptable.  We must get the db in the same txn as the table, if
+    // both aren't cached.
+    counted_t<const db_t> db = provisional_to_db(fdb,
+        cc,
+        interruptor,
+        prov_table.prov_db);
+
+    std::pair<database_id_t, name_string_t> db_table_name{
+        db->id, prov_table.table_name};
+
+    optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>> cached
+        = cc->try_lookup_cached_table(db_table_name);
+
+    counted_t<real_table_t> table;
+    if (cached.has_value()) {
+        check_cv(db->cv.assert_nonempty(), cached->ci_cv);
+
+        table.reset(new real_table_t(
+            cached->ci_value.first,
+            cached->ci_cv,
+            cached->ci_value.second));
+    } else {
+        reqlfdb_config_version prior_cv = cc->config_version;
+        config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
+        // TODO: Read-only txn.
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+            result = config_cache_retrieve_table_by_name(
+                prior_cv, txn, db_table_name, interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
+        cc->note_version(result.ci_cv);
+        check_cv(db->cv.assert_nonempty(), result.ci_cv);
+
+        if (result.ci_value.has_value()) {
+            const namespace_id_t &table_id = result.ci_value->first;
+            auto table_config = make_counted<rc_wrapper<table_config_t>>(result.ci_value->second);
+            // TODO: Return counted<const rc_wrapper<table_config_t>> from config_cache_retrieve_table_by_name, to avoid this copy.
+            cc->add_table(table_id, table_config);
+            table.reset(new real_table_t(
+                table_id,
+                result.ci_cv,
+                std::move(table_config)));
+        } else {
+            rfail_table_dne_src(prov_table.bt, db->name, db_table_name.second);
+        }
+    }
+
+    return make_counted<table_t>(
+        std::move(table), db, db_table_name.second, dummy_read_mode(), prov_table.bt);
+}
+
 class table_term_t : public op_term_t {
 public:
     table_term_t(compile_env_t *env, const raw_term_t &term)
@@ -1113,78 +1193,22 @@ private:
         }
 
         std::pair<database_id_t, name_string_t> db_table_name;
-        counted_t<const db_t> db;
+        provisional_db_id db;
+        name_string_t table_name;
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv.has());
-            db = dbv->as_db(env->env);
-            db_table_name.first = db->id;
-            db_table_name.second = get_name(env->env, args->arg(env, 0), "Table");
+            db = dbv->as_prov_db(env->env);
+            table_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
             r_sanity_check(args->num_args() == 2);
-            db = args->arg(env, 0)->as_db(env->env);
-            db_table_name.first = db->id;
-            db_table_name.second = get_name(env->env, args->arg(env, 1), "Table");
+            db = args->arg(env, 0)->as_prov_db(env->env);
+            table_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
-        reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
-
-        if (db->name == artificial_reql_cluster_interface_t::database_name) {
-            // TODO: Don't need interruptor (because artificial interface won't chain to m_next)
-            artificial_reql_cluster_interface_t *art_or_null = env->env->get_rdb_ctx()->artificial_interface_or_null;
-            r_sanity_check(art_or_null != nullptr);
-            admin_err_t error;
-            counted_t<base_table_t> table;
-            if (!art_or_null->table_find(db_table_name.second,
-                    identifier_format.value_or(admin_identifier_format_t::name),
-                    &table, &error)) {
-                REQL_RETHROW(error);
-            }
-            return new_val(make_counted<table_t>(
-                std::move(table), db, db_table_name.second, read_mode,
-                backtrace()));
-        }
-
-        optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>> cached
-            = cc->try_lookup_cached_table(db_table_name);
-
-        counted_t<real_table_t> table;
-        if (cached.has_value()) {
-            check_cv(db->cv.assert_nonempty(), cached->ci_cv);
-
-            table.reset(new real_table_t(
-                cached->ci_value.first,
-                cached->ci_cv,
-                cached->ci_value.second));
-        } else {
-            reqlfdb_config_version prior_cv = cc->config_version;
-            config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
-            // TODO: Read-only txn.
-            fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor,
-                    [&](FDBTransaction *txn) {
-                result = config_cache_retrieve_table_by_name(
-                    prior_cv, txn, db_table_name, env->env->interruptor);
-            });
-            guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
-            cc->note_version(result.ci_cv);
-            check_cv(db->cv.assert_nonempty(), result.ci_cv);
-
-            if (result.ci_value.has_value()) {
-                const namespace_id_t &table_id = result.ci_value->first;
-                auto table_config = make_counted<rc_wrapper<table_config_t>>(result.ci_value->second);
-                // TODO: Return counted<const rc_wrapper<table_config_t>> from config_cache_retrieve_table_by_name, to avoid this copy.
-                cc->add_table(table_id, table_config);
-                table.reset(new real_table_t(
-                    table_id,
-                    result.ci_cv,
-                    std::move(table_config)));
-            } else {
-                rfail_table_dne(db->name, db_table_name.second);
-            }
-        }
-
-        return new_val(make_counted<table_t>(
-            std::move(table), db, db_table_name.second, read_mode, backtrace()));
+        // We don't use `read_mode` because that only got used pre-fdb.
+        return new_val(provisional_table_id{
+            db, table_name, identifier_format, backtrace()});
     }
     deterministic_t is_deterministic() const override { return deterministic_t::no(); }
     const char *name() const override { return "table"; }

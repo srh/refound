@@ -373,11 +373,64 @@ private:
         return new_val(val_info(env->env, args->arg(env, 0)));
     }
 
-    static void add_db_info(datum_object_builder_t *onto,
+    static MUST_USE bool add_db_info(datum_object_builder_t *onto,
         const name_string_t &db_name, const database_id_t &db_id) {
-        bool ign = onto->add("name", datum_t(db_name.str()));
-        ign = onto->add("id", datum_t(uuid_to_str(db_id)));
-        (void)ign;
+        bool b = onto->add("name", datum_t(db_name.str()));
+        b |= onto->add("id", datum_t(uuid_to_str(db_id)));
+        return b;
+    }
+
+    static MUST_USE bool add_table_info(
+            FDBDatabase *fdb,
+            const signal_t *interruptor,
+            datum_object_builder_t *onto,
+            const table_t *table) {
+        r_sanity_check(!table->get_id().value.is_nil());
+
+        // NNN: Handle system table case.
+        table_config_t config;
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb,
+                interruptor, [&](FDBTransaction *txn) {
+            config = config_cache_get_table_config(
+                txn, table->tbl->cv.assert_nonempty() /* OOO: what if system table? */, table->get_id(), interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
+
+        bool b = onto->add("name", datum_t(table->name.str()));
+        b |= onto->add("primary_key", datum_t(table->get_pkey()));
+        {
+            datum_object_builder_t db_info;
+            // QQQ: Test that this is "DB" or refactor a tad...
+            bool ign = db_info.add("type", datum_t(get_name(DB_TYPE)));
+            ign = add_db_info(&db_info, table->db->name, table->db->id);
+            (void)ign;
+            b |= onto->add("db", std::move(db_info).to_datum());
+        }
+        b |= onto->add("id", datum_t(uuid_to_str(table->get_id())));
+        /* TODO: Add doc_count_estimates, which is an array of doubles, of size
+           num_shards. */
+        // b |= onto->add("doc_count_estimates", std::move(arr).to_datum());
+
+        {
+            ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
+            for (const auto &pair : config.sindexes) {
+                res.add(ql::datum_t(datum_string_t(pair.first)));
+            }
+            res.sort();
+            b |= onto->add("indexes", std::move(res).to_datum());
+        }
+        return b;
+    }
+
+    static ql::datum_t table_info_datum(
+            FDBDatabase *fdb,
+            const signal_t *interruptor,
+            const table_t *table) {
+        datum_object_builder_t table_info;
+        bool b = table_info.add("type", datum_t(get_name(TABLE_TYPE)));
+        b |= add_table_info(fdb, interruptor, &table_info, table);
+        r_sanity_check(!b);
+        return std::move(table_info).to_datum();
     }
 
     // NNN: Do we pass cv_check_done anymore?
@@ -398,47 +451,17 @@ private:
             });
             guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
 
-            add_db_info(&info, database->name, database->id);
+            b |= add_db_info(&info, database->name, database->id);
         } break;
         case TABLE_TYPE: {
-            counted_t<table_t> table = v->as_table(env);
-            r_sanity_check(!table->get_id().value.is_nil());
-
-            // NNN: Handle system table case.
-            table_config_t config;
-            fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb,
-                    env->interruptor, [&](FDBTransaction *txn) {
-                config = config_cache_get_table_config(
-                    txn, table->tbl->cv.assert_nonempty() /* OOO: what if system table? */, table->get_id(), env->interruptor);
-            });
-            guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
-
-            b |= info.add("name", datum_t(table->name.str()));
-            b |= info.add("primary_key", datum_t(table->get_pkey()));
-            {
-                datum_object_builder_t db_info;
-                // QQQ: Test that this is "DB" or refactor a tad...
-                UNUSED bool ign = db_info.add("type", datum_t(get_name(DB_TYPE)));
-                add_db_info(&db_info, table->db->name, table->db->id);
-                b |= info.add("db", std::move(db_info).to_datum());
-            }
-            b |= info.add("id", datum_t(uuid_to_str(table->get_id())));
-            /* TODO: Add doc_count_estimates, which is an array of doubles, of size
-               num_shards. */
-            // b |= info.add("doc_count_estimates", std::move(arr).to_datum());
-
-            {
-                ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-                for (const auto &pair : config.sindexes) {
-                    res.add(ql::datum_t(datum_string_t(pair.first)));
-                }
-                res.sort();
-                b |= info.add("indexes", std::move(res).to_datum());
-            }
+            counted_t<const table_t> table = v->as_table(env);
+            b |= add_table_info(env->get_rdb_ctx()->fdb, env->interruptor,
+                &info, table.get());
         } break;
         case TABLE_SLICE_TYPE: {
             counted_t<table_slice_t> ts = v->as_table_slice(env);
-            b |= info.add("table", val_info(env, new_val(ts->get_tbl())));
+            b |= info.add("table", table_info_datum(
+                env->get_rdb_ctx()->fdb, env->interruptor, ts->get_tbl().get()));
             b |= info.add("index",
                           ts->idx.has_value() ? datum_t(ts->idx->c_str()) : datum_t::null());
             switch (ts->sorting) {
@@ -475,12 +498,14 @@ private:
             }
         } break;
         case SELECTION_TYPE: {
-            b |= info.add("table",
-                          val_info(env, new_val(v->as_selection(env)->table)));
+            b |= info.add("table", table_info_datum(
+                env->get_rdb_ctx()->fdb, env->interruptor,
+                v->as_selection(env)->table.get()));
         } break;
         case ARRAY_SELECTION_TYPE: {
-            b |= info.add("table",
-                          val_info(env, new_val(v->as_selection(env)->table)));
+            b |= info.add("table", table_info_datum(
+                env->get_rdb_ctx()->fdb, env->interruptor,
+                v->as_selection(env)->table.get()));
         } break;
         case SEQUENCE_TYPE: {
             if (v->as_seq(env)->is_grouped()) {
@@ -489,8 +514,9 @@ private:
             }
         } break;
         case SINGLE_SELECTION_TYPE: {
-            b |= info.add("table",
-                          val_info(env, new_val(v->as_single_selection(env)->get_tbl())));
+            b |= info.add("table", table_info_datum(
+                env->get_rdb_ctx()->fdb, env->interruptor,
+                v->as_single_selection(env)->get_tbl().get()));
         } break;
 
         case FUNC_TYPE: {

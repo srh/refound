@@ -24,6 +24,12 @@ struct admin_err_t {
                     : ql::base_exc_t::OP_INDETERMINATE,                 \
                     "%s", (X).msg.c_str());                             \
     } while (0)
+#define REQL_RETHROW_SRC(bt, X) \
+        rfail_src((bt), (X).query_state == query_state_t::FAILED \
+                    ? ql::base_exc_t::OP_FAILED \
+                    : ql::base_exc_t::OP_INDETERMINATE, \
+                    "%s", (X).msg.c_str())
+
 
 
 /* This is a generic class for errors that occur during administrative operations. It has
@@ -56,6 +62,9 @@ inline admin_err_t table_dne_error(
 
 #define rfail_table_dne(db_name, table_name) \
     rfail(ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
+          (db_name).c_str(), (table_name).c_str())
+#define rfail_table_dne_src(bt, db_name, table_name) \
+    rfail_src((bt), ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
           (db_name).c_str(), (table_name).c_str())
 
 #endif /* CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_ */

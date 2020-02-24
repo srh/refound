@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "containers/counted.hpp"
+#include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/datum_string.hpp"
 #include "rdb_protocol/db.hpp"
@@ -20,6 +21,15 @@
 #include "utils.hpp"
 
 class ellipsoid_spec_t;
+
+class provisional_table_id {
+public:
+    provisional_db_id prov_db;
+    name_string_t table_name;
+    // TODO: Make this non-optional -- just put in the universal default value (which is?).  So far I've seen "name" used as the default.
+    optional<admin_identifier_format_t> identifier_format;
+    ql::backtrace_id_t bt;
+};
 
 namespace ql {
 
@@ -224,15 +234,16 @@ public:
           backtrace_id_t bt);
     val_t(counted_t<single_selection_t> _selection, backtrace_id_t bt);
     val_t(env_t *env, counted_t<datum_stream_t> _seq, backtrace_id_t bt);
-    val_t(counted_t<table_t> _table, backtrace_id_t bt);
+    val_t(provisional_table_id _table, backtrace_id_t bt);
     val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
     val_t(counted_t<selection_t> _selection, backtrace_id_t bt);
     val_t(provisional_db_id _db, backtrace_id_t bt);
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
     ~val_t();
 
+    const provisional_db_id &as_prov_db(env_t *env) const;
     counted_t<const db_t> as_db(env_t *env) const;
-    counted_t<table_t> as_table(env_t *env);
+    counted_t<table_t> as_table(env_t *env) const;
     counted_t<table_t> get_underlying_table(env_t *env) const;
     counted_t<table_slice_t> as_table_slice(env_t *env);
     counted_t<selection_t> as_selection(env_t *env);
@@ -308,7 +319,7 @@ private:
                    datum_t,
                    counted_t<const func_t>,
                    counted_t<grouped_data_t>,
-                   counted_t<table_t>,
+                   provisional_table_id,
                    counted_t<table_slice_t>,
                    counted_t<single_selection_t>,
                    counted_t<selection_t> > u;
@@ -331,8 +342,8 @@ private:
     const counted_t<selection_t> &selection() const {
         return boost::get<counted_t<selection_t> >(u);
     }
-    const counted_t<table_t> &table() const {
-        return boost::get<counted_t<table_t> >(u);
+    const provisional_table_id &table() const {
+        return boost::get<provisional_table_id>(u);
     }
     const counted_t<table_slice_t> &table_slice() const {
         return boost::get<counted_t<table_slice_t> >(u);

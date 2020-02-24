@@ -642,11 +642,10 @@ val_t::val_t(counted_t<selection_t> _selection, backtrace_id_t _bt)
     guarantee(selection().has());
 }
 
-val_t::val_t(counted_t<table_t> _table, backtrace_id_t _bt)
+val_t::val_t(provisional_table_id _table, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::TABLE),
       u(_table) {
-    guarantee(table().has());
 }
 val_t::val_t(counted_t<table_slice_t> _slice, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
@@ -681,13 +680,29 @@ datum_t val_t::as_datum(env_t *env) const {
     unreachable();
 }
 
-counted_t<table_t> val_t::as_table(env_t *env) {
+// NNN: move definition, or impl, to header or whatever.
+counted_t<table_t> provisional_to_table(
+        FDBDatabase *fdb,
+        const signal_t *interruptor,
+        reqlfdb_config_cache *cc,
+        artificial_reql_cluster_interface_t *art_or_null,
+        const provisional_table_id &prov_table);
+
+counted_t<table_t> val_t::as_table(env_t *env) const {
     rcheck_literal_type(env, type_t::TABLE);
-    return table();
+    const provisional_table_id &prov_table = table();
+
+    return provisional_to_table(
+        env->get_rdb_ctx()->fdb,
+        env->interruptor,
+        env->get_rdb_ctx()->config_caches.get(),
+        env->get_rdb_ctx()->artificial_interface_or_null,
+        prov_table);
 }
 counted_t<table_slice_t> val_t::as_table_slice(env_t *env) {
+    // NNN: Make table_slice_t hold a provisional_table_id, ofc.
     if (type.raw_type == type_t::TABLE) {
-        return make_counted<table_slice_t>(table());
+        return make_counted<table_slice_t>(as_table(env));
     } else {
         rcheck_literal_type(env, type_t::TABLE_SLICE);
         return table_slice();
@@ -731,9 +746,10 @@ counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
         : maybe_as_grouped_data();
 }
 
-counted_t<table_t> val_t::get_underlying_table(env_t *) const {
+counted_t<table_t> val_t::get_underlying_table(env_t *env) const {
     if (type.raw_type == type_t::TABLE) {
-        return table();
+        // NNN: The performance expectations of get_underlying_table have been altered!  Look at callers.
+        return as_table(env);
     } else if (type.raw_type == type_t::SELECTION) {
         return selection()->table;
     } else if(type.raw_type == type_t::SINGLE_SELECTION) {
@@ -808,9 +824,13 @@ counted_t<const db_t> provisional_to_db(
         const signal_t *interruptor,
         const provisional_db_id &prov_db);
 
-counted_t<const db_t> val_t::as_db(env_t *env) const {
+const provisional_db_id &val_t::as_prov_db(env_t *env) const {
     rcheck_literal_type(env, type_t::DB);
-    const provisional_db_id &id = db();
+    return db();
+}
+
+counted_t<const db_t> val_t::as_db(env_t *env) const {
+    const provisional_db_id &id = as_prov_db(env);
 
     // NNN: Remove as_db entirely.
     return provisional_to_db(
