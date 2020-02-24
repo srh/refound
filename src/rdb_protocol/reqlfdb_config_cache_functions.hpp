@@ -129,7 +129,7 @@ std::vector<name_string_t> config_cache_table_list_sorted(
 MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,
-    const provisional_table_id &prov_table,
+    const provisional_table_id &table,
     const std::string &index_name,
     const sindex_id_t &new_sindex_id,
     const fdb_shared_task_id &new_index_create_task_id,
@@ -137,12 +137,10 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
     const signal_t *interruptor,
     const ql::backtrace_id_t bt);
 
-MUST_USE bool config_cache_sindex_drop(
+MUST_USE optional<reqlfdb_config_version> config_cache_sindex_drop(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,
-    reqlfdb_config_version expected_cv,
-    const database_id_t &db_id,
-    const namespace_id_t &table_id,
+    const provisional_table_id &table,
     const std::string &index_name,
     const signal_t *interruptor);
 

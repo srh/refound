@@ -751,8 +751,8 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
         const sindex_config_t &sindex_config,
         const signal_t *interruptor,
         const ql::backtrace_id_t bt) {
-    config_info<std::pair<namespace_id_t, table_config_t>>
-        info = expect_retrieve_table(txn, table, interruptor);
+    config_info<std::pair<namespace_id_t, table_config_t>> info
+        = expect_retrieve_table(txn, table, interruptor);
     const namespace_id_t &table_id = info.ci_value.first;
     table_config_t &table_config = info.ci_value.second;
     const database_id_t &db_id = table_config.basic.database;
@@ -837,36 +837,30 @@ void help_erase_sindex_content(
 
 // TODO: Users' db/table config permissions ought to get cleaned up when we drop a db or table.
 
-bool config_cache_sindex_drop(
+optional<reqlfdb_config_version> config_cache_sindex_drop(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
-        reqlfdb_config_version expected_cv,
-        const database_id_t &db_id,
-        const namespace_id_t &table_id,
+        const provisional_table_id &table,
         const std::string &index_name,
         const signal_t *interruptor) {
+    config_info<std::pair<namespace_id_t, table_config_t>> info
+        = expect_retrieve_table(txn, table, interruptor);
+    // TODO: If we don't have db read permissions, are we allowed to discover whether the table exists or not in the db?
+    const namespace_id_t &table_id = info.ci_value.first;
+    table_config_t &table_config = info.ci_value.second;
+    const database_id_t &db_id = table_config.basic.database;
+    reqlfdb_config_version cv = info.ci_cv;
+
     auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
         = user_context.transaction_require_db_and_table_config_permission(
             txn, db_id, table_id);
-    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-
-    fdb_value_fut<table_config_t> table_config_fut
-        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
-
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-    check_cv(expected_cv, cv);
 
     auth_fut.block_and_check(interruptor);
-
-    table_config_t table_config;
-    if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
-        crash("table config not present, when id matched config version");
-    }
 
     auto sindexes_it = table_config.sindexes.find(index_name);
     if (sindexes_it == table_config.sindexes.end()) {
         // Index simply doesn't exist.
-        return false;
+        return r_nullopt;
     }
 
     help_erase_sindex_content(txn, table_id, sindexes_it->second, interruptor);
@@ -878,7 +872,7 @@ bool config_cache_sindex_drop(
 
     cv.value++;
     transaction_set_config_version(txn, cv);
-    return true;
+    return make_optional(cv);
 }
 
 table_config_t config_cache_get_table_config(
