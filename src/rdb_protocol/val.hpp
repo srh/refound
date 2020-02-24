@@ -233,7 +233,7 @@ public:
 
     counted_t<const db_t> as_db(env_t *env) const;
     counted_t<table_t> as_table(env_t *env);
-    counted_t<table_t> get_underlying_table() const;
+    counted_t<table_t> get_underlying_table(env_t *env) const;
     counted_t<table_slice_t> as_table_slice(env_t *env);
     counted_t<selection_t> as_selection(env_t *env);
     counted_t<datum_stream_t> as_seq(env_t *env);

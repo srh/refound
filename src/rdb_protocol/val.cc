@@ -731,7 +731,7 @@ counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
         : maybe_as_grouped_data();
 }
 
-counted_t<table_t> val_t::get_underlying_table() const {
+counted_t<table_t> val_t::get_underlying_table(env_t *) const {
     if (type.raw_type == type_t::TABLE) {
         return table();
     } else if (type.raw_type == type_t::SELECTION) {
@@ -887,10 +887,10 @@ std::string val_t::print(env_t *env) const {
         // TODO: Make ::print consume the val_t, the way as_db() ought to.
         return strprintf("db(\"%s\")", as_db(env)->name.c_str());
     } else if (get_type().is_convertible(type_t::TABLE)) {
-        return strprintf("table(\"%s\")", get_underlying_table()->name.c_str());
+        return strprintf("table(\"%s\")", get_underlying_table(env)->name.c_str());
     } else if (get_type().is_convertible(type_t::SELECTION)) {
         return strprintf("SELECTION ON table(%s)",
-                         get_underlying_table()->name.c_str());
+                         get_underlying_table(env)->name.c_str());
     } else {
         // TODO: Do something smarter here?
         return strprintf("VALUE %s", get_type().name());
