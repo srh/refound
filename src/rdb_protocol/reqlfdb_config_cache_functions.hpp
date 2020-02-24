@@ -156,16 +156,15 @@ enum class rename_result {
     new_already_exists,
 };
 
-rename_result config_cache_sindex_rename(
+config_info<rename_result> config_cache_sindex_rename(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,
-    reqlfdb_config_version expected_cv,
-    const database_id_t &db_id,
-    const namespace_id_t &table_id,
+    const provisional_table_id &table,
     const std::string &old_name,
     const std::string &new_name,
     bool overwrite,
-    const signal_t *interruptor);
+    const signal_t *interruptor,
+    ql::backtrace_id_t bt);
 
 bool config_cache_set_write_hook(
         FDBTransaction *txn,

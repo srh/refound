@@ -693,49 +693,44 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
         scoped_ptr_t<val_t> old_name_val = args->arg(env, 1);
         scoped_ptr_t<val_t> new_name_val = args->arg(env, 2);
         std::string old_name = old_name_val->as_str(env).to_std();
         std::string new_name = new_name_val->as_str(env).to_std();
-        rcheck(old_name != table->get_pkey(),
-               base_exc_t::LOGIC,
-               strprintf("Index name conflict: `%s` is the name of the primary key.",
-                         old_name.c_str()));
-        rcheck(new_name != table->get_pkey(),
-               base_exc_t::LOGIC,
-               strprintf("Index name conflict: `%s` is the name of the primary key.",
-                         new_name.c_str()));
 
         scoped_ptr_t<val_t> overwrite_val = args->optarg(env, "overwrite");
         const bool overwrite = overwrite_val ? overwrite_val->as_bool(env) : false;
 
-        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            // NNN: Ensure we check table exists before complaining index dne.
+
+            // NNN: Produce "Index name conflict" errors if old_name or new_name is the artificial table's primary key.  Likewise for index create and such, I guess...
+
             // TODO: Dedup index not found message.
             rfail(base_exc_t::OP_FAILED,
                 "Index `%s` was not found on table `%s`.",
                           old_name.c_str(),
-                          table->display_name().c_str());
+                          table.display_name().c_str());
         }
 
 
-        rename_result fdb_result;
+        config_info<rename_result> fdb_result;
         try {
             // Even if old_name == new_name, we're going to check that the table and
             // index exists by that name.
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb,
                     env->env->interruptor, [&](FDBTransaction *txn) {
-                rename_result result = config_cache_sindex_rename(
+                config_info<rename_result> result = config_cache_sindex_rename(
                     txn,
                     env->env->get_user_context(),
-                    table->tbl->cv.assert_nonempty(),
-                    table->db->id,
-                    table->get_id(),
+                    table,
                     old_name,
                     new_name,
                     overwrite,
-                    env->env->interruptor);
-                if (result == rename_result::success) {
+                    env->env->interruptor,
+                    backtrace());
+                if (result.ci_value == rename_result::success) {
                     commit(txn, env->env->interruptor);
                 }
                 fdb_result = result;
@@ -745,17 +740,19 @@ public:
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
 
-        switch (fdb_result) {
+        env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
+
+        switch (fdb_result.ci_value) {
         case rename_result::success: break;
         case rename_result::old_not_found: {
             rfail(ql::base_exc_t::OP_FAILED,
                   "Index `%s` does not exist on table `%s`.",
-                  old_name.c_str(), table->display_name().c_str());
+                  old_name.c_str(), table.display_name().c_str());
         } break;
         case rename_result::new_already_exists: {
             rfail(ql::base_exc_t::OP_FAILED,
                   "Index `%s` already exists on table `%s`.",
-                  new_name.c_str(), table->display_name().c_str());
+                  new_name.c_str(), table.display_name().c_str());
         } break;
         default: unreachable();
         }
