@@ -22,6 +22,7 @@
 #include "containers/name_string.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
+#include "fdb/prov_retry_loop.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/datum_string.hpp"
 #include "rdb_protocol/op.hpp"
@@ -923,6 +924,8 @@ private:
     const char *name() const final { return "rebalance"; }
 };
 
+// QQQ: User configs include system table configs -- which means some db code using the users table needs to keep that in mind (when maintaining users table sindexes and such).
+
 class sync_term_t : public meta_op_term_t {
 public:
     sync_term_t(compile_env_t *env, const raw_term_t &term)
@@ -934,17 +937,19 @@ private:
         // We now succeed on system tables, unlike pre-fdb sync_term_t.  This is
         // desirable.
 
-        counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
-        config_version_checker expected_cv = t->tbl->cv;
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+
         try {
-            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-                // TODO: Read-only txn
+            fdb_error_t loop_err = txn_retry_loop_table_id(
+                env->env->get_rdb_ctx()->fdb,
+                    env->env->get_rdb_ctx()->config_caches.get(),
+                    env->env->interruptor,
+                    table,
+                    [&](FDBTransaction *txn, const database_id_t &db_id, const namespace_id_t &table_id, cv_check_fut&& cvc) {
                 auth::fdb_user_fut<auth::write_permission> auth_fut
                     = env->env->get_user_context().transaction_require_write_permission(
-                        txn, t->db->id, t->get_id());
-                if (!expected_cv.is_empty()) {
-                    config_cache_cv_check(txn, expected_cv.assert_nonempty(), env->env->interruptor);
-                }
+                        txn, db_id, table_id);
+                cvc.block_and_check(env->env->interruptor);
                 auth_fut.block_and_check(env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "sync_term_t retry loop");

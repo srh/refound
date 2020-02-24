@@ -54,9 +54,7 @@ public:
     fdb_future() : fut(nullptr) {}
     explicit fdb_future(FDBFuture *_fut) : fut(_fut) {}
     ~fdb_future() {
-        if (fut != nullptr) {
-            fdb_future_destroy(fut);
-        }
+        reset();
     }
 
     bool empty() const {
@@ -65,6 +63,15 @@ public:
 
     bool has() const {
         return !empty();
+    }
+
+    // Beware that data pointers (FDBKeyValue's, const uint8*'s, and such) will be
+    // invalidated if you reset().
+    void reset() {
+        if (fut != nullptr) {
+            fdb_future_destroy(fut);
+        }
+        fut = nullptr;
     }
 
     fdb_future(fdb_future &&movee) noexcept : fut(movee.fut) {
