@@ -598,41 +598,44 @@ public:
         : op_term_t(env, term, argspec_t(1, -1)) { }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        provisional_table_id prov_table = args->arg(env, 0)->as_prov_table(env->env);
         std::set<std::string> sindexes;
         for (size_t i = 1; i < args->num_args(); ++i) {
             sindexes.insert(args->arg(env, i)->as_str(env).to_std());
         }
-        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            // NNN: Ensure the table actually exists.
             // TODO: Do these rcheck statements or rfail instead of the admin_op_exc_t/rethrow rigamarole.
             // TODO: Dedup index not found message.
             rcheck(sindexes.empty(),
                 base_exc_t::OP_FAILED,
                 strprintf("Index `%s` was not found on table `%s`.",
                           sindexes.begin()->c_str(),
-                          table->display_name().c_str()));
+                          prov_table.display_name().c_str()));
             return new_val(datum_t::empty_array());
         }
 
-        const namespace_id_t table_id = table->get_id();
+        // TODO: Is there really no user access control for this?
+        namespace_id_t table_id;
+        optional<table_config_t> table_config;
+        {
+            config_info<std::pair<namespace_id_t, table_config_t>> fdb_result;
+            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                fdb_result = expect_retrieve_table(txn, prov_table, env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "sindex_wait first txn failed");
+
+            env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
+            // We fix the table id -- subsequent lookups use the table id.  (As if the
+            // r.db().table() term evaluated the table id lookup exactly once.)
+            table_id = fdb_result.ci_value.first;
+            table_config.set(std::move(fdb_result.ci_value.second));
+        }
 
         // Start with initial_poll_ms, then double the waiting period after each
         // attempt up to a maximum of max_poll_ms.
         int64_t current_poll_ms = initial_poll_ms;
         for (;;) {
-            // TODO: Is there really no user access control for this?
-            optional<table_config_t> table_config;
-            fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-                // TODO: Read-only txn.
-                table_config = config_cache_get_table_config_without_cv_check(txn,
-                    table_id,
-                    env->env->interruptor);
-            });
-            guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
-
-            if (!table_config.has_value()) {
-                rfail_table_dne(table->db->name, table->name);
-            }
 
             // Verify all requested sindexes exist.
             for (const auto &sindex : sindexes) {
@@ -640,7 +643,7 @@ public:
                 rcheck(table_config->sindexes.count(sindex) == 1, base_exc_t::OP_FAILED,
                     strprintf("Index `%s` was not found on table `%s`.",
                               sindex.c_str(),
-                              table->display_name().c_str()));
+                              prov_table.display_name().c_str()));
             }
 
             ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
@@ -662,6 +665,20 @@ public:
             } else {
                 nap(current_poll_ms, env->env->interruptor);
                 current_poll_ms = std::min(max_poll_ms, current_poll_ms * 2);
+            }
+
+            // TODO: Is there really no user access control for this? (same as above)
+            fdb_error_t loop_err2 = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Read-only txn.
+                table_config = config_cache_get_table_config_without_cv_check(txn,
+                    table_id,
+                    env->env->interruptor);
+            });
+            guarantee_fdb_TODO(loop_err2, "sindex_wait second txn failed");
+
+            if (!table_config.has_value()) {
+                // QQQ: Maybe we should fail with a different message, mentioning that the table previously existed -- and mentioning the table id.
+                rfail_table_dne(prov_table.prov_db.db_name, prov_table.table_name);
             }
         }
     }
