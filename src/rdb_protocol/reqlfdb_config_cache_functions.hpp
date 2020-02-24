@@ -171,12 +171,10 @@ config_info<rename_result> config_cache_sindex_rename(
     const signal_t *interruptor,
     ql::backtrace_id_t bt);
 
-bool config_cache_set_write_hook(
+std::pair<bool, reqlfdb_config_version> config_cache_set_write_hook(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
-        reqlfdb_config_version expected_cv,
-        const database_id_t &db_id,
-        const namespace_id_t &table_id,
+        const provisional_table_id &prov_table,
         const optional<write_hook_config_t> &new_write_hook_config,
         const signal_t *interruptor);
 

@@ -40,7 +40,7 @@ public:
 
     scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const override {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
 
         // TODO: Maybe we actually want to ping fdb and see if the table still exists
         // before we consider emitting any of the other errors first.  That would more
@@ -109,7 +109,11 @@ public:
         // QQQ: In 2.4.x we didn't call get_write_hook inside of a try catch block for the permission_error_t exception that might get thrown.  What happens if the user doesn't have permission?
 
     config_specified_without_value:
-        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
+                rfail_prov_table_dne(table);
+            }
+
             admin_err_t error{strprintf("Database `%s` is special; you can't set a "
                       "write hook on the tables in it.",
                       artificial_reql_cluster_interface_t::database_name.c_str()),
@@ -117,16 +121,15 @@ public:
             REQL_RETHROW(error);
         }
 
-
-        bool existed;
+        std::pair<bool, reqlfdb_config_version> existed;
         try {
-            database_id_t db_id = table->db->id;
-            namespace_id_t table_id = table->get_id();
-            reqlfdb_config_version expected_cv = table->tbl->cv.assert_nonempty();
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
-                bool old_existed = config_cache_set_write_hook(
+                config_info<std::pair<namespace_id_t, table_config_t>>
+                    info = expect_retrieve_table(txn, table, env->env->interruptor);
+
+                std::pair<bool, reqlfdb_config_version> old_existed = config_cache_set_write_hook(
                     txn, env->env->get_user_context(),
-                    expected_cv, db_id, table_id, config, env->env->interruptor);
+                    table, config, env->env->interruptor);
                 commit(txn, env->env->interruptor);
                 existed = old_existed;
             });
@@ -135,8 +138,10 @@ public:
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
 
+        env->env->get_rdb_ctx()->config_caches.get()->note_version(existed.second);
+
         datum_string_t message = deletion_message ? datum_string_t("deleted") :
-            existed ? datum_string_t("replaced") :
+            existed.first ? datum_string_t("replaced") :
                 datum_string_t("created");
 
         ql::datum_object_builder_t res;

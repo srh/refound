@@ -34,14 +34,14 @@ struct table_info {
     const table_config_t *config;
 };
 
+// Note that this function can't be used on system tables.
 template <class C>
 MUST_USE fdb_error_t txn_retry_loop_table(
         FDBDatabase *fdb, reqlfdb_config_cache *cc, const signal_t *interruptor,
         const provisional_table_id &prov_table,
         C &&fn) {
+    rassert(prov_table.prov_db.db_name != artificial_reql_cluster_interface_t::database_name);
     fdb_transaction txn{fdb};
-
-    // NNN: If we use this function on the artificial db, there is trouble.
 
     optional<config_info<database_id_t>>
         cached_db = cc->try_lookup_cached_db(prov_table.prov_db.db_name);

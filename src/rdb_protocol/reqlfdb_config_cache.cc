@@ -988,34 +988,33 @@ config_info<rename_result> config_cache_sindex_rename(
 }
 
 // Returns if the write hook config previously existed.
-bool config_cache_set_write_hook(
+std::pair<bool, reqlfdb_config_version> config_cache_set_write_hook(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
-        reqlfdb_config_version expected_cv,
-        const database_id_t &db_id,
-        const namespace_id_t &table_id,
+        const provisional_table_id &prov_table,
         const optional<write_hook_config_t> &new_write_hook_config,
         const signal_t *interruptor) {
+    config_info<std::pair<namespace_id_t, table_config_t>>
+        info = expect_retrieve_table(txn, prov_table, interruptor);
+
     auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
         = user_context.transaction_require_db_and_table_config_permission(
-            txn, db_id, table_id);
-
-    table_config_t cfg = config_cache_get_table_config(txn, expected_cv, table_id,
-        interruptor);
-    // We checked expected_cv in config_cache_get_table_config.
-    reqlfdb_config_version cv = expected_cv;
+            txn, info.ci_value.second.basic.database, info.ci_value.first);
 
     auth_fut.block_and_check(interruptor);
+
+    table_config_t &cfg = info.ci_value.second;
 
     bool old_existed = cfg.write_hook.has_value();
 
     cfg.write_hook = new_write_hook_config;
-    transaction_set_uq_index<table_config_by_id>(txn, table_id, cfg);
+    transaction_set_uq_index<table_config_by_id>(txn, info.ci_value.first, cfg);
 
+    reqlfdb_config_version cv = info.ci_cv;
     cv.value++;
     transaction_set_config_version(txn, cv);
 
-    return old_existed;
+    return std::make_pair(old_existed, cv);
 }
 
 void config_cache_cv_check(
