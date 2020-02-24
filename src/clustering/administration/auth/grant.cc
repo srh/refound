@@ -16,7 +16,7 @@ bool grant(
         auth::username_t username,
         ql::datum_t permissions,
         const signal_t *interruptor,
-        const std::function<auth::permissions_t *(auth::user_t *)> &permission_selector_function,
+        const std::function<auth::permissions_t *(auth::user_t *, FDBTransaction *, const signal_t *)> &permission_selector_function,
         ql::datum_t *result_out,
         admin_err_t *error_out)
         THROWS_ONLY(interrupted_exc_t, permissions_error_t) {
@@ -54,7 +54,7 @@ bool grant(
     ql::datum_t old_permissions;
     ql::datum_t new_permissions;
     try {
-        auth::permissions_t *permissions_ref = permission_selector_function(&user);
+        auth::permissions_t *permissions_ref = permission_selector_function(&user, txn, interruptor);
         old_permissions = permissions_ref->to_datum();
         permissions_ref->merge(permissions);
         new_permissions = permissions_ref->to_datum();

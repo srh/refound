@@ -5,7 +5,6 @@
 #include <boost/variant.hpp>
 
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
-#include "clustering/administration/auth/grant.hpp"
 #include "clustering/administration/auth/user_context.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
 #include "clustering/administration/datum_adapter.hpp"

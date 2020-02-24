@@ -974,29 +974,48 @@ private:
         ql::datum_t permissions = args->arg(env, args->num_args() - 1)->as_datum(env);
 
         try {
-            std::function<auth::permissions_t *(auth::user_t *)> permissions_selector;
+            std::function<auth::permissions_t *(auth::user_t *, FDBTransaction *, const signal_t *)> permissions_selector;
 
             if (args->num_args() == 2) {
-                permissions_selector = [](auth::user_t *user) -> auth::permissions_t * {
+                permissions_selector = [](auth::user_t *user, FDBTransaction *, const signal_t *) -> auth::permissions_t * {
                     return &user->get_global_permissions();
                 };
             } else {
                 scoped_ptr_t<val_t> scope = args->arg(env, 0);
                 if (scope->get_type().is_convertible(val_t::type_t::DB)) {
                     // TODO: Config version consistency logic with prior db_t name lookup.
-                    const database_id_t db_id = scope->as_db(env->env)->id;
-                    permissions_selector = [db_id](auth::user_t *user) -> auth::permissions_t * {
-                        return &user->get_database_permissions(db_id);
-                    };
+                    const provisional_db_id prov_db = scope->as_prov_db(env->env);
+                    if (prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+                        permissions_selector = [](auth::user_t *user, FDBTransaction *, const signal_t *) -> auth::permissions_t * {
+                            return &user->get_database_permissions(
+                                artificial_reql_cluster_interface_t::database_id);
+                        };
+                    } else {
+                        permissions_selector = [prov_db](auth::user_t *user, FDBTransaction *txn, const signal_t *interruptor) -> auth::permissions_t * {
+                            database_id_t db_id = expect_retrieve_db(txn, prov_db, interruptor);
+                            return &user->get_database_permissions(db_id);
+                        };
+                    }
                 } else {
                     // TODO: Config version consistency logic with the table name lookup
                     // that made the namespace_id_t.
-                    counted_t<table_t> table = scope->as_table(env->env);
-                    const namespace_id_t table_id = table->get_id();
-
-                    permissions_selector = [table_id](auth::user_t *user) -> auth::permissions_t * {
-                        return &user->get_table_permissions(table_id);
-                    };
+                    const provisional_table_id table = scope->as_prov_table(env->env);
+                    if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+                        optional<namespace_id_t> table_id = artificial_reql_cluster_interface_t::get_table_id(table.table_name);
+                        if (!table_id.has_value()) {
+                            rfail_prov_table_dne(table);
+                        }
+                        permissions_selector = [table_id](auth::user_t *user, FDBTransaction *, const signal_t *) -> auth::permissions_t * {
+                            return &user->get_table_permissions(*table_id);
+                        };
+                    } else {
+                        permissions_selector = [table](auth::user_t *user, FDBTransaction *txn, const signal_t *interruptor) -> auth::permissions_t * {
+                            // NNN: Just retrieve table id, not table config or cv.
+                            std::pair<namespace_id_t, table_config_t> info =
+                                expect_retrieve_table(txn, table, interruptor).ci_value;
+                            return &user->get_table_permissions(info.first);
+                        };
+                    }
                 }
             }
 

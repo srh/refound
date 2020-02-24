@@ -19,7 +19,7 @@ MUST_USE bool grant(
         auth::username_t username,
         ql::datum_t permissions,
         const signal_t *interruptor,
-        const std::function<auth::permissions_t *(auth::user_t *)> &permission_selector_function,
+        const std::function<auth::permissions_t *(auth::user_t *, FDBTransaction *, const signal_t *)> &permission_selector_function,
         ql::datum_t *result_out,
         admin_err_t *error_out)
     THROWS_ONLY(interrupted_exc_t, permissions_error_t);
