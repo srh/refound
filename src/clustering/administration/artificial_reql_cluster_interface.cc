@@ -86,6 +86,36 @@ artificial_reql_cluster_interface_t::get_table_backend_or_null(
     return nullptr;
 }
 
+optional<namespace_id_t> artificial_reql_cluster_interface_t::get_table_id(
+        const name_string_t &table_name) {
+    // Keep in sync with table_list_sorted.
+
+    bool found = false;
+    if (table_name.str() < "q") {    // Much performant.
+        if (table_name.str() == "db_config") {
+            found = true;
+        } else if (table_name.str() == "jobs") {
+            found = true;
+        } else if (table_name.str() == "permissions") {
+            found = true;
+        }
+    } else {
+        if (table_name.str() == "table_config") {
+            found = true;
+        } else if (table_name.str() == "users") {
+            found = true;
+        } else if (table_name.str() == "_debug_scratch") {
+            found = true;
+        }
+    }
+
+    optional<namespace_id_t> ret;
+    if (found) {
+        ret.set(artificial_table_fdb_backend_t::compute_artificial_table_id(table_name));
+    }
+    return ret;
+}
+
 artificial_reql_cluster_backends_t::~artificial_reql_cluster_backends_t() { }
 
 artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t() {

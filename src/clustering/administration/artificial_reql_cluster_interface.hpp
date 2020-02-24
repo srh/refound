@@ -74,6 +74,8 @@ public:
             name_string_t const &,
             admin_identifier_format_t) const;
 
+    static optional<namespace_id_t> get_table_id(const name_string_t &table_name);
+
 private:
     artificial_reql_cluster_backends_t m_backends;
 };
