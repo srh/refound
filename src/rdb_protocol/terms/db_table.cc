@@ -644,16 +644,18 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
-        name_string_t table_name = table->name;
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
 
-        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            // NNN: First check if the table exists?
             admin_err_t error{
                 strprintf("Database `%s` is special; the system tables in it don't "
                           "have meaningful status information.", artificial_reql_cluster_interface_t::database_name.c_str()),
                 query_state_t::FAILED};
             REQL_RETHROW(error);
         }
+
+        // NNN: First check if the table exists?
 
         admin_err_t error{
             "The `status` term is not supported in reql-on-fdb.",  // TODO: Product name
