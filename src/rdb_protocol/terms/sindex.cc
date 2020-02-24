@@ -9,12 +9,13 @@
 #include "containers/archive/string_stream.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
-#include "rdb_protocol/real_table.hpp"
+#include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
-#include "rdb_protocol/op.hpp"
 #include "rdb_protocol/minidriver.hpp"
+#include "rdb_protocol/op.hpp"
+#include "rdb_protocol/real_table.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rdb_protocol/term_walker.hpp"
 
@@ -705,7 +706,15 @@ public:
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
             // NNN: Ensure we check table exists before complaining index dne.
 
-            // NNN: Produce "Index name conflict" errors if old_name or new_name is the artificial table's primary key.  Likewise for index create and such, I guess...
+            // TODO: Dedup with rchecks in config_cache_sindex_rename.
+            rcheck_src(backtrace(), old_name != artificial_table_fdb_backend_t::get_primary_key_name(),
+                   ql::base_exc_t::LOGIC,
+                   strprintf("Index name conflict: `%s` is the name of the primary key.",
+                             old_name.c_str()));
+            rcheck_src(backtrace(), new_name != artificial_table_fdb_backend_t::get_primary_key_name(),
+                   ql::base_exc_t::LOGIC,
+                   strprintf("Index name conflict: `%s` is the name of the primary key.",
+                             new_name.c_str()));
 
             // TODO: Dedup index not found message.
             rfail(base_exc_t::OP_FAILED,
