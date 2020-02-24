@@ -526,7 +526,7 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         /* Parse the arguments */
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
         std::set<std::string> sindexes;
         for (size_t i = 1; i < args->num_args(); ++i) {
             sindexes.insert(args->arg(env, i)->as_str(env).to_std());
@@ -534,17 +534,20 @@ public:
 
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
         std::set<std::string> remaining_sindexes = sindexes;
-        if (table->db->name != artificial_reql_cluster_interface_t::database_name) {
+        if (table.prov_db.db_name != artificial_reql_cluster_interface_t::database_name) {
+            // NNN: If on system db, we should verify that the table exists.
+
             // TODO: Is there really no user access control for this?
-            table_config_t table_config;
+            config_info<std::pair<namespace_id_t, table_config_t>> fdb_result;
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Read-only txn.
-                table_config = config_cache_get_table_config(txn,
-                    table->tbl->cv.assert_nonempty(),
-                    table->get_id(),
-                    env->env->interruptor);
+                fdb_result = expect_retrieve_table(txn, table, env->env->interruptor);
             });
             guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
+
+            env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
+
+            const table_config_t &table_config = fdb_result.ci_value.second;
 
             // We iterate the sindex configs in name order (preserving existing behavior).
             std::vector<std::string> names;
@@ -575,7 +578,7 @@ public:
         rcheck(remaining_sindexes.empty(), base_exc_t::OP_FAILED,
             strprintf("Index `%s` was not found on table `%s`.",
                       remaining_sindexes.begin()->c_str(),
-                      table->display_name().c_str()));
+                      table.display_name().c_str()));
 
         return new_val(std::move(res).to_datum());
     }
