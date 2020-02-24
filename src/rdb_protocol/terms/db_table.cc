@@ -1097,56 +1097,68 @@ counted_t<table_t> provisional_to_table(
             prov_table.bt);
     }
 
-    // NNN: This is unacceptable.  We must get the db in the same txn as the table, if
-    // both aren't cached.
-    counted_t<const db_t> db = provisional_to_db(fdb,
-        cc,
-        interruptor,
-        prov_table.prov_db);
-
-    std::pair<database_id_t, name_string_t> db_table_name{
-        db->id, prov_table.table_name};
-
-    optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>> cached
-        = cc->try_lookup_cached_table(db_table_name);
-
     counted_t<real_table_t> table;
-    if (cached.has_value()) {
-        check_cv(db->cv.assert_nonempty(), cached->ci_cv);
+    counted_t<const db_t> out_db;
 
-        table.reset(new real_table_t(
-            cached->ci_value.first,
-            cached->ci_cv,
-            cached->ci_value.second));
-    } else {
-        reqlfdb_config_version prior_cv = cc->config_version;
-        config_info<optional<std::pair<namespace_id_t, table_config_t>>> result;
-        // TODO: Read-only txn.
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-                [&](FDBTransaction *txn) {
-            result = config_cache_retrieve_table_by_name(
-                prior_cv, txn, db_table_name, interruptor);
-        });
-        guarantee_fdb_TODO(loop_err, "config_cache_retrieve_table_by_name loop");
-        cc->note_version(result.ci_cv);
-        check_cv(db->cv.assert_nonempty(), result.ci_cv);
-
-        if (result.ci_value.has_value()) {
-            const namespace_id_t &table_id = result.ci_value->first;
-            auto table_config = make_counted<rc_wrapper<table_config_t>>(result.ci_value->second);
-            // TODO: Return counted<const rc_wrapper<table_config_t>> from config_cache_retrieve_table_by_name, to avoid this copy.
-            cc->add_table(table_id, table_config);
+    // TODO: ASSERT_NO_CORO_WAITING on these two cache lookups, as mutex assertion.
+    optional<config_info<database_id_t>> cached_db_id
+        = cc->try_lookup_cached_db(prov_table.prov_db.db_name);
+    if (cached_db_id.has_value()) {
+        std::pair<database_id_t, name_string_t> db_table_name{
+            cached_db_id->ci_value, prov_table.table_name};
+        optional<config_info<std::pair<namespace_id_t, counted<const rc_wrapper<table_config_t>>>>> cached_table
+            = cc->try_lookup_cached_table(db_table_name);
+        if (cached_table.has_value()) {
             table.reset(new real_table_t(
-                table_id,
-                result.ci_cv,
-                std::move(table_config)));
-        } else {
-            rfail_table_dne_src(prov_table.bt, db->name, db_table_name.second);
+                cached_table->ci_value.first,
+                cached_table->ci_cv,
+                cached_table->ci_value.second));
+            out_db.reset(new db_t(
+                cached_db_id->ci_value, prov_table.prov_db.db_name,
+                config_version_checker{cached_db_id->ci_cv.value}));
         }
     }
 
+    if (!table.has()) {
+        // Perform a txn with both the db and table lookup.
+
+        // TODO: If we have the cached db, try to optimistically lookup the table config (passing in cached_db_id).
+
+        config_info<
+            optional<std::pair<database_id_t, optional<std::pair<namespace_id_t, table_config_t>>>>> result;
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+            result = config_cache_retrieve_db_and_table_by_name(
+                txn, prov_table.prov_db.db_name, prov_table.table_name, interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_and_table_by_name loop");
+        cc->note_version(result.ci_cv);
+
+        if (!result.ci_value.has_value()) {
+            // Database was not found.
+            rfail_db_not_found(prov_table.prov_db.bt, prov_table.prov_db.db_name);
+        }
+        cc->add_db(result.ci_value->first, prov_table.prov_db.db_name);
+
+        if (!result.ci_value->second.has_value()) {
+            // Table was not found.
+            rfail_table_dne_src(prov_table.bt, prov_table.prov_db.db_name,
+                prov_table.table_name);
+        }
+        auto config = make_counted<const rc_wrapper<table_config_t>>(std::move(result.ci_value->second->second));
+        cc->add_table(result.ci_value->second->first, config);
+
+        // Both were found!
+        table.reset(new real_table_t(result.ci_value->second->first,
+            result.ci_cv,
+            std::move(config)));
+        out_db.reset(new db_t(result.ci_value->first, prov_table.prov_db.db_name,
+            config_version_checker{result.ci_cv.value}));
+    }
+
     return make_counted<table_t>(
-        std::move(table), db, db_table_name.second, dummy_read_mode(), prov_table.bt);
+        std::move(table), std::move(out_db), prov_table.table_name,
+        dummy_read_mode(), prov_table.bt);
 }
 
 class table_term_t : public op_term_t {

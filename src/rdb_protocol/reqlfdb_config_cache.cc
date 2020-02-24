@@ -204,7 +204,7 @@ try_lookup_cached_user(
 }
 #endif  // 0
 
-
+// OOO: Is this used anymore?
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(
         const reqlfdb_config_version config_cache_cv,
@@ -235,15 +235,13 @@ config_cache_retrieve_db_by_name(
     return ret;
 }
 
+// OOO: Is this used anymore?
 // OOO: Caller of these three fns need to check cv and wipe/refresh config cache.
 config_info<optional<std::pair<namespace_id_t, table_config_t>>>
 config_cache_retrieve_table_by_name(
         const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
         const std::pair<database_id_t, name_string_t> &db_table_name,
         const signal_t *interruptor) {
-    const ukey_string table_index_key = table_by_name_key(
-        db_table_name.first, db_table_name.second);
-
     fdb_value_fut<namespace_id_t> table_id_fut = transaction_lookup_uq_index<table_config_by_name>(
         txn, db_table_name);
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
@@ -279,6 +277,52 @@ config_cache_retrieve_table_by_name(
 
     guarantee(db_table_name.first == ret.ci_value->second.basic.database);  // TODO: fdb in bad state
     guarantee(db_table_name.second == ret.ci_value->second.basic.name);  // TODO: fdb in bad state
+
+    return ret;
+}
+
+// OOO: Caller of these three fns need to check cv and wipe/refresh config cache.
+config_info<optional<std::pair<database_id_t, optional<std::pair<namespace_id_t, table_config_t>>>>>
+config_cache_retrieve_db_and_table_by_name(
+        FDBTransaction *txn, const name_string_t &db_name,
+        const name_string_t &table_name,
+        const signal_t *interruptor) {
+    using return_type = config_info<optional<std::pair<database_id_t, optional<std::pair<namespace_id_t, table_config_t>>>>>;
+
+    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+    fdb_value_fut<database_id_t> db_id_fut = transaction_lookup_uq_index<db_config_by_name>(
+        txn, db_name);
+
+    return_type ret;
+    ret.ci_cv = cv_fut.block_and_deserialize(interruptor);
+
+    std::pair<database_id_t, name_string_t> db_table_name;
+
+    if (!db_id_fut.block_and_deserialize(interruptor, &db_table_name.first)) {
+        return ret;
+    }
+    ret.ci_value.emplace();
+    ret.ci_value->first = db_table_name.first;
+
+    db_table_name.second = table_name;
+
+    fdb_value_fut<namespace_id_t> table_id_fut = transaction_lookup_uq_index<table_config_by_name>(
+        txn, db_table_name);
+
+    namespace_id_t table_id;
+    if (!table_id_fut.block_and_deserialize(interruptor, &table_id)) {
+        return ret;
+    }
+
+    fdb_value_fut<table_config_t> table_by_id_fut
+        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
+    table_config_t config;
+    bool config_present = table_by_id_fut.block_and_deserialize(interruptor, &config);
+    guarantee(config_present);  // TODO: Nice error?  FDB in bad state.
+    guarantee(db_table_name.first == config.basic.database);  // TODO: Nice error?  FDB in bad state.
+    guarantee(db_table_name.second == config.basic.name);  // TODO: Nice error?  FDB in bad state.
+
+    ret.ci_value->second.emplace(table_id, std::move(config));
 
     return ret;
 }
