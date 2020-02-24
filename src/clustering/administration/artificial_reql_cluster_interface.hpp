@@ -12,6 +12,7 @@
 #include "containers/uuid.hpp"
 #include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
+#include "rdb_protocol/db.hpp"
 
 namespace auth {
 class permissions_artificial_table_fdb_backend_t;
@@ -59,6 +60,8 @@ class artificial_reql_cluster_interface_t {
 public:
     static const database_id_t database_id;
     static const name_string_t database_name;
+
+    static provisional_db_id make_prov_db_id();
 
     artificial_reql_cluster_interface_t() = default;
 

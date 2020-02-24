@@ -405,7 +405,8 @@ private:
 
             b |= info.add("name", datum_t(table->name.str()));
             b |= info.add("primary_key", datum_t(table->get_pkey()));
-            b |= info.add("db", val_info(env, new_val(table->db), true));
+            // NNN: Uncomment and fix this.
+            // b |= info.add("db", val_info(env, new_val(table->db), true));
             b |= info.add("id", datum_t(uuid_to_str(table->get_id())));
             name_string_t table_name =
                 name_string_t::guarantee_valid(table->name.c_str());

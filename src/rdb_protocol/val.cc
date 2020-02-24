@@ -653,11 +653,10 @@ val_t::val_t(counted_t<table_slice_t> _slice, backtrace_id_t _bt)
       u(_slice) {
     guarantee(table_slice().has());
 }
-val_t::val_t(counted_t<const db_t> _db, backtrace_id_t _bt)
+val_t::val_t(provisional_db_id _db, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::DB),
       u(_db) {
-    guarantee(db().has());
 }
 val_t::val_t(counted_t<const func_t> _func, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
@@ -803,7 +802,10 @@ counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut)
 
 counted_t<const db_t> val_t::as_db(env_t *env) const {
     rcheck_literal_type(env, type_t::DB);
-    return db();
+    const provisional_db_id &id = db();
+
+    // NNN: Remove as_db entirely.
+    return make_counted<const db_t>(id.provisional_db_id, id.db_name, id.cv);
 }
 
 datum_t val_t::as_ptype(env_t *env, const std::string s) const {
@@ -870,6 +872,7 @@ std::string val_t::print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
         return as_datum(env).print();
     } else if (get_type().is_convertible(type_t::DB)) {
+        // TODO: Make ::print consume the val_t, the way as_db() ought to.
         return strprintf("db(\"%s\")", as_db(env)->name.c_str());
     } else if (get_type().is_convertible(type_t::TABLE)) {
         return strprintf("table(\"%s\")", get_underlying_table()->name.c_str());

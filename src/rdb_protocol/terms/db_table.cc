@@ -162,21 +162,18 @@ private:
         name_string_t db_name = get_name(env->env, args->arg(env, 0), "Database");
 
         if (db_name == artificial_reql_cluster_interface_t::database_name) {
-            counted_t<const db_t> db = make_counted<db_t>(artificial_reql_cluster_interface_t::database_id, artificial_reql_cluster_interface_t::database_name, config_version_checker::empty());
-            return new_val(std::move(db));
+            return new_val(artificial_reql_cluster_interface_t::make_prov_db_id());
         }
-
-        // FTX: config_version logic here.
 
         reqlfdb_config_cache *cc = env->env->get_rdb_ctx()->config_caches.get();
 
         optional<config_info<database_id_t>> cached
             = cc->try_lookup_cached_db(db_name);
         if (cached.has_value()) {
-            // OOO: Put config_info into db_t (or into val's version of it).
-            counted_t<db_t> db = make_counted<db_t>(cached->ci_value, db_name,
-                config_version_checker{cached->ci_cv.value});
-            return new_val(counted_t<const db_t>(std::move(db)));
+            return new_val(provisional_db_id{
+                config_version_checker{cached->ci_cv.value},
+                db_name,
+                cached->ci_value});
         }
 
         config_info<optional<database_id_t>> result;
@@ -195,10 +192,10 @@ private:
             database_id_t db_id = *result.ci_value;
             cc->add_db(db_id, db_name);
 
-            // OOO: Put config_info into db_t (or into val's version of it).
-            counted_t<db_t> db = make_counted<db_t>(*result.ci_value, db_name,
-                config_version_checker{result.ci_cv.value});
-            return new_val(counted_t<const db_t>(std::move(db)));
+            return new_val(provisional_db_id{
+                config_version_checker{result.ci_cv.value},
+                db_name,
+                *result.ci_value});
         } else {
             admin_err_t error = db_not_found_error(db_name);
             REQL_RETHROW(error);

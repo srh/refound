@@ -227,7 +227,7 @@ public:
     val_t(counted_t<table_t> _table, backtrace_id_t bt);
     val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
     val_t(counted_t<selection_t> _selection, backtrace_id_t bt);
-    val_t(counted_t<const db_t> _db, backtrace_id_t bt);
+    val_t(provisional_db_id _db, backtrace_id_t bt);
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
     ~val_t();
 
@@ -303,7 +303,7 @@ private:
     // We pretend that this variant is a union -- as if it doesn't have type
     // information.  The sequence, datum, func, and db_ptr functions get the
     // fields of the variant.
-    boost::variant<counted_t<const db_t>,
+    boost::variant<provisional_db_id,
                    counted_t<datum_stream_t>,
                    datum_t,
                    counted_t<const func_t>,
@@ -313,8 +313,8 @@ private:
                    counted_t<single_selection_t>,
                    counted_t<selection_t> > u;
 
-    const counted_t<const db_t> &db() const {
-        return boost::get<counted_t<const db_t> >(u);
+    const provisional_db_id &db() const {
+        return boost::get<provisional_db_id>(u);
     }
     counted_t<datum_stream_t> &sequence() {
         return boost::get<counted_t<datum_stream_t> >(u);

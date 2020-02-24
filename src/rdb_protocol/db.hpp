@@ -6,7 +6,20 @@
 #include "containers/uuid.hpp"
 #include "fdb/id_types.hpp"
 
+
+// Represents a db_name -> db_id lookup as of config version cv.  If cv is ::empty(),
+// the db was the artificial db and the id lookup doesn't need to be verified (because
+// it's constant).
+
+// NNN: Maybe this should have a backtrace_id_t in it.
+struct provisional_db_id {
+    config_version_checker cv;
+    name_string_t db_name;
+    database_id_t provisional_db_id;
+};
+
 namespace ql {
+
 class db_t : public single_threaded_countable_t<db_t> {
 public:
     db_t(database_id_t _id, const name_string_t &_name, config_version_checker _cv)
@@ -15,7 +28,7 @@ public:
     const name_string_t name;
     // The config version behind the db id lookup, if there is one.
     // QQQ: Force everybody accessing database_id_t to use this value.
-    config_version_checker cv;
+    const config_version_checker cv;
 };
 } // namespace ql
 
