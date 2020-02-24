@@ -666,39 +666,30 @@ private:
 };
 
 /* Common superclass for terms that can operate on either a table or a database: `wait`,
-`reconfigure`, and `rebalance`. */
+`reconfigure`, and `rebalance`.  Provides the helper function, parse_args. */
 class table_or_db_meta_term_t : public meta_op_term_t {
 public:
     table_or_db_meta_term_t(compile_env_t *env, const raw_term_t &term,
                             optargspec_t &&_optargs)
         /* None of the subclasses take positional arguments except for the table/db. */
         : meta_op_term_t(env, term, argspec_t(0, 1), std::move(_optargs)) { }
+
 protected:
-    /* If the term is called on a table, then `db` and `name_if_table` indicate the
-    table's database and name. If the term is called on a database, then `db `indicates
-    the database and `name_if_table` will be empty. */
-    virtual scoped_ptr_t<val_t> eval_impl_on_table_or_db(
-            scope_env_t *env, args_t *args, eval_flags_t flags,
-            const counted_t<const ql::db_t> &db,
-            counted_t<table_t> &&table_or_null) const = 0;
-private:
-    virtual scoped_ptr_t<val_t> eval_impl(
-            scope_env_t *env, args_t *args, eval_flags_t flags) const {
-        scoped_ptr_t<val_t> target;
+    // .second is empty if called on a db.
+    std::pair<counted_t<const ql::db_t>, counted_t<table_t>> parse_args(scope_env_t *env, args_t *args) const {
+        std::pair<counted_t<const ql::db_t>, counted_t<table_t>> ret;
         if (args->num_args() == 0) {
-            target = args->optarg(env, "db");
-            r_sanity_check(target.has());
-        } else {
-            target = args->arg(env, 0);
+            rfail(base_exc_t::LOGIC, "`%s` can only be called on a table or database.",
+                name());
         }
+        scoped_ptr_t<val_t> target = args->arg(env, 0);
         if (target->get_type().is_convertible(val_t::type_t::DB)) {
-            return eval_impl_on_table_or_db(env, args, flags, target->as_db(env->env),
-                counted_t<table_t>());
+            ret.first = target->as_db(env->env);
         } else {
-            counted_t<table_t> table = target->as_table(env->env);
-            return eval_impl_on_table_or_db(env, args, flags, table->db,
-                                            std::move(table));
+            ret.second = target->as_table(env->env);
+            ret.first = ret.second->db;
         }
+        return ret;
     }
 };
 
@@ -715,17 +706,14 @@ private:
     static char const * const wait_writes_str;
     static char const * const wait_all_str;
 
-    scoped_ptr_t<val_t> eval_impl_on_table_or_db(
-            scope_env_t *env, args_t *args, eval_flags_t,
-	    const counted_t<const ql::db_t> &db,
-            counted_t<table_t> &&table_or_null) const final {
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
+        auto args_pair = parse_args(env, args);
+        counted_t<const ql::db_t> db = std::move(args_pair.first);
+        counted_t<table_t> table_or_null = std::move(args_pair.second);
+
         // TODO: Maybe this could do some fdb shard readiness query to check table
         // availability.
-
-        // Don't allow a wait call without explicit database
-        if (args->num_args() == 0) {
-            rfail(base_exc_t::LOGIC, "`wait` can only be called on a table or database.");
-        }
 
         // Check 'wait_for' optarg is valid -- but we ignore it, post-fdb.
         {
@@ -839,14 +827,11 @@ private:
         return result;
     }
 
-    scoped_ptr_t<val_t> eval_impl_on_table_or_db(
-            scope_env_t *env, args_t *args, eval_flags_t,
-            UNUSED const counted_t<const ql::db_t> &db,
-            counted_t<table_t> &&table_or_null) const final {
-        // Don't allow a reconfigure call without explicit database
-        if (args->num_args() == 0) {
-	  rfail(base_exc_t::LOGIC, "`reconfigure` can only be called on a table or database.");
-        }
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
+        auto args_pair = parse_args(env, args);
+        counted_t<const ql::db_t> db = std::move(args_pair.first);
+        counted_t<table_t> table_or_null = std::move(args_pair.second);
 
         // Parse the 'dry_run' optarg
         bool dry_run = false;
@@ -933,14 +918,9 @@ public:
     rebalance_term_t(compile_env_t *env, const raw_term_t &term)
         : table_or_db_meta_term_t(env, term, optargspec_t({})) { }
 private:
-    scoped_ptr_t<val_t> eval_impl_on_table_or_db(
-            UNUSED scope_env_t *env, args_t *args, eval_flags_t,
-            UNUSED const counted_t<const ql::db_t> &db,
-            UNUSED counted_t<table_t> &&table_or_null) const final {
-        // Don't allow a rebalance call without explicit database
-        if (args->num_args() == 0) {
-	  rfail(base_exc_t::LOGIC, "`rebalance` can only be called on a table or database.");
-        }
+    scoped_ptr_t<val_t> eval_impl(
+            scope_env_t *env, args_t *args, eval_flags_t) const override {
+        auto args_pair = parse_args(env, args);
 
         rfail(base_exc_t::OP_FAILED, "Rebalancing is not supported (and unnecessary) on Reql-on-FDB");  // TODO: Product name
     }
