@@ -63,7 +63,7 @@ public:
 
     artificial_reql_cluster_interface_t() = default;
 
-    std::vector<name_string_t> table_list_sorted();
+    static std::vector<name_string_t> table_list_sorted();
     MUST_USE bool table_find(const name_string_t &name,
             admin_identifier_format_t identifier_format,
             counted_t<base_table_t> *table_out,

@@ -372,6 +372,9 @@ public:
         }
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
+                rfail_prov_table_dne(table);
+            }
             rfail(ql::base_exc_t::OP_FAILED,
                 "Database `%s` is special; you can't create secondary "
                 "indexes on the tables in it.",
@@ -430,7 +433,9 @@ public:
         std::string index_name = args->arg(env, 1)->as_datum(env).as_str().to_std();
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-            // NNN: This error is wrong -if- the table does not exist.
+            if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
+                rfail_prov_table_dne(table);
+            }
             // TODO: Dedup index dne errors.
             rfail(ql::base_exc_t::OP_FAILED,
                 "Index `%s` does not exist on table `%s`.",
@@ -481,7 +486,9 @@ public:
         provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-            // NNN: We should be checking if table exists here.
+            if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
+                rfail_prov_table_dne(table);
+            }
             return new_val(datum_t::empty_array());
         }
 
@@ -535,9 +542,11 @@ public:
 
         ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
         std::set<std::string> remaining_sindexes = sindexes;
-        if (table.prov_db.db_name != artificial_reql_cluster_interface_t::database_name) {
-            // NNN: If on system db, we should verify that the table exists.
-
+        if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+            if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
+                rfail_prov_table_dne(table);
+            }
+        } else {
             // TODO: Is there really no user access control for this?
             config_info<std::pair<namespace_id_t, table_config_t>> fdb_result;
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
@@ -605,7 +614,9 @@ public:
             sindexes.insert(args->arg(env, i)->as_str(env).to_std());
         }
         if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-            // NNN: Ensure the table actually exists.
+            if (!artificial_reql_cluster_interface_t::get_table_id(prov_table.table_name).has_value()) {
+                rfail_prov_table_dne(prov_table);
+            }
             // TODO: Do these rcheck statements or rfail instead of the admin_op_exc_t/rethrow rigamarole.
             // TODO: Dedup index not found message.
             rcheck(sindexes.empty(),
@@ -704,7 +715,9 @@ public:
         const bool overwrite = overwrite_val ? overwrite_val->as_bool(env) : false;
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-            // NNN: Ensure we check table exists before complaining index dne.
+            if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
+                rfail_prov_table_dne(table);
+            }
 
             // TODO: Dedup with rchecks in config_cache_sindex_rename.
             rcheck_src(backtrace(), old_name != artificial_table_fdb_backend_t::get_primary_key_name(),

@@ -66,6 +66,10 @@ inline admin_err_t table_dne_error(
 #define rfail_table_dne_src(bt, db_name, table_name) \
     rfail_src((bt), ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
           (db_name).c_str(), (table_name).c_str())
+// TODO: Don't triple-eval the argument.  Make this an inline function?  (Does rfail_src pick up a line number?)
+#define rfail_prov_table_dne(prov_table) \
+    rfail_src((prov_table).bt, ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
+          (prov_table).prov_db.db_name.c_str(), (prov_table).table_name.c_str())
 
 #endif /* CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_ */
 

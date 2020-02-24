@@ -556,11 +556,7 @@ private:
 
         std::vector<name_string_t> table_list;
         if (db.db_name == artificial_reql_cluster_interface_t::database_name) {
-            artificial_reql_cluster_interface_t *art_or_null
-                = env->env->get_rdb_ctx()->artificial_interface_or_null;
-            r_sanity_check(art_or_null != nullptr);
-
-            table_list = art_or_null->table_list_sorted();
+            table_list = artificial_reql_cluster_interface_t::table_list_sorted();
         } else {
             fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
@@ -647,16 +643,16 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
 
+#if 0
+        // NNN: First check if the table exists?
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-            // NNN: First check if the table exists?
             admin_err_t error{
                 strprintf("Database `%s` is special; the system tables in it don't "
                           "have meaningful status information.", artificial_reql_cluster_interface_t::database_name.c_str()),
                 query_state_t::FAILED};
             REQL_RETHROW(error);
         }
-
-        // NNN: First check if the table exists?
+#endif
 
         admin_err_t error{
             "The `status` term is not supported in reql-on-fdb.",  // TODO: Product name
