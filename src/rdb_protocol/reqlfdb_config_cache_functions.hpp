@@ -16,10 +16,12 @@ class user_context_t;
 }
 
 namespace ql {
+class backtrace_id_t;
 class db_t;
 }
 
 struct ukey_string;
+class provisional_table_id;
 class sindex_config_t;
 class write_hook_config_t;
 
@@ -40,16 +42,15 @@ config_cache_retrieve_db_by_name(
     const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
     const name_string_t &db_name, const signal_t *interruptor);
 
-config_info<optional<std::pair<namespace_id_t, table_config_t>>>
-config_cache_retrieve_table_by_name(
-    const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
-    const std::pair<database_id_t, name_string_t> &db_table_name,
-    const signal_t *interruptor);
-
 config_info<optional<std::pair<database_id_t, optional<std::pair<namespace_id_t, table_config_t>>>>>
 config_cache_retrieve_db_and_table_by_name(
     FDBTransaction *txn, const name_string_t &db_name, const name_string_t &table_name,
     const signal_t *interruptor);
+
+config_info<std::pair<namespace_id_t, table_config_t>>
+expect_retrieve_table(
+        FDBTransaction *txn, const provisional_table_id &prov_table,
+        const signal_t *interruptor);
 
 config_info<optional<auth::user_t>>
 config_cache_retrieve_user_by_name(
@@ -125,17 +126,16 @@ std::vector<name_string_t> config_cache_table_list_sorted(
     const database_id_t &db_id,
     const signal_t *interruptor);
 
-MUST_USE bool config_cache_sindex_create(
+MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,
-    reqlfdb_config_version expected_cv,
-    const database_id_t &db_id,
-    const namespace_id_t &table_id,
+    const provisional_table_id &prov_table,
     const std::string &index_name,
     const sindex_id_t &new_sindex_id,
     const fdb_shared_task_id &new_index_create_task_id,
     const sindex_config_t &sindex_config,
-    const signal_t *interruptor);
+    const signal_t *interruptor,
+    const ql::backtrace_id_t bt);
 
 MUST_USE bool config_cache_sindex_drop(
     FDBTransaction *txn,

@@ -3,8 +3,10 @@
 
 #include <unordered_set>
 
+#include "clustering/administration/admin_op_exc.hpp"
 #include "clustering/administration/artificial_reql_cluster_interface.hpp"
 #include "clustering/administration/auth/user_fut.hpp"
+#include "clustering/administration/metadata.hpp"
 #include "clustering/administration/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/archive/string_stream.hpp"
@@ -15,6 +17,7 @@
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/system_tables.hpp"
+#include "rdb_protocol/val.hpp"  // TODO: provisional_table_id in own file
 
 /*
 Some ranting about the config cache and config versions...
@@ -235,52 +238,6 @@ config_cache_retrieve_db_by_name(
     return ret;
 }
 
-// OOO: Is this used anymore?
-// OOO: Caller of these three fns need to check cv and wipe/refresh config cache.
-config_info<optional<std::pair<namespace_id_t, table_config_t>>>
-config_cache_retrieve_table_by_name(
-        const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
-        const std::pair<database_id_t, name_string_t> &db_table_name,
-        const signal_t *interruptor) {
-    fdb_value_fut<namespace_id_t> table_id_fut = transaction_lookup_uq_index<table_config_by_name>(
-        txn, db_table_name);
-    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-
-    if (cv.value < config_cache_cv.value) {
-        // Throw a retryable exception.
-        // TODO: Should be impossible, just a guarantee failure.
-        throw fdb_transaction_exception(REQLFDB_not_committed);
-    }
-    // TODO: Examine this, the db function, and the user function for some config_version exception?
-
-    namespace_id_t table_id;
-    bool present = table_id_fut.block_and_deserialize(interruptor, &table_id);
-
-    config_info<optional<std::pair<namespace_id_t, table_config_t>>> ret;
-    ret.ci_cv = cv;
-    if (!present) {
-        return ret;
-    }
-
-    // Table exists, gotta do second lookup.
-    fdb_value_fut<table_config_t> table_by_id_fut
-        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
-
-    ret.ci_value.emplace();
-    ret.ci_value->first = table_id;
-
-    // Block here (2nd round-trip)
-    bool config_present = table_by_id_fut.block_and_deserialize(interruptor, &ret.ci_value->second);
-    guarantee(config_present);  // TODO: Nice error?  FDB in bad state.
-
-    guarantee(db_table_name.first == ret.ci_value->second.basic.database);  // TODO: fdb in bad state
-    guarantee(db_table_name.second == ret.ci_value->second.basic.name);  // TODO: fdb in bad state
-
-    return ret;
-}
-
 // OOO: Caller of these three fns need to check cv and wipe/refresh config cache.
 config_info<optional<std::pair<database_id_t, optional<std::pair<namespace_id_t, table_config_t>>>>>
 config_cache_retrieve_db_and_table_by_name(
@@ -326,6 +283,32 @@ config_cache_retrieve_db_and_table_by_name(
 
     return ret;
 }
+
+config_info<std::pair<namespace_id_t, table_config_t>>
+expect_retrieve_table(
+        FDBTransaction *txn, const provisional_table_id &prov_table,
+        const signal_t *interruptor) {
+    config_info<optional<std::pair<database_id_t, optional<std::pair<namespace_id_t, table_config_t>>>>> result
+        = config_cache_retrieve_db_and_table_by_name(txn,
+            prov_table.prov_db.db_name, prov_table.table_name,
+            interruptor);
+
+    // TODO: Duplicates failing logic in provisional_to_table.
+    if (!result.ci_value.has_value()) {
+        rfail_db_not_found(prov_table.bt, prov_table.prov_db.db_name);
+    }
+
+    if (!result.ci_value->second.has_value()) {
+        rfail_table_dne_src(prov_table.bt, prov_table.prov_db.db_name,
+            prov_table.table_name);
+    }
+
+    config_info<std::pair<namespace_id_t, table_config_t>> ret;
+    ret.ci_cv = result.ci_cv;
+    ret.ci_value = std::move(*result.ci_value->second);
+    return ret;
+}
+
 
 config_info<optional<auth::user_t>>
 config_cache_retrieve_user_by_name(
@@ -758,26 +741,31 @@ std::vector<name_string_t> config_cache_table_list_sorted(
     return table_names;
 }
 
-MUST_USE bool config_cache_sindex_create(
+MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
-        reqlfdb_config_version expected_cv,
-        const database_id_t &db_id,
-        const namespace_id_t &table_id,
+        const provisional_table_id &table,
         const std::string &index_name,
         const sindex_id_t &new_sindex_id,
         const fdb_shared_task_id &new_index_create_task_id,
         const sindex_config_t &sindex_config,
-        const signal_t *interruptor) {
-    // TODO: We need to verify db name -> id, and table name -> id mapping that was used (or config version that was used) still applies.
+        const signal_t *interruptor,
+        const ql::backtrace_id_t bt) {
+    config_info<std::pair<namespace_id_t, table_config_t>>
+        info = expect_retrieve_table(txn, table, interruptor);
+    const namespace_id_t &table_id = info.ci_value.first;
+    table_config_t &table_config = info.ci_value.second;
+    const database_id_t &db_id = table_config.basic.database;
+    reqlfdb_config_version cv = info.ci_cv;
+
+    rcheck_src(bt, index_name != table_config.basic.primary_key,
+        ql::base_exc_t::LOGIC,
+        strprintf("Index name conflict: `%s` is the name of the primary key.",
+            index_name.c_str()));
 
     auth::fdb_user_fut<auth::db_table_config_permission> auth_fut
         = user_context.transaction_require_db_and_table_config_permission(
             txn, db_id, table_id);
-    fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
-
-    fdb_value_fut<table_config_t> table_config_fut
-        = transaction_lookup_uq_index<table_config_by_id>(txn, table_id);
 
     const std::string pkey_prefix = rfdb::table_pkey_prefix(table_id);
     const std::string pkey_prefix_end = prefix_end(pkey_prefix);
@@ -787,15 +775,7 @@ MUST_USE bool config_cache_sindex_create(
             int(pkey_prefix_end.size())),
         false)};
 
-    reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-    check_cv(expected_cv, cv);
-
     auth_fut.block_and_check(interruptor);
-
-    table_config_t table_config;
-    if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
-        crash("table config not present, when id matched config version");
-    }
 
     // Two common situations:  (1) the table is empty, (2) the table is not empty.
     const key_view last_key_view = future_block_on_key(last_key_fut.fut, interruptor);
@@ -806,7 +786,7 @@ MUST_USE bool config_cache_sindex_create(
 
     if (!table_config.sindexes.emplace(index_name,
             sindex_metaconfig_t{sindex_config, new_sindex_id, task_id_or_nil}).second) {
-        return false;
+        return r_nullopt;
     }
 
     if (table_has_data) {
@@ -838,7 +818,7 @@ MUST_USE bool config_cache_sindex_create(
 
     cv.value++;
     transaction_set_config_version(txn, cv);
-    return true;
+    return make_optional(cv);
 }
 
 

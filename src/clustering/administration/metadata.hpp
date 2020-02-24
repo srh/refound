@@ -12,7 +12,7 @@ class name_string_t;
 admin_err_t db_not_found_error(const name_string_t &name);
 
 #define rfail_db_not_found(bt, name) \
-    rfail_src((bt), base_exc_t::OP_FAILED, \
+    rfail_src((bt), ::ql::base_exc_t::OP_FAILED, \
         "Database `%s` does not exist.", (name).c_str())
 
 #endif  // CLUSTERING_ADMINISTRATION_METADATA_HPP_

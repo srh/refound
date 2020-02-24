@@ -688,9 +688,13 @@ counted_t<table_t> provisional_to_table(
         artificial_reql_cluster_interface_t *art_or_null,
         const provisional_table_id &prov_table);
 
-counted_t<table_t> val_t::as_table(env_t *env) const {
+const provisional_table_id &val_t::as_prov_table(env_t *env) const {
     rcheck_literal_type(env, type_t::TABLE);
-    const provisional_table_id &prov_table = table();
+    return table();
+}
+
+counted_t<table_t> val_t::as_table(env_t *env) const {
+    const provisional_table_id &prov_table = as_prov_table(env);
 
     return provisional_to_table(
         env->get_rdb_ctx()->fdb,

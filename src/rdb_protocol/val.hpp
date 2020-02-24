@@ -29,6 +29,11 @@ public:
     // TODO: Make this non-optional -- just put in the universal default value (which is?).  So far I've seen "name" used as the default.
     optional<admin_identifier_format_t> identifier_format;
     ql::backtrace_id_t bt;
+
+    // NNN: Remove -- or look at every usage to see if error message does not falsely assume table exists.
+    std::string display_name() const {
+        return prov_db.db_name.str() + "." + table_name.str();
+    }
 };
 
 namespace ql {
@@ -243,6 +248,7 @@ public:
 
     const provisional_db_id &as_prov_db(env_t *env) const;
     counted_t<const db_t> as_db(env_t *env) const;
+    const provisional_table_id &as_prov_table(env_t *env) const;
     counted_t<table_t> as_table(env_t *env) const;
     counted_t<table_t> get_underlying_table(env_t *env) const;
     counted_t<table_slice_t> as_table_slice(env_t *env);

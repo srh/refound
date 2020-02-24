@@ -316,13 +316,9 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
         datum_t name_datum = args->arg(env, 1)->as_datum(env);
         std::string index_name = name_datum.as_str().to_std();
-        rcheck(index_name != table->get_pkey(),
-               base_exc_t::LOGIC,
-               strprintf("Index name conflict: `%s` is the name of the primary key.",
-                         index_name.c_str()));
 
         /* Parse the sindex configuration */
         sindex_config_t config;
@@ -374,7 +370,7 @@ public:
                 : sindex_geo_bool_t::REGULAR;
         }
 
-        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
             rfail(ql::base_exc_t::OP_FAILED,
                 "Database `%s` is special; you can't create secondary "
                 "indexes on the tables in it.",
@@ -384,22 +380,21 @@ public:
         sindex_id_t new_sindex_id{generate_uuid()};
         fdb_shared_task_id new_task_id{generate_uuid()};
 
-        bool fdb_result = valgrind_undefined(false);
+        optional<reqlfdb_config_version> fdb_result;
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb,
                     env->env->interruptor, [&](FDBTransaction *txn) {
-                bool success = config_cache_sindex_create(
+                optional<reqlfdb_config_version> success = config_cache_sindex_create(
                     txn,
                     env->env->get_user_context(),
-                    table->tbl->cv.assert_nonempty(),
-                    table->db->id,
-                    table->get_id(),
+                    table,
                     index_name,
                     new_sindex_id,
                     new_task_id,
                     config,
-                    env->env->interruptor);
-                if (success) {
+                    env->env->interruptor,
+                    backtrace());
+                if (success.has_value()) {
                     commit(txn, env->env->interruptor);
                 }
                 fdb_result = success;
@@ -409,12 +404,12 @@ public:
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
 
-        if (!fdb_result) {
+        if (!fdb_result.has_value()) {
             rfail(ql::base_exc_t::OP_FAILED,
                 "Index `%s` already exists on table `%s`.",
-                index_name.c_str(), table->display_name().c_str());
+                index_name.c_str(), table.display_name().c_str());
         }
-        // TODO: We could wipe the config cache here.
+        env->env->get_rdb_ctx()->config_caches.get()->note_version(*fdb_result);
 
         ql::datum_object_builder_t res;
         res.overwrite("created", datum_t(1.0));
