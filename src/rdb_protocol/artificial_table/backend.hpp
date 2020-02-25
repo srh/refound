@@ -26,8 +26,8 @@ namespace changefeed { class streamspec_t; }
 struct admin_err_t;
 enum class sorting_t;
 
-/* `artificial_table_backend_t` is the interface that `artificial_table_t` uses to access
-the actual data or configuration. There is one subclass for each table like
+/* `artificial_table_fdb_backend_t` is the interface that `artificial_table_t` uses to
+access the actual data or configuration. There is one subclass for each table like
 `rethinkdb.table_config`, `rethinkdb.table_status`, and so on. */
 
 class artificial_table_fdb_backend_t {

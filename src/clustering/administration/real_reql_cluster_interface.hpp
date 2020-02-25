@@ -15,7 +15,6 @@ class user_context_t;
 }
 
 class artificial_reql_cluster_interface_t;
-class artificial_table_backend_t;
 class config_version_checker;
 template <class T> class counted_t;
 class provisional_db_id;

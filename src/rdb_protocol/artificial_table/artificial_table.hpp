@@ -17,7 +17,7 @@ special `rethinkdb` database. Each of the tables in the `rethinkdb` database rep
 a different type of underlying object, but it would be inefficient to duplicate the code
 for handling each type of RethinkDB query across all of the different tables. Instead,
 that logic lives in `artificial_table_t`, which translates the queries into a much
-simpler format and then forwards them to an `artificial_table_backend_t`. */
+simpler format and then forwards them to an `artificial_table_fdb_backend_t`. */
 
 class artificial_table_fdb_backend_t;
 
