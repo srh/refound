@@ -688,6 +688,17 @@ counted_t<table_t> provisional_to_table(
         artificial_reql_cluster_interface_t *art_or_null,
         const provisional_table_id &prov_table);
 
+// TODO: Remove, eventually.
+counted_t<table_t> provisional_to_table(
+        env_t *env, const provisional_table_id &prov_table) {
+    return provisional_to_table(
+        env->get_rdb_ctx()->fdb,
+        env->interruptor,
+        env->get_rdb_ctx()->config_caches.get(),
+        env->get_rdb_ctx()->artificial_interface_or_null,
+        prov_table);
+}
+
 const provisional_table_id &val_t::as_prov_table(env_t *env) const {
     rcheck_literal_type(env, type_t::TABLE);
     return table();
@@ -695,13 +706,7 @@ const provisional_table_id &val_t::as_prov_table(env_t *env) const {
 
 counted_t<table_t> val_t::as_table(env_t *env) const {
     const provisional_table_id &prov_table = as_prov_table(env);
-
-    return provisional_to_table(
-        env->get_rdb_ctx()->fdb,
-        env->interruptor,
-        env->get_rdb_ctx()->config_caches.get(),
-        env->get_rdb_ctx()->artificial_interface_or_null,
-        prov_table);
+    return provisional_to_table(env, prov_table);
 }
 counted_t<table_slice_t> val_t::as_table_slice(env_t *env) {
     // NNN: Make table_slice_t hold a provisional_table_id, ofc.
