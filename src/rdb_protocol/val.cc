@@ -642,10 +642,10 @@ val_t::val_t(counted_t<selection_t> _selection, backtrace_id_t _bt)
     guarantee(selection().has());
 }
 
-val_t::val_t(provisional_table_id _table, backtrace_id_t _bt)
+val_t::val_t(provisional_table_id &&_table, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::TABLE),
-      u(_table) {
+      u(std::move(_table)) {
 }
 val_t::val_t(counted_t<table_slice_t> _slice, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
@@ -653,10 +653,10 @@ val_t::val_t(counted_t<table_slice_t> _slice, backtrace_id_t _bt)
       u(_slice) {
     guarantee(table_slice().has());
 }
-val_t::val_t(provisional_db_id _db, backtrace_id_t _bt)
+val_t::val_t(provisional_db_id &&_db, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::DB),
-      u(_db) {
+      u(std::move(_db)) {
 }
 val_t::val_t(counted_t<const func_t> _func, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),

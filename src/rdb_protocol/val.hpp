@@ -226,10 +226,10 @@ public:
           backtrace_id_t bt);
     val_t(counted_t<single_selection_t> _selection, backtrace_id_t bt);
     val_t(env_t *env, counted_t<datum_stream_t> _seq, backtrace_id_t bt);
-    val_t(provisional_table_id _table, backtrace_id_t bt);
+    val_t(provisional_table_id &&_table, backtrace_id_t bt);
     val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
     val_t(counted_t<selection_t> _selection, backtrace_id_t bt);
-    val_t(provisional_db_id _db, backtrace_id_t bt);
+    val_t(provisional_db_id &&_db, backtrace_id_t bt);
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
     ~val_t();
 
