@@ -19,7 +19,7 @@ selection_t::selection_t(counted_t<table_t> _table, scoped<datum_stream_t> &&_se
         : table(std::move(_table)), seq(std::move(_seq)) { }
 selection_t::~selection_t() {}
 
-class get_selection_t : public single_selection_t {
+class get_selection_t final : public single_selection_t {
 public:
     get_selection_t(backtrace_id_t _bt,
                     counted_t<table_t> _tbl,
@@ -29,19 +29,19 @@ public:
           tbl(std::move(_tbl)),
           key(std::move(_key)),
           row(std::move(_row)) { }
-    virtual datum_t get(env_t *env) {
+    datum_t get(env_t *env) override {
         if (!row.has()) {
             row = tbl->get_row(env, key);
         }
         return row;
     }
-    virtual datum_t replace(
+    datum_t replace(
         env_t *env,
         counted_t<const func_t> f,
         bool nondet_ok,
         durability_requirement_t dur_req,
         return_changes_t return_changes,
-        ignore_write_hook_t ignore_write_hook) {
+        ignore_write_hook_t ignore_write_hook) && override {
         std::vector<datum_t> keys = {key};
         // We don't need to fetch the value for deterministic replacements.
         std::vector<datum_t> vals = {
@@ -49,20 +49,20 @@ public:
         return tbl->batched_replace(
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
-    backtrace_id_t get_bt() const final { return bt; }
+    backtrace_id_t get_bt() const final override { return bt; }
 #if RDB_CF
     changefeed::keyspec_t::spec_t get_spec() const final {
         return changefeed::keyspec_t::point_t{key};
     }
 #endif
-    const counted_t<table_t> &get_tbl() final { return tbl; }
+    counted_t<table_t> &get_tbl() final override { return tbl; }
 private:
     backtrace_id_t bt;
     counted_t<table_t> tbl;
     datum_t key, row;
 };
 
-class extreme_selection_t : public single_selection_t {
+class extreme_selection_t final : public single_selection_t {
 public:
     extreme_selection_t(backtrace_id_t _bt,
                         scoped<table_slice_t> &&_slice,
@@ -70,7 +70,7 @@ public:
         : bt(std::move(_bt)),
           slice(std::move(_slice)),
           err(std::move(_err)) { }
-    virtual datum_t get(env_t *env) {
+    datum_t get(env_t *env) override {
         if (!row.has()) {
             batchspec_t batchspec = batchspec_t::all().with_at_most(1);
             r_sanity_check(slice.has());
@@ -82,13 +82,13 @@ public:
         }
         return row;
     }
-    virtual datum_t replace(
+    datum_t replace(
         env_t *env,
         counted_t<const func_t> f,
         bool nondet_ok,
         durability_requirement_t dur_req,
         return_changes_t return_changes,
-        ignore_write_hook_t ignore_write_hook) {
+        ignore_write_hook_t ignore_write_hook) && override {
         std::vector<datum_t > vals{get(env)};
         std::vector<datum_t > keys{
             vals[0].get_field(
@@ -98,13 +98,13 @@ public:
         return slice->get_tbl()->batched_replace(
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
-    backtrace_id_t get_bt() const final { return bt; }
+    backtrace_id_t get_bt() const final override { return bt; }
 #if RDB_CF
     changefeed::keyspec_t::spec_t get_spec() const final {
         return ql::changefeed::keyspec_t::limit_t{slice->get_range_spec(), 1};
     }
 #endif  // RDB_CF
-    const counted_t<table_t> &get_tbl() final { return slice->get_tbl(); }
+    const counted_t<table_t> &get_tbl() final override { return slice->get_tbl(); }
 private:
     backtrace_id_t bt;
     scoped<table_slice_t> slice;

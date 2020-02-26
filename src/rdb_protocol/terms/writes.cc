@@ -320,7 +320,7 @@ private:
         if (v0->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
             scoped<single_selection_t> sel = std::move(*v0).as_single_selection(env->env);
 
-            datum_t replace_stats = sel->replace(
+            datum_t replace_stats = std::move(*sel).replace(
                 env->env,
                 f,
                 nondet_ok,
