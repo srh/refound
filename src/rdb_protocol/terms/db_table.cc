@@ -1062,7 +1062,7 @@ private:
 // NNN: Remove
 read_mode_t dummy_read_mode() { return read_mode_t::SINGLE; }
 
-counted_t<table_t> provisional_to_table(
+scoped<table_t> provisional_to_table(
         FDBDatabase *fdb,
         const signal_t *interruptor,
         reqlfdb_config_cache *cc,
@@ -1078,7 +1078,7 @@ counted_t<table_t> provisional_to_table(
                 &table, &error)) {
             REQL_RETHROW_SRC(prov_table.bt, error);
         }
-        return make_counted<table_t>(
+        return make_scoped<table_t>(
             std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode(),
             prov_table.bt);
     }
@@ -1142,7 +1142,7 @@ counted_t<table_t> provisional_to_table(
             config_version_checker{result.ci_cv.value}));
     }
 
-    return make_counted<table_t>(
+    return make_scoped<table_t>(
         std::move(table), std::move(out_db), prov_table.table_name,
         dummy_read_mode(), prov_table.bt);
 }

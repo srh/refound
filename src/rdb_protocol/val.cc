@@ -683,7 +683,7 @@ datum_t val_t::as_datum(env_t *env) const {
 }
 
 // NNN: move definition, or impl, to header or whatever.
-counted_t<table_t> provisional_to_table(
+scoped<table_t> provisional_to_table(
         FDBDatabase *fdb,
         const signal_t *interruptor,
         reqlfdb_config_cache *cc,
@@ -691,7 +691,7 @@ counted_t<table_t> provisional_to_table(
         const provisional_table_id &prov_table);
 
 // TODO: Remove, eventually.
-counted_t<table_t> provisional_to_table(
+scoped<table_t> provisional_to_table(
         env_t *env, const provisional_table_id &prov_table) {
     return provisional_to_table(
         env->get_rdb_ctx()->fdb,
@@ -706,7 +706,7 @@ const provisional_table_id &val_t::as_prov_table(env_t *env) const {
     return table();
 }
 
-counted_t<table_t> val_t::as_table(env_t *env) const {
+scoped<table_t> val_t::as_table(env_t *env) const {
     const provisional_table_id &prov_table = as_prov_table(env);
     return provisional_to_table(env, prov_table);
 }

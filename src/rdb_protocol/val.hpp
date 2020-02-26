@@ -235,7 +235,7 @@ public:
     const provisional_db_id &as_prov_db(env_t *env) const;
     counted_t<const db_t> as_db(env_t *env) const;
     const provisional_table_id &as_prov_table(env_t *env) const;
-    counted_t<table_t> as_table(env_t *env) const;
+    scoped<table_t> as_table(env_t *env) const;
     counted_t<table_t> get_underlying_table(env_t *env) const;
     scoped<table_slice_t> as_table_slice(env_t *env) &&;
     scoped<selection_t> as_selection(env_t *env) &&;

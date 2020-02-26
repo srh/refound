@@ -26,7 +26,7 @@ public:
         if (p_ != nullptr) { counted_add_ref(p_); }
     }
 
-    explicit counted_t(scoped_ptr_t<T> &&p) : p_(p.release()) {
+    counted_t(scoped_ptr_t<T> &&p) : p_(p.release()) {
         if (p_ != nullptr) { counted_add_ref(p_); }
     }
 
