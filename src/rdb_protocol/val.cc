@@ -701,19 +701,19 @@ scoped<table_t> provisional_to_table(
         prov_table);
 }
 
-const provisional_table_id &val_t::as_prov_table(env_t *env) const {
+provisional_table_id val_t::as_prov_table(env_t *env) && {
     rcheck_literal_type(env, type_t::TABLE);
-    return table();
+    return std::move(table());
 }
 
-scoped<table_t> val_t::as_table(env_t *env) const {
-    const provisional_table_id &prov_table = as_prov_table(env);
+scoped<table_t> val_t::as_table(env_t *env) && {
+    provisional_table_id prov_table = std::move(*this).as_prov_table(env);
     return provisional_to_table(env, prov_table);
 }
 scoped<table_slice_t> val_t::as_table_slice(env_t *env) && {
     // NNN: Make table_slice_t hold a provisional_table_id, ofc.
     if (type.raw_type == type_t::TABLE) {
-        return make_scoped<table_slice_t>(as_table(env));
+        return make_scoped<table_slice_t>(std::move(*this).as_table(env));
     } else {
         rcheck_literal_type(env, type_t::TABLE_SLICE);
         return std::move(table_slice());
@@ -777,16 +777,18 @@ counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
         : maybe_as_grouped_data();
 }
 
-counted_t<table_t> val_t::get_underlying_table(env_t *env) const {
+name_string_t val_t::get_underlying_table_name(env_t *env) const {
     if (type.raw_type == type_t::TABLE) {
         // NNN: The performance expectations of get_underlying_table have been altered!  Look at callers.
-        return as_table(env);
+        // Force r.table() term error message to take precedence.
+        scoped<table_t> tab = provisional_to_table(env, table());
+        return tab->name;
     } else if (type.raw_type == type_t::SELECTION) {
-        return selection()->table;
+        return selection()->table->name;
     } else if(type.raw_type == type_t::SINGLE_SELECTION) {
-        return single_selection()->get_tbl();
+        return single_selection()->get_tbl()->name;
     } else if (type.raw_type == type_t::TABLE_SLICE) {
-        return table_slice()->get_tbl();
+        return table_slice()->get_tbl()->name;
     } else {
         r_sanity_check(false);
         unreachable();
@@ -856,20 +858,25 @@ counted_t<const db_t> provisional_to_db(
         const signal_t *interruptor,
         const provisional_db_id &prov_db);
 
-const provisional_db_id &val_t::as_prov_db(env_t *env) const {
-    rcheck_literal_type(env, type_t::DB);
-    return db();
-}
-
-counted_t<const db_t> val_t::as_db(env_t *env) const {
-    const provisional_db_id &id = as_prov_db(env);
-
-    // NNN: Remove as_db entirely.
+counted_t<const db_t> provisional_to_db(
+        env_t *env,
+        const provisional_db_id &prov_db) {
     return provisional_to_db(
         env->get_rdb_ctx()->fdb,
         env->get_rdb_ctx()->config_caches.get(),
         env->interruptor,
-        id);
+        prov_db);
+}
+
+provisional_db_id val_t::as_prov_db(env_t *env) && {
+    rcheck_literal_type(env, type_t::DB);
+    return std::move(db());
+}
+
+counted_t<const db_t> val_t::as_db(env_t *env) && {
+    provisional_db_id id = std::move(*this).as_prov_db(env);
+    // NNN: Remove as_db entirely.
+    return provisional_to_db(env, id);
 }
 
 datum_t val_t::as_ptype(env_t *env, const std::string s) const {
@@ -935,14 +942,17 @@ void val_t::rcheck_literal_type(env_t *env, type_t::raw_type_t expected_raw_type
 std::string val_t::print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
         return as_datum(env).print();
-    } else if (get_type().is_convertible(type_t::DB)) {
-        // TODO: Make ::print consume the val_t, the way as_db() ought to.
-        return strprintf("db(\"%s\")", as_db(env)->name.c_str());
+    } else if (get_type().raw_type == type_t::DB) {
+        // Forces consumptive side effect that we want so we fail on db not found error
+        // first.  (TODO: Do we want this?)
+        counted_t<const db_t> d = provisional_to_db(env, db());
+
+        return strprintf("db(\"%s\")", d->name.c_str());
     } else if (get_type().is_convertible(type_t::TABLE)) {
-        return strprintf("table(\"%s\")", get_underlying_table(env)->name.c_str());
+        return strprintf("table(\"%s\")", get_underlying_table_name(env).c_str());
     } else if (get_type().is_convertible(type_t::SELECTION)) {
         return strprintf("SELECTION ON table(%s)",
-                         get_underlying_table(env)->name.c_str());
+                         get_underlying_table_name(env).c_str());
     } else {
         // TODO: Do something smarter here?
         return strprintf("VALUE %s", get_type().name());

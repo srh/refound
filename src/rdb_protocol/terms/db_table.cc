@@ -313,10 +313,10 @@ private:
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_db(env->env);
+            db = std::move(*dbv).as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
-            db = args->arg(env, 0)->as_db(env->env);
+            db = std::move(*args->arg(env, 0)).as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
@@ -454,10 +454,10 @@ private:
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_db(env->env);
+            db = std::move(*dbv).as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
-            db = args->arg(env, 0)->as_db(env->env);
+            db = std::move(*args->arg(env, 0)).as_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
@@ -549,9 +549,9 @@ private:
         if (args->num_args() == 0) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = dbv->as_prov_db(env->env);
+            db = std::move(*dbv).as_prov_db(env->env);
         } else {
-            db = args->arg(env, 0)->as_prov_db(env->env);
+            db = std::move(*args->arg(env, 0)).as_prov_db(env->env);
         }
 
         std::vector<name_string_t> table_list;
@@ -596,7 +596,7 @@ private:
             guarantee(art_or_null != nullptr);  // We're not a deterministic term.
 
             if (target->get_type().is_convertible(val_t::type_t::DB)) {
-                provisional_db_id db = target->as_prov_db(env->env);
+                provisional_db_id db = std::move(*target).as_prov_db(env->env);
                 if (db.db_name == artificial_reql_cluster_interface_t::database_name) {
                     rfail(ql::base_exc_t::OP_FAILED,
                         "Database `%s` is special; you can't configure it.",
@@ -610,7 +610,7 @@ private:
                         backtrace(),
                         env->env);
             } else {
-                provisional_table_id table = target->as_prov_table(env->env);
+                provisional_table_id table = std::move(*target).as_prov_table(env->env);
 
                 if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
                     // NNN: We should fail with a table d.n.e. error if the table dne.
@@ -641,7 +641,7 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
 
 #if 0
         // NNN: First check if the table exists?
@@ -682,9 +682,9 @@ protected:
         scoped_ptr_t<val_t> target = args->arg(env, 0);
         std::pair<provisional_db_id, optional<provisional_table_id>> ret;
         if (target->get_type().is_convertible(val_t::type_t::DB)) {
-            ret.first = target->as_prov_db(env->env);
+            ret.first = std::move(*target).as_prov_db(env->env);
         } else {
-            ret.second.set(target->as_prov_table(env->env));
+            ret.second.set(std::move(*target).as_prov_table(env->env));
             ret.first = ret.second->prov_db;
         }
         return ret;
@@ -933,7 +933,7 @@ private:
         // We now succeed on system tables, unlike pre-fdb sync_term_t.  This is
         // desirable.
 
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
 
         try {
             fdb_error_t loop_err = txn_retry_loop_table_id(
@@ -984,7 +984,7 @@ private:
                 scoped_ptr_t<val_t> scope = args->arg(env, 0);
                 if (scope->get_type().is_convertible(val_t::type_t::DB)) {
                     // TODO: Config version consistency logic with prior db_t name lookup.
-                    const provisional_db_id prov_db = scope->as_prov_db(env->env);
+                    const provisional_db_id prov_db = std::move(*scope).as_prov_db(env->env);
                     if (prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
                         permissions_selector = [](auth::user_t *user, FDBTransaction *, const signal_t *) -> auth::permissions_t * {
                             return &user->get_database_permissions(
@@ -999,7 +999,7 @@ private:
                 } else {
                     // TODO: Config version consistency logic with the table name lookup
                     // that made the namespace_id_t.
-                    const provisional_table_id table = scope->as_prov_table(env->env);
+                    const provisional_table_id table = std::move(*scope).as_prov_table(env->env);
                     if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
                         optional<namespace_id_t> table_id = artificial_reql_cluster_interface_t::get_table_id(table.table_name);
                         if (!table_id.has_value()) {
@@ -1195,11 +1195,11 @@ private:
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv.has());
-            db = dbv->as_prov_db(env->env);
+            db = std::move(*dbv).as_prov_db(env->env);
             table_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
             r_sanity_check(args->num_args() == 2);
-            db = args->arg(env, 0)->as_prov_db(env->env);
+            db = std::move(*args->arg(env, 0)).as_prov_db(env->env);
             table_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
@@ -1222,7 +1222,7 @@ private:
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         return new_val(single_selection_t::from_key(
                            backtrace(),
-                           args->arg(env, 0)->as_table(env->env),
+                           std::move(*args->arg(env, 0)).as_table(env->env),
                            args->arg(env, 1)->as_datum(env)));
     }
     virtual const char *name() const { return "get"; }
@@ -1249,7 +1249,7 @@ private:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        counted_t<table_t> table = std::move(*args->arg(env, 0)).as_table(env->env);
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
         std::string index_str = index ? index->as_str(env).to_std() : table->get_pkey();
 

@@ -38,14 +38,14 @@ private:
         if (!func.has() && !idx.has()) {
             // TODO: make this use a table slice.
             if (uses_idx() && v->get_type().is_convertible(val_t::type_t::TABLE)) {
-                return on_idx(env->env, v->as_table(env->env), std::move(idx));
+                return on_idx(env->env, std::move(*v).as_table(env->env), std::move(idx));
             } else {
                 return std::move(*v).as_seq(env->env)->run_terminal(env->env, T(backtrace()));
             }
         } else if (func.has() && !idx.has()) {
             return std::move(*v).as_seq(env->env)->run_terminal(env->env, T(backtrace(), func));
         } else if (!func.has() && idx.has()) {
-            return on_idx(env->env, v->as_table(env->env), std::move(idx));
+            return on_idx(env->env, std::move(*v).as_table(env->env), std::move(idx));
         } else {
             rfail(base_exc_t::LOGIC,
                   "Cannot provide both a function and an index to %s.",
@@ -384,7 +384,7 @@ private:
         bool append_index = false;
         if (scoped_ptr_t<val_t> index = args->optarg(env, "index")) {
             std::string index_str = index->as_str(env).to_std();
-            counted_t<table_t> tbl = args->arg(env, 0)->as_table(env->env);
+            counted_t<table_t> tbl = std::move(*args->arg(env, 0)).as_table(env->env);
             scoped<table_slice_t> slice;
             if (index_str == tbl->get_pkey()) {
                 auto field = index->as_datum(env);

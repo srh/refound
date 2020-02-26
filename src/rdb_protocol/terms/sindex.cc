@@ -317,7 +317,7 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
         datum_t name_datum = args->arg(env, 1)->as_datum(env);
         std::string index_name = name_datum.as_str().to_std();
 
@@ -429,7 +429,7 @@ public:
         : op_term_t(env, term, argspec_t(2)) { }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
         std::string index_name = args->arg(env, 1)->as_datum(env).as_str().to_std();
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
@@ -483,7 +483,7 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
             if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {
@@ -534,7 +534,7 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         /* Parse the arguments */
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
         std::set<std::string> sindexes;
         for (size_t i = 1; i < args->num_args(); ++i) {
             sindexes.insert(args->arg(env, i)->as_str(env).to_std());
@@ -608,7 +608,7 @@ public:
         : op_term_t(env, term, argspec_t(1, -1)) { }
 
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        provisional_table_id prov_table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id prov_table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
         std::set<std::string> sindexes;
         for (size_t i = 1; i < args->num_args(); ++i) {
             sindexes.insert(args->arg(env, i)->as_str(env).to_std());
@@ -705,7 +705,7 @@ public:
 
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
         scoped_ptr_t<val_t> old_name_val = args->arg(env, 1);
         scoped_ptr_t<val_t> new_name_val = args->arg(env, 2);
         std::string old_name = old_name_val->as_str(env).to_std();

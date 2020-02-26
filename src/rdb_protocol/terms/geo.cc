@@ -375,7 +375,7 @@ public:
         : geo_term_t(env, term, argspec_t(2), optargspec_t({ "index" })) { }
 private:
     scoped_ptr_t<val_t> eval_geo(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        counted_t<table_t> table = std::move(*args->arg(env, 0)).as_table(env->env);
         scoped_ptr_t<val_t> query_arg = args->arg(env, 1);
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
         rcheck(index.has(), base_exc_t::LOGIC,
@@ -416,7 +416,7 @@ public:
           optargspec_t({ "index", "max_results", "max_dist", "geo_system", "unit" })) { }
 private:
     scoped_ptr_t<val_t> eval_geo(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> table = args->arg(env, 0)->as_table(env->env);
+        counted_t<table_t> table = std::move(*args->arg(env, 0)).as_table(env->env);
         scoped_ptr_t<val_t> center_arg = args->arg(env, 1);
         scoped_ptr_t<val_t> index = args->optarg(env, "index");
         rcheck(index.has(), base_exc_t::LOGIC,

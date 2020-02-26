@@ -40,7 +40,7 @@ public:
 
     scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const override {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
 
         // TODO: Maybe we actually want to ping fdb and see if the table still exists
         // before we consider emitting any of the other errors first.  That would more
@@ -162,7 +162,7 @@ public:
     }
 
     scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const override {
-        provisional_table_id table = args->arg(env, 0)->as_prov_table(env->env);
+        provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
 
         if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
             if (!artificial_reql_cluster_interface_t::get_table_id(table.table_name).has_value()) {

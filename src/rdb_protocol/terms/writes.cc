@@ -129,7 +129,7 @@ private:
 
     virtual scoped_ptr_t<val_t>
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_t> t = args->arg(env, 0)->as_table(env->env);
+        counted_t<table_t> t = std::move(*args->arg(env, 0)).as_table(env->env);
         return_changes_t return_changes = parse_return_changes(env, args, backtrace());
 
         optional<ql::deterministic_func> conflict_func;

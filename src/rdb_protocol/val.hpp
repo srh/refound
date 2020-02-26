@@ -232,11 +232,11 @@ public:
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
     ~val_t();
 
-    const provisional_db_id &as_prov_db(env_t *env) const;
-    counted_t<const db_t> as_db(env_t *env) const;
-    const provisional_table_id &as_prov_table(env_t *env) const;
-    scoped<table_t> as_table(env_t *env) const;
-    counted_t<table_t> get_underlying_table(env_t *env) const;
+    provisional_db_id as_prov_db(env_t *env) &&;
+    counted_t<const db_t> as_db(env_t *env) &&;
+    provisional_table_id as_prov_table(env_t *env) &&;
+    scoped<table_t> as_table(env_t *env) &&;
+    name_string_t get_underlying_table_name(env_t *env) const;
     scoped<table_slice_t> as_table_slice(env_t *env) &&;
     scoped<selection_t> as_selection(env_t *env) &&;
     bool is_grouped_seq() const;
@@ -343,6 +343,9 @@ private:
     }
     const scoped<selection_t> &selection() const {
         return boost::get<scoped<selection_t>>(u);
+    }
+    provisional_table_id &table() {
+        return boost::get<provisional_table_id>(u);
     }
     const provisional_table_id &table() const {
         return boost::get<provisional_table_id>(u);

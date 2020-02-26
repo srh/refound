@@ -495,7 +495,7 @@ private:
 
         switch (type) {
         case DB_TYPE: {
-            provisional_db_id database = v->as_prov_db(env);
+            provisional_db_id database = std::move(*v).as_prov_db(env);
 
             database_id_t db_id;
             if (database.db_name == artificial_reql_cluster_interface_t::database_name) {
@@ -512,7 +512,7 @@ private:
             b |= add_db_info(&info, database.db_name, db_id);
         } break;
         case TABLE_TYPE: {
-            provisional_table_id table = v->as_prov_table(env);
+            provisional_table_id table = std::move(*v).as_prov_table(env);
             b |= add_table_info(env->get_rdb_ctx()->fdb, env->interruptor,
                 &info, table);
         } break;
