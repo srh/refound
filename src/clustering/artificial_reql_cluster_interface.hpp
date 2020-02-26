@@ -66,8 +66,7 @@ public:
     static std::vector<name_string_t> table_list_sorted();
     MUST_USE bool table_find(const name_string_t &name,
             admin_identifier_format_t identifier_format,
-            counted_t<const base_table_t> *table_out,
-            admin_err_t *error_out);
+            counted_t<const base_table_t> *table_out);
 
     artificial_table_fdb_backend_t *
     get_table_backend_or_null(

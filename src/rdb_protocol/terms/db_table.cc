@@ -1071,12 +1071,11 @@ scoped<table_t> provisional_to_table(
     r_sanity_check(art_or_null != nullptr);
 
     if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-        admin_err_t error;
         counted_t<const base_table_t> table;
         if (!art_or_null->table_find(prov_table.table_name,
                 prov_table.identifier_format.value_or(admin_identifier_format_t::name),
-                &table, &error)) {
-            REQL_RETHROW_SRC(prov_table.bt, error);
+                &table)) {
+            rfail_prov_table_dne(prov_table);
         }
         return make_scoped<table_t>(
             std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode(),

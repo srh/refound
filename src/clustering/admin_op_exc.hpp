@@ -52,14 +52,6 @@ private:
     query_state_t m_query_state;
 };
 
-inline admin_err_t table_dne_error(
-        const name_string_t &db_name, const name_string_t &table_name) {
-    return admin_err_t{
-        strprintf("Table `%s.%s` does not exist.", db_name.c_str(), table_name.c_str()),
-        query_state_t::FAILED
-    };
-}
-
 #define rfail_table_dne(db_name, table_name) \
     rfail(ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
           (db_name).c_str(), (table_name).c_str())
