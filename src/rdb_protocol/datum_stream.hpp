@@ -51,11 +51,11 @@ struct active_state_t {
 #if RDB_CF
 struct changespec_t {
     changespec_t(changefeed::keyspec_t _keyspec,
-                 counted_t<datum_stream_t> _stream)
+                 scoped<datum_stream_t> &&_stream)
         : keyspec(std::move(_keyspec)),
           stream(std::move(_stream)) { }
     changefeed::keyspec_t keyspec;
-    counted_t<datum_stream_t> stream;
+    scoped<datum_stream_t> stream;
 };
 #endif  // RDB_CF
 

@@ -587,13 +587,10 @@ private:
         RDB_CF_UNUSED configured_limits_t limits = env->env->limits_with_changefeed_queue_size(
                 args->optarg(env, "changefeed_queue_size"));
 
-        // TODO: Check new rfail "not supported in reqlfdb" code to ensure they use base_exc_t::LOGIC.
-        rfail(base_exc_t::LOGIC, ".changes() are not supported in reqlfdb");  // TODO: Product name
-
-#if RDB_CF
         if (v->get_type().is_convertible(val_t::type_t::SEQUENCE)) {
-            counted_t<datum_stream_t> seq = v->as_seq(env->env);
-            std::vector<counted_t<datum_stream_t> > streams;
+            scoped<datum_stream_t> seq = std::move(*v).as_seq(env->env);
+#if RDB_CF
+            std::vector<scoped<datum_stream_t> > streams;
             std::vector<changespec_t> changespecs = seq->get_changespecs();
             r_sanity_check(changespecs.size() >= 1);
             for (auto &&changespec : changespecs) {
@@ -608,7 +605,7 @@ private:
                         changefeed::streamspec_t(
                             include_initial
                                 ? std::move(changespec.stream)
-                                : counted_t<datum_stream_t>(),
+                                : scoped<datum_stream_t>(),
                             changespec.keyspec.table_name,
                             include_offsets,
                             include_states,
@@ -623,14 +620,16 @@ private:
             } else {
                 return new_val(
                     env->env,
-                    make_counted<union_datum_stream_t>(
+                    make_scoped<union_datum_stream_t>(
                         env->env,
                         std::move(streams),
                         backtrace(),
                         streams.size()));
             }
+#endif  // RDB_CF
         } else if (v->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
-            auto sel = v->as_single_selection(env->env);
+            scoped<single_selection_t> sel = std::move(*v).as_single_selection(env->env);
+#if RDB_CF
             return new_val(
                 env->env,
                 sel->get_tbl()->tbl->read_changes(
@@ -640,9 +639,9 @@ private:
                             // We want to provide an empty stream in this case
                             // because we get the initial values from the stamp
                             // read instead.
-                            ? make_counted<vector_datum_stream_t>(
+                            ? make_scoped<vector_datum_stream_t>(
                                 sel->get_bt(), std::vector<datum_t>(), r_nullopt)
-                            : counted_t<vector_datum_stream_t>(),
+                            : scoped<vector_datum_stream_t>(),
                         sel->get_tbl()->display_name(),
                         include_offsets,
                         include_states,
@@ -651,11 +650,14 @@ private:
                         squash,
                         sel->get_spec()),
                     sel->get_bt()));
+#endif  // RDB_CF
+        } else {
+            auto selection = std::move(*v).as_selection(env->env);
         }
-        auto selection = v->as_selection(env->env);
+
+        // TODO: Check new rfail "not supported in reqlfdb" code to ensure they use base_exc_t::LOGIC.
         rfail(base_exc_t::LOGIC,
-              ".changes() not yet supported on range selections");
-#endif  // RFDB_CF
+              ".changes() is not supported in reqlfdb.");  // TODO: Product name
     }
     virtual const char *name() const { return "changes"; }
 };
