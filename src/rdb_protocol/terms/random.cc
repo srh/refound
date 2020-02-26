@@ -32,14 +32,16 @@ public:
 
         counted_t<table_t> t;
         counted_t<datum_stream_t> seq;
-        scoped_ptr_t<val_t> v = args->arg(env, 0);
+        {
+            scoped_ptr_t<val_t> v = args->arg(env, 0);
 
-        if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
-            counted_t<selection_t> t_seq = v->as_selection(env->env);
-            t = t_seq->table;
-            seq = t_seq->seq;
-        } else {
-            seq = v->as_seq(env->env);
+            if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
+                scoped<selection_t> t_seq = std::move(*v).as_selection(env->env);
+                t = t_seq->table;
+                seq = t_seq->seq;
+            } else {
+                seq = v->as_seq(env->env);
+            }
         }
 
         std::vector<datum_t> result;
@@ -72,7 +74,7 @@ public:
                                      backtrace()));
 
         return t.has()
-            ? new_val(make_counted<selection_t>(t, new_ds))
+            ? new_val(make_scoped<selection_t>(t, new_ds))
             : new_val(env->env, new_ds);
     }
 

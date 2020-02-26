@@ -177,7 +177,7 @@ protected:
     single_selection_t() = default;
 };
 
-class selection_t : public single_threaded_countable_t<selection_t> {
+class selection_t {
 public:
     selection_t(counted_t<table_t> _table, counted_t<datum_stream_t> _seq);
     ~selection_t();
@@ -228,7 +228,7 @@ public:
     val_t(env_t *env, counted_t<datum_stream_t> _seq, backtrace_id_t bt);
     val_t(provisional_table_id &&_table, backtrace_id_t bt);
     val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
-    val_t(counted_t<selection_t> _selection, backtrace_id_t bt);
+    val_t(scoped<selection_t> &&_selection, backtrace_id_t bt);
     val_t(provisional_db_id &&_db, backtrace_id_t bt);
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
     ~val_t();
@@ -239,7 +239,7 @@ public:
     counted_t<table_t> as_table(env_t *env) const;
     counted_t<table_t> get_underlying_table(env_t *env) const;
     counted_t<table_slice_t> as_table_slice(env_t *env);
-    counted_t<selection_t> as_selection(env_t *env);
+    scoped<selection_t> as_selection(env_t *env) &&;
     counted_t<datum_stream_t> as_seq(env_t *env);
     // The env doesn't get used, it's purely type safety.
     scoped<single_selection_t> as_single_selection(env_t *env) &&;
@@ -315,7 +315,7 @@ private:
                    provisional_table_id,
                    counted_t<table_slice_t>,
                    scoped<single_selection_t>,
-                   counted_t<selection_t> > u;
+                   scoped<selection_t> > u;
 
     const provisional_db_id &db() const {
         return boost::get<provisional_db_id>(u);
@@ -330,13 +330,16 @@ private:
         return boost::get<datum_t>(u);
     }
     scoped<single_selection_t> &single_selection() {
-        return boost::get<scoped<single_selection_t> >(u);
+        return boost::get<scoped<single_selection_t>>(u);
     }
     const scoped<single_selection_t> &single_selection() const {
-        return boost::get<scoped<single_selection_t> >(u);
+        return boost::get<scoped<single_selection_t>>(u);
     }
-    const counted_t<selection_t> &selection() const {
-        return boost::get<counted_t<selection_t> >(u);
+    scoped<selection_t> &selection() {
+        return boost::get<scoped<selection_t>>(u);
+    }
+    const scoped<selection_t> &selection() const {
+        return boost::get<scoped<selection_t>>(u);
     }
     const provisional_table_id &table() const {
         return boost::get<provisional_table_id>(u);

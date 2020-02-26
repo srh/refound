@@ -330,7 +330,7 @@ private:
             stats = stats.merge(replace_stats, stats_merge, env->env->limits(),
                                 &conditions);
         } else {
-            counted_t<selection_t> tblrows = v0->as_selection(env->env);
+            scoped<selection_t> tblrows = std::move(*v0).as_selection(env->env);
             counted_t<table_t> tbl = tblrows->table;
             counted_t<datum_stream_t> ds = tblrows->seq;
 

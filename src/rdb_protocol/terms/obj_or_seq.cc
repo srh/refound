@@ -84,10 +84,10 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
             func_term->eval_to_func(env->scope);
 
         counted_t<datum_stream_t> stream;
-        counted_t<selection_t> sel; // may be empty
+        scoped<selection_t> sel; // may be empty
         if (poly_type == FILTER
             && v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
-            sel = v0->as_selection(env->env);
+            sel = std::move(*v0).as_selection(env->env);
             stream = sel->seq;
         } else {
             stream = v0->as_seq(env->env);
@@ -108,8 +108,8 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         default: unreachable();
         }
 
-        if (sel) {
-            return target->new_val(sel);
+        if (sel.has()) {
+            return target->new_val(std::move(sel));
         } else {
             return target->new_val(env->env, stream);
         }

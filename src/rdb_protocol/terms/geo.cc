@@ -386,7 +386,7 @@ private:
         counted_t<datum_stream_t> stream = table->get_intersecting(
             env->env, query_arg->as_ptype(env, pseudo::geometry_string), index_str,
             this);
-        return new_val(make_counted<selection_t>(table, stream));
+        return new_val(make_scoped<selection_t>(table, stream));
     }
     virtual const char *name() const { return "get_intersecting"; }
 };

@@ -432,9 +432,9 @@ private:
         }
 
         if (v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
-            counted_t<selection_t> ts = v0->as_selection(env->env);
+            scoped<selection_t> ts = std::move(*v0).as_selection(env->env);
             ts->seq->add_transformation(filter_wire_func_t(f, defval), backtrace());
-            return new_val(ts);
+            return new_val(std::move(ts));
         } else {
             counted_t<datum_stream_t> stream = v0->as_seq(env->env);
             stream->add_transformation(

@@ -635,10 +635,10 @@ val_t::val_t(env_t *env, counted_t<datum_stream_t> _sequence,
     }
 }
 
-val_t::val_t(counted_t<selection_t> _selection, backtrace_id_t _bt)
+val_t::val_t(scoped<selection_t> &&_selection, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::SELECTION),
-      u(_selection) {
+      u(std::move(_selection)) {
     guarantee(selection().has());
 }
 
@@ -771,12 +771,12 @@ counted_t<table_t> val_t::get_underlying_table(env_t *env) const {
     }
 }
 
-counted_t<selection_t> val_t::as_selection(env_t *env) {
+scoped<selection_t> val_t::as_selection(env_t *env) && {
     if (type.raw_type == type_t::SELECTION) {
-        return selection();
+        return std::move(selection());
     } else if (type.is_convertible(type_t::TABLE_SLICE)) {
         counted_t<table_slice_t> slice = as_table_slice(env);
-        return make_counted<selection_t>(
+        return make_scoped<selection_t>(
             slice->get_tbl(),
             slice->as_seq(env, backtrace()));
     }

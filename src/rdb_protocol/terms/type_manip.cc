@@ -557,14 +557,16 @@ private:
             }
         } break;
         case SELECTION_TYPE: {
+            scoped<selection_t> sel = std::move(*v).as_selection(env);
             b |= info.add("table", table_info_datum(
                 env->get_rdb_ctx()->fdb, env->interruptor,
-                v->as_selection(env)->table.get()));
+                sel->table.get()));
         } break;
         case ARRAY_SELECTION_TYPE: {
+            scoped<selection_t> sel = std::move(*v).as_selection(env);
             b |= info.add("table", table_info_datum(
                 env->get_rdb_ctx()->fdb, env->interruptor,
-                v->as_selection(env)->table.get()));
+                sel->table.get()));
         } break;
         case SEQUENCE_TYPE: {
             if (v->as_seq(env)->is_grouped()) {

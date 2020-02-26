@@ -98,7 +98,7 @@ scoped_ptr_t<val_t> nth_term_direct_impl(const term_t *term,
         counted_t<table_t> tbl;
         counted_t<datum_stream_t> s;
         if (aggregate->get_type().is_convertible(val_t::type_t::SELECTION)) {
-            auto selection = aggregate->as_selection(env->env);
+            scoped<selection_t> selection = std::move(*aggregate).as_selection(env->env);
             tbl = selection->table;
             s = selection->seq;
         } else {
@@ -297,7 +297,7 @@ private:
             counted_t<table_t> t;
             counted_t<datum_stream_t> seq;
             if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
-                auto selection = v->as_selection(env->env);
+                scoped<selection_t> selection = std::move(*v).as_selection(env->env);
                 t = selection->table;
                 seq = selection->seq;
             } else {
@@ -323,7 +323,7 @@ private:
             }
             counted_t<datum_stream_t> new_ds = seq->slice(real_l, real_r);
             return t.has()
-                ? new_val(make_counted<selection_t>(t, new_ds))
+                ? new_val(make_scoped<selection_t>(t, new_ds))
                 : new_val(env->env, new_ds);
         } else {
             // This was an rfail_typed_target.  But since we don't want to call exc_type
@@ -348,7 +348,7 @@ private:
         counted_t<table_t> t;
         counted_t<datum_stream_t> ds;
         if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
-            auto selection = v->as_selection(env->env);
+            scoped<selection_t> selection = std::move(*v).as_selection(env->env);
             t = selection->table;
             ds = selection->seq;
         } else {
@@ -359,7 +359,7 @@ private:
                strprintf("LIMIT takes a non-negative argument (got %d)", r));
         counted_t<datum_stream_t> new_ds = ds->slice(0, r);
         return t.has()
-            ? new_val(make_counted<selection_t>(t, new_ds))
+            ? new_val(make_scoped<selection_t>(t, new_ds))
             : new_val(env->env, new_ds);
     }
     virtual const char *name() const { return "limit"; }

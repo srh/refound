@@ -1261,7 +1261,7 @@ private:
         }
 
         return new_val(
-            make_counted<selection_t>(
+            make_scoped<selection_t>(
                 table,
                 table->get_all(env->env,
                                datumspec_t(std::move(keys)),
