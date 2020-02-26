@@ -479,7 +479,7 @@ raw_stream_t rget_response_reader_t::unshard(
 
 // RANGE/READGEN STUFF
 rget_response_reader_t::rget_response_reader_t(
-    const counted_t<real_table_t> &_table,
+    const counted_t<const real_table_t> &_table,
     scoped_ptr_t<readgen_t> &&_readgen)
     : table(_table),
       started(false),
@@ -642,7 +642,7 @@ rget_read_response_t rget_response_reader_t::do_read(env_t *env, const read_t &r
 }
 
 rget_reader_t::rget_reader_t(
-    const counted_t<real_table_t> &_table,
+    const counted_t<const real_table_t> &_table,
     scoped_ptr_t<readgen_t> &&_readgen)
     : rget_response_reader_t(_table, std::move(_readgen)) { }
 
@@ -710,7 +710,7 @@ bool rget_reader_t::load_items(env_t *env, const batchspec_t &batchspec) {
 }
 
 intersecting_reader_t::intersecting_reader_t(
-    const counted_t<real_table_t> &_table,
+    const counted_t<const real_table_t> &_table,
     scoped_ptr_t<readgen_t> &&_readgen)
     : rget_response_reader_t(_table, std::move(_readgen)) { }
 

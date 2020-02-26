@@ -48,10 +48,10 @@ public:
         const std::string &,
         const ql::datumspec_t &,
         sorting_t,
-        read_mode_t) = 0;
+        read_mode_t) const = 0;
 
     virtual ql::datum_t read_row(ql::env_t *env,
-        ql::datum_t pval, read_mode_t read_mode) = 0;
+        ql::datum_t pval, read_mode_t read_mode) const = 0;
     virtual scoped<ql::datum_stream_t> read_all(
         ql::env_t *env,
         const std::string &sindex,
@@ -59,14 +59,14 @@ public:
         const std::string &table_name,   /* the table's own name, for display purposes */
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) = 0;
+        read_mode_t read_mode) const = 0;
     virtual scoped<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,
         const std::string &table_name,
         read_mode_t read_mode,
-        const ql::datum_t &query_geometry) = 0;
+        const ql::datum_t &query_geometry) const = 0;
     virtual ql::datum_t read_nearest(
         ql::env_t *env,
         const std::string &sindex,
@@ -77,7 +77,7 @@ public:
         uint64_t max_results,
         const ellipsoid_spec_t &geo_system,
         dist_unit_t dist_unit,
-        const ql::configured_limits_t &limits) = 0;
+        const ql::configured_limits_t &limits) const = 0;
 
     virtual ql::datum_t write_batched_replace(
         ql::env_t *env,
@@ -85,7 +85,7 @@ public:
         const ql::deterministic_func &func,
         return_changes_t _return_changes,
         durability_requirement_t durability,
-        ignore_write_hook_t ignore_write_hook) = 0;
+        ignore_write_hook_t ignore_write_hook) const = 0;
     virtual ql::datum_t write_batched_insert(
         ql::env_t *env,
         std::vector<ql::datum_t> &&inserts,
@@ -94,14 +94,14 @@ public:
         optional<ql::deterministic_func> conflict_func,
         return_changes_t return_changes,
         durability_requirement_t durability,
-        ignore_write_hook_t ignore_write_hook) = 0;
+        ignore_write_hook_t ignore_write_hook) const = 0;
 
     /* This must be public */
     virtual ~base_table_t() { }
 
     // QQQ: Force everybody accessing the uuid to use this value.
     // TODO: This is a bit gross -- we just call assert_nonempty() on it -- we statically know when we have a real_table_t and an artificial_table_t by checking artificial_reql_cluster_interface_t::database_name, except for sync_term_t.
-    config_version_checker cv;
+    const config_version_checker cv;
 
     DISABLE_COPYING(base_table_t);
 };

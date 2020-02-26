@@ -33,7 +33,7 @@ public:
 // To handle empty range on getAll
 class empty_reader_t : public reader_t {
 public:
-    explicit empty_reader_t(counted_t<real_table_t> _table, std::string _table_name)
+    explicit empty_reader_t(counted_t<const real_table_t> _table, std::string _table_name)
       : table(std::move(_table)), table_name(std::move(_table_name)) {}
     virtual ~empty_reader_t() {}
     virtual void add_transformation(transform_variant_t &&) {}
@@ -62,7 +62,7 @@ public:
 #endif
 
 private:
-    counted_t<real_table_t> table;
+    counted_t<const real_table_t> table;
     std::string table_name;
 };
 
@@ -126,7 +126,7 @@ private:
 class rget_response_reader_t : public reader_t {
 public:
     rget_response_reader_t(
-        const counted_t<real_table_t> &table,
+        const counted_t<const real_table_t> &table,
         scoped_ptr_t<readgen_t> &&readgen);
     virtual void add_transformation(transform_variant_t &&tv);
 #if RDB_CF
@@ -164,7 +164,7 @@ protected:
     virtual bool load_items(env_t *env, const batchspec_t &batchspec) = 0;
     rget_read_response_t do_read(env_t *env, const read_t &read);
 
-    counted_t<real_table_t> table;
+    counted_t<const real_table_t> table;
     std::vector<transform_variant_t> transforms;
 #if RDB_CF
     optional<changefeed_stamp_t> stamp;
@@ -185,7 +185,7 @@ protected:
 class rget_reader_t : public rget_response_reader_t {
 public:
     rget_reader_t(
-        const counted_t<real_table_t> &_table,
+        const counted_t<const real_table_t> &_table,
         scoped_ptr_t<readgen_t> &&readgen);
     virtual void accumulate_all(env_t *env, eager_acc_t *acc);
 
@@ -204,7 +204,7 @@ private:
 class intersecting_reader_t : public rget_response_reader_t {
 public:
     intersecting_reader_t(
-        const counted_t<real_table_t> &_table,
+        const counted_t<const real_table_t> &_table,
         scoped_ptr_t<readgen_t> &&readgen);
     virtual void accumulate_all(env_t *env, eager_acc_t *acc);
 

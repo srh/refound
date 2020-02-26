@@ -63,7 +63,7 @@ const std::string &artificial_table_fdb_t::get_pkey() const {
 
 ql::datum_t artificial_table_fdb_t::read_row(
         ql::env_t *env,
-        ql::datum_t pval, UNUSED read_mode_t read_mode) {
+        ql::datum_t pval, UNUSED read_mode_t read_mode) const {
     ql::datum_t row_result;
 
     try {
@@ -106,7 +106,7 @@ scoped<ql::datum_stream_t> artificial_table_fdb_t::read_all(
         const std::string &table_name,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        UNUSED read_mode_t read_mode) {
+        UNUSED read_mode_t read_mode) const {
     scoped<ql::datum_stream_t> stream;
 
     try {
@@ -141,7 +141,7 @@ scoped_ptr_t<ql::reader_t> artificial_table_fdb_t::read_all_with_sindexes(
         const std::string &table_name,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) {
+        read_mode_t read_mode) const {
     // This is just a read_all for an artificial table, because sindex is always
     // the primary index. We still need to return a reader_t, this is needed for
     // eq_join.
@@ -172,7 +172,7 @@ scoped<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
         UNUSED ql::backtrace_id_t bt,
         const std::string &table_name,
         UNUSED read_mode_t read_mode,
-        UNUSED const ql::datum_t &query_geometry) {
+        UNUSED const ql::datum_t &query_geometry) const {
     try {
         fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
@@ -202,7 +202,7 @@ ql::datum_t artificial_table_fdb_t::read_nearest(
         UNUSED uint64_t max_results,
         UNUSED const ellipsoid_spec_t &geo_system,
         UNUSED dist_unit_t dist_unit,
-        UNUSED const ql::configured_limits_t &limits) {
+        UNUSED const ql::configured_limits_t &limits) const {
     try {
         fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
@@ -228,7 +228,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_replace(
         const ql::deterministic_func &func,
         return_changes_t return_changes,
         UNUSED durability_requirement_t durability,
-        UNUSED ignore_write_hook_t ignore_write_hook) {
+        UNUSED ignore_write_hook_t ignore_write_hook) const {
     /* Note that we ignore the `durability` optarg. In theory we could assert that it's
     unspecified or specified to be "soft", since durability is irrelevant or effectively
     soft for system tables anyway. But this might lead to some confusing errors if the
@@ -273,7 +273,7 @@ ql::datum_t artificial_table_fdb_t::write_batched_insert(
         optional<ql::deterministic_func> conflict_func,
         return_changes_t return_changes,
         UNUSED durability_requirement_t durability,
-        UNUSED ignore_write_hook_t ignore_write_hook) {
+        UNUSED ignore_write_hook_t ignore_write_hook) const {
     ql::datum_t stats = ql::datum_t::empty_object();
     std::set<std::string> conditions;
     optional<std::string> permission_error_what;
@@ -332,7 +332,7 @@ void artificial_table_fdb_t::do_single_update(
         return_changes_t return_changes,
         const signal_t *interruptor,
         ql::datum_t *stats_inout,
-        std::set<std::string> *conditions_inout) {
+        std::set<std::string> *conditions_inout) const {
     // TODO: Given env isn't used for evaluation, it's p screwy that we pass it in.
     // QQQ: env->get_rdb_ctx() might be null, if we make a pristine env -- but how would we get an artificial_table_fdb_t?
     ql::datum_t resp_out;

@@ -15,9 +15,6 @@
 // Yes, this is a clone of boost::intrusive_ptr.  This will probably
 // not be the case in the future.
 
-// Now it supports .unique(), and in order to use it, your type needs
-// to provide an counted_use_count implementation.
-
 template <class T>
 class counted_t {
 public:
@@ -116,10 +113,6 @@ public:
         return p_ != nullptr;
     }
 
-    bool unique() const {
-        return counted_use_count(p_) == 1;
-    }
-
     explicit operator bool() const {
         return p_ != nullptr;
     }
@@ -142,8 +135,6 @@ template <class T>
 inline void counted_add_ref(const single_threaded_countable_t<T> *p);
 template <class T>
 inline void counted_release(const single_threaded_countable_t<T> *p);
-template <class T>
-inline intptr_t counted_use_count(const single_threaded_countable_t<T> *p);
 
 template <class T>
 class single_threaded_countable_t : private home_thread_mixin_debug_only_t {
@@ -151,18 +142,6 @@ public:
     single_threaded_countable_t() : refcount_(0) { }
 
 protected:
-    counted_t<T> counted_from_this() {
-        assert_thread();
-        rassert(refcount_ > 0);
-        return counted_t<T>(static_cast<T *>(this));
-    }
-
-    counted_t<const T> counted_from_this() const {
-        assert_thread();
-        rassert(refcount_ > 0);
-        return counted_t<const T>(static_cast<const T *>(this));
-    }
-
     ~single_threaded_countable_t() {
         assert_thread();
         rassert(refcount_ == 0);
@@ -171,7 +150,6 @@ protected:
 private:
     friend void counted_add_ref<T>(const single_threaded_countable_t<T> *p);
     friend void counted_release<T>(const single_threaded_countable_t<T> *p);
-    friend intptr_t counted_use_count<T>(const single_threaded_countable_t<T> *p);
 
     mutable intptr_t refcount_;
     DISABLE_COPYING(single_threaded_countable_t);
@@ -194,20 +172,12 @@ inline void counted_release(const single_threaded_countable_t<T> *p) {
     }
 }
 
-template <class T>
-inline intptr_t counted_use_count(const single_threaded_countable_t<T> *p) {
-    p->assert_thread();
-    return p->refcount_;
-}
-
 template <class> class slow_atomic_countable_t;
 
 template <class T>
 inline void counted_add_ref(const slow_atomic_countable_t<T> *p);
 template <class T>
 inline void counted_release(const slow_atomic_countable_t<T> *p);
-template <class T>
-inline intptr_t counted_use_count(const slow_atomic_countable_t<T> *p);
 
 template <class T>
 class slow_atomic_countable_t {
@@ -219,20 +189,9 @@ protected:
         rassert(refcount_ == 0);
     }
 
-    counted_t<T> counted_from_this() {
-        rassert(counted_use_count(this) > 0);
-        return counted_t<T>(static_cast<T *>(this));
-    }
-
-    counted_t<const T> counted_from_this() const {
-        rassert(counted_use_count(this) > 0);
-        return counted_t<const T>(static_cast<const T *>(this));
-    }
-
 private:
     friend void counted_add_ref<T>(const slow_atomic_countable_t<T> *p);
     friend void counted_release<T>(const slow_atomic_countable_t<T> *p);
-    friend intptr_t counted_use_count<T>(const slow_atomic_countable_t<T> *p);
 
     mutable std::atomic<intptr_t> refcount_;
     DISABLE_COPYING(slow_atomic_countable_t);
@@ -252,15 +211,6 @@ inline void counted_release(const slow_atomic_countable_t<T> *p) {
         delete static_cast<T *>(const_cast<slow_atomic_countable_t<T> *>(p));
     }
 }
-
-template <class T>
-inline intptr_t counted_use_count(const slow_atomic_countable_t<T> *p) {
-    // Finally a practical use for volatile.
-    intptr_t tmp = static_cast<const volatile intptr_t&>(p->refcount_);
-    rassert(tmp > 0);
-    return tmp;
-}
-
 
 // A noncopyable reference to a reference-counted object.
 template <class T>

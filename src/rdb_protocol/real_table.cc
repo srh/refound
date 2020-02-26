@@ -104,7 +104,7 @@ const std::string &real_table_t::get_pkey() const {
 // QQQ: Verify that these functions are called in a context that handles config_version_exc_t.
 
 ql::datum_t real_table_t::read_row(
-    ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) {
+    ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) const {
     read_t read(point_read_t(store_key_t(pval.print_primary())),
                 env->profile(), read_mode);
     read_response_t res;
@@ -123,24 +123,24 @@ scoped_ptr_t<ql::reader_t> real_table_t::read_all_with_sindexes(
         const std::string &table_name,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) {
+        read_mode_t read_mode) const {
     // This is a separate method because we need the sindex values from the rget_reader_t
     // in order to make the algorithm in eq_join work. The other method sometimes does
     // not fill in this information.
 
     if (datumspec.is_empty()) {
         return make_scoped<ql::empty_reader_t>(
-            counted_t<real_table_t>(this),
+            counted_t<const real_table_t>(this),
             table_name);
     }
     if (sindex == get_pkey()) {
         return make_scoped<ql::rget_reader_t>(
-            counted_t<real_table_t>(this),
+            counted_t<const real_table_t>(this),
             ql::primary_readgen_t::make(
                 env, table_name, read_mode, datumspec, sorting));
     } else {
         return make_scoped<ql::rget_reader_t>(
-	        counted_t<real_table_t>(this),
+	        counted_t<const real_table_t>(this),
                 ql::sindex_readgen_t::make(
                     env,
                     table_name,
@@ -159,25 +159,25 @@ scoped<ql::datum_stream_t> real_table_t::read_all(
         const std::string &table_name,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) {
+        read_mode_t read_mode) const {
     if (datumspec.is_empty()) {
         return make_scoped<ql::lazy_datum_stream_t>(
             make_scoped<ql::empty_reader_t>(
-	        counted_t<real_table_t>(this),
+	        counted_t<const real_table_t>(this),
                 table_name),
             bt);
     }
     if (sindex == get_pkey()) {
         return make_scoped<ql::lazy_datum_stream_t>(
             make_scoped<ql::rget_reader_t>(
-		counted_t<real_table_t>(this),
+		counted_t<const real_table_t>(this),
                 ql::primary_readgen_t::make(
                     env, table_name, read_mode, datumspec, sorting)),
             bt);
     } else {
         return make_scoped<ql::lazy_datum_stream_t>(
             make_scoped<ql::rget_reader_t>(
-	        counted_t<real_table_t>(this),
+	        counted_t<const real_table_t>(this),
                 ql::sindex_readgen_t::make(
                     env, table_name, read_mode, sindex, datumspec, sorting)),
             bt);
@@ -188,7 +188,7 @@ scoped<ql::datum_stream_t> real_table_t::read_all(
 counted_t<ql::datum_stream_t> real_table_t::read_changes(
         ql::env_t *env,
         const ql::changefeed::streamspec_t &ss,
-        ql::backtrace_id_t bt) {
+        ql::backtrace_id_t bt) const {
     return changefeed_client->new_stream(env, ss, uuid, bt);
 }
 #endif
@@ -199,11 +199,11 @@ scoped<ql::datum_stream_t> real_table_t::read_intersecting(
         ql::backtrace_id_t bt,
         const std::string &table_name,
         read_mode_t read_mode,
-        const ql::datum_t &query_geometry) {
+        const ql::datum_t &query_geometry) const {
 
     return make_scoped<ql::lazy_datum_stream_t>(
         make_scoped<ql::intersecting_reader_t>(
-            counted_t<real_table_t>(this),
+            counted_t<const real_table_t>(this),
             ql::intersecting_readgen_t::make(
                 env, table_name, read_mode, sindex, query_geometry)),
         bt);
@@ -219,7 +219,7 @@ ql::datum_t real_table_t::read_nearest(
         uint64_t max_results,
         const ellipsoid_spec_t &geo_system,
         dist_unit_t dist_unit,
-        const ql::configured_limits_t &limits) {
+        const ql::configured_limits_t &limits) const {
 
     nearest_geo_read_t geo_read(
         center,
@@ -309,7 +309,7 @@ ql::datum_t real_table_t::write_batched_replace(
     const ql::deterministic_func &func,
     return_changes_t return_changes,
     durability_requirement_t durability,
-    ignore_write_hook_t ignore_write_hook) {
+    ignore_write_hook_t ignore_write_hook) const {
 
     std::vector<store_key_t> store_keys;
     store_keys.reserve(keys.size());
@@ -365,7 +365,7 @@ ql::datum_t real_table_t::write_batched_insert(
     optional<ql::deterministic_func> conflict_func,
     return_changes_t return_changes,
     durability_requirement_t durability,
-    ignore_write_hook_t ignore_write_hook) {
+    ignore_write_hook_t ignore_write_hook) const {
 
     ql::datum_t stats((std::map<datum_string_t, ql::datum_t>()));
     std::set<std::string> conditions;
@@ -395,7 +395,7 @@ ql::datum_t real_table_t::write_batched_insert(
 }
 
 void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
-        read_response_t *response) {
+        read_response_t *response) const {
     PROFILE_STARTER_IF_ENABLED(
         env->profile() == profile_bool_t::PROFILE,
         (read.read_mode == read_mode_t::OUTDATED ? "Perform outdated read." :
@@ -431,7 +431,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
 }
 
 void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
-        write_response_t *response) {
+        write_response_t *response) const {
     PROFILE_STARTER_IF_ENABLED(
         env->profile() == profile_bool_t::PROFILE, "Perform write", env->trace);
     // TODO: Remove splitter.

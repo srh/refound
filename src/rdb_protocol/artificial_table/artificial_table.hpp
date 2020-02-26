@@ -29,7 +29,7 @@ public:
     const std::string &get_pkey() const override;
 
     ql::datum_t read_row(ql::env_t *env,
-        ql::datum_t pval, read_mode_t read_mode) override;
+        ql::datum_t pval, read_mode_t read_mode) const override;
     scoped<ql::datum_stream_t> read_all(
         ql::env_t *env,
         const std::string &get_all_sindex_id,
@@ -37,14 +37,14 @@ public:
         const std::string &table_name,   /* the table's own name, for display purposes */
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) override;
+        read_mode_t read_mode) const override;
     scoped<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,
         const std::string &table_name,
         read_mode_t read_mode,
-        const ql::datum_t &query_geometry) override;
+        const ql::datum_t &query_geometry) const override;
     ql::datum_t read_nearest(
         ql::env_t *env,
         const std::string &sindex,
@@ -55,7 +55,7 @@ public:
         uint64_t max_results,
         const ellipsoid_spec_t &geo_system,
         dist_unit_t dist_unit,
-        const ql::configured_limits_t &limits) override;
+        const ql::configured_limits_t &limits) const override;
 
     ql::datum_t write_batched_replace(
         ql::env_t *env,
@@ -63,7 +63,7 @@ public:
         const ql::deterministic_func &func,
         return_changes_t _return_changes,
         durability_requirement_t durability,
-        ignore_write_hook_t ignore_write_hook) override;
+        ignore_write_hook_t ignore_write_hook) const override;
     ql::datum_t write_batched_insert(
         ql::env_t *env,
         std::vector<ql::datum_t> &&inserts,
@@ -72,7 +72,7 @@ public:
         optional<ql::deterministic_func> conflict_func,
         return_changes_t return_changes,
         durability_requirement_t durability,
-        ignore_write_hook_t ignore_write_hook) override;
+        ignore_write_hook_t ignore_write_hook) const override;
 
     scoped_ptr_t<ql::reader_t> read_all_with_sindexes(
         ql::env_t *env,
@@ -81,7 +81,7 @@ public:
         const std::string &table_name,
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
-        read_mode_t read_mode) override;
+        read_mode_t read_mode) const override;
 
     static const uuid_u base_table_id;
 
@@ -98,7 +98,7 @@ private:
         return_changes_t return_changes,
         const signal_t *interruptor,
         ql::datum_t *stats_inout,
-        std::set<std::string> *conditions_inout);
+        std::set<std::string> *conditions_inout) const;
 
     artificial_table_fdb_backend_t *const m_backend;
     const std::string m_primary_key_name;
