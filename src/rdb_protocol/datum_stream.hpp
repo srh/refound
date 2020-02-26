@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "btree/key_edges.hpp"
-#include "containers/counted.hpp"
 #include "containers/optional.hpp"
 #include "containers/scoped.hpp"
 #include "rdb_protocol/changefeed.hpp"
@@ -59,8 +58,7 @@ struct changespec_t {
 };
 #endif  // RDB_CF
 
-class datum_stream_t : public single_threaded_countable_t<datum_stream_t>,
-                       public bt_rcheckable_t {
+class datum_stream_t : public bt_rcheckable_t {
 public:
     virtual ~datum_stream_t() { }
     virtual void set_notes(response_t *) const { }
