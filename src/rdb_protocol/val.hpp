@@ -35,7 +35,7 @@ class val_t;
 onto it. */
 class table_t : public single_threaded_countable_t<table_t>, public bt_rcheckable_t {
 public:
-    table_t(counted_t<base_table_t> &&,
+    table_t(counted_t<const base_table_t> &&,
             counted_t<const db_t> db, const name_string_t &name,
             read_mode_t _read_mode, backtrace_id_t src);
     namespace_id_t get_id() const;
@@ -104,7 +104,7 @@ public:
         const datum_range_t &bounds,
         sorting_t sorting);
 
-    counted_t<base_table_t> tbl;
+    counted_t<const base_table_t> tbl;
 
 private:
     datum_t batched_insert_with_keys(

@@ -104,7 +104,7 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered_as_stream(
     };
     optional<ql::changefeed::keyspec_t> keyspec(ql::changefeed::keyspec_t(
         std::move(range_keyspec),
-        counted_t<base_table_t>(
+        counted_t<const base_table_t>(
             new artificial_table_t(
                 artificial_reql_cluster_interface_t::database_id, this)),
         m_table_name.str()));

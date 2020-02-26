@@ -43,7 +43,7 @@ std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorte
 bool artificial_reql_cluster_interface_t::table_find(
         const name_string_t &name,
         admin_identifier_format_t identifier_format,
-        counted_t<base_table_t> *table_out,
+        counted_t<const base_table_t> *table_out,
         admin_err_t *error_out) {
     auto backend = get_table_backend_or_null(name, identifier_format);
     if (backend != nullptr) {

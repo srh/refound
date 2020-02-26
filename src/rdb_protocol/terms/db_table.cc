@@ -1072,7 +1072,7 @@ counted_t<table_t> provisional_to_table(
 
     if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
         admin_err_t error;
-        counted_t<base_table_t> table;
+        counted_t<const base_table_t> table;
         if (!art_or_null->table_find(prov_table.table_name,
                 prov_table.identifier_format.value_or(admin_identifier_format_t::name),
                 &table, &error)) {
@@ -1083,7 +1083,7 @@ counted_t<table_t> provisional_to_table(
             prov_table.bt);
     }
 
-    counted_t<real_table_t> table;
+    counted_t<const real_table_t> table;
     counted_t<const db_t> out_db;
 
     // TODO: ASSERT_NO_CORO_WAITING on these two cache lookups, as mutex assertion.
