@@ -80,36 +80,37 @@ void get_replicas_and_primary(env_t *env,
 
     if (replicas.has()) {
         params->num_replicas.clear();
+        backtrace_id_t replicas_bt = replicas->backtrace();
         datum_t datum = replicas->as_datum(env);
         if (datum.get_type() == datum_t::R_OBJECT) {
-            rcheck_target(replicas.get(), primary_replica_tag.has(), base_exc_t::LOGIC,
+            rcheck_src(replicas_bt, primary_replica_tag.has(), base_exc_t::LOGIC,
                 "`primary_replica_tag` must be specified when `replicas` is an OBJECT.");
             for (size_t i = 0; i < datum.obj_size(); ++i) {
                 std::pair<datum_string_t, datum_t> pair = datum.get_pair(i);
-                name_string_t name = get_name(replicas->backtrace(), pair.first, "Server tag");
-                int64_t count = checked_convert_to_int(replicas.get(),
+                name_string_t name = get_name(replicas_bt, pair.first, "Server tag");
+                int64_t count = checked_convert_to_int(replicas_bt,
                                                        pair.second.as_num());
-                rcheck_target(replicas.get(), count >= 0,
+                rcheck_src(replicas_bt, count >= 0,
                     base_exc_t::LOGIC, "Can't have a negative number of replicas");
                 size_t size_count = static_cast<size_t>(count);
-                rcheck_target(replicas.get(), static_cast<int64_t>(size_count) == count,
+                rcheck_src(replicas_bt, static_cast<int64_t>(size_count) == count,
                               base_exc_t::LOGIC,
                               strprintf("Integer too large: %" PRIi64, count));
                 params->num_replicas.insert(std::make_pair(name, size_count));
             }
         } else if (datum.get_type() == datum_t::R_NUM) {
-            rcheck_target(
-                replicas.get(), !primary_replica_tag.has(), base_exc_t::LOGIC,
+            rcheck_src(
+                replicas_bt, !primary_replica_tag.has(), base_exc_t::LOGIC,
                 "`replicas` must be an OBJECT if `primary_replica_tag` is specified.");
-            rcheck_target(
-                replicas.get(), !nonvoting_replica_tags.has(), base_exc_t::LOGIC,
+            rcheck_src(
+                replicas_bt, !nonvoting_replica_tags.has(), base_exc_t::LOGIC,
                 "`replicas` must be an OBJECT if `nonvoting_replica_tags` is "
                 "specified.");
-            size_t count = replicas->as_int<size_t>(env);
+            size_t count = val_t::int64_as_int<size_t>(replicas_bt, datum.as_int());
             params->num_replicas.insert(
                 std::make_pair(params->primary_replica_tag, count));
         } else {
-            rfail_target(replicas, base_exc_t::LOGIC,
+            rfail_src(replicas_bt, base_exc_t::LOGIC,
                 "Expected type OBJECT or NUMBER but found %s:\n%s",
                 datum.get_type_name().c_str(), datum.print().c_str());
         }

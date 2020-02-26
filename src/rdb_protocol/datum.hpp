@@ -437,6 +437,7 @@ bool number_as_integer(double d, int64_t *i_out);
 
 // Converts a double to int, calling number_as_integer and throwing if it fails.
 int64_t checked_convert_to_int(const rcheckable_t *target, double d);
+int64_t checked_convert_to_int(backtrace_id_t src, double d);
 
 // Useful for building an object datum and doing mutation operations
 class datum_object_builder_t {

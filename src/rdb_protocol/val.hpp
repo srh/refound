@@ -274,19 +274,23 @@ public:
     double as_num(scope_env_t *env) const {
         return as_num(env->env);
     }
-    template<class T>
-    T as_int(env_t *env) const {
-        int64_t i = as_int(env);
+    template <class T>
+    static T int64_as_int(backtrace_id_t bt, int64_t i) {
         T t = static_cast<T>(i);
-        rcheck(static_cast<int64_t>(t) == i,
+        rcheck_src(bt, static_cast<int64_t>(t) == i,
                base_exc_t::LOGIC,
                strprintf("Integer too large: %" PRIi64, i));
         return t;
     }
+    template<class T>
+    T as_int(env_t *env) const {
+        int64_t i = as_int(env);
+        return val_t::int64_as_int<T>(backtrace(), i);
+    }
     int64_t as_int(env_t *env) const;
     template<class T>
     T as_int(scope_env_t *env) const {
-        return as_int(env->env);
+        return as_int<T>(env->env);
     }
     int64_t as_int(scope_env_t *env) const {
         return as_int(env->env);

@@ -1243,6 +1243,20 @@ bool number_as_integer(double d, int64_t *i_out) {
     return false;
 }
 
+// TODO: This code is duplicated.  The error message in particular.
+int64_t checked_convert_to_int(backtrace_id_t src, double d) {
+    int64_t i;
+    if (number_as_integer(d, &i)) {
+        return i;
+    } else {
+        rfail_src(src, base_exc_t::LOGIC,
+                     "Number not an integer%s: %" PR_RECONSTRUCTABLE_DOUBLE,
+                     d < min_dbl_int ? " (<-2^53)" :
+                         d > max_dbl_int ? " (>2^53)" : "",
+                     d);
+    }
+}
+
 int64_t checked_convert_to_int(const rcheckable_t *target, double d) {
     int64_t i;
     if (number_as_integer(d, &i)) {
