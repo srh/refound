@@ -123,11 +123,9 @@ public:
                   optional<std::string> _idx = r_nullopt,
                   sorting_t _sorting = sorting_t::UNORDERED,
                   datum_range_t _bounds = datum_range_t::universe());
-    // TODO: Make these &&, in order to state something about the linearity of reql
-    // evaluation.
-    scoped<datum_stream_t> as_seq(env_t *env, backtrace_id_t bt);
-    scoped<table_slice_t> with_sorting(std::string idx, sorting_t sorting);
-    scoped<table_slice_t> with_bounds(std::string idx, datum_range_t bounds);
+    scoped<datum_stream_t> as_seq(env_t *env, backtrace_id_t bt) &&;
+    scoped<table_slice_t> with_sorting(std::string idx, sorting_t sorting) &&;
+    scoped<table_slice_t> with_bounds(std::string idx, datum_range_t bounds) &&;
     const counted_t<table_t> &get_tbl() const { return tbl; }
     const optional<std::string> &get_idx() const { return idx; }
 #if RDB_CF

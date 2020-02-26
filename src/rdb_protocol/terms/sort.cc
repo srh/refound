@@ -60,15 +60,19 @@ private:
         raw_term_t raw_term = get_src();
         lt_cmp_t lt_cmp(comparisons);
 
+        // We copy tbl out of tbl_slice before we std::move the tbl_slice.
         scoped<table_slice_t> tbl_slice;
+        counted_t<table_t> tbl;
         scoped<datum_stream_t> seq;
         {
             scoped_ptr_t<val_t> v0 = args->arg(env, 0);
             if (v0->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
                 tbl_slice = std::move(*v0).as_table_slice(env->env);
+                tbl = tbl_slice->get_tbl();
             } else if (v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
                 scoped<selection_t> selection = std::move(*v0).as_selection(env->env);
                 tbl_slice = make_scoped<table_slice_t>(std::move(selection->table));
+                tbl = tbl_slice->get_tbl();
                 seq = std::move(selection->seq);
             } else {
                 seq = std::move(*v0).as_seq(env->env);
@@ -95,16 +99,16 @@ private:
             }
             r_sanity_check(sorting != sorting_t::UNORDERED);
             std::string index_str = index->as_str(env).to_std();
-            tbl_slice = tbl_slice->with_sorting(index_str, sorting);
+            tbl_slice = std::move(*tbl_slice).with_sorting(index_str, sorting);
             if (!comparisons.empty()) {
                 seq = make_scoped<indexed_sort_datum_stream_t>(
-                    tbl_slice->as_seq(env->env, backtrace()), lt_cmp);
+                    std::move(*tbl_slice).as_seq(env->env, backtrace()), lt_cmp);
             } else {
                 return new_val(std::move(tbl_slice));
             }
         } else {
             if (!seq.has()) {
-                seq = tbl_slice->as_seq(env->env, backtrace());
+                seq = std::move(*tbl_slice).as_seq(env->env, backtrace());
             }
             rcheck(!comparisons.empty(), base_exc_t::LOGIC,
                    "Must specify something to order by.");
@@ -126,8 +130,8 @@ private:
                 datum_t(std::move(to_sort), env->env->limits()),
                 backtrace());
         }
-        return tbl_slice.has()
-            ? new_val(make_scoped<selection_t>(tbl_slice->get_tbl(), std::move(seq)))
+        return tbl.has() /* same as tbl_slice.has() */
+            ? new_val(make_scoped<selection_t>(tbl, std::move(seq)))
             : new_val(env->env, std::move(seq));
     }
 
@@ -154,14 +158,14 @@ private:
                 map_wire_func_t mwf(r.var(row)[idx_str].root_term(),
                     std::vector<sym_t>(1, minidriver_t::dummy_var_to_sym(row)));
 
-                scoped<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
+                scoped<datum_stream_t> s = std::move(*tbl_slice).as_seq(env->env, backtrace());
                 s->add_transformation(std::move(mwf), backtrace());
                 return new_val(env->env, std::move(s));
             } else if (!tbl_slice->get_idx().has_value() || *tbl_slice->get_idx() == idx_str) {
                 if (tbl_slice->sorting == sorting_t::UNORDERED) {
-                    tbl_slice = tbl_slice->with_sorting(idx_str, sorting_t::ASCENDING);
+                    tbl_slice = std::move(*tbl_slice).with_sorting(idx_str, sorting_t::ASCENDING);
                 }
-                scoped<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
+                scoped<datum_stream_t> s = std::move(*tbl_slice).as_seq(env->env, backtrace());
                 s->add_transformation(distinct_wire_func_t(idx.has()), backtrace());
                 return new_val(env->env, make_scoped<ordered_distinct_datum_stream_t>(std::move(s)));
             }

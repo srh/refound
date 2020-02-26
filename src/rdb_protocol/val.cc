@@ -73,7 +73,9 @@ public:
     virtual datum_t get(env_t *env) {
         if (!row.has()) {
             batchspec_t batchspec = batchspec_t::all().with_at_most(1);
-            row = slice->as_seq(env, bt)->next(env, batchspec);
+            r_sanity_check(slice.has());
+            row = std::move(*slice).as_seq(env, bt)->next(env, batchspec);
+            slice.reset();
             if (!row.has()) {
                 rfail_src(bt, base_exc_t::LOGIC, "%s", err.c_str());
             }
@@ -141,13 +143,13 @@ table_slice_t::table_slice_t(counted_t<table_t> _tbl,
 
 
 scoped<datum_stream_t> table_slice_t::as_seq(
-    env_t *env, backtrace_id_t _bt) {
+    env_t *env, backtrace_id_t _bt) && {
     // Empty bounds will be handled by as_seq with empty_reader_t
     return tbl->as_seq(env, idx.has_value() ? *idx : tbl->get_pkey(), _bt, bounds, sorting);
 }
 
 scoped<table_slice_t>
-table_slice_t::with_sorting(std::string _idx, sorting_t _sorting) {
+table_slice_t::with_sorting(std::string _idx, sorting_t _sorting) && {
     rcheck(sorting == sorting_t::UNORDERED, base_exc_t::LOGIC,
            "Cannot perform multiple indexed ORDER_BYs on the same table.");
     bool idx_legal = idx.has_value() ? (*idx == _idx) : true;
@@ -159,7 +161,7 @@ table_slice_t::with_sorting(std::string _idx, sorting_t _sorting) {
 }
 
 scoped<table_slice_t>
-table_slice_t::with_bounds(std::string _idx, datum_range_t _bounds) {
+table_slice_t::with_bounds(std::string _idx, datum_range_t _bounds) && {
     rcheck(bounds.is_universe(), base_exc_t::LOGIC,
            "Cannot perform multiple BETWEENs on the same table.");
     bool idx_legal = idx.has_value() ? (*idx == _idx) : true;
@@ -743,7 +745,8 @@ scoped<datum_stream_t> val_t::as_seq(env_t *env) && {
     } else if (type.raw_type == type_t::SELECTION) {
         return std::move(selection()->seq);
     } else if (type.raw_type == type_t::TABLE_SLICE || type.raw_type == type_t::TABLE) {
-        return std::move(*this).as_table_slice(env)->as_seq(env, backtrace());
+        scoped<table_slice_t> slice = std::move(*this).as_table_slice(env);
+        return std::move(*slice).as_seq(env, backtrace());
     } else if (type.raw_type == type_t::DATUM) {
         return datum().as_datum_stream(backtrace());
     }
@@ -795,9 +798,10 @@ scoped<selection_t> val_t::as_selection(env_t *env) && {
         return std::move(selection());
     } else if (type.is_convertible(type_t::TABLE_SLICE)) {
         scoped<table_slice_t> slice = std::move(*this).as_table_slice(env);
+        counted_t<table_t> tbl = slice->get_tbl();
         return make_scoped<selection_t>(
-            slice->get_tbl(),
-            slice->as_seq(env, backtrace()));
+            tbl,
+            std::move(*slice).as_seq(env, backtrace()));
     }
     rcheck_literal_type(env, type_t::SELECTION);
     unreachable();

@@ -396,7 +396,7 @@ private:
                 append_index = true;
             }
             r_sanity_check(slice.has());
-            seq = slice->as_seq(env->env, backtrace());
+            seq = std::move(*slice).as_seq(env->env, backtrace());
         } else {
             scoped<val_t> arg0 = args->arg(env, 0);
             seq = std::move(*arg0).as_seq(env->env);
@@ -731,7 +731,7 @@ private:
         return new_val(
             // `table_slice_t` can handle emtpy / invalid `datum_range_t`'s, checking is
             // done there.
-            tbl_slice->with_bounds(
+            std::move(*tbl_slice).with_bounds(
                 idx,
                 datum_range_t(
                     lb, left_open ? key_range_t::open : key_range_t::closed,
