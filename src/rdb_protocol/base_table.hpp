@@ -48,9 +48,7 @@ public:
         const std::string &,
         const ql::datumspec_t &,
         sorting_t,
-        read_mode_t) {
-        r_sanity_fail();
-    }
+        read_mode_t) = 0;
 
     virtual ql::datum_t read_row(ql::env_t *env,
         ql::datum_t pval, read_mode_t read_mode) = 0;
