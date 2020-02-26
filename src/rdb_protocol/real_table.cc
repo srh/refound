@@ -152,7 +152,7 @@ scoped_ptr_t<ql::reader_t> real_table_t::read_all_with_sindexes(
     }
 }
 
-counted_t<ql::datum_stream_t> real_table_t::read_all(
+scoped<ql::datum_stream_t> real_table_t::read_all(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,
@@ -161,21 +161,21 @@ counted_t<ql::datum_stream_t> real_table_t::read_all(
         sorting_t sorting,
         read_mode_t read_mode) {
     if (datumspec.is_empty()) {
-        return make_counted<ql::lazy_datum_stream_t>(
+        return make_scoped<ql::lazy_datum_stream_t>(
             make_scoped<ql::empty_reader_t>(
 	        counted_t<real_table_t>(this),
                 table_name),
             bt);
     }
     if (sindex == get_pkey()) {
-        return make_counted<ql::lazy_datum_stream_t>(
+        return make_scoped<ql::lazy_datum_stream_t>(
             make_scoped<ql::rget_reader_t>(
 		counted_t<real_table_t>(this),
                 ql::primary_readgen_t::make(
                     env, table_name, read_mode, datumspec, sorting)),
             bt);
     } else {
-        return make_counted<ql::lazy_datum_stream_t>(
+        return make_scoped<ql::lazy_datum_stream_t>(
             make_scoped<ql::rget_reader_t>(
 	        counted_t<real_table_t>(this),
                 ql::sindex_readgen_t::make(
@@ -193,7 +193,7 @@ counted_t<ql::datum_stream_t> real_table_t::read_changes(
 }
 #endif
 
-counted_t<ql::datum_stream_t> real_table_t::read_intersecting(
+scoped<ql::datum_stream_t> real_table_t::read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,
@@ -201,7 +201,7 @@ counted_t<ql::datum_stream_t> real_table_t::read_intersecting(
         read_mode_t read_mode,
         const ql::datum_t &query_geometry) {
 
-    return make_counted<ql::lazy_datum_stream_t>(
+    return make_scoped<ql::lazy_datum_stream_t>(
         make_scoped<ql::intersecting_reader_t>(
             counted_t<real_table_t>(this),
             ql::intersecting_readgen_t::make(

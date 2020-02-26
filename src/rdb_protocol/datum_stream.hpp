@@ -79,11 +79,6 @@ public:
     scoped_ptr_t<val_t> run_terminal(env_t *env, const terminal_variant_t &tv);
     scoped_ptr_t<val_t> to_array(env_t *env);
 
-    // stream -> stream (always eager)
-    counted_t<datum_stream_t> slice(size_t l, size_t r);
-    counted_t<datum_stream_t> offsets_of(counted_t<const func_t> f);
-    counted_t<datum_stream_t> ordered_distinct();
-
     // Returns false or NULL respectively if stream is lazy.
     virtual bool is_array() const = 0;
     virtual datum_t as_array(env_t *env) = 0;
@@ -156,8 +151,9 @@ private:
 
 class wrapper_datum_stream_t : public eager_datum_stream_t {
 protected:
-    explicit wrapper_datum_stream_t(counted_t<datum_stream_t> _source)
-        : eager_datum_stream_t(_source->backtrace()), source(_source) { }
+    explicit wrapper_datum_stream_t(scoped<datum_stream_t> &&_source)
+        : eager_datum_stream_t(_source->backtrace()),
+          source(std::move(_source)) { }
 private:
     virtual bool is_array() const { return source->is_array(); }
     virtual datum_t as_array(env_t *env) {
@@ -176,7 +172,7 @@ private:
     }
 
 protected:
-    const counted_t<datum_stream_t> source;
+    const scoped<datum_stream_t> source;
 };
 
 // Every shard is in a particular state.  ACTIVE means we should read more data

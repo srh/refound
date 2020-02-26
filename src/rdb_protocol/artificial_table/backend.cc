@@ -86,7 +86,7 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered_as_stream(
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         const signal_t *interruptor,
-        counted_t<ql::datum_stream_t> *rows_out,
+        scoped<ql::datum_stream_t> *rows_out,
         admin_err_t *error_out) {
     std::vector<ql::datum_t> rows;
     if (!read_all_rows_filtered(fdb, user_context, datumspec, sorting, interruptor,
@@ -112,10 +112,10 @@ bool artificial_table_fdb_backend_t::read_all_rows_filtered_as_stream(
 #endif  // RDB_CF
 
 #if RDB_CF
-    *rows_out = make_counted<ql::vector_datum_stream_t>(
+    *rows_out = make_scoped<ql::vector_datum_stream_t>(
         bt, std::move(rows), std::move(keyspec));
 #else
-    *rows_out = make_counted<ql::vector_datum_stream_t>(
+    *rows_out = make_scoped<ql::vector_datum_stream_t>(
         bt, std::move(rows));
 #endif
     return true;

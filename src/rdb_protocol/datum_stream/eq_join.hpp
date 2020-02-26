@@ -2,13 +2,14 @@
 #define RDB_PROTOCOL_DATUM_STREAM_EQ_JOIN_HPP_
 
 #include "rdb_protocol/datum_stream.hpp"
+#include "rdb_protocol/datum_stream/readers.hpp"
 #include "rdb_protocol/val.hpp"
 
 namespace ql {
 
 class eq_join_datum_stream_t : public eager_datum_stream_t {
 public:
-    eq_join_datum_stream_t(counted_t<datum_stream_t> _stream,
+    eq_join_datum_stream_t(scoped<datum_stream_t> &&_stream,
                            counted_t<table_t> _table,
                            datum_string_t _join_index,
                            counted_t<const func_t> _predicate,
@@ -31,7 +32,7 @@ public:
     }
 
 private:
-    counted_t<datum_stream_t> stream;
+    scoped<datum_stream_t> stream;
     scoped_ptr_t<reader_t> get_all_reader;
     std::vector<rget_item_t> get_all_items;
 

@@ -1040,7 +1040,8 @@ private:
         profile::sampler_t sampler("Evaluating CONCAT_MAP elements.", env->trace);
         try {
             for (auto it = lst->begin(); it != lst->end(); ++it) {
-                auto ds = f->call(env, *it)->as_seq(env);
+                scoped<val_t> fres = f->call(env, *it);
+                auto ds = std::move(*fres).as_seq(env);
                 for (;;) {
                     auto v = ds->next_batch(env, bs);
                     if (v.size() == 0) break;

@@ -15,7 +15,7 @@
 
 namespace ql {
 
-selection_t::selection_t(counted_t<table_t> _table, counted_t<datum_stream_t> _seq)
+selection_t::selection_t(counted_t<table_t> _table, scoped<datum_stream_t> &&_seq)
         : table(std::move(_table)), seq(std::move(_seq)) { }
 selection_t::~selection_t() {}
 
@@ -140,7 +140,7 @@ table_slice_t::table_slice_t(counted_t<table_t> _tbl,
       sorting(_sorting), bounds(std::move(_bounds)) { }
 
 
-counted_t<datum_stream_t> table_slice_t::as_seq(
+scoped<datum_stream_t> table_slice_t::as_seq(
     env_t *env, backtrace_id_t _bt) {
     // Empty bounds will be handled by as_seq with empty_reader_t
     return tbl->as_seq(env, idx.has_value() ? *idx : tbl->get_pkey(), _bt, bounds, sorting);
@@ -182,7 +182,7 @@ ql::changefeed::keyspec_t::range_t table_slice_t::get_range_spec() {
 }
 #endif  // RDB_CF
 
-counted_t<datum_stream_t> table_t::as_seq(
+scoped<datum_stream_t> table_t::as_seq(
     env_t *env,
     const std::string &idx,
     backtrace_id_t _bt,
@@ -499,7 +499,7 @@ scoped_ptr_t<reader_t> table_t::get_all_with_sindexes(
         read_mode);
 }
 
-counted_t<datum_stream_t> table_t::get_all(
+scoped<datum_stream_t> table_t::get_all(
         env_t *env,
         const datumspec_t &datumspec,
         const std::string &get_all_sindex_id,
@@ -514,7 +514,7 @@ counted_t<datum_stream_t> table_t::get_all(
         read_mode);
 }
 
-counted_t<datum_stream_t> table_t::get_intersecting(
+scoped<datum_stream_t> table_t::get_intersecting(
         env_t *env,
         const datum_t &query_geometry,
         const std::string &new_sindex_id,
@@ -621,17 +621,17 @@ val_t::val_t(scoped<single_selection_t> &&_selection, backtrace_id_t _bt)
     guarantee(single_selection().has());
 }
 
-val_t::val_t(env_t *env, counted_t<datum_stream_t> _sequence,
+val_t::val_t(env_t *env, scoped<datum_stream_t> &&_sequence,
              backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::SEQUENCE),
-      u(_sequence) {
+      u(std::move(_sequence)) {
     guarantee(sequence().has());
     // Some streams are really arrays in disguise.
     datum_t arr = sequence()->as_array(env);
     if (arr.has()) {
         type = type_t::DATUM;
-        u = arr;
+        u = std::move(arr);
     }
 }
 
@@ -718,11 +718,30 @@ counted_t<table_slice_t> val_t::as_table_slice(env_t *env) {
     }
 }
 
-counted_t<datum_stream_t> val_t::as_seq(env_t *env) {
+// Equivalent to as_seq(env)->is_grouped().
+bool val_t::is_grouped_seq() const {
     if (type.raw_type == type_t::SEQUENCE) {
-        return sequence();
+        return sequence()->is_grouped();
     } else if (type.raw_type == type_t::SELECTION) {
-        return selection()->seq;
+        // This can never be grouped, because we don't construct a selection from an
+        // existing datum_stream_t (that might possibly be grouped) unless it's already
+        // a selection.  And because ReQL doesn't work that way.  Nonetheless, we just
+        // assert that, so that this function being equivalent to
+        // as_seq(env)->is_grouped() only uses local reasoning about val_t::as_seq
+        // behavior.
+        bool ret = selection()->seq->is_grouped();
+        rassert(ret == false);
+        return ret;
+    } else {
+        return false;
+    }
+}
+
+scoped<datum_stream_t> val_t::as_seq(env_t *env) && {
+    if (type.raw_type == type_t::SEQUENCE) {
+        return std::move(sequence());
+    } else if (type.raw_type == type_t::SELECTION) {
+        return std::move(selection()->seq);
     } else if (type.raw_type == type_t::TABLE_SLICE || type.raw_type == type_t::TABLE) {
         return as_table_slice(env)->as_seq(env, backtrace());
     } else if (type.raw_type == type_t::DATUM) {

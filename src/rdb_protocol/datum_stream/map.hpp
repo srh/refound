@@ -7,7 +7,7 @@ namespace ql {
 
 class map_datum_stream_t : public eager_datum_stream_t {
 public:
-    map_datum_stream_t(std::vector<counted_t<datum_stream_t> > &&_streams,
+    map_datum_stream_t(std::vector<scoped<datum_stream_t>> &&_streams,
                        counted_t<const func_t> &&_func,
                        backtrace_id_t bt);
 
@@ -26,7 +26,7 @@ public:
     }
 
 private:
-    std::vector<counted_t<datum_stream_t> > streams;
+    std::vector<scoped<datum_stream_t>> streams;
     counted_t<const func_t> func;
     feed_type_t union_type;
     bool is_array_map, is_infinite_map;

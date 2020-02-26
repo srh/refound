@@ -7,7 +7,7 @@ namespace ql {
 
 class ordered_distinct_datum_stream_t : public wrapper_datum_stream_t {
 public:
-    explicit ordered_distinct_datum_stream_t(counted_t<datum_stream_t> _source);
+    explicit ordered_distinct_datum_stream_t(scoped<datum_stream_t> &&_source);
 private:
     std::vector<datum_t>
     next_raw_batch(env_t *env, const batchspec_t &batchspec);

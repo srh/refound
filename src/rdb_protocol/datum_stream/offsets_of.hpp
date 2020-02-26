@@ -7,7 +7,9 @@ namespace ql {
 
 class offsets_of_datum_stream_t : public wrapper_datum_stream_t {
 public:
-    offsets_of_datum_stream_t(counted_t<const func_t> _f, counted_t<datum_stream_t> _source);
+    offsets_of_datum_stream_t(
+        counted_t<const func_t> _f,
+        scoped<datum_stream_t> &&_source);
 
 private:
     std::vector<datum_t>

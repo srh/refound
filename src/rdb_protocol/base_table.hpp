@@ -54,7 +54,7 @@ public:
 
     virtual ql::datum_t read_row(ql::env_t *env,
         ql::datum_t pval, read_mode_t read_mode) = 0;
-    virtual counted_t<ql::datum_stream_t> read_all(
+    virtual scoped<ql::datum_stream_t> read_all(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,
@@ -62,7 +62,7 @@ public:
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         read_mode_t read_mode) = 0;
-    virtual counted_t<ql::datum_stream_t> read_intersecting(
+    virtual scoped<ql::datum_stream_t> read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
         ql::backtrace_id_t bt,

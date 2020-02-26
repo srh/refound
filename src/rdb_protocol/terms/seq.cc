@@ -40,10 +40,10 @@ private:
             if (uses_idx() && v->get_type().is_convertible(val_t::type_t::TABLE)) {
                 return on_idx(env->env, v->as_table(env->env), std::move(idx));
             } else {
-                return v->as_seq(env->env)->run_terminal(env->env, T(backtrace()));
+                return std::move(*v).as_seq(env->env)->run_terminal(env->env, T(backtrace()));
             }
         } else if (func.has() && !idx.has()) {
-            return v->as_seq(env->env)->run_terminal(env->env, T(backtrace(), func));
+            return std::move(*v).as_seq(env->env)->run_terminal(env->env, T(backtrace(), func));
         } else if (!func.has() && idx.has()) {
             return on_idx(env->env, v->as_table(env->env), std::move(idx));
         } else {
@@ -151,12 +151,12 @@ private:
                     break;
                 }
             }
-            return v0->as_seq(env->env)
+            return std::move(*v0).as_seq(env->env)
                 ->run_terminal(env->env, count_wire_func_t());
         } else {
             scoped_ptr_t<val_t> v1 = args->arg(env, 1);
             if (v1->get_type().is_convertible(val_t::type_t::FUNC)) {
-                counted_t<datum_stream_t> stream = v0->as_seq(env->env);
+                scoped<datum_stream_t> stream = std::move(*v0).as_seq(env->env);
                 stream->add_transformation(
                         filter_wire_func_t(v1->as_func(env->env), r_nullopt),
                         backtrace());
@@ -164,7 +164,7 @@ private:
             } else {
                 counted_t<const func_t> f =
                     new_eq_comparison_func(v1->as_datum(env), backtrace());
-                counted_t<datum_stream_t> stream = v0->as_seq(env->env);
+                scoped<datum_stream_t> stream = std::move(*v0).as_seq(env->env);
                 stream->add_transformation(
                         filter_wire_func_t(f, r_nullopt), backtrace());
 
@@ -183,10 +183,11 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env,
                                           args_t *args,
                                           eval_flags_t) const {
-        std::vector<counted_t<datum_stream_t> > streams;
+        std::vector<scoped<datum_stream_t>> streams;
         streams.reserve(args->num_args() - 1);
         for (size_t i = 0; i < args->num_args() - 1; ++i) {
-            streams.push_back(args->arg(env, i)->as_seq(env->env));
+            scoped<val_t> arg_i = args->arg(env, i);
+            streams.push_back(std::move(*arg_i).as_seq(env->env));
         }
 
         counted_t<const func_t> func =
@@ -206,11 +207,11 @@ private:
         if (args->num_args() == 2) {
             streams.front()->add_transformation(
                     map_wire_func_t(std::move(func)), backtrace());
-            return new_val(env->env, streams.front());
+            return new_val(env->env, std::move(streams.front()));
         } else {
-            counted_t<datum_stream_t> map_stream = make_counted<map_datum_stream_t>(
+            scoped<datum_stream_t> map_stream = make_scoped<map_datum_stream_t>(
                 std::move(streams), std::move(func), backtrace());
-            return new_val(env->env, map_stream);
+            return new_val(env->env, std::move(map_stream));
         }
     }
     virtual const char *name() const { return "map"; }
@@ -229,8 +230,10 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env,
                                           args_t *args,
                                           eval_flags_t) const {
-        counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
-        counted_t<table_t> table = args->arg(env, 2)->as_table(env->env);
+        scoped<val_t> arg0 = args->arg(env, 0);
+        scoped<datum_stream_t> stream = std::move(*arg0).as_seq(env->env);
+        scoped<val_t> arg2 = args->arg(env, 2);
+        counted_t<table_t> table = std::move(*arg2).as_table(env->env);
 
         // Either a field name or a predicate function:
         counted_t<const func_t> predicate_function;
@@ -249,15 +252,15 @@ private:
         } else {
             key = datum_t(datum_string_t(table->get_pkey()));
         }
-        counted_t<eq_join_datum_stream_t> eq_join_stream =
-            make_counted<eq_join_datum_stream_t>(stream,
+        scoped<eq_join_datum_stream_t> eq_join_stream =
+            make_scoped<eq_join_datum_stream_t>(std::move(stream),
                                                  table,
                                                  key.as_str(),
                                                  predicate_function,
                                                  ordered,
                                                  backtrace());
 
-        return new_val(env->env, eq_join_stream);
+        return new_val(env->env, std::move(eq_join_stream));
     }
 };
 
@@ -272,7 +275,8 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env,
                                           args_t *args,
                                           eval_flags_t) const {
-        counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
+        scoped<val_t> arg0 = args->arg(env, 0);
+        scoped<datum_stream_t> stream = std::move(*arg0).as_seq(env->env);
 
         datum_t base = args->arg(env, 1)->as_datum(env);
 
@@ -321,11 +325,11 @@ private:
             }
         } else {
             counted_t<const func_t> emit_func = emit_arg->as_func(env->env);
-            counted_t<datum_stream_t> fold_stream;
+            scoped<datum_stream_t> fold_stream;
             if (final_emit_arg.has()) {
                 counted_t<const func_t> final_emit_func = final_emit_arg->as_func(env->env);
                 fold_stream
-                    = make_counted<fold_datum_stream_t>(std::move(stream),
+                    = make_scoped<fold_datum_stream_t>(std::move(stream),
                                                         base,
                                                         std::move(acc_func),
                                                         std::move(emit_func),
@@ -333,14 +337,14 @@ private:
                                                         backtrace());
             } else {
                 fold_stream
-                    = make_counted<fold_datum_stream_t>(std::move(stream),
+                    = make_scoped<fold_datum_stream_t>(std::move(stream),
                                                         base,
                                                         std::move(acc_func),
                                                         std::move(emit_func),
                                                         counted_t<const func_t>(),
                                                         backtrace());
             }
-            return new_val(env->env, fold_stream);
+            return new_val(env->env, std::move(fold_stream));
         }
     }
     virtual const char *name() const { return "fold"; }
@@ -352,12 +356,13 @@ public:
         : grouped_seq_op_term_t(env, term, argspec_t(2)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
+        scoped<val_t> arg0 = args->arg(env, 0);
+        scoped<datum_stream_t> stream = std::move(*arg0).as_seq(env->env);
         stream->add_transformation(
             concatmap_wire_func_t(result_hint_t::NO_HINT,
                                   args->arg(env, 1)->as_func(env->env)),
                 backtrace());
-        return new_val(env->env, stream);
+        return new_val(env->env, std::move(stream));
     }
     virtual const char *name() const { return "concatmap"; }
 };
@@ -375,7 +380,7 @@ private:
             funcs.push_back(args->arg(env, i)->as_func(env->env, GET_FIELD_SHORTCUT));
         }
 
-        counted_t<datum_stream_t> seq;
+        scoped<datum_stream_t> seq;
         bool append_index = false;
         if (scoped_ptr_t<val_t> index = args->optarg(env, "index")) {
             std::string index_str = index->as_str(env).to_std();
@@ -393,7 +398,8 @@ private:
             r_sanity_check(slice.has());
             seq = slice->as_seq(env->env, backtrace());
         } else {
-            seq = args->arg(env, 0)->as_seq(env->env);
+            scoped<val_t> arg0 = args->arg(env, 0);
+            seq = std::move(*arg0).as_seq(env->env);
         }
 
         rcheck((funcs.size() + append_index) != 0, base_exc_t::LOGIC,
@@ -409,7 +415,7 @@ private:
                                             multi),
                           backtrace());
 
-        return new_val(env->env, seq);
+        return new_val(env->env, std::move(seq));
     }
     virtual const char *name() const { return "group"; }
 };
@@ -436,10 +442,10 @@ private:
             ts->seq->add_transformation(filter_wire_func_t(f, defval), backtrace());
             return new_val(std::move(ts));
         } else {
-            counted_t<datum_stream_t> stream = v0->as_seq(env->env);
+            scoped<datum_stream_t> stream = std::move(*v0).as_seq(env->env);
             stream->add_transformation(
                     filter_wire_func_t(f, defval), backtrace());
-            return new_val(env->env, stream);
+            return new_val(env->env, std::move(stream));
         }
     }
 
@@ -456,7 +462,8 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
-        return args->arg(env, 0)->as_seq(env->env)->run_terminal(
+        scoped<val_t> arg0 = args->arg(env, 0);
+        return std::move(*arg0).as_seq(env->env)->run_terminal(
             env->env, reduce_wire_func_t(args->arg(env, 1)->as_func(env->env)));
     }
     virtual const char *name() const { return "reduce"; }
@@ -741,9 +748,10 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env,
                                           args_t *args,
                                           eval_flags_t eval_flags) const {
-        std::vector<counted_t<datum_stream_t> > streams;
+        std::vector<scoped<datum_stream_t>> streams;
         for (size_t i = 0; i < args->num_args(); ++i) {
-            streams.push_back(args->arg(env, i)->as_seq(env->env));
+            scoped<val_t> arg_i = args->arg(env, i);
+            streams.push_back(std::move(*arg_i).as_seq(env->env));
         }
 
         optional<raw_term_t> r_interleave_arg_op = get_src().optarg("interleave");
@@ -753,7 +761,7 @@ private:
         bool allow_unordered_interleave = true;
         bool order_by_field = false;
 
-        counted_t<datum_stream_t> union_stream;
+        scoped<datum_stream_t> union_stream;
 
         if (r_interleave_arg_op.has_value()) {
 
@@ -776,7 +784,7 @@ private:
                     array_args_evaluated.push_back(arg->eval(env, eval_flags));
                 }
 
-                union_stream = make_counted<ordered_union_datum_stream_t>(
+                union_stream = make_scoped<ordered_union_datum_stream_t>(
                     std::move(streams),
                     build_comparisons_from_optional_terms(this,
                                                           env,
@@ -801,7 +809,7 @@ private:
                     allow_unordered_interleave = false;
                     order_by_field = true;
 
-                    union_stream = make_counted<ordered_union_datum_stream_t>(
+                    union_stream = make_scoped<ordered_union_datum_stream_t>(
                         std::move(streams),
                         build_comparisons_from_single_term(this,
                                                            env,
@@ -814,17 +822,17 @@ private:
         }
 
         if (allow_unordered_interleave) {
-            union_stream = make_counted<union_datum_stream_t>(
+            union_stream = make_scoped<union_datum_stream_t>(
                 env->env, std::move(streams), backtrace());
         } else if (!order_by_field) {
-            union_stream = make_counted<ordered_union_datum_stream_t>(
+            union_stream = make_scoped<ordered_union_datum_stream_t>(
                 std::move(streams),
                 std::vector<std::pair<order_direction_t, counted_t<const func_t> > >(),
                 env->env,
                 backtrace());
         }
         r_sanity_check(union_stream.has());
-        return new_val(env->env, union_stream);
+        return new_val(env->env, std::move(union_stream));
     }
     virtual const char *name() const { return "union"; }
 };
@@ -835,9 +843,10 @@ public:
         : op_term_t(env, term, argspec_t(1)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<datum_stream_t> stream = args->arg(env, 0)->as_seq(env->env);
+        scoped<val_t> arg0 = args->arg(env, 0);
+        scoped<datum_stream_t> stream = std::move(*arg0).as_seq(env->env);
         stream->add_transformation(zip_wire_func_t(), backtrace());
-        return new_val(env->env, stream);
+        return new_val(env->env, std::move(stream));
     }
     virtual const char *name() const { return "zip"; }
 };
@@ -861,7 +870,7 @@ private:
             stop = args->arg(env, 1)->as_int(env);
         }
 
-        return new_val(env->env, make_counted<range_datum_stream_t>(
+        return new_val(env->env, make_scoped<range_datum_stream_t>(
             is_infinite, start, stop, backtrace()));
     }
     virtual const char *name() const { return "range"; }

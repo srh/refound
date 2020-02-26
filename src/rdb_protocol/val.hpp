@@ -41,12 +41,12 @@ public:
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
     datum_t get_row(env_t *env, datum_t pval);
-    counted_t<datum_stream_t> get_all(
+    scoped<datum_stream_t> get_all(
             env_t *env,
             const datumspec_t &datumspec,
             const std::string &sindex_id,
             backtrace_id_t bt);
-    counted_t<datum_stream_t> get_intersecting(
+    scoped<datum_stream_t> get_intersecting(
             env_t *env,
             const datum_t &query_geometry,
             const std::string &new_sindex_id,
@@ -97,7 +97,7 @@ public:
         return db->name.str() + "." + name.str();
     }
 
-    counted_t<datum_stream_t> as_seq(
+    scoped<datum_stream_t> as_seq(
         env_t *env,
         const std::string &idx,
         backtrace_id_t bt,
@@ -124,7 +124,7 @@ public:
                   optional<std::string> _idx = r_nullopt,
                   sorting_t _sorting = sorting_t::UNORDERED,
                   datum_range_t _bounds = datum_range_t::universe());
-    counted_t<datum_stream_t> as_seq(env_t *env, backtrace_id_t bt);
+    scoped<datum_stream_t> as_seq(env_t *env, backtrace_id_t bt);
     counted_t<table_slice_t> with_sorting(std::string idx, sorting_t sorting);
     counted_t<table_slice_t> with_bounds(std::string idx, datum_range_t bounds);
     const counted_t<table_t> &get_tbl() const { return tbl; }
@@ -179,10 +179,10 @@ protected:
 
 class selection_t {
 public:
-    selection_t(counted_t<table_t> _table, counted_t<datum_stream_t> _seq);
+    selection_t(counted_t<table_t> _table, scoped<datum_stream_t> &&_seq);
     ~selection_t();
     counted_t<table_t> table;
-    counted_t<datum_stream_t> seq;
+    scoped<datum_stream_t> seq;
 };
 
 // A value is anything RQL can pass around -- a datum, a sequence, a function, a
@@ -225,7 +225,7 @@ public:
     val_t(const counted_t<grouped_data_t> &groups,
           backtrace_id_t bt);
     val_t(scoped<single_selection_t> &&_selection, backtrace_id_t bt);
-    val_t(env_t *env, counted_t<datum_stream_t> _seq, backtrace_id_t bt);
+    val_t(env_t *env, scoped<datum_stream_t> &&_seq, backtrace_id_t bt);
     val_t(provisional_table_id &&_table, backtrace_id_t bt);
     val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
     val_t(scoped<selection_t> &&_selection, backtrace_id_t bt);
@@ -240,7 +240,8 @@ public:
     counted_t<table_t> get_underlying_table(env_t *env) const;
     counted_t<table_slice_t> as_table_slice(env_t *env);
     scoped<selection_t> as_selection(env_t *env) &&;
-    counted_t<datum_stream_t> as_seq(env_t *env);
+    bool is_grouped_seq() const;
+    scoped<datum_stream_t> as_seq(env_t *env) &&;
     // The env doesn't get used, it's purely type safety.
     scoped<single_selection_t> as_single_selection(env_t *env) &&;
     // See func.hpp for an explanation of shortcut functions.
@@ -308,7 +309,7 @@ private:
     // information.  The sequence, datum, func, and db_ptr functions get the
     // fields of the variant.
     boost::variant<provisional_db_id,
-                   counted_t<datum_stream_t>,
+                   scoped<datum_stream_t>,
                    datum_t,
                    counted_t<const func_t>,
                    counted_t<grouped_data_t>,
@@ -320,8 +321,11 @@ private:
     const provisional_db_id &db() const {
         return boost::get<provisional_db_id>(u);
     }
-    counted_t<datum_stream_t> &sequence() {
-        return boost::get<counted_t<datum_stream_t> >(u);
+    scoped<datum_stream_t> &sequence() {
+        return boost::get<scoped<datum_stream_t> >(u);
+    }
+    const scoped<datum_stream_t> &sequence() const {
+        return boost::get<scoped<datum_stream_t> >(u);
     }
     datum_t &datum() {
         return boost::get<datum_t>(u);

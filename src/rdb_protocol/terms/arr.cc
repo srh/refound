@@ -4,6 +4,8 @@
 #include "math.hpp"
 #include "parsing/utf8.hpp"
 #include "rdb_protocol/datum_stream.hpp"
+#include "rdb_protocol/datum_stream/offsets_of.hpp"
+#include "rdb_protocol/datum_stream/slice.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/op.hpp"
@@ -96,13 +98,13 @@ scoped_ptr_t<val_t> nth_term_direct_impl(const term_t *term,
         return term->new_val(arr.get(real_n));
     } else {
         counted_t<table_t> tbl;
-        counted_t<datum_stream_t> s;
+        scoped<datum_stream_t> s;
         if (aggregate->get_type().is_convertible(val_t::type_t::SELECTION)) {
             scoped<selection_t> selection = std::move(*aggregate).as_selection(env->env);
-            tbl = selection->table;
-            s = selection->seq;
+            tbl = std::move(selection->table);
+            s = std::move(selection->seq);
         } else {
-            s = aggregate->as_seq(env->env);
+            s = std::move(*aggregate).as_seq(env->env);
         }
         rcheck_target(term,
                       n >= -1,
@@ -146,8 +148,9 @@ scoped_ptr_t<val_t> nth_term_impl(const term_t *term, scope_env_t *env,
                                   scoped_ptr_t<val_t> aggregate,
                                   const scoped_ptr_t<val_t> &index) {
     if (aggregate->get_type().is_convertible(val_t::type_t::SEQUENCE)) {
-        counted_t<datum_stream_t> seq = aggregate->as_seq(env->env);
-        if (seq->is_grouped()) {
+        if (aggregate->is_grouped_seq()) {
+            const backtrace_id_t agg_bt = aggregate->backtrace();
+            scoped<datum_stream_t> seq = std::move(*aggregate).as_seq(env->env);
             counted_t<grouped_data_t> result
                 = seq->to_array(env->env)->as_grouped_data(env->env);
             // (aggregate is empty, because maybe_grouped_data sets at most one of
@@ -155,7 +158,7 @@ scoped_ptr_t<val_t> nth_term_impl(const term_t *term, scope_env_t *env,
             counted_t<grouped_data_t> out(new grouped_data_t());
             for (auto kv = result->begin(); kv != result->end(); ++kv) {
                 scoped_ptr_t<val_t> value
-                    = make_scoped<val_t>(kv->second, aggregate->backtrace());
+                    = make_scoped<val_t>(kv->second, agg_bt);
                 (*out)[kv->first] = nth_term_direct_impl(
                         term, env, std::move(value), index.get())->as_datum(env);
             }
@@ -189,7 +192,8 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         batchspec_t batchspec =
             batchspec_t::user(batch_type_t::NORMAL, env->env).with_at_most(1);
-        bool is_empty = !args->arg(env, 0)->as_seq(env->env)->next(env->env, batchspec).has();
+        scoped<val_t> arg0 = args->arg(env, 0);
+        bool is_empty = !std::move(*arg0).as_seq(env->env)->next(env->env, batchspec).has();
         return new_val(datum_t::boolean(is_empty));
     }
     virtual const char *name() const { return "is_empty"; }
@@ -295,13 +299,13 @@ private:
             }
         } else if (v->get_type().is_convertible(val_t::type_t::SEQUENCE)) {
             counted_t<table_t> t;
-            counted_t<datum_stream_t> seq;
+            scoped<datum_stream_t> seq;
             if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
                 scoped<selection_t> selection = std::move(*v).as_selection(env->env);
-                t = selection->table;
-                seq = selection->seq;
+                t = std::move(selection->table);
+                seq = std::move(selection->seq);
             } else {
-                seq = v->as_seq(env->env);
+                seq = std::move(*v).as_seq(env->env);
             }
 
             rcheck(fake_l >= 0, base_exc_t::LOGIC,
@@ -321,10 +325,10 @@ private:
             } else if (!right_open) {
                 real_r += 1;  // This is safe because it was an int32_t before.
             }
-            counted_t<datum_stream_t> new_ds = seq->slice(real_l, real_r);
+            auto new_ds = make_scoped<slice_datum_stream_t>(real_l, real_r, std::move(seq));
             return t.has()
-                ? new_val(make_scoped<selection_t>(t, new_ds))
-                : new_val(env->env, new_ds);
+                ? new_val(make_scoped<selection_t>(t, std::move(new_ds)))
+                : new_val(env->env, std::move(new_ds));
         } else {
             // This was an rfail_typed_target.  But since we don't want to call exc_type
             // on val_t anymore, and we _know_ that v is not is_convertible(DATUM)
@@ -346,21 +350,21 @@ private:
         scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
         counted_t<table_t> t;
-        counted_t<datum_stream_t> ds;
+        scoped<datum_stream_t> ds;
         if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
             scoped<selection_t> selection = std::move(*v).as_selection(env->env);
-            t = selection->table;
-            ds = selection->seq;
+            t = std::move(selection->table);
+            ds = std::move(selection->seq);
         } else {
-            ds = v->as_seq(env->env);
+            ds = std::move(*v).as_seq(env->env);
         }
         int32_t r = args->arg(env, 1)->as_int<int32_t>(env);
         rcheck(r >= 0, base_exc_t::LOGIC,
                strprintf("LIMIT takes a non-negative argument (got %d)", r));
-        counted_t<datum_stream_t> new_ds = ds->slice(0, r);
+        auto new_ds = make_scoped<slice_datum_stream_t>(0, r, std::move(ds));
         return t.has()
-            ? new_val(make_scoped<selection_t>(t, new_ds))
-            : new_val(env->env, new_ds);
+            ? new_val(make_scoped<selection_t>(t, std::move(new_ds)))
+            : new_val(env->env, std::move(new_ds));
     }
     virtual const char *name() const { return "limit"; }
 };
@@ -587,7 +591,9 @@ private:
         } else {
             fun = new_eq_comparison_func(v->as_datum(env), backtrace());
         }
-        return new_val(env->env, args->arg(env, 0)->as_seq(env->env)->offsets_of(fun));
+        scoped<val_t> arg0 = args->arg(env, 0);
+        auto oos = make_scoped<offsets_of_datum_stream_t>(std::move(fun), std::move(*arg0).as_seq(env->env));
+        return new_val(env->env, std::move(oos));
     }
     virtual const char *name() const { return "offsets_of"; }
 };
@@ -598,7 +604,8 @@ public:
         : op_term_t(env, term, argspec_t(1, -1)) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<datum_stream_t> seq = args->arg(env, 0)->as_seq(env->env);
+        scoped<val_t> arg0 = args->arg(env, 0);
+        scoped<datum_stream_t> seq = std::move(*arg0).as_seq(env->env);
         std::vector<datum_t> required_els;
         std::vector<counted_t<const func_t> > required_funcs;
         for (size_t i = 1; i < args->num_args(); ++i) {

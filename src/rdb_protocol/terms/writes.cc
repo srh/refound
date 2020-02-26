@@ -204,7 +204,7 @@ private:
         }
 
         if (!done) {
-            counted_t<datum_stream_t> datum_stream = v1->as_seq(env->env);
+            scoped<datum_stream_t> datum_stream = std::move(*v1).as_seq(env->env);
 
             batchspec_t batchspec = batchspec_t::user(batch_type_t::TERMINAL, env->env);
             for (;;) {
@@ -330,9 +330,13 @@ private:
             stats = stats.merge(replace_stats, stats_merge, env->env->limits(),
                                 &conditions);
         } else {
-            scoped<selection_t> tblrows = std::move(*v0).as_selection(env->env);
-            counted_t<table_t> tbl = tblrows->table;
-            counted_t<datum_stream_t> ds = tblrows->seq;
+            counted_t<table_t> tbl;
+            scoped<datum_stream_t> ds;
+            {
+                scoped<selection_t> tblrows = std::move(*v0).as_selection(env->env);
+                tbl = std::move(tblrows->table);
+                ds = std::move(tblrows->seq);
+            }
 
             if (f->is_deterministic().test(single_server_t::no, constant_now_t::yes)) {
                 // Attach a transformation to `ds` to pull out the primary key.
@@ -394,7 +398,11 @@ private:
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         const char *fail_msg = "FOR_EACH expects one or more basic write queries.";
 
-        counted_t<datum_stream_t> ds = args->arg(env, 0)->as_seq(env->env);
+        scoped<datum_stream_t> ds;
+        {
+            scoped<val_t> arg0 = args->arg(env, 0);
+            ds = std::move(*arg0).as_seq(env->env);
+        }
         datum_t stats = datum_t::empty_object();
         std::set<std::string> conditions;
         batchspec_t batchspec = batchspec_t::user(batch_type_t::TERMINAL, env->env);

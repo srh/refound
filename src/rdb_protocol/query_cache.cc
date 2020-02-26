@@ -286,14 +286,14 @@ void query_cache_t::ref_t::run(env_t *env, response_t *res) {
         res->set_data(d);
         entry->state = entry_t::state_t::DONE;
     } else if (val->get_type().is_convertible(val_t::type_t::SEQUENCE)) {
-        counted_t<datum_stream_t> seq = val->as_seq(env);
+        scoped<datum_stream_t> seq = std::move(*val).as_seq(env);
         const datum_t arr = seq->as_array(env);
         if (arr.has()) {
             res->set_type(Response::SUCCESS_ATOM);
             res->set_data(arr);
             entry->state = entry_t::state_t::DONE;
         } else {
-            entry->stream = seq;
+            entry->stream = std::move(seq);
             entry->has_sent_batch = false;
             entry->state = entry_t::state_t::STREAM;
         }

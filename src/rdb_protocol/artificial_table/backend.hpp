@@ -76,7 +76,7 @@ public:
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         const signal_t *interruptor,
-        counted_t<ql::datum_stream_t> *rows_out,
+        scoped<ql::datum_stream_t> *rows_out,
         admin_err_t *error_out);
 
     /* Sets `*row_out` to the current value of the row, or an empty `datum_t` if no such

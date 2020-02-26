@@ -1429,7 +1429,7 @@ template void datum_t::write_json(
     rapidjson::PrettyWriter<rapidjson::StringBuffer> *writer) const;
 
 // TODO: make BINARY, STR, and OBJECT convertible to sequence?
-counted_t<datum_stream_t>
+scoped<datum_stream_t>
 datum_t::as_datum_stream(backtrace_id_t backtrace) const {
     switch (get_type()) {
     case MINVAL:   // fallthru
@@ -1443,7 +1443,7 @@ datum_t::as_datum_stream(backtrace_id_t backtrace) const {
         type_error(strprintf("Cannot convert %s to SEQUENCE",
                              get_type_name().c_str()));
     case R_ARRAY:
-        return make_counted<array_datum_stream_t>(*this, backtrace);
+        return make_scoped<array_datum_stream_t>(*this, backtrace);
     case UNINITIALIZED: // fallthru
     default: unreachable();
     }

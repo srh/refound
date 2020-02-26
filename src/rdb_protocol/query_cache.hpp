@@ -134,7 +134,7 @@ private:
         // This will be empty until the root term has been evaluated
         // If this resulted in a stream, this will not be empty until the
         // stream is finished
-        counted_t<datum_stream_t> stream;
+        scoped<datum_stream_t> stream;
         bool has_sent_batch;
 
         // The order of these is very important, do not move them around

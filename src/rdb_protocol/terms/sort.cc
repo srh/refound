@@ -7,6 +7,7 @@
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/datum_stream/array.hpp"
 #include "rdb_protocol/datum_stream/indexed_sort.hpp"
+#include "rdb_protocol/datum_stream/ordered_distinct.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/minidriver.hpp"
@@ -60,17 +61,17 @@ private:
         lt_cmp_t lt_cmp(comparisons);
 
         counted_t<table_slice_t> tbl_slice;
-        counted_t<datum_stream_t> seq;
+        scoped<datum_stream_t> seq;
         {
             scoped_ptr_t<val_t> v0 = args->arg(env, 0);
             if (v0->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
                 tbl_slice = v0->as_table_slice(env->env);
             } else if (v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
                 scoped<selection_t> selection = std::move(*v0).as_selection(env->env);
-                tbl_slice = make_counted<table_slice_t>(selection->table);
-                seq = selection->seq;
+                tbl_slice = make_counted<table_slice_t>(std::move(selection->table));
+                seq = std::move(selection->seq);
             } else {
-                seq = v0->as_seq(env->env);
+                seq = std::move(*v0).as_seq(env->env);
             }
         }
 
@@ -96,7 +97,7 @@ private:
             std::string index_str = index->as_str(env).to_std();
             tbl_slice = tbl_slice->with_sorting(index_str, sorting);
             if (!comparisons.empty()) {
-                seq = make_counted<indexed_sort_datum_stream_t>(
+                seq = make_scoped<indexed_sort_datum_stream_t>(
                     tbl_slice->as_seq(env->env, backtrace()), lt_cmp);
             } else {
                 return new_val(tbl_slice);
@@ -121,13 +122,13 @@ private:
             profile::sampler_t sampler("Sorting in-memory.", env->env->trace);
             auto fn = std::bind(lt_cmp, env->env, &sampler, ph::_1, ph::_2);
             std::stable_sort(to_sort.begin(), to_sort.end(), fn);
-            seq = make_counted<array_datum_stream_t>(
+            seq = make_scoped<array_datum_stream_t>(
                 datum_t(std::move(to_sort), env->env->limits()),
                 backtrace());
         }
         return tbl_slice.has()
-            ? new_val(make_scoped<selection_t>(tbl_slice->get_tbl(), seq))
-            : new_val(env->env, seq);
+            ? new_val(make_scoped<selection_t>(tbl_slice->get_tbl(), std::move(seq)))
+            : new_val(env->env, std::move(seq));
     }
 
     virtual const char *name() const { return "orderby"; }
@@ -153,21 +154,21 @@ private:
                 map_wire_func_t mwf(r.var(row)[idx_str].root_term(),
                     std::vector<sym_t>(1, minidriver_t::dummy_var_to_sym(row)));
 
-                counted_t<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
+                scoped<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
                 s->add_transformation(std::move(mwf), backtrace());
-                return new_val(env->env, s);
+                return new_val(env->env, std::move(s));
             } else if (!tbl_slice->get_idx().has_value() || *tbl_slice->get_idx() == idx_str) {
                 if (tbl_slice->sorting == sorting_t::UNORDERED) {
                     tbl_slice = tbl_slice->with_sorting(idx_str, sorting_t::ASCENDING);
                 }
-                counted_t<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
+                scoped<datum_stream_t> s = tbl_slice->as_seq(env->env, backtrace());
                 s->add_transformation(distinct_wire_func_t(idx.has()), backtrace());
-                return new_val(env->env, s->ordered_distinct());
+                return new_val(env->env, make_scoped<ordered_distinct_datum_stream_t>(std::move(s)));
             }
         }
         rcheck(!idx, base_exc_t::LOGIC,
                "Can only perform an indexed distinct on a TABLE.");
-        counted_t<datum_stream_t> s = v->as_seq(env->env);
+        scoped<datum_stream_t> s = std::move(*v).as_seq(env->env);
         // The reql_version matters here, because we copy `results` into `toret`
         // in ascending order.
         std::set<datum_t, optional_datum_less_t> results;

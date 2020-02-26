@@ -1352,16 +1352,6 @@ scoped_ptr_t<val_t> datum_stream_t::to_array(env_t *env) {
 }
 
 // DATUM_STREAM_T
-counted_t<datum_stream_t> datum_stream_t::slice(size_t l, size_t r) {
-    return make_counted<slice_datum_stream_t>(l, r, this->counted_from_this());
-}
-counted_t<datum_stream_t> datum_stream_t::offsets_of(counted_t<const func_t> f) {
-    return make_counted<offsets_of_datum_stream_t>(f, counted_from_this());
-}
-counted_t<datum_stream_t> datum_stream_t::ordered_distinct() {
-    return make_counted<ordered_distinct_datum_stream_t>(counted_from_this());
-}
-
 datum_stream_t::datum_stream_t(backtrace_id_t _bt)
     : bt_rcheckable_t(_bt), batch_cache_index(0), grouped(false) {
 }
@@ -1576,12 +1566,12 @@ bool array_datum_stream_t::is_array() const {
 
 // INDEXED_SORT_DATUM_STREAM_T
 indexed_sort_datum_stream_t::indexed_sort_datum_stream_t(
-    counted_t<datum_stream_t> stream,
+    scoped<datum_stream_t> &&stream,
     std::function<bool(env_t *,  // NOLINT(readability/casting)
                        profile::sampler_t *,
                        const datum_t &,
                        const datum_t &)> _lt_cmp)
-    : wrapper_datum_stream_t(stream), lt_cmp(_lt_cmp), index(0) { }
+    : wrapper_datum_stream_t(std::move(stream)), lt_cmp(_lt_cmp), index(0) { }
 
 std::vector<datum_t>
 indexed_sort_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &batchspec) {
@@ -1616,7 +1606,7 @@ indexed_sort_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &batch
 
 // ORDERED_DISTINCT_DATUM_STREAM_T
 ordered_distinct_datum_stream_t::ordered_distinct_datum_stream_t(
-    counted_t<datum_stream_t> _source) : wrapper_datum_stream_t(_source) { }
+    scoped<datum_stream_t> &&_source) : wrapper_datum_stream_t(std::move(_source)) { }
 
 std::vector<datum_t>
 ordered_distinct_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &bs) {
@@ -1638,8 +1628,8 @@ ordered_distinct_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &b
 
 // OFFSETS_OF_DATUM_STREAM_T
 offsets_of_datum_stream_t::offsets_of_datum_stream_t(counted_t<const func_t> _f,
-                                                     counted_t<datum_stream_t> _source)
-    : wrapper_datum_stream_t(_source), f(_f), index(0) {
+                                                     scoped<datum_stream_t> &&_source)
+    : wrapper_datum_stream_t(std::move(_source)), f(_f), index(0) {
     guarantee(f.has() && source.has());
 }
 
@@ -1664,8 +1654,8 @@ offsets_of_datum_stream_t::next_raw_batch(env_t *env, const batchspec_t &bs) {
 
 // SLICE_DATUM_STREAM_T
 slice_datum_stream_t::slice_datum_stream_t(
-    uint64_t _left, uint64_t _right, counted_t<datum_stream_t> _src)
-    : wrapper_datum_stream_t(_src), index(0), left(_left), right(_right) { }
+    uint64_t _left, uint64_t _right, scoped<datum_stream_t> &&_src)
+    : wrapper_datum_stream_t(std::move(_src)), index(0), left(_left), right(_right) { }
 
 #if RDB_CF
 std::vector<changespec_t> slice_datum_stream_t::get_changespecs() {
@@ -1783,8 +1773,8 @@ bool slice_datum_stream_t::is_infinite() const {
 // UNION_DATUM_STREAM_T
 class coro_stream_t {
 public:
-    coro_stream_t(counted_t<datum_stream_t> _stream, union_datum_stream_t *_parent)
-        : stream(_stream),
+    coro_stream_t(scoped<datum_stream_t> &&_stream, union_datum_stream_t *_parent)
+        : stream(std::move(_stream)),
           running(false),
           is_first_batch(true),
           parent(_parent) {
@@ -1806,7 +1796,7 @@ public:
             }
         }
     }
-    const counted_t<datum_stream_t> stream;
+    const scoped<datum_stream_t> stream;
 private:
     void cb(auto_drainer_t::lock_t lock) THROWS_NOTHING {
         // See `next_batch` call below.
@@ -1872,7 +1862,7 @@ bool ordered_union_datum_stream_t::merge_less_t::operator()(
 }
 
 ordered_union_datum_stream_t::ordered_union_datum_stream_t(
-    std::vector<counted_t<datum_stream_t> > &&_streams,
+    std::vector<scoped<datum_stream_t>> &&_streams,
     std::vector<std::pair<order_direction_t, counted_t<const func_t> > > &&_comparisons,
     env_t  *env,
     backtrace_id_t _bt)
@@ -1921,7 +1911,7 @@ std::vector<datum_t> ordered_union_datum_stream_t::next_raw_batch(
                 if (cache_item.has()) {
                     merge_cache.push(
                         merge_cache_item_t{std::move(cache_item),
-                                stream});
+                                stream.get()});
                 }
             }
             do_prelim_cache = false;
@@ -1985,9 +1975,11 @@ bool ordered_union_datum_stream_t::is_exhausted() const {
 // at a time. This limit does not apply to changefeed streams.
 const size_t MAX_CONCURRENT_UNION_READS = 32;
 
+union_datum_stream_t::~union_datum_stream_t() { }
+
 union_datum_stream_t::union_datum_stream_t(
     env_t *env,
-    std::vector<counted_t<datum_stream_t> > &&streams,
+    std::vector<scoped<datum_stream_t>> &&streams,
     backtrace_id_t _bt,
     size_t expected_states)
     : datum_stream_t(_bt),
@@ -2220,7 +2212,7 @@ bool range_datum_stream_t::is_exhausted() const {
 
 // MAP_DATUM_STREAM_T
 map_datum_stream_t::map_datum_stream_t(
-        std::vector<counted_t<datum_stream_t> > &&_streams,
+        std::vector<scoped<datum_stream_t>> &&_streams,
         counted_t<const func_t> &&_func,
         backtrace_id_t _bt)
     : eager_datum_stream_t(_bt), streams(std::move(_streams)), func(std::move(_func)),
@@ -2294,7 +2286,7 @@ bool map_datum_stream_t::is_exhausted() const {
     return false;
 }
 
-eq_join_datum_stream_t::eq_join_datum_stream_t(counted_t<datum_stream_t> _stream,
+eq_join_datum_stream_t::eq_join_datum_stream_t(scoped<datum_stream_t> &&_stream,
                                                counted_t<table_t> _table,
                                                datum_string_t _join_index,
                                                counted_t<const func_t> _predicate,
@@ -2407,7 +2399,7 @@ bool eq_join_datum_stream_t::is_exhausted() const {
 }
 
 fold_datum_stream_t::fold_datum_stream_t(
-    counted_t<datum_stream_t> &&_stream,
+    scoped<datum_stream_t> &&_stream,
     datum_t _base,
     counted_t<const func_t> &&_acc_func,
     counted_t<const func_t> &&_emit_func,

@@ -10,7 +10,7 @@ namespace ql {
 
 class ordered_union_datum_stream_t : public eager_datum_stream_t {
 public:
-    ordered_union_datum_stream_t(std::vector<counted_t<datum_stream_t> > &&_streams,
+    ordered_union_datum_stream_t(std::vector<scoped<datum_stream_t>> &&_streams,
                                  std::vector<
                                  std::pair<order_direction_t,
                                            counted_t<const func_t> > > &&_comparisons,
@@ -35,17 +35,22 @@ public:
     }
 
 private:
-    std::deque<counted_t<datum_stream_t> > streams;
+    std::deque<scoped<datum_stream_t>> streams;
 
+    // TODO: Always not_feed?  Remove cfeed_type()?
     feed_type_t union_type;
-    bool is_array_ordered_union, is_infinite_ordered_union;
-    bool is_ordered_by_field;
+    bool is_array_ordered_union;
+    bool is_infinite_ordered_union;
+    const bool is_ordered_by_field;
 
     bool do_prelim_cache;
 
     struct merge_cache_item_t {
         datum_t value;
-        counted_t<datum_stream_t> source;
+        // If and only if we use the merge_cache (if and only if is_ordered_by_field ==
+        // true), then streams doesn't get modified, and a raw pointer is fine.  This
+        // could just be an index into streams.
+        datum_stream_t *source;
     };
 
     cond_t non_interruptor;

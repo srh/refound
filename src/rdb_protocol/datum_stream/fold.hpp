@@ -7,7 +7,7 @@ namespace ql {
 
 class fold_datum_stream_t : public eager_datum_stream_t {
 public:
-    fold_datum_stream_t(counted_t<datum_stream_t> &&stream,
+    fold_datum_stream_t(scoped<datum_stream_t> &&stream,
                         datum_t base,
                         counted_t<const func_t> &&_acc_func,
                         counted_t<const func_t> &&_emit_func,
@@ -32,7 +32,7 @@ public:
     }
 
 private:
-    counted_t<datum_stream_t> stream;
+    scoped<datum_stream_t> stream;
     counted_t<const func_t> acc_func;
     counted_t<const func_t> emit_func;
     counted_t<const func_t> final_emit_func;

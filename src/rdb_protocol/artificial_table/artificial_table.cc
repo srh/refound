@@ -99,7 +99,7 @@ ql::datum_t artificial_table_fdb_t::read_row(
     return row_result;
 }
 
-counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_all(
+scoped<ql::datum_stream_t> artificial_table_fdb_t::read_all(
         ql::env_t *env,
         const std::string &get_all_sindex_id,
         ql::backtrace_id_t bt,
@@ -107,7 +107,7 @@ counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_all(
         const ql::datumspec_t &datumspec,
         sorting_t sorting,
         UNUSED read_mode_t read_mode) {
-    counted_t<ql::datum_stream_t> stream;
+    scoped<ql::datum_stream_t> stream;
 
     try {
         if (get_all_sindex_id != m_primary_key_name) {
@@ -146,7 +146,7 @@ scoped_ptr_t<ql::reader_t> artificial_table_fdb_t::read_all_with_sindexes(
     // the primary index. We still need to return a reader_t, this is needed for
     // eq_join.
     r_sanity_check(sindex == get_pkey());
-    counted_t<ql::datum_stream_t> datum_stream =
+    scoped<ql::datum_stream_t> datum_stream =
         read_all(env, sindex, bt, table_name, datumspec, sorting, read_mode);
 
     scoped_ptr_t<ql::eager_acc_t> to_array = ql::make_to_array();
@@ -166,7 +166,7 @@ scoped_ptr_t<ql::reader_t> artificial_table_fdb_t::read_all_with_sindexes(
     return make_scoped<ql::vector_reader_t>(std::move(items_vector));
 }
 
-counted_t<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
+scoped<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
         ql::env_t *env,
         const std::string &sindex,
         UNUSED ql::backtrace_id_t bt,

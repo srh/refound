@@ -251,9 +251,9 @@ private:
         if (opaque_start_type.is_convertible(val_t::type_t::SEQUENCE)
             && !(start_supertype == val_t::type_t::DATUM
                  && start_type != R_ARRAY_TYPE)) {
-            counted_t<datum_stream_t> ds;
+            scoped<datum_stream_t> ds;
             try {
-                ds = val->as_seq(env->env);
+                ds = std::move(*val).as_seq(env->env);
             } catch (const base_exc_t &e) {
                 rfail(base_exc_t::LOGIC,
                       "Cannot coerce %s to %s (failed to produce intermediate stream).",
@@ -344,8 +344,7 @@ datum_t typename_of(env_t *env, const scoped_ptr_t<val_t> &v) {
     if (v->get_type().get_raw_type() == val_t::type_t::DATUM) {
         datum_t d = v->as_datum(env);
         return datum_t(datum_string_t(d.get_type_name()));
-    } else if (v->get_type().get_raw_type() == val_t::type_t::SEQUENCE
-               && v->as_seq(env)->is_grouped()) {
+    } else if (v->is_grouped_seq()) {
         return datum_t(datum_string_t("GROUPED_STREAM"));
     } else {
         return datum_t(datum_string_t(get_name(val_type(env, v))));
@@ -569,7 +568,16 @@ private:
                 sel->table.get()));
         } break;
         case SEQUENCE_TYPE: {
-            if (v->as_seq(env)->is_grouped()) {
+            // TODO: Remove this?
+
+            // This case seems already handled in typename_of.  So we'd just overwrite
+            // "GROUPED_STREAM" with "GROUPED_STREAM."  Also, as_seq has no side effects
+            // because the val type is type_t::SEQUENCE, which just does returns
+            // std::move(sequence()) without any chance of throwing an error.
+            if (std::move(*v).as_seq(env)->is_grouped()) {
+                // So we have this assertion.
+                rassert(info.at(datum_string_t("type")) == datum_t("GROUPED_STREAM"));
+
                 bool res = info.add("type", datum_t("GROUPED_STREAM"));
                 r_sanity_check(res);
             }

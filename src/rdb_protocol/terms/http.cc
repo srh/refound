@@ -253,12 +253,12 @@ scoped_ptr_t<val_t> http_term_t::eval_impl(scope_env_t *env, args_t *args,
 
     // If we're depaginating, return a stream that will be evaluated automatically
     if (depaginate_fn.has()) {
-        counted_t<datum_stream_t> http_stream = counted_t<datum_stream_t>(
-            new http_datum_stream_t(std::move(opts),
+        scoped<datum_stream_t> http_stream
+            = make_scoped<http_datum_stream_t>(std::move(opts),
                                     std::move(depaginate_fn),
                                     depaginate_limit,
-                                    backtrace()));
-        return new_val(env->env, http_stream);
+                                    backtrace());
+        return new_val(env->env, std::move(http_stream));
     }
 
     // Otherwise, just run the http operation and return the datum

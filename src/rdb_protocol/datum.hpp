@@ -279,7 +279,7 @@ public:
     // or rapidjson::PrettyWriter<rapidjson::StringBuffer>
     template <class json_writer_t> void write_json(json_writer_t *writer) const;
 
-    counted_t<datum_stream_t> as_datum_stream(backtrace_id_t backtrace) const;
+    scoped<datum_stream_t> as_datum_stream(backtrace_id_t backtrace) const;
 
     // These behave as expected and defined in RQL.  Theoretically, two data of the
     // same type should compare appropriately, while disparate types are compared
@@ -465,7 +465,7 @@ public:
 
     datum_t at(const datum_string_t &key) const;
 
-    // Returns null if the key doesn't exist.
+    // Returns datum_t() if the key doesn't exist.
     datum_t try_get(const datum_string_t &key) const;
 
     MUST_USE datum_t to_datum() RVALUE_THIS;

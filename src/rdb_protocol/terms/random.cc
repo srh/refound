@@ -31,16 +31,16 @@ public:
                format_array_size_error(env->env->limits().array_size_limit()).c_str());
 
         counted_t<table_t> t;
-        counted_t<datum_stream_t> seq;
+        scoped<datum_stream_t> seq;
         {
             scoped_ptr_t<val_t> v = args->arg(env, 0);
 
             if (v->get_type().is_convertible(val_t::type_t::SELECTION)) {
                 scoped<selection_t> t_seq = std::move(*v).as_selection(env->env);
-                t = t_seq->table;
-                seq = t_seq->seq;
+                t = std::move(t_seq->table);
+                seq = std::move(t_seq->seq);
             } else {
-                seq = v->as_seq(env->env);
+                seq = std::move(*v).as_seq(env->env);
             }
         }
 
@@ -69,13 +69,13 @@ public:
 
         std::random_shuffle(result.begin(), result.end());
 
-        counted_t<datum_stream_t> new_ds(
+        scoped<datum_stream_t> new_ds(
             new array_datum_stream_t(datum_t(std::move(result), env->env->limits()),
                                      backtrace()));
 
         return t.has()
-            ? new_val(make_scoped<selection_t>(t, new_ds))
-            : new_val(env->env, new_ds);
+            ? new_val(make_scoped<selection_t>(t, std::move(new_ds)))
+            : new_val(env->env, std::move(new_ds));
     }
 
     virtual deterministic_t is_deterministic() const {

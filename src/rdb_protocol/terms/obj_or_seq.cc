@@ -83,14 +83,14 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         counted_t<const func_t> f =
             func_term->eval_to_func(env->scope);
 
-        counted_t<datum_stream_t> stream;
+        scoped<datum_stream_t> stream;
         scoped<selection_t> sel; // may be empty
         if (poly_type == FILTER
             && v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
             sel = std::move(*v0).as_selection(env->env);
-            stream = sel->seq;
+            stream = std::move(sel->seq);
         } else {
-            stream = v0->as_seq(env->env);
+            stream = std::move(*v0).as_seq(env->env);
         }
         switch (poly_type) {
         case MAP:
@@ -111,7 +111,7 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         if (sel.has()) {
             return target->new_val(std::move(sel));
         } else {
-            return target->new_val(env->env, stream);
+            return target->new_val(env->env, std::move(stream));
         }
     }
 
