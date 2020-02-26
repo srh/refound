@@ -34,11 +34,11 @@
 
 namespace ql {
 
-name_string_t get_name(bt_rcheckable_t *target, const datum_string_t &raw_name,
+name_string_t get_name(backtrace_id_t src, const datum_string_t &raw_name,
                        const char *type_str) {
     name_string_t name;
     bool assignment_successful = name.assign_value(raw_name);
-    rcheck_target(target,
+    rcheck_src(src,
                   assignment_successful,
                   base_exc_t::LOGIC,
                   strprintf("%s name `%s` invalid (%s).",
@@ -50,7 +50,7 @@ name_string_t get_name(bt_rcheckable_t *target, const datum_string_t &raw_name,
 
 name_string_t get_name(env_t *env, const scoped_ptr_t<val_t> &name, const char *type_str) {
     r_sanity_check(name.has());
-    return get_name(name.get(), name->as_str(env), type_str);
+    return get_name(name->backtrace(), name->as_str(env), type_str);
 }
 
 class table_generate_config_params_t {
@@ -86,7 +86,7 @@ void get_replicas_and_primary(env_t *env,
                 "`primary_replica_tag` must be specified when `replicas` is an OBJECT.");
             for (size_t i = 0; i < datum.obj_size(); ++i) {
                 std::pair<datum_string_t, datum_t> pair = datum.get_pair(i);
-                name_string_t name = get_name(replicas.get(), pair.first, "Server tag");
+                name_string_t name = get_name(replicas->backtrace(), pair.first, "Server tag");
                 int64_t count = checked_convert_to_int(replicas.get(),
                                                        pair.second.as_num());
                 rcheck_target(replicas.get(), count >= 0,
@@ -128,13 +128,13 @@ void get_replicas_and_primary(env_t *env,
                 base_exc_t::LOGIC, strprintf("Expected type STRING but found %s:\n%s",
                 tag.get_type_name().c_str(), tag.print().c_str()));
             params->nonvoting_replica_tags.insert(get_name(
-                nonvoting_replica_tags.get(), tag.as_str(), "Server tag"));
+                nonvoting_replica_tags->backtrace(), tag.as_str(), "Server tag"));
         }
     }
 
     if (primary_replica_tag.has()) {
         params->primary_replica_tag = get_name(
-            primary_replica_tag.get(), primary_replica_tag->as_str(env), "Server tag");
+            primary_replica_tag->backtrace(), primary_replica_tag->as_str(env), "Server tag");
     }
 }
 
