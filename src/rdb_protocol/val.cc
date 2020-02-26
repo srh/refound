@@ -110,24 +110,24 @@ private:
     std::string err;
 };
 
-counted_t<single_selection_t> single_selection_t::from_key(
+scoped<single_selection_t> single_selection_t::from_key(
     backtrace_id_t bt,
     counted_t<table_t> table, datum_t key) {
-    return make_counted<get_selection_t>(
+    return make_scoped<get_selection_t>(
         std::move(bt), std::move(table), std::move(key));
 }
-counted_t<single_selection_t> single_selection_t::from_row(
+scoped<single_selection_t> single_selection_t::from_row(
     backtrace_id_t bt,
     counted_t<table_t> table, datum_t row) {
     datum_t d = row.get_field(datum_string_t(table->get_pkey()), NOTHROW);
     r_sanity_check(d.has());
-    return make_counted<get_selection_t>(
+    return make_scoped<get_selection_t>(
         std::move(bt), std::move(table), std::move(d), std::move(row));
 }
-counted_t<single_selection_t> single_selection_t::from_slice(
+scoped<single_selection_t> single_selection_t::from_slice(
     backtrace_id_t bt,
     counted_t<table_slice_t> table, std::string err) {
-    return make_counted<extreme_selection_t>(
+    return make_scoped<extreme_selection_t>(
         std::move(bt), std::move(table), std::move(err));
 }
 
@@ -614,10 +614,10 @@ val_t::val_t(const counted_t<grouped_data_t> &groups,
     guarantee(groups.has());
 }
 
-val_t::val_t(counted_t<single_selection_t> _selection, backtrace_id_t _bt)
+val_t::val_t(scoped<single_selection_t> &&_selection, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::SINGLE_SELECTION),
-      u(_selection) {
+      u(std::move(_selection)) {
     guarantee(single_selection().has());
 }
 
@@ -784,11 +784,11 @@ counted_t<selection_t> val_t::as_selection(env_t *env) {
     unreachable();
 }
 
-counted_t<single_selection_t> val_t::as_single_selection(env_t *env) {
+scoped<single_selection_t> val_t::as_single_selection(env_t *env) && {
     // The env doesn't actually get used, since it would only get used if this was a
     // single selection and the rcheck _failed_.
     rcheck_literal_type(env, type_t::SINGLE_SELECTION);
-    return single_selection();
+    return std::move(single_selection());
 }
 
 counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) {

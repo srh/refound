@@ -318,7 +318,7 @@ private:
         datum_t stats = new_stats_object();
         std::set<std::string> conditions;
         if (v0->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
-            counted_t<single_selection_t> sel = v0->as_single_selection(env->env);
+            scoped<single_selection_t> sel = std::move(*v0).as_single_selection(env->env);
 
             datum_t replace_stats = sel->replace(
                 env->env,

@@ -149,15 +149,15 @@ enum function_shortcut_t {
     PAGE_SHORTCUT = 4
 };
 
-class single_selection_t : public single_threaded_countable_t<single_selection_t> {
+class single_selection_t {
 public:
-    static counted_t<single_selection_t> from_key(
+    static scoped<single_selection_t> from_key(
         backtrace_id_t bt,
         counted_t<table_t> table, datum_t key);
-    static counted_t<single_selection_t> from_row(
+    static scoped<single_selection_t> from_row(
         backtrace_id_t bt,
         counted_t<table_t> table, datum_t row);
-    static counted_t<single_selection_t> from_slice(
+    static scoped<single_selection_t> from_slice(
         backtrace_id_t bt,
         counted_t<table_slice_t> table, std::string err);
     virtual ~single_selection_t() { }
@@ -224,7 +224,7 @@ public:
     val_t(datum_t _datum, backtrace_id_t bt);
     val_t(const counted_t<grouped_data_t> &groups,
           backtrace_id_t bt);
-    val_t(counted_t<single_selection_t> _selection, backtrace_id_t bt);
+    val_t(scoped<single_selection_t> &&_selection, backtrace_id_t bt);
     val_t(env_t *env, counted_t<datum_stream_t> _seq, backtrace_id_t bt);
     val_t(provisional_table_id &&_table, backtrace_id_t bt);
     val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
@@ -242,7 +242,7 @@ public:
     counted_t<selection_t> as_selection(env_t *env);
     counted_t<datum_stream_t> as_seq(env_t *env);
     // The env doesn't get used, it's purely type safety.
-    counted_t<single_selection_t> as_single_selection(env_t *env);
+    scoped<single_selection_t> as_single_selection(env_t *env) &&;
     // See func.hpp for an explanation of shortcut functions.
     counted_t<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT);
 
@@ -314,7 +314,7 @@ private:
                    counted_t<grouped_data_t>,
                    provisional_table_id,
                    counted_t<table_slice_t>,
-                   counted_t<single_selection_t>,
+                   scoped<single_selection_t>,
                    counted_t<selection_t> > u;
 
     const provisional_db_id &db() const {
@@ -329,8 +329,11 @@ private:
     const datum_t &datum() const {
         return boost::get<datum_t>(u);
     }
-    const counted_t<single_selection_t> &single_selection() const {
-        return boost::get<counted_t<single_selection_t> >(u);
+    scoped<single_selection_t> &single_selection() {
+        return boost::get<scoped<single_selection_t> >(u);
+    }
+    const scoped<single_selection_t> &single_selection() const {
+        return boost::get<scoped<single_selection_t> >(u);
     }
     const counted_t<selection_t> &selection() const {
         return boost::get<counted_t<selection_t> >(u);
