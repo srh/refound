@@ -89,13 +89,14 @@ public:
         durability_requirement_t dur_req,
         return_changes_t return_changes,
         ignore_write_hook_t ignore_write_hook) && override {
+        counted_t<table_t> table = slice->get_tbl();
         std::vector<datum_t > vals{get(env)};
         std::vector<datum_t > keys{
             vals[0].get_field(
-                datum_string_t(get_tbl()->get_pkey()),
+                datum_string_t(table->get_pkey()),
                 NOTHROW)};
         r_sanity_check(keys[0].has());
-        return slice->get_tbl()->batched_replace(
+        return table->batched_replace(
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
     backtrace_id_t get_bt() const final override { return bt; }
@@ -104,6 +105,7 @@ public:
         return ql::changefeed::keyspec_t::limit_t{slice->get_range_spec(), 1};
     }
 #endif  // RDB_CF
+    // NNN: Ensure never used after get().
     const counted_t<table_t> &get_tbl() final override { return slice->get_tbl(); }
 private:
     backtrace_id_t bt;
