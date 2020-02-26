@@ -5,9 +5,9 @@
 #include <map>
 #include <string>
 
-#include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/admin_op_exc.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "fdb/retry_loop.hpp"
 #include "rapidjson/stringbuffer.h"

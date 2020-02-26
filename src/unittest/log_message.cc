@@ -1,6 +1,6 @@
 // Copyright 2010-2012 RethinkDB, all rights reserved.
 
-#include "clustering/administration/logs/log_writer.hpp"
+#include "clustering/logs/log_writer.hpp"
 #include "unittest/gtest.hpp"
 #include "unittest/unittest_utils.hpp"
 #include "random.hpp"

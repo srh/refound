@@ -2,8 +2,8 @@
 
 #include <algorithm>
 
-#include "clustering/administration/auth/user_fut.hpp"
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
+#include "clustering/auth/user_fut.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/datum_stream/vector.hpp"

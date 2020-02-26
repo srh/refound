@@ -10,7 +10,7 @@
 #include <string>
 
 #include "arch/address.hpp"
-#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/auth/user_context.hpp"
 #include "concurrency/auto_drainer.hpp"
 #include "concurrency/new_mutex.hpp"
 #include "concurrency/wait_any.hpp"

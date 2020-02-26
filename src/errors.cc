@@ -17,7 +17,7 @@
 #include "arch/timing.hpp"
 #include "arch/types.hpp"
 #include "backtrace.hpp"
-#include "clustering/administration/logs/log_writer.hpp"
+#include "clustering/logs/log_writer.hpp"
 #include "logger.hpp"
 #include "thread_local.hpp"
 #include "utils.hpp"

@@ -16,7 +16,7 @@
 #endif  // _WIN32
 
 #include "arch/io/disk.hpp"
-#include "clustering/administration/main/directory_lock.hpp"
+#include "clustering/main/directory_lock.hpp"
 #include "errors.hpp"
 #include "logger.hpp"
 

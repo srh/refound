@@ -1,7 +1,7 @@
 #include "rdb_protocol/artificial_table/in_memory.hpp"
 
 #include "arch/timing.hpp"
-#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/auth/user_context.hpp"
 #include "random.hpp"
 #include "rdb_protocol/serialize_datum.hpp"
 

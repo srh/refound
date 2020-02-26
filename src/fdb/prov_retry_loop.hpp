@@ -1,7 +1,7 @@
 #ifndef RETHINKDB_FDB_PROV_RETRY_LOOP_HPP_
 #define RETHINKDB_FDB_PROV_RETRY_LOOP_HPP_
 
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"

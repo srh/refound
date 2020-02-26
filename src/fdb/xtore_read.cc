@@ -3,7 +3,7 @@
 #include "errors.hpp"
 #include <boost/variant/static_visitor.hpp>
 
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/env.hpp"

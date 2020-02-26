@@ -1,6 +1,6 @@
 #include "fdb/jobs/index_create.hpp"
 
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs/job_utils.hpp"

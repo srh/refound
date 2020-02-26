@@ -1,10 +1,10 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved
 #include "rdb_protocol/real_table.hpp"
 
-#include "clustering/administration/auth/permission_error.hpp"
-#include "clustering/administration/auth/user_context.hpp"
-#include "clustering/administration/auth/user_fut.hpp"
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/auth/permission_error.hpp"
+#include "clustering/auth/user_context.hpp"
+#include "clustering/auth/user_fut.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "fdb/xtore.hpp"
 #include "fdb/retry_loop.hpp"
 #include "math.hpp"

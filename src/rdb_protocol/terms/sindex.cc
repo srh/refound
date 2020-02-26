@@ -3,8 +3,8 @@
 
 #include <string>
 
-#include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
+#include "clustering/admin_op_exc.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
 #include "containers/archive/buffer_stream.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/reql_fdb.hpp"

@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/auth/user_context.hpp"
 #include "concurrency/one_per_thread.hpp"
 #include "containers/counted.hpp"
 #include "containers/lru_cache.hpp"

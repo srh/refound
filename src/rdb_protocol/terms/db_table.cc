@@ -4,21 +4,21 @@
 #include <map>
 #include <string>
 
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
-#include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/administration/auth/grant.hpp"
-#include "clustering/administration/auth/permissions.hpp"
-#include "clustering/administration/auth/user_context.hpp"
-#include "clustering/administration/auth/user_fut.hpp"
-#include "clustering/administration/auth/username.hpp"
-#include "clustering/administration/datum_adapter.hpp"
-#include "clustering/administration/real_reql_cluster_interface.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
+#include "clustering/admin_op_exc.hpp"
+#include "clustering/auth/grant.hpp"
+#include "clustering/auth/permissions.hpp"
+#include "clustering/auth/user_context.hpp"
+#include "clustering/auth/user_fut.hpp"
+#include "clustering/auth/username.hpp"
+#include "clustering/datum_adapter.hpp"
+#include "clustering/real_reql_cluster_interface.hpp"
 // For utility function; maybe move convert_db_or_table_config_and_name_to_datum out.
-#include "clustering/administration/tables/db_config.hpp"
+#include "clustering/tables/db_config.hpp"
 // For utility function; maybe move convert_table_config_to_datum out.
-#include "clustering/administration/tables/table_config.hpp"
+#include "clustering/tables/table_config.hpp"
 // TODO: Move db_not_found_error to a different location
-#include "clustering/administration/metadata.hpp"
+#include "clustering/metadata.hpp"
 #include "containers/name_string.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"

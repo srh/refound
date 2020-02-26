@@ -1,7 +1,7 @@
 #include <map>
 #include <vector>
 
-#include "clustering/administration/main/options.hpp"
+#include "clustering/main/options.hpp"
 #include "errors.hpp"
 #include "stl_utils.hpp"
 #include "unittest/gtest.hpp"

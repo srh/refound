@@ -11,8 +11,8 @@
 #include "errors.hpp"
 #include <boost/variant.hpp>
 
-#include "clustering/administration/main/ports.hpp"
-#include "clustering/administration/auth/permission_error.hpp"
+#include "clustering/main/ports.hpp"
+#include "clustering/auth/permission_error.hpp"
 #include "extproc/extproc_pool.hpp"
 #include "extproc/extproc_spawner.hpp"
 #include "rdb_protocol/env.hpp"

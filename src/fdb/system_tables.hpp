@@ -1,7 +1,7 @@
 #ifndef RETHINKDB_FDB_SYSTEM_TABLES_HPP_
 #define RETHINKDB_FDB_SYSTEM_TABLES_HPP_
 
-#include "clustering/administration/auth/username.hpp"
+#include "clustering/auth/username.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/index.hpp"
 #include "fdb/reql_fdb.hpp"

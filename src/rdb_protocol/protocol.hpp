@@ -15,7 +15,7 @@
 #include "btree/keys.hpp"
 #include "btree/key_edges.hpp"
 #include "rdb_protocol/secondary_operations.hpp"
-#include "clustering/administration/auth/user_context.hpp"
+#include "clustering/auth/user_context.hpp"
 #include "concurrency/auto_drainer.hpp"
 #include "concurrency/cond_var.hpp"
 #include "containers/optional.hpp"

@@ -6,7 +6,7 @@
 
 #include <set>
 
-#include "clustering/administration/main/command_line.hpp"
+#include "clustering/main/command_line.hpp"
 #include "crypto/initialization_guard.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "utils.hpp"

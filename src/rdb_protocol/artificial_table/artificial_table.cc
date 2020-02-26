@@ -1,9 +1,9 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 
-#include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
-#include "clustering/administration/auth/user_fut.hpp"
+#include "clustering/admin_op_exc.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
+#include "clustering/auth/user_fut.hpp"
 #include "fdb/retry_loop.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/datum_stream/readers.hpp"

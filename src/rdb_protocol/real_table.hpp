@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "rdb_protocol/base_table.hpp"
 #include "rdb_protocol/configured_limits.hpp"
 #include "rdb_protocol/context.hpp"

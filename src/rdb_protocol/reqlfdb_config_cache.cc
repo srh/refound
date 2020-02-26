@@ -3,11 +3,11 @@
 
 #include <unordered_set>
 
-#include "clustering/administration/admin_op_exc.hpp"
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
-#include "clustering/administration/auth/user_fut.hpp"
-#include "clustering/administration/metadata.hpp"
-#include "clustering/administration/tables/table_metadata.hpp"
+#include "clustering/admin_op_exc.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
+#include "clustering/auth/user_fut.hpp"
+#include "clustering/metadata.hpp"
+#include "clustering/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/btree_utils.hpp"

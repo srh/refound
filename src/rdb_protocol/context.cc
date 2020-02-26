@@ -1,7 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "rdb_protocol/context.hpp"
 
-#include "clustering/administration/artificial_reql_cluster_interface.hpp"
+#include "clustering/artificial_reql_cluster_interface.hpp"
 #include "containers/archive/vector_stream.hpp"
 #include "rdb_protocol/query_cache.hpp"
 #include "rdb_protocol/datum.hpp"
