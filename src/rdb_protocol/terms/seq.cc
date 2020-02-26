@@ -98,11 +98,11 @@ private:
         if (idx.has()) {
             idx_str.set(idx->as_str(env).to_std());
         }
-        counted_t<table_slice_t> slice(
+        scoped<table_slice_t> slice(
             new table_slice_t(tbl, idx_str, sorting()));
         return term_t::new_val(single_selection_t::from_slice(
             term_t::backtrace(),
-            slice,
+            std::move(slice),
             strprintf("`%s` found no entries in the specified index.",
                       this->name())));
     }
@@ -385,13 +385,13 @@ private:
         if (scoped_ptr_t<val_t> index = args->optarg(env, "index")) {
             std::string index_str = index->as_str(env).to_std();
             counted_t<table_t> tbl = args->arg(env, 0)->as_table(env->env);
-            counted_t<table_slice_t> slice;
+            scoped<table_slice_t> slice;
             if (index_str == tbl->get_pkey()) {
                 auto field = index->as_datum(env);
                 funcs.push_back(new_get_field_func(field, backtrace()));
-                slice = make_counted<table_slice_t>(tbl, make_optional(index_str));
+                slice = make_scoped<table_slice_t>(tbl, make_optional(index_str));
             } else {
-                slice = make_counted<table_slice_t>(
+                slice = make_scoped<table_slice_t>(
                     tbl, make_optional(index_str), sorting_t::ASCENDING);
                 append_index = true;
             }
@@ -713,7 +713,8 @@ private:
 
     virtual scoped_ptr_t<val_t>
     eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        counted_t<table_slice_t> tbl_slice = args->arg(env, 0)->as_table_slice(env->env);
+        scoped<val_t> arg0 = args->arg(env, 0);
+        scoped<table_slice_t> tbl_slice = std::move(*arg0).as_table_slice(env->env);
         bool left_open = is_left_open(env, args);
         bool right_open = is_right_open(env, args);
         datum_t lb = check_bound(env->env, args->arg(env, 1), datum_t::type_t::MINVAL);

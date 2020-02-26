@@ -60,15 +60,15 @@ private:
         raw_term_t raw_term = get_src();
         lt_cmp_t lt_cmp(comparisons);
 
-        counted_t<table_slice_t> tbl_slice;
+        scoped<table_slice_t> tbl_slice;
         scoped<datum_stream_t> seq;
         {
             scoped_ptr_t<val_t> v0 = args->arg(env, 0);
             if (v0->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
-                tbl_slice = v0->as_table_slice(env->env);
+                tbl_slice = std::move(*v0).as_table_slice(env->env);
             } else if (v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
                 scoped<selection_t> selection = std::move(*v0).as_selection(env->env);
-                tbl_slice = make_counted<table_slice_t>(std::move(selection->table));
+                tbl_slice = make_scoped<table_slice_t>(std::move(selection->table));
                 seq = std::move(selection->seq);
             } else {
                 seq = std::move(*v0).as_seq(env->env);
@@ -100,7 +100,7 @@ private:
                 seq = make_scoped<indexed_sort_datum_stream_t>(
                     tbl_slice->as_seq(env->env, backtrace()), lt_cmp);
             } else {
-                return new_val(tbl_slice);
+                return new_val(std::move(tbl_slice));
             }
         } else {
             if (!seq.has()) {
@@ -145,7 +145,7 @@ private:
         scoped_ptr_t<val_t> v = args->arg(env, 0);
         scoped_ptr_t<val_t> idx = args->optarg(env, "index");
         if (v->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
-            counted_t<table_slice_t> tbl_slice = v->as_table_slice(env->env);
+            scoped<table_slice_t> tbl_slice = std::move(*v).as_table_slice(env->env);
             std::string tbl_pkey = tbl_slice->get_tbl()->get_pkey();
             std::string idx_str = idx.has() ? idx->as_str(env).to_std() : tbl_pkey;
             if (idx.has() && idx_str == tbl_pkey) {

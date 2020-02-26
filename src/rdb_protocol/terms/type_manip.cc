@@ -517,7 +517,7 @@ private:
                 &info, table);
         } break;
         case TABLE_SLICE_TYPE: {
-            counted_t<table_slice_t> ts = v->as_table_slice(env);
+            scoped<table_slice_t> ts = std::move(*v).as_table_slice(env);
             b |= info.add("table", table_info_datum(
                 env->get_rdb_ctx()->fdb, env->interruptor, ts->get_tbl().get()));
             b |= info.add("index",

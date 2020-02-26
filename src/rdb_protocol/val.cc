@@ -65,7 +65,7 @@ private:
 class extreme_selection_t : public single_selection_t {
 public:
     extreme_selection_t(backtrace_id_t _bt,
-                        counted_t<table_slice_t> _slice,
+                        scoped<table_slice_t> &&_slice,
                         std::string _err)
         : bt(std::move(_bt)),
           slice(std::move(_slice)),
@@ -105,7 +105,7 @@ public:
     const counted_t<table_t> &get_tbl() final { return slice->get_tbl(); }
 private:
     backtrace_id_t bt;
-    counted_t<table_slice_t> slice;
+    scoped<table_slice_t> slice;
     datum_t row;
     std::string err;
 };
@@ -126,7 +126,7 @@ scoped<single_selection_t> single_selection_t::from_row(
 }
 scoped<single_selection_t> single_selection_t::from_slice(
     backtrace_id_t bt,
-    counted_t<table_slice_t> table, std::string err) {
+    scoped<table_slice_t> &&table, std::string err) {
     return make_scoped<extreme_selection_t>(
         std::move(bt), std::move(table), std::move(err));
 }
@@ -146,7 +146,7 @@ scoped<datum_stream_t> table_slice_t::as_seq(
     return tbl->as_seq(env, idx.has_value() ? *idx : tbl->get_pkey(), _bt, bounds, sorting);
 }
 
-counted_t<table_slice_t>
+scoped<table_slice_t>
 table_slice_t::with_sorting(std::string _idx, sorting_t _sorting) {
     rcheck(sorting == sorting_t::UNORDERED, base_exc_t::LOGIC,
            "Cannot perform multiple indexed ORDER_BYs on the same table.");
@@ -155,10 +155,10 @@ table_slice_t::with_sorting(std::string _idx, sorting_t _sorting) {
     rcheck(idx_legal, base_exc_t::LOGIC,
            strprintf("Cannot order by index `%s` after calling BETWEEN on index `%s`.",
                      _idx.c_str(), (*idx).c_str()));
-    return make_counted<table_slice_t>(tbl, make_optional(std::move(_idx)), _sorting, bounds);
+    return make_scoped<table_slice_t>(tbl, make_optional(std::move(_idx)), _sorting, bounds);
 }
 
-counted_t<table_slice_t>
+scoped<table_slice_t>
 table_slice_t::with_bounds(std::string _idx, datum_range_t _bounds) {
     rcheck(bounds.is_universe(), base_exc_t::LOGIC,
            "Cannot perform multiple BETWEENs on the same table.");
@@ -167,7 +167,7 @@ table_slice_t::with_bounds(std::string _idx, datum_range_t _bounds) {
     rcheck(idx_legal, base_exc_t::LOGIC,
            strprintf("Cannot call BETWEEN on index `%s` after ordering on index `%s`.",
                      _idx.c_str(), (*idx).c_str()));
-    return make_counted<table_slice_t>(
+    return make_scoped<table_slice_t>(
         tbl, make_optional(std::move(_idx)), sorting, std::move(_bounds));
 }
 
@@ -647,10 +647,10 @@ val_t::val_t(provisional_table_id &&_table, backtrace_id_t _bt)
       type(type_t::TABLE),
       u(std::move(_table)) {
 }
-val_t::val_t(counted_t<table_slice_t> _slice, backtrace_id_t _bt)
+val_t::val_t(scoped<table_slice_t> &&_slice, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::TABLE_SLICE),
-      u(_slice) {
+      u(std::move(_slice)) {
     guarantee(table_slice().has());
 }
 val_t::val_t(provisional_db_id &&_db, backtrace_id_t _bt)
@@ -708,13 +708,13 @@ counted_t<table_t> val_t::as_table(env_t *env) const {
     const provisional_table_id &prov_table = as_prov_table(env);
     return provisional_to_table(env, prov_table);
 }
-counted_t<table_slice_t> val_t::as_table_slice(env_t *env) {
+scoped<table_slice_t> val_t::as_table_slice(env_t *env) && {
     // NNN: Make table_slice_t hold a provisional_table_id, ofc.
     if (type.raw_type == type_t::TABLE) {
-        return make_counted<table_slice_t>(as_table(env));
+        return make_scoped<table_slice_t>(as_table(env));
     } else {
         rcheck_literal_type(env, type_t::TABLE_SLICE);
-        return table_slice();
+        return std::move(table_slice());
     }
 }
 
@@ -743,7 +743,7 @@ scoped<datum_stream_t> val_t::as_seq(env_t *env) && {
     } else if (type.raw_type == type_t::SELECTION) {
         return std::move(selection()->seq);
     } else if (type.raw_type == type_t::TABLE_SLICE || type.raw_type == type_t::TABLE) {
-        return as_table_slice(env)->as_seq(env, backtrace());
+        return std::move(*this).as_table_slice(env)->as_seq(env, backtrace());
     } else if (type.raw_type == type_t::DATUM) {
         return datum().as_datum_stream(backtrace());
     }
@@ -794,7 +794,7 @@ scoped<selection_t> val_t::as_selection(env_t *env) && {
     if (type.raw_type == type_t::SELECTION) {
         return std::move(selection());
     } else if (type.is_convertible(type_t::TABLE_SLICE)) {
-        counted_t<table_slice_t> slice = as_table_slice(env);
+        scoped<table_slice_t> slice = std::move(*this).as_table_slice(env);
         return make_scoped<selection_t>(
             slice->get_tbl(),
             slice->as_seq(env, backtrace()));

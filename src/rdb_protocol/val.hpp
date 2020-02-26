@@ -117,16 +117,17 @@ private:
     read_mode_t read_mode;
 };
 
-class table_slice_t
-    : public single_threaded_countable_t<table_slice_t>, public bt_rcheckable_t {
+class table_slice_t : public bt_rcheckable_t {
 public:
     table_slice_t(counted_t<table_t> _tbl,
                   optional<std::string> _idx = r_nullopt,
                   sorting_t _sorting = sorting_t::UNORDERED,
                   datum_range_t _bounds = datum_range_t::universe());
+    // TODO: Make these &&, in order to state something about the linearity of reql
+    // evaluation.
     scoped<datum_stream_t> as_seq(env_t *env, backtrace_id_t bt);
-    counted_t<table_slice_t> with_sorting(std::string idx, sorting_t sorting);
-    counted_t<table_slice_t> with_bounds(std::string idx, datum_range_t bounds);
+    scoped<table_slice_t> with_sorting(std::string idx, sorting_t sorting);
+    scoped<table_slice_t> with_bounds(std::string idx, datum_range_t bounds);
     const counted_t<table_t> &get_tbl() const { return tbl; }
     const optional<std::string> &get_idx() const { return idx; }
 #if RDB_CF
@@ -159,7 +160,7 @@ public:
         counted_t<table_t> table, datum_t row);
     static scoped<single_selection_t> from_slice(
         backtrace_id_t bt,
-        counted_t<table_slice_t> table, std::string err);
+        scoped<table_slice_t> &&table, std::string err);
     virtual ~single_selection_t() { }
 
     virtual datum_t get(env_t *env) = 0;
@@ -227,7 +228,7 @@ public:
     val_t(scoped<single_selection_t> &&_selection, backtrace_id_t bt);
     val_t(env_t *env, scoped<datum_stream_t> &&_seq, backtrace_id_t bt);
     val_t(provisional_table_id &&_table, backtrace_id_t bt);
-    val_t(counted_t<table_slice_t> _table_slice, backtrace_id_t bt);
+    val_t(scoped<table_slice_t> &&_table_slice, backtrace_id_t bt);
     val_t(scoped<selection_t> &&_selection, backtrace_id_t bt);
     val_t(provisional_db_id &&_db, backtrace_id_t bt);
     val_t(counted_t<const func_t> _func, backtrace_id_t bt);
@@ -238,7 +239,7 @@ public:
     const provisional_table_id &as_prov_table(env_t *env) const;
     counted_t<table_t> as_table(env_t *env) const;
     counted_t<table_t> get_underlying_table(env_t *env) const;
-    counted_t<table_slice_t> as_table_slice(env_t *env);
+    scoped<table_slice_t> as_table_slice(env_t *env) &&;
     scoped<selection_t> as_selection(env_t *env) &&;
     bool is_grouped_seq() const;
     scoped<datum_stream_t> as_seq(env_t *env) &&;
@@ -314,7 +315,7 @@ private:
                    counted_t<const func_t>,
                    counted_t<grouped_data_t>,
                    provisional_table_id,
-                   counted_t<table_slice_t>,
+                   scoped<table_slice_t>,
                    scoped<single_selection_t>,
                    scoped<selection_t> > u;
 
@@ -348,8 +349,11 @@ private:
     const provisional_table_id &table() const {
         return boost::get<provisional_table_id>(u);
     }
-    const counted_t<table_slice_t> &table_slice() const {
-        return boost::get<counted_t<table_slice_t> >(u);
+    scoped<table_slice_t> &table_slice() {
+        return boost::get<scoped<table_slice_t> >(u);
+    }
+    const scoped<table_slice_t> &table_slice() const {
+        return boost::get<scoped<table_slice_t> >(u);
     }
     counted_t<const func_t> &func() { return boost::get<counted_t<const func_t> >(u); }
 
