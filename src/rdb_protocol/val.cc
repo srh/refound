@@ -21,12 +21,10 @@ selection_t::~selection_t() {}
 
 class get_selection_t final : public single_selection_t {
 public:
-    get_selection_t(backtrace_id_t _bt,
-                    counted_t<table_t> _tbl,
+    get_selection_t(counted_t<table_t> _tbl,
                     datum_t _key,
                     datum_t _row = datum_t())
-        : bt(std::move(_bt)),
-          tbl(std::move(_tbl)),
+        : tbl(std::move(_tbl)),
           key(std::move(_key)),
           row(std::move(_row)) { }
     datum_t get(env_t *env) override {
@@ -49,7 +47,6 @@ public:
         return tbl->batched_replace(
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
-    backtrace_id_t get_bt() const final override { return bt; }
 #if RDB_CF
     changefeed::keyspec_t::spec_t get_spec() const final {
         return changefeed::keyspec_t::point_t{key};
@@ -99,7 +96,6 @@ public:
         return table->batched_replace(
             env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
     }
-    backtrace_id_t get_bt() const final override { return bt; }
 #if RDB_CF
     changefeed::keyspec_t::spec_t get_spec() const final {
         return ql::changefeed::keyspec_t::limit_t{slice->get_range_spec(), 1};
@@ -114,19 +110,21 @@ private:
     std::string err;
 };
 
+// TODO: Remove bt param.
 scoped<single_selection_t> single_selection_t::from_key(
-    backtrace_id_t bt,
+    UNUSED backtrace_id_t bt,
     counted_t<table_t> table, datum_t key) {
     return make_scoped<get_selection_t>(
-        std::move(bt), std::move(table), std::move(key));
+        std::move(table), std::move(key));
 }
+// TODO: Remove bt param.
 scoped<single_selection_t> single_selection_t::from_row(
-    backtrace_id_t bt,
+    UNUSED backtrace_id_t bt,
     counted_t<table_t> table, datum_t row) {
     datum_t d = row.get_field(datum_string_t(table->get_pkey()), NOTHROW);
     r_sanity_check(d.has());
     return make_scoped<get_selection_t>(
-        std::move(bt), std::move(table), std::move(d), std::move(row));
+        std::move(table), std::move(d), std::move(row));
 }
 scoped<single_selection_t> single_selection_t::from_slice(
     backtrace_id_t bt,

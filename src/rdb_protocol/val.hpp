@@ -167,7 +167,6 @@ public:
         counted_t<const func_t> f, bool nondet_ok,
         durability_requirement_t dur_req, return_changes_t return_changes,
         ignore_write_hook_t ignore_write_hook) && = 0;
-    virtual backtrace_id_t get_bt() const = 0;
 #if RDB_CF
     virtual changefeed::keyspec_t::spec_t get_spec() const = 0;
 #endif
