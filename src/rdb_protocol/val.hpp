@@ -150,6 +150,8 @@ enum function_shortcut_t {
 
 class single_selection_t {
 public:
+    static scoped<single_selection_t> provisionally_from_key(
+        provisional_table_id &&table, datum_t key);
     static scoped<single_selection_t> from_key(
         backtrace_id_t bt,
         counted_t<table_t> table, datum_t key);
@@ -170,7 +172,7 @@ public:
 #if RDB_CF
     virtual changefeed::keyspec_t::spec_t get_spec() const = 0;
 #endif
-    virtual const counted_t<table_t> &get_tbl() = 0;
+    virtual const counted_t<table_t> &get_tbl(env_t *env) = 0;
 protected:
     single_selection_t() = default;
 };

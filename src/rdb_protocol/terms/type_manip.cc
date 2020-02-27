@@ -586,7 +586,7 @@ private:
             scoped<single_selection_t> single_sel = std::move(*v).as_single_selection(env);
             b |= info.add("table", table_info_datum(
                 env->get_rdb_ctx()->fdb, env->interruptor,
-                single_sel->get_tbl().get()));
+                single_sel->get_tbl(env).get()));
         } break;
 
         case FUNC_TYPE: {

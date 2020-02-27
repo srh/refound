@@ -15,9 +15,77 @@
 
 namespace ql {
 
+// NNN: move definition, or impl, to header or whatever.
+scoped<table_t> provisional_to_table(
+        FDBDatabase *fdb,
+        const signal_t *interruptor,
+        reqlfdb_config_cache *cc,
+        artificial_reql_cluster_interface_t *art_or_null,
+        const provisional_table_id &prov_table);
+
+// TODO: Remove, eventually.
+scoped<table_t> provisional_to_table(
+        env_t *env, const provisional_table_id &prov_table) {
+    return provisional_to_table(
+        env->get_rdb_ctx()->fdb,
+        env->interruptor,
+        env->get_rdb_ctx()->config_caches.get(),
+        env->get_rdb_ctx()->artificial_interface_or_null,
+        prov_table);
+}
+
 selection_t::selection_t(counted_t<table_t> _table, scoped<datum_stream_t> &&_seq)
         : table(std::move(_table)), seq(std::move(_seq)) { }
 selection_t::~selection_t() {}
+
+class provisional_get_selection final : public single_selection_t {
+public:
+    // NNN: No default args, please.
+    provisional_get_selection(provisional_table_id &&_prov_table,
+                    datum_t _key)
+        : prov_table(std::move(_prov_table)),
+          table(),
+          key(std::move(_key)),
+          row() { }
+    datum_t get(env_t *env) override {
+        // NNN: No, do the get_row and de-provisionalization of the table in the same fdb txn.
+        counted_t<table_t> &tbl = get_tbl(env);
+        if (!row.has()) {
+            row = tbl->get_row(env, key);
+        }
+        return row;
+    }
+    datum_t replace(
+            env_t *env,
+            counted_t<const func_t> f,
+            bool nondet_ok,
+            durability_requirement_t dur_req,
+            return_changes_t return_changes,
+            ignore_write_hook_t ignore_write_hook) && override {
+        counted_t<table_t> &tbl = get_tbl(env);
+        std::vector<datum_t> keys = {key};
+        // We don't need to fetch the value for deterministic replacements.
+        std::vector<datum_t> vals = {
+            f->is_deterministic().test(single_server_t::no, constant_now_t::yes) ? datum_t() : get(env)};
+        return tbl->batched_replace(
+            env, vals, keys, f, nondet_ok, dur_req, return_changes, ignore_write_hook);
+    }
+#if RDB_CF
+    changefeed::keyspec_t::spec_t get_spec() const final {
+        return changefeed::keyspec_t::point_t{key};
+    }
+#endif
+    counted_t<table_t> &get_tbl(env_t *env) final override {
+        if (!table.has()) {
+            table = provisional_to_table(env, prov_table);
+        }
+        return table;
+    }
+private:
+    provisional_table_id prov_table;
+    counted_t<table_t> table;
+    datum_t key, row;
+};
 
 class get_selection_t final : public single_selection_t {
 public:
@@ -52,9 +120,8 @@ public:
         return changefeed::keyspec_t::point_t{key};
     }
 #endif
-    counted_t<table_t> &get_tbl() final override { return tbl; }
+    counted_t<table_t> &get_tbl(env_t *) final override { return tbl; }
 private:
-    backtrace_id_t bt;
     counted_t<table_t> tbl;
     datum_t key, row;
 };
@@ -102,7 +169,7 @@ public:
     }
 #endif  // RDB_CF
     // NNN: Ensure never used after get().
-    const counted_t<table_t> &get_tbl() final override { return slice->get_tbl(); }
+    const counted_t<table_t> &get_tbl(env_t *) final override { return slice->get_tbl(); }
 private:
     backtrace_id_t bt;
     scoped<table_slice_t> slice;
@@ -110,6 +177,11 @@ private:
     std::string err;
 };
 
+scoped<single_selection_t> single_selection_t::provisionally_from_key(
+        provisional_table_id &&table, datum_t key) {
+    return make_scoped<provisional_get_selection>(
+        std::move(table), std::move(key));
+}
 // TODO: Remove bt param.
 scoped<single_selection_t> single_selection_t::from_key(
     UNUSED backtrace_id_t bt,
@@ -682,25 +754,6 @@ datum_t val_t::as_datum(env_t *env) const {
     unreachable();
 }
 
-// NNN: move definition, or impl, to header or whatever.
-scoped<table_t> provisional_to_table(
-        FDBDatabase *fdb,
-        const signal_t *interruptor,
-        reqlfdb_config_cache *cc,
-        artificial_reql_cluster_interface_t *art_or_null,
-        const provisional_table_id &prov_table);
-
-// TODO: Remove, eventually.
-scoped<table_t> provisional_to_table(
-        env_t *env, const provisional_table_id &prov_table) {
-    return provisional_to_table(
-        env->get_rdb_ctx()->fdb,
-        env->interruptor,
-        env->get_rdb_ctx()->config_caches.get(),
-        env->get_rdb_ctx()->artificial_interface_or_null,
-        prov_table);
-}
-
 provisional_table_id val_t::as_prov_table(env_t *env) && {
     rcheck_literal_type(env, type_t::TABLE);
     return std::move(table());
@@ -786,7 +839,7 @@ name_string_t val_t::get_underlying_table_name(env_t *env) const {
     } else if (type.raw_type == type_t::SELECTION) {
         return selection()->table->name;
     } else if(type.raw_type == type_t::SINGLE_SELECTION) {
-        return single_selection()->get_tbl()->name;
+        return single_selection()->get_tbl(env)->name;
     } else if (type.raw_type == type_t::TABLE_SLICE) {
         return table_slice()->get_tbl()->name;
     } else {
