@@ -152,7 +152,7 @@ scoped_ptr_t<val_t> nth_term_impl(const term_t *term, scope_env_t *env,
             const backtrace_id_t agg_bt = aggregate->backtrace();
             scoped<datum_stream_t> seq = std::move(*aggregate).as_seq(env->env);
             counted_t<grouped_data_t> result
-                = seq->to_array(env->env)->as_grouped_data(env->env);
+                = std::move(*seq->to_array(env->env)).as_grouped_data(env->env);
             // (aggregate is empty, because maybe_grouped_data sets at most one of
             // gd and aggregate, so we don't have to worry about re-evaluating it.
             counted_t<grouped_data_t> out(new grouped_data_t());

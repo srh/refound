@@ -754,15 +754,15 @@ scoped<datum_stream_t> val_t::as_seq(env_t *env) && {
     unreachable();
 }
 
-counted_t<grouped_data_t> val_t::as_grouped_data(env_t *env) {
+counted_t<grouped_data_t> val_t::as_grouped_data(env_t *env) && {
     rcheck_literal_type(env, type_t::GROUPED_DATA);
-    return boost::get<counted_t<grouped_data_t> >(u);
+    return std::move(boost::get<counted_t<grouped_data_t> >(u));
 }
 
-counted_t<grouped_data_t> val_t::as_promiscuous_grouped_data(env_t *env) {
+counted_t<grouped_data_t> val_t::as_promiscuous_grouped_data(env_t *env) && {
     return ((type.raw_type == type_t::SEQUENCE) && sequence()->is_grouped())
-        ? sequence()->to_array(env)->as_grouped_data(env)
-        : as_grouped_data(env);
+        ? std::move(*sequence()->to_array(env)).as_grouped_data(env)
+        : std::move(*this).as_grouped_data(env);
 }
 
 counted_t<grouped_data_t> val_t::maybe_as_grouped_data() {
@@ -773,7 +773,7 @@ counted_t<grouped_data_t> val_t::maybe_as_grouped_data() {
 
 counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
     return ((type.raw_type == type_t::SEQUENCE) && sequence()->is_grouped())
-        ? sequence()->to_array(env)->as_grouped_data(env)
+        ? std::move(*sequence()->to_array(env)).as_grouped_data(env)
         : maybe_as_grouped_data();
 }
 

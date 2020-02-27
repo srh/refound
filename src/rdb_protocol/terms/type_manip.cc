@@ -311,7 +311,7 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(
         scope_env_t *env, args_t *args, eval_flags_t) const {
         counted_t<grouped_data_t> groups
-            = args->arg(env, 0)->as_promiscuous_grouped_data(env->env);
+            = std::move(*args->arg(env, 0)).as_promiscuous_grouped_data(env->env);
         std::vector<datum_t> v;
         v.reserve(groups->size());
 
