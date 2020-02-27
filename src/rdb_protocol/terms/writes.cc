@@ -134,6 +134,7 @@ private:
 
         optional<ql::deterministic_func> conflict_func;
 
+        // TODO: "conflict" optarg is evaluated twice!  Fuck!
         scoped_ptr_t<val_t> conflict_optarg = args->optarg(env, "conflict");
         const conflict_behavior_t conflict_behavior
             = parse_conflict_optarg(env->env, args->optarg(env, "conflict"));
@@ -150,7 +151,7 @@ private:
                 ignore_write_hook_t::NO;
         }
         if (conflict_behavior == conflict_behavior_t::FUNCTION) {
-            counted_t<const ql::func_t> f = conflict_optarg->as_func(env->env);
+            counted_t<const ql::func_t> f = std::move(*conflict_optarg).as_func(env->env);
             // Check that insert function is atomic.
             rcheck(f->is_deterministic().test(single_server_t::no,
                                               constant_now_t::yes),
@@ -308,7 +309,7 @@ private:
                    "Maybe you want to use the non_atomic flag?");
         }
         counted_t<const func_t> f =
-            args->arg(env, 1)->as_func(env->env, CONSTANT_SHORTCUT);
+            std::move(*args->arg(env, 1)).as_func(env->env, CONSTANT_SHORTCUT);
         if (!nondet_ok) {
             // If this isn't true we should have caught it in the `rcheck` above.
             rassert(f->is_deterministic().test(single_server_t::no, constant_now_t::yes));
@@ -410,7 +411,7 @@ private:
             profile::sampler_t sampler("Evaluating elements in for each.",
                                        env->env->trace);
             counted_t<const func_t> f =
-                args->arg(env, 1)->as_func(env->env, CONSTANT_SHORTCUT);
+                std::move(*args->arg(env, 1)).as_func(env->env, CONSTANT_SHORTCUT);
             datum_t row;
             while (row = ds->next(env->env, batchspec), row.has()) {
                 scoped_ptr_t<val_t> v = f->call(env->env, row);

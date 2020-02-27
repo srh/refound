@@ -816,10 +816,10 @@ scoped<single_selection_t> val_t::as_single_selection(env_t *env) && {
     return std::move(single_selection());
 }
 
-counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) {
+counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) && {
     if (get_type().is_convertible(type_t::FUNC)) {
         r_sanity_check(func().has());
-        return func();
+        return std::move(func());
     }
 
     if (shortcut == NO_SHORTCUT) {
@@ -832,6 +832,9 @@ counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut)
         unreachable();
     }
 
+    // Just pull out the backtrace() here in case a future change below uses the rvalue
+    // context.
+    backtrace_id_t our_bt = backtrace();
     try {
         switch (shortcut) {
         case CONSTANT_SHORTCUT:
@@ -847,7 +850,7 @@ counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut)
         default: unreachable();
         }
     } catch (const datum_exc_t &ex) {
-        throw exc_t(ex, backtrace());
+        throw exc_t(ex, our_bt);
     }
 }
 

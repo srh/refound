@@ -49,15 +49,15 @@ public:
         /* Parse the write_hook configuration */
         optional<write_hook_config_t> config;
         bool deletion_message = true;
-        scoped_ptr_t<val_t> v = args->arg(env, 1);
+        scoped_ptr_t<val_t> wh_val = args->arg(env, 1);
         // RSI: Old reql versions hanging around, being unused, is pretty bad.
         // RSI: Something about write hooks not being specified vs. being specified as "null" in certain API's was weird.
 
         // We ignore the write_hook's old `reql_version` and make the new version
         // just be `reql_version_t::LATEST`; but in the future we may have
         // to do some conversions for compatibility.
-        if (v->get_type().is_convertible(val_t::type_t::DATUM)) {
-            datum_t d = v->as_datum(env);
+        if (wh_val->get_type().is_convertible(val_t::type_t::DATUM)) {
+            datum_t d = wh_val->as_datum(env);
             if (d.get_type() == datum_t::R_BINARY) {
                 ql::wire_func_t func;
 
@@ -87,7 +87,7 @@ public:
 
         // This way it will complain about it not being a function.
         // We check the deterministic func condition immediately below.
-        config.set(write_hook_config_t(ql::deterministic_func{ql::wire_func_t(v->as_func(env->env))},
+        config.set(write_hook_config_t(ql::deterministic_func{ql::wire_func_t(std::move(*wh_val).as_func(env->env))},
                                        reql_version_t::LATEST));
 
     config_specified_with_value:

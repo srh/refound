@@ -432,11 +432,12 @@ void http_term_t::get_page_and_limit(scope_env_t *env,
                      "(a positive number performs that many requests, -1 is unlimited).");
     }
 
-    *depaginate_fn_out = page->as_func(env->env, PAGE_SHORTCUT);
-    *depaginate_limit_out = page_limit->as_int<int64_t>(env->env);
+    *depaginate_fn_out = std::move(*page).as_func(env->env, PAGE_SHORTCUT);
+    backtrace_id_t page_limit_bt = page_limit->backtrace();
+    *depaginate_limit_out = std::move(*page_limit).as_int<int64_t>(env->env);
 
     if (*depaginate_limit_out < -1) {
-        rfail_target(page_limit, base_exc_t::LOGIC,
+        rfail_src(page_limit_bt, base_exc_t::LOGIC,
                      "`page_limit` should be greater than or equal to -1.");
     }
 }

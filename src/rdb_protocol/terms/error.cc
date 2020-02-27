@@ -62,7 +62,7 @@ private:
         try {
             scoped_ptr_t<val_t> def = args->arg(env, 1);
             if (def->get_type().is_convertible(val_t::type_t::FUNC)) {
-                return def->as_func(env->env)->call(env->env, func_arg);
+                return std::move(*def).as_func(env->env)->call(env->env, func_arg);
             } else {
                 return def;
             }

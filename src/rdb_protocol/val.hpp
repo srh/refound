@@ -243,7 +243,7 @@ public:
     // The env doesn't get used, it's purely type safety.
     scoped<single_selection_t> as_single_selection(env_t *env) &&;
     // See func.hpp for an explanation of shortcut functions.
-    counted_t<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT);
+    counted_t<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT) &&;
 
     // This set of interfaces is atrocious.  Basically there are some places
     // where we want grouped_data, some places where we maybe want grouped_data,

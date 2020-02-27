@@ -338,7 +338,7 @@ public:
             // We do it this way so that if someone passes a string, we produce
             // a type error asking for a function rather than BINARY.
             if (!got_func) {
-                config.func = ql::deterministic_func{ql::wire_func_t(v->as_func(env->env))};
+                config.func = ql::deterministic_func{ql::wire_func_t(std::move(*v).as_func(env->env))};
                 config.func_version = reql_version_t::LATEST;
             }
         } else {

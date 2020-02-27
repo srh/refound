@@ -239,10 +239,11 @@ private:
                 }
                 d = d.merge(d0);
             } else {
-                auto f = v->as_func(env->env, CONSTANT_SHORTCUT);
+                backtrace_id_t v_bt = v->backtrace();
+                auto f = std::move(*v).as_func(env->env, CONSTANT_SHORTCUT);
                 datum_t d0 = f->call(env->env, d, eval_flags_t::LITERAL_OK)->as_datum(env);
                 if (d0.get_type() == datum_t::R_OBJECT) {
-                    rcheck_target(v,
+                    rcheck_src(v_bt,
                                   !d0.is_ptype() || d0.is_ptype("LITERAL"),
                                   base_exc_t::LOGIC,
                                   strprintf("Cannot merge objects of type `%s`.",

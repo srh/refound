@@ -101,7 +101,7 @@ private:
                       "Unrecognized value `%d` for _SHORTCUT_ argument.", shortcut);
         }
         counted_t<const func_t> f =
-            args->arg(env, 0, flags)->as_func(env->env, shortcut);
+            std::move(*args->arg(env, 0, flags)).as_func(env->env, shortcut);
 
         // We need specialized logic for `grouped_data` here because `funcall`
         // needs to be polymorphic on its second argument rather than its first.

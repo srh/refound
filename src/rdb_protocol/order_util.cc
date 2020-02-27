@@ -29,7 +29,7 @@ build_comparison(env_t *env,
 
     check_r_args(target, item);
 
-    counted_t<const func_t> comparison_function = arg->as_func(env, GET_FIELD_SHORTCUT);
+    counted_t<const func_t> comparison_function = std::move(*arg).as_func(env, GET_FIELD_SHORTCUT);
     rcheck_target(target,
                   comparison_function->is_deterministic().test(single_server_t::yes,
                                                                constant_now_t::yes),
