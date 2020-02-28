@@ -366,6 +366,16 @@ private:
     DISABLE_COPYING(val_t);
 };
 
+// TODO: Move decl, probably.  And impl.  Which is in db_table.cc
+scoped<table_t> provisional_to_table(
+        FDBDatabase *fdb,
+        const signal_t *interruptor,
+        reqlfdb_config_cache *cc,
+        artificial_reql_cluster_interface_t *art_or_null,
+        const provisional_table_id &prov_table);
+
+scoped<table_t> provisional_to_table(
+        env_t *env, const provisional_table_id &prov_table);
 
 }  // namespace ql
 

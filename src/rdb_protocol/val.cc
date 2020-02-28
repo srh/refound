@@ -15,14 +15,6 @@
 
 namespace ql {
 
-// NNN: move definition, or impl, to header or whatever.
-scoped<table_t> provisional_to_table(
-        FDBDatabase *fdb,
-        const signal_t *interruptor,
-        reqlfdb_config_cache *cc,
-        artificial_reql_cluster_interface_t *art_or_null,
-        const provisional_table_id &prov_table);
-
 // TODO: Remove, eventually.
 scoped<table_t> provisional_to_table(
         env_t *env, const provisional_table_id &prov_table) {
@@ -48,10 +40,10 @@ public:
           key(std::move(_key)),
           row() { }
     datum_t get(env_t *env) override {
-        // NNN: No, do the get_row and de-provisionalization of the table in the same fdb txn.
-        counted_t<table_t> &tbl = get_tbl(env);
         if (!row.has()) {
-            row = tbl->get_row(env, key);
+            std::pair<datum_t, counted<table_t>> tmp = prov_read_row(env, prov_table, key);
+            row = std::move(tmp.first);
+            table = std::move(tmp.second);
         }
         return row;
     }
