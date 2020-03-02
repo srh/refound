@@ -128,7 +128,7 @@ scoped<ql::val_t> make_single_selection(
                 &tmp_row,
                 &error)) {
             REQL_RETHROW_SRC(bt, error);
-        } else if (!row.has()) {
+        } else if (!tmp_row.has()) {
             // This shouldn't happen because we table_backend->read_row will be looking
             // for the same primary key we just read from the database.
             //

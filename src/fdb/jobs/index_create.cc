@@ -110,7 +110,11 @@ optional<fdb_job_info> execute_index_create_job(
     // TODO: Apply a workaround for write contention problems mentioned above.
     table_config_t table_config;
     if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
-        crash("Missing table config referencing job");  // TODO: msg, graceful, etc.
+        crash("Missing table config referencing index creation job %s, for "
+            "table id %s\n",
+            uuid_to_str(info.job_id.value).c_str(),
+            uuid_to_str(index_create_info.table_id.value).c_str());
+        // TODO: msg, graceful, etc.
     }
 
     // sindexes_it is casually used to mutate table_config, much later.
