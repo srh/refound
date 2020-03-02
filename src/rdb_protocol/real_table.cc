@@ -19,9 +19,31 @@
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 
+read_response_t table_query_client_read(
+        FDBTransaction *txn,
+        cv_check_fut &&cvc,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const read_t &r,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            provisional_assumption_exception) {
+    // TODO: This ignores r.read_mode (as it must).
+    // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+    // we check_cv?), not after entire read op.
+    auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
+    read_response_t resp = apply_read(txn, std::move(cvc), table_id, table_config,
+        r, interruptor);
+    auth_fut.block_and_check(interruptor);
+
+    return resp;
+}
+
 // Named such because it replicates the functionality and responsibilities of
 // table_query_client_t::read.
-read_response_t table_query_client_read(
+read_response_t table_query_client_read_loop(
         FDBDatabase *fdb,
         reqlfdb_config_version prior_cv,
         const namespace_id_t &table_id,
@@ -34,20 +56,22 @@ read_response_t table_query_client_read(
             config_version_exc_t) {
     // TODO: This ignores r.read_mode (as it must).
     // TODO: Read-only txn
-    read_response_t ret;
-    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&](FDBTransaction *txn) {
-        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-        // we check_cv?), not after entire read op.
-        auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
-        read_response_t resp = apply_read(txn, prior_cv, table_id, table_config,
-            r, interruptor);
-        auth_fut.block_and_check(interruptor);
-
-        ret = std::move(resp);
-    });
-    guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
-    return ret;
+    try {
+        read_response_t ret;
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+            cv_check_fut cvc;
+            cvc.cv_fut = transaction_get_config_version(txn);
+            cvc.expected_cv = prior_cv;
+            ret = table_query_client_read(txn, std::move(cvc), table_id, table_config,
+                user_context, r, interruptor);
+        });
+        guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
+        return ret;
+    } catch (const provisional_assumption_exception &exc) {
+        // NNN: Handle exc properly, remove config_version_exc_t.
+        throw config_version_exc_t();
+    }
 }
 
 // Named such because it replicates the functionality and responsibilities of
@@ -232,7 +256,7 @@ ql::datum_t real_table_t::read_nearest(
     read_t read(geo_read, env->profile(), read_mode);
     read_response_t res;
     try {
-        res = table_query_client_read(
+        res = table_query_client_read_loop(
             env->get_rdb_ctx()->fdb, cv.assert_nonempty(), uuid, *table_config,
             env->get_user_context(),
             read,
@@ -412,7 +436,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
 
     /* Do the actual read. */
     try {
-        *response = table_query_client_read(
+        *response = table_query_client_read_loop(
             env->get_rdb_ctx()->fdb,
             cv.assert_nonempty(),
             uuid,

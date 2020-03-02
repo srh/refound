@@ -6,6 +6,7 @@
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
 
+class cv_check_fut;
 struct reqlfdb_config_version;
 class interrupted_exc_t;
 struct namespace_id_t;
@@ -17,7 +18,7 @@ struct write_t;
 struct write_response_t;
 
 read_response_t apply_read(FDBTransaction *txn,
-    reqlfdb_config_version expected_cv,
+    cv_check_fut &&cvc,
     const namespace_id_t &table_id,
     const table_config_t &table_config,
     const read_t &read,

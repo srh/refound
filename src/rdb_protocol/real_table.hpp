@@ -13,6 +13,8 @@
 #include "rdb_protocol/context.hpp"
 #include "rdb_protocol/protocol.hpp"
 
+class cv_check_fut;
+
 namespace ql {
 class datum_range_t;
 namespace changefeed {
@@ -27,6 +29,18 @@ for constructing and returning them from `reql_cluster_interface_t::table_find()
 namespace ql {
 class reader_t;
 }
+
+read_response_t table_query_client_read(
+    FDBTransaction *txn,
+    cv_check_fut &&cvc,
+    const namespace_id_t &table_id,
+    const table_config_t &table_config,
+    const auth::user_context_t &user_context,
+    const read_t &r,
+    const signal_t *interruptor)
+    THROWS_ONLY(
+        interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+        provisional_assumption_exception);
 
 class real_table_t final : public base_table_t {
 public:

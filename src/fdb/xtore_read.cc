@@ -1105,8 +1105,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         point_read_response_t *res =
             boost::get<point_read_response_t>(&response->response);
         rdb_fdb_get(txn_, table_id_, get.key, res, interruptor);
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
     }
 
     void operator()(const intersecting_geo_read_t &geo_read) {
@@ -1173,8 +1172,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             res);
 
         // TODO: Check the cv after the first request.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
     }
 
     void operator()(const nearest_geo_read_t &geo_read) {
@@ -1228,8 +1226,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             res);
 
         // TODO: Check the cv after the first request.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
     }
 
     void operator()(const rget_read_t &rget) {
@@ -1260,8 +1257,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         do_fdb_snap_read(interruptor, txn_, table_id_, *table_config_, &ql_env, rget, res);
         // TODO: If do_fdb_snap_read performs multiple requests, check the cv after the
         // first one.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
     }
 
     void operator()(const dummy_read_t &) {
@@ -1277,15 +1273,14 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 #endif
 
     fdb_read_visitor(FDBTransaction *_txn,
-            reqlfdb_config_version _expected_cv,
+            cv_check_fut &&cvc,
             const namespace_id_t &_table_id,
             const table_config_t *_table_config,
             profile::trace_t *_trace_or_null,
             read_response_t *_response,
             const signal_t *_interruptor) :
         txn_(_txn),
-        expected_cv_(_expected_cv),
-        cv_fut_(transaction_get_config_version(_txn)),
+        cvc_(std::move(cvc)),
         table_id_(_table_id),
         table_config_(_table_config),
         trace(_trace_or_null),
@@ -1294,8 +1289,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
 private:
     FDBTransaction *const txn_;
-    const reqlfdb_config_version expected_cv_;
-    fdb_value_fut<reqlfdb_config_version> cv_fut_;
+    cv_check_fut cvc_;
     const namespace_id_t table_id_;
     const table_config_t *table_config_;
     // TODO: Rename trace to trace_or_null?
@@ -1307,7 +1301,7 @@ private:
 };
 
 read_response_t apply_read(FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
+        cv_check_fut &&cvc,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         const read_t &_read,
@@ -1317,7 +1311,7 @@ read_response_t apply_read(FDBTransaction *txn,
     {
         PROFILE_STARTER_IF_ENABLED(
             _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-        fdb_read_visitor v(txn, expected_cv, table_id, &table_config, trace.get_or_null(),
+        fdb_read_visitor v(txn, std::move(cvc), table_id, &table_config, trace.get_or_null(),
             &response, interruptor);
         boost::apply_visitor(v, _read.read);
     }

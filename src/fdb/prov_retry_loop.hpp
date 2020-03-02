@@ -7,28 +7,6 @@
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "rdb_protocol/table.hpp"
 
-struct provisional_assumption_exception {
-    reqlfdb_config_version cv;
-};
-
-struct cv_check_fut {
-    // Possibly empty, in which case a cv check is unnecessary.
-    fdb_value_fut<reqlfdb_config_version> cv_fut;
-    // Ignored if cv_fut is empty.
-    reqlfdb_config_version expected_cv;
-
-    void block_and_check(const signal_t *interruptor) {
-        if (cv_fut.has()) {
-            reqlfdb_config_version cv;
-            cv = cv_fut.block_and_deserialize(interruptor);
-            cv_fut.reset();
-            if (cv.value != expected_cv.value) {
-                throw provisional_assumption_exception{cv};
-            }
-        }
-    }
-};
-
 struct table_info {
     namespace_id_t table_id;
     const table_config_t *config;

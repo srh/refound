@@ -13,16 +13,40 @@
 #include "containers/uuid.hpp"
 #include "containers/name_string.hpp"
 #include "fdb/id_types.hpp"
+#include "fdb/typed.hpp"
 
 template <class T> class optional;
 
-// TODO: Handle this exception.
+// NNN: Remove this exception, and handle provisional_assumption_exception.
 class config_version_exc_t : public std::exception {
 public:
     config_version_exc_t() {}
 
     const char *what() const noexcept override {
         return "Config version out of date";
+    }
+};
+
+struct provisional_assumption_exception {
+    reqlfdb_config_version cv;
+};
+
+class cv_check_fut {
+public:
+    // Possibly empty, in which case a cv check is unnecessary.
+    fdb_value_fut<reqlfdb_config_version> cv_fut;
+    // Ignored if cv_fut is empty.
+    reqlfdb_config_version expected_cv;
+
+    void block_and_check(const signal_t *interruptor) {
+        if (cv_fut.has()) {
+            reqlfdb_config_version cv;
+            cv = cv_fut.block_and_deserialize(interruptor);
+            cv_fut.reset();
+            if (cv.value != expected_cv.value) {
+                throw provisional_assumption_exception{cv};
+            }
+        }
     }
 };
 
