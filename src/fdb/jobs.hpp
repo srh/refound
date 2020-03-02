@@ -16,13 +16,12 @@ struct skey_string;
 struct ukey_string;
 
 enum class fdb_job_type {
-    dummy_job,  // TODO: Remove.
     db_drop_job,
     index_create_job,
 };
 
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
-    fdb_job_type::dummy_job, fdb_job_type::index_create_job);
+    fdb_job_type::db_drop_job, fdb_job_type::index_create_job);
 
 struct fdb_job_db_drop {
     database_id_t database_id;

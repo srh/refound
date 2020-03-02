@@ -183,18 +183,6 @@ void remove_fdb_job(FDBTransaction *txn, const fdb_job_info &info) {
 // TODO: Look at all fdb txn's, note the read-only ones, and config them read-only.
 
 // TODO: Distribute job execution to different cores.
-void execute_dummy_job(FDBTransaction *txn, const fdb_job_info &info,
-        const signal_t *interruptor) {
-    fdb_value_fut<fdb_job_info> real_info_fut =
-        transaction_get_real_job_info(txn, info);
-    if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
-        return;
-    }
-
-    // Since this is a dummy job, we do nothing with the job except to remove it.
-    remove_fdb_job(txn, info);
-    commit(txn, interruptor);
-}
 
 void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         const auto_drainer_t::lock_t &lock) {
@@ -203,14 +191,6 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
     optional<fdb_job_info> reclaimed{info};
     while (reclaimed.has_value()) {
         switch (info.job_description.type) {
-        case fdb_job_type::dummy_job: {
-            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&info, interruptor](FDBTransaction *txn) {
-                execute_dummy_job(txn, info, interruptor);
-            });
-            guarantee_fdb_TODO(loop_err, "could not execute dummy job");
-            reclaimed = r_nullopt;
-        } break;
         case fdb_job_type::db_drop_job: {
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&info, interruptor, &reclaimed](FDBTransaction *txn) {

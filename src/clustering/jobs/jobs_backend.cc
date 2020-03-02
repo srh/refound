@@ -32,10 +32,6 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
     ql::datum_t info_datum;
     std::string type_str;
     switch (info.job_description.type) {
-    case fdb_job_type::dummy_job: {
-        type_str = "dummy";
-        info_datum = ql::datum_t::empty_object();
-    } break;
     case fdb_job_type::db_drop_job: {
         type_str = "db_drop";
         ql::datum_object_builder_t info_builder;
