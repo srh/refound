@@ -3,6 +3,7 @@
 #include <inttypes.h>
 
 #include "arch/runtime/coroutines.hpp"
+#include "containers/archive/boost_types.hpp"
 #include "containers/archive/stl_types.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "containers/archive/optional.hpp"
@@ -82,8 +83,8 @@ RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(fdb_job_index_create,
 RDB_IMPL_EQUALITY_COMPARABLE_3(fdb_job_index_create,
     table_id, sindex_name, sindex_id);
 
-RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(fdb_job_description, type, db_drop, index_create);
-RDB_IMPL_EQUALITY_COMPARABLE_3(fdb_job_description, type, db_drop, index_create);
+RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(fdb_job_description, type, v);
+RDB_IMPL_EQUALITY_COMPARABLE_2(fdb_job_description, type, v);
 
 RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
     job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
@@ -213,7 +214,7 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         case fdb_job_type::db_drop_job: {
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&info, interruptor, &reclaimed](FDBTransaction *txn) {
-                reclaimed = execute_db_drop_job(txn, info, info.job_description.db_drop, interruptor);
+                reclaimed = execute_db_drop_job(txn, info, boost::get<fdb_job_db_drop>(info.job_description.v), interruptor);
             });
             guarantee_fdb_TODO(loop_err, "could not execute db drop job");
         } break;
@@ -221,7 +222,8 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&info, interruptor, &reclaimed](FDBTransaction *txn) {
                 reclaimed = execute_index_create_job(txn, info,
-                    info.job_description.index_create, interruptor);
+                    boost::get<fdb_job_index_create>(info.job_description.v),
+                    interruptor);
             });
             guarantee_fdb_TODO(loop_err, "could not execute index create job");
         } break;
@@ -262,7 +264,7 @@ void try_claim_and_start_job(
         // There is at least one job.
 
         key_view spkey
-            = first_fdb_key.without_prefix(strlen(REQLFDB_JOBS_BY_LEASE_EXPIRATION));
+            = first_fdb_key.guarantee_without_prefix(lease_index);
 
         std::pair<reqlfdb_clock, key_view> sp = split_clock_key_pair(spkey);
         // TODO: validate that sp.second is a uuid?  Or at least the right length.

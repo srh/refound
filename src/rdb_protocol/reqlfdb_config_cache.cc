@@ -10,7 +10,6 @@
 #include "clustering/tables/table_metadata.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/archive/string_stream.hpp"
-#include "debug.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs.hpp"
@@ -448,8 +447,7 @@ void config_cache_db_drop_uuid(
     fdb_shared_task_id task_id{generate_uuid()};
     fdb_job_description desc{
         fdb_job_type::db_drop_job,
-        fdb_job_db_drop::make(db_id),
-        fdb_job_index_create{}};
+        fdb_job_db_drop::make(db_id)};
 
     // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
     // and avoid double round-trip latency.
@@ -803,10 +801,8 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
 
         fdb_job_description desc{
             fdb_job_type::index_create_job,
-            fdb_job_db_drop{},
             fdb_job_index_create{table_id, index_name, new_sindex_id},
         };
-        debugf("Creating index job for table %s\n", uuid_to_str(table_id).c_str());
 
         // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
         // and avoid double round-trip latency.

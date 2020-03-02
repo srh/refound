@@ -39,16 +39,17 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
     case fdb_job_type::db_drop_job: {
         type_str = "db_drop";
         ql::datum_object_builder_t info_builder;
-        info_builder.overwrite("db", ql::datum_t(uuid_to_str(info.job_description.db_drop.database_id.value)));
+        const fdb_job_db_drop &db_drop = boost::get<fdb_job_db_drop>(info.job_description.v);
+        info_builder.overwrite("db", ql::datum_t(uuid_to_str(db_drop.database_id.value)));
         const optional<std::string> &last_table_name
-            = info.job_description.db_drop.last_table_name;
+            = db_drop.last_table_name;
         info_builder.overwrite("progress",
             last_table_name.has_value() ?
                 ql::datum_t(*last_table_name) : ql::datum_t::null());
         info_datum = std::move(info_builder).to_datum();
     } break;
     case fdb_job_type::index_create_job: {
-        const fdb_job_index_create &index_create = info.job_description.index_create;
+        const fdb_job_index_create &index_create = boost::get<fdb_job_index_create>(info.job_description.v);
         type_str = "index_construction";
         ql::datum_object_builder_t info_builder;
         info_builder.overwrite("table", ql::datum_t(uuid_to_str(index_create.table_id.value)));

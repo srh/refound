@@ -1,6 +1,9 @@
 #ifndef RETHINKDB_FDB_JOBS_HPP_
 #define RETHINKDB_FDB_JOBS_HPP_
 
+#include "errors.hpp"
+#include <boost/variant.hpp>
+
 #include "concurrency/auto_drainer.hpp"
 #include "containers/optional.hpp"
 #include "containers/uuid.hpp"
@@ -44,9 +47,9 @@ RDB_DECLARE_SERIALIZABLE(fdb_job_index_create);
 
 // TODO: Don't forget to turn this into a boost::variant (at some point), but who cares?
 struct fdb_job_description {
+    // We treat this like a tagged union... just because.
     fdb_job_type type;
-    fdb_job_db_drop db_drop;
-    fdb_job_index_create index_create;
+    boost::variant<fdb_job_db_drop, fdb_job_index_create> v;
 };
 
 RDB_DECLARE_SERIALIZABLE(fdb_job_description);

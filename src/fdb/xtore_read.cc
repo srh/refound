@@ -814,7 +814,7 @@ void do_fdb_snap_read(
             // TODO: What's rget.table_name?  The table's display_name?
             sindex_disk_info_t sindex_info;
             sindex_id_t sindex_id;
-            acquire_fdb_sindex_for_read(table_config, rget.sindex->id, rget.table_name,
+            acquire_fdb_sindex_for_read(table_config, rget.table_name, rget.sindex->id,
                                         &sindex_info, &sindex_id);
 
             key_range_t sindex_range;

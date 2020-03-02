@@ -43,7 +43,7 @@ void replace_fdb_job(FDBTransaction *txn,
     transaction_erase_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
         old_lease_expiration_key, job_id_key);
     transaction_set_plain_index(txn, REQLFDB_JOBS_BY_LEASE_EXPIRATION,
-        old_lease_expiration_key, job_id_key, "");
+        new_lease_expiration_key, job_id_key, "");
     // Task index untouched.
 }
 
