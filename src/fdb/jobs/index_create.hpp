@@ -20,7 +20,7 @@ struct fdb_index_jobstate {
 
     // TODO: Verify FDB limits on value length are at least twice that of key length.
 };
-RDB_MAKE_SERIALIZABLE_1(fdb_index_jobstate, unindexed_lower_bound);
+RDB_MAKE_SERIALIZABLE_2(fdb_index_jobstate, unindexed_lower_bound, unindexed_upper_bound);
 
 struct index_jobstate_by_task {
     using ukey_type = fdb_shared_task_id;
