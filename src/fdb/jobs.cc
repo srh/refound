@@ -3,7 +3,9 @@
 #include <inttypes.h>
 
 #include "arch/runtime/coroutines.hpp"
+#include "containers/archive/stl_types.hpp"
 #include "containers/archive/string_stream.hpp"
+#include "containers/archive/optional.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs/db_drop.hpp"
 #include "fdb/jobs/index_create.hpp"
@@ -71,8 +73,17 @@ rethinkdb/jobs/ => table of fdb_job_info by job id
 
 */
 
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(fdb_job_description, type);
-RDB_IMPL_EQUALITY_COMPARABLE_1(fdb_job_description, type);
+RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(fdb_job_db_drop,
+    database_id, last_table_name);
+RDB_IMPL_EQUALITY_COMPARABLE_2(fdb_job_db_drop,
+    database_id, last_table_name);
+RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(fdb_job_index_create,
+    table_id, sindex_name, sindex_id);
+RDB_IMPL_EQUALITY_COMPARABLE_3(fdb_job_index_create,
+    table_id, sindex_name, sindex_id);
+
+RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(fdb_job_description, type, db_drop, index_create);
+RDB_IMPL_EQUALITY_COMPARABLE_3(fdb_job_description, type, db_drop, index_create);
 
 RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
     job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,

@@ -110,6 +110,7 @@ optional<fdb_job_info> execute_index_create_job(
     // TODO: Apply a workaround for write contention problems mentioned above.
     table_config_t table_config;
     if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
+        // NNN: Because jobs get claimed any time a process starts up, allow all jobs to fail gracefully and be put in a failed mode, so that we don't put the fdb storage in a stuck state.
         crash("Missing table config referencing index creation job %s, for "
             "table id %s\n",
             uuid_to_str(info.job_id.value).c_str(),

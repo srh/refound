@@ -30,6 +30,7 @@ struct fdb_job_db_drop {
         return fdb_job_db_drop{db_id, r_nullopt};
     }
 };
+RDB_DECLARE_SERIALIZABLE(fdb_job_db_drop);
 
 struct fdb_job_index_create {
     namespace_id_t table_id;
@@ -38,6 +39,7 @@ struct fdb_job_index_create {
     std::string sindex_name;
     sindex_id_t sindex_id;
 };
+RDB_DECLARE_SERIALIZABLE(fdb_job_index_create);
 
 
 // TODO: Don't forget to turn this into a boost::variant (at some point), but who cares?
