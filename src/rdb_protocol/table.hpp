@@ -27,7 +27,7 @@ public:
 
 namespace ql {
 
-std::pair<datum_t, counted<table_t>> prov_read_row(
+std::pair<datum_t, scoped<table_t>> prov_read_row(
     env_t *env,
     const provisional_table_id &id,
     const datum_t &pval);

@@ -1063,6 +1063,21 @@ private:
 // NNN: Remove
 read_mode_t dummy_read_mode() { return read_mode_t::SINGLE; }
 
+// For when prov_table.prov_db.db_name has the artificial db.
+scoped<table_t> make_artificial_table(
+        artificial_reql_cluster_interface_t *art,
+        const provisional_table_id &prov_table) {
+    counted_t<const base_table_t> table;
+    if (!art->table_find(prov_table.table_name,
+            prov_table.identifier_format.value_or(admin_identifier_format_t::name),
+            &table)) {
+        rfail_prov_table_dne(prov_table);
+    }
+    return make_scoped<table_t>(
+        std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode(),
+        prov_table.bt);
+}
+
 scoped<table_t> provisional_to_table(
         FDBDatabase *fdb,
         const signal_t *interruptor,
@@ -1072,19 +1087,13 @@ scoped<table_t> provisional_to_table(
     r_sanity_check(art_or_null != nullptr);
 
     if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-        counted_t<const base_table_t> table;
-        if (!art_or_null->table_find(prov_table.table_name,
-                prov_table.identifier_format.value_or(admin_identifier_format_t::name),
-                &table)) {
-            rfail_prov_table_dne(prov_table);
-        }
-        return make_scoped<table_t>(
-            std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode(),
-            prov_table.bt);
+        return make_artificial_table(art_or_null, prov_table);
     }
 
     counted_t<const real_table_t> table;
     counted_t<const db_t> out_db;
+
+    // NNN: Callers are assuming these are _not_ cached lookups.
 
     // TODO: ASSERT_NO_CORO_WAITING on these two cache lookups, as mutex assertion.
     optional<config_info<database_id_t>> cached_db_id

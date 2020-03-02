@@ -41,7 +41,7 @@ public:
           row() { }
     datum_t get(env_t *env) override {
         if (!row.has()) {
-            std::pair<datum_t, counted<table_t>> tmp = prov_read_row(env, prov_table, key);
+            std::pair<datum_t, scoped<table_t>> tmp = prov_read_row(env, prov_table, key);
             row = std::move(tmp.first);
             table = std::move(tmp.second);
         }

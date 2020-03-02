@@ -9,7 +9,7 @@
 
 struct table_info {
     namespace_id_t table_id;
-    const table_config_t *config;
+    counted<const rc_wrapper<table_config_t>> config;
 };
 
 // Note that this function can't be used on system tables.
@@ -18,6 +18,9 @@ MUST_USE fdb_error_t txn_retry_loop_table(
         FDBDatabase *fdb, reqlfdb_config_cache *cc, const signal_t *interruptor,
         const provisional_table_id &prov_table,
         C &&fn) {
+    static_assert(std::is_same<void, decltype(fn(std::declval<FDBTransaction *>(), std::declval<table_info &&>(), std::declval<cv_check_fut&&>()))>::value,
+        "txn_retry_loop_table fn has wrong operator() signature");
+
     rassert(prov_table.prov_db.db_name != artificial_reql_cluster_interface_t::database_name);
     fdb_transaction txn{fdb};
 
@@ -41,15 +44,24 @@ MUST_USE fdb_error_t txn_retry_loop_table(
                 cvc.expected_cv = cached_table->ci_cv;
                 table_info info;
                 info.table_id = cached_table->ci_value.first;
-                info.config = cached_table->ci_value.second.get();
-                fn(txn.txn, info, std::move(cvc));
+                info.config = cached_table->ci_value.second;
+                fn(txn.txn, std::move(info), std::move(cvc));
             } else {
                 config_info<std::pair<namespace_id_t, table_config_t>>
                     table = expect_retrieve_table(txn.txn, prov_table, interruptor);
+
+                // Update the cache.
+                cc->note_version(table.ci_cv);
+                cc->add_db(table.ci_value.second.basic.database, prov_table.prov_db.db_name);
+                auto ptr = make_counted<const rc_wrapper<table_config_t>>(std::move(table.ci_value.second));
+                cc->add_table(table.ci_value.first, ptr);
+
                 table_info info;
                 info.table_id = table.ci_value.first;
-                info.config = &table.ci_value.second;
-                fn(txn.txn, info, cv_check_fut());
+                info.config = std::move(ptr);
+                cv_check_fut cvc;
+                cvc.expected_cv = table.ci_cv;
+                fn(txn.txn, std::move(info), std::move(cvc));
             }
         } catch (const provisional_assumption_exception &exc) {
             guarantee(cached_table.has_value());
