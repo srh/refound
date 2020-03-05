@@ -1094,21 +1094,21 @@ std::string datum_t::print_secondary(const store_key_t &primary_key,
     return compose_secondary(secondary_key_string, primary_key, tag_num);
 }
 
-components_t parse_secondary(const std::string &key) THROWS_NOTHING {
-    uint8_t start_of_primary = key[key.size() - 2];
-    uint8_t start_of_tag = key[key.size() - 1];
-    uint8_t end_of_primary = start_of_tag;
+components_t parse_secondary(const char *key, size_t length) THROWS_NOTHING {
+    guarantee(length > 2);
+    size_t start_of_primary = key[length - 2];
+    size_t start_of_tag = key[length - 1];
+    size_t end_of_primary = start_of_tag;
 
     // This parses the NULL byte into secondary. We rely on this in
     // `rget_cb_t::handle_pair()`.
-    std::string secondary = key.substr(0, start_of_primary);
+    std::string secondary{key, start_of_primary};
     // To account for extra NULL byte in 1.16+.
     end_of_primary -= 1;
     guarantee(start_of_primary < end_of_primary);
-    std::string primary =
-        key.substr(start_of_primary, end_of_primary - start_of_primary);
+    std::string primary{key + start_of_primary, key + end_of_primary};
 
-    std::string tag_str = key.substr(start_of_tag, key.size() - (start_of_tag + 2));
+    std::string tag_str{key + start_of_tag, length - (start_of_tag + 2)};
     optional<uint64_t> tag_num;
     if (tag_str.size() != 0) {
         uint64_t t = *reinterpret_cast<const uint64_t *>(tag_str.data());
@@ -1126,26 +1126,32 @@ components_t parse_secondary(const std::string &key) THROWS_NOTHING {
 }
 
 components_t datum_t::extract_all(const std::string &str) {
-    return parse_secondary(str);
+    return parse_secondary(str.data(), str.size());
 }
 
 std::string datum_t::extract_primary(const std::string &secondary) {
-    components_t components = parse_secondary(secondary);
-    return components.primary;
+    components_t components = extract_all(secondary);
+    std::string ret = std::move(components.primary);
+    return ret;
 }
 
 store_key_t datum_t::extract_primary(const store_key_t &secondary_key) {
-    return store_key_t(extract_primary(key_to_unescaped_str(secondary_key)));
+    return store_key_t(extract_primary(secondary_key.str()));
+}
+
+store_key_t datum_t::extract_primary(const char *secondary_and_primary, size_t count) {
+    components_t components = parse_secondary(secondary_and_primary, count);
+    return store_key_t(std::move(components.primary));
 }
 
 std::string datum_t::extract_secondary(const std::string &secondary_and_primary) {
-    components_t components = parse_secondary(secondary_and_primary);
+    components_t components = extract_all(secondary_and_primary);
     return components.secondary;
 }
 
 std::string datum_t::extract_truncated_secondary(
     const std::string &secondary_and_primary) {
-    components_t components = parse_secondary(secondary_and_primary);
+    components_t components = extract_all(secondary_and_primary);
     std::string skey = std::move(components.secondary);
     size_t mts = max_trunc_size();
     if (skey.length() >= mts) {
@@ -1155,7 +1161,7 @@ std::string datum_t::extract_truncated_secondary(
 }
 
 optional<uint64_t> datum_t::extract_tag(const std::string &secondary) {
-    components_t components = parse_secondary(secondary);
+    components_t components = extract_all(secondary);
     return components.tag_num;
 }
 

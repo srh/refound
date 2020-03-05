@@ -225,6 +225,7 @@ public:
     /* An inverse to print_secondary. Returns the primary key. */
     static std::string extract_primary(const std::string &secondary_and_primary);
     static store_key_t extract_primary(const store_key_t &secondary_key);
+    static store_key_t extract_primary(const char *secondary_and_primary, size_t count);
     static std::string extract_truncated_secondary(
         const std::string &secondary_and_primary);
     static std::string extract_secondary(const std::string &secondary_and_primary);

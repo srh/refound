@@ -217,7 +217,7 @@ private:
 
 // NNN: fdb_traversal, and probably geo_fdb_traversal, and hey, anything accessing a secondary index, probably is trying to read the value off the sindex value instead of using the primary key.
 
-continue_bool_t fdb_traversal(
+continue_bool_t fdb_traversal_primary(
         const signal_t *interruptor,
         FDBTransaction *txn,
         const std::string &fdb_kv_prefix,
@@ -251,6 +251,74 @@ continue_bool_t fdb_traversal(
         continue_bool_t contbool = cb->handle_pair(
             std::make_pair(as_char(store_key.data), size_t(store_key.length)),
             std::make_pair(as_char(full_value.data), size_t(full_value.length)));
+        if (contbool == continue_bool_t::ABORT) {
+            return continue_bool_t::ABORT;
+        }
+    }
+
+    // OOO: Check this.  The logic here assumes that returning CONTINUE means the
+    // traversal consumed all of the range!  So we'd have to keep looping until we've
+    // hit the batch size.  Check that the caller interprets things this way.  And
+    // perhaps keep consuming the range, or check that the caller doesn't demand some
+    // sort of consistency between the cb state and this return value.
+
+    return more ? continue_bool_t::ABORT : continue_bool_t::CONTINUE;
+}
+
+continue_bool_t fdb_traversal_secondary(
+        const signal_t *interruptor,
+        FDBTransaction *txn,
+        const std::string &primary_prefix,
+        const std::string &secondary_prefix,
+        const key_range_t &range,
+        direction_t direction,
+        rocks_traversal_cb *cb) {
+    // TODO: Check if we use switches for this type direction_t in other code.
+    fdb_bool_t reverse = direction != direction_t::forward;
+    // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
+    rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
+        txn, secondary_prefix, range.left,
+        rfdb::lower_bound::closed,
+        range.right.unbounded ? nullptr : &range.right.internal_key,
+        0, 0, FDB_STREAMING_MODE_MEDIUM,
+        0, false, reverse);
+
+    fut.block_coro(interruptor);
+
+    const FDBKeyValue *kvs;
+    int kv_count;
+    fdb_bool_t more;
+    fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+    check_for_fdb_transaction(err);
+
+    // The store_key_t is the sindex store key.  Do we actually use it?
+    std::vector<std::pair<store_key_t, rfdb::datum_fut>> primary_futs;
+
+    for (int i = 0; i < kv_count; ++i) {
+        key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
+        key_view store_key = full_key.guarantee_without_prefix(secondary_prefix);
+        // Right now sindexes have no value.
+        rassert(kvs[i].value_length == 0);
+
+        store_key_t primary = ql::datum_t::extract_primary(
+            as_char(store_key.data), size_t(store_key.length));
+
+        // OOO: We could avoid an allocation here by appending/resizing in the loop.
+        std::string kv_location = primary_prefix + primary.str();
+        primary_futs.emplace_back(
+            store_key_t(std::string(as_char(store_key.data), size_t(store_key.length))),
+            rfdb::kv_location_get(txn, kv_location));
+    }
+
+    for (auto &pair : primary_futs) {
+        fdb_value value = future_block_on_value(pair.second.fut, interruptor);
+        guarantee(value.present);  // TODO: fdb consistency, graceful, msg
+        // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
+        continue_bool_t contbool = cb->handle_pair(
+            std::make_pair(pair.first.str().data(), pair.first.str().size()),
+            std::make_pair(as_char(value.data), size_t(value.length)));
+
+        // OOO: It's bad thinking to abandon the reads we've performed here.  We should consume everything we've read from fdb.
         if (contbool == continue_bool_t::ABORT) {
             return continue_bool_t::ABORT;
         }
@@ -312,7 +380,7 @@ void rdb_fdb_rget_snapshot_slice(
             // partial results, as long as we managed to check_cv.
             // OOO: Put check_cv code somewhere after the first round-trip.
             fdb_rget_cb_wrapper wrapper(&callback, pair.second);
-            return fdb_traversal(
+            return fdb_traversal_primary(
                 interruptor,
                 txn,
                 fdb_kv_prefix,
@@ -341,7 +409,7 @@ void rdb_fdb_rget_snapshot_slice(
         }
     } else {
         fdb_rget_cb_wrapper wrapper(&callback, 1);
-        cont = fdb_traversal(
+        cont = fdb_traversal_primary(
             interruptor, txn, fdb_kv_prefix, range, direction, &wrapper);
     }
     callback.finish(cont);
@@ -767,6 +835,7 @@ void rdb_fdb_rget_secondary_snapshot_slice(
             sindex_info.multi));
 
     std::string kv_prefix = rfdb::table_index_prefix(table_id, sindex_id);
+    std::string pkey_prefix = rfdb::table_pkey_prefix(table_id);
 
     direction_t direction = reversed(sorting) ? direction_t::backward : direction_t::forward;
     auto cb = [&](const std::pair<ql::datum_range_t, uint64_t> &pair, UNUSED bool is_last) {
@@ -780,7 +849,9 @@ void rdb_fdb_rget_secondary_snapshot_slice(
         if (active_range.is_empty()) {
             return continue_bool_t::CONTINUE;
         }
-        return fdb_traversal(interruptor, txn, kv_prefix, active_range, direction, &wrapper);
+        return fdb_traversal_secondary(interruptor, txn,
+            pkey_prefix, kv_prefix,
+            active_range, direction, &wrapper);
     };
     continue_bool_t cont = datumspec.iter(sorting, cb);
     // TODO: See if anybody else calls datumspec.iter, can we remove is_last parameter.
