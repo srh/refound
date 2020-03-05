@@ -452,7 +452,8 @@ continue_bool_t geo_fdb_traversal(
         const sindex_id_t &sindex_id,
         const key_range_t &sindex_range,
         geo_index_traversal_helper_t *helper) {
-    std::string fdb_kv_prefix = rfdb::table_index_prefix(table_id, sindex_id);
+    const std::string primary_prefix = rfdb::table_pkey_prefix(table_id);
+    const std::string fdb_kv_prefix = rfdb::table_index_prefix(table_id, sindex_id);
 
     // TODO: Medium, streaming batch size backoff logic etc, is partial iteration even allowable at all?
 
@@ -494,7 +495,8 @@ continue_bool_t geo_fdb_traversal(
 
         key_view key_slice{void_as_uint8(kvs[0].key), kvs[0].key_length};
         key_slice = key_slice.guarantee_without_prefix(fdb_kv_prefix);
-        rfdb::value_view value_slice{void_as_uint8(kvs[0].value), kvs[0].value_length};
+        // Right now sindexes have no value.
+        rassert(kvs[0].value_length == 0);
 
         store_key_t skey(key_slice.length, key_slice.data);
         S2CellId cellid = btree_key_to_s2cellid(skey);
@@ -533,10 +535,19 @@ continue_bool_t geo_fdb_traversal(
         // necessary.
         int kvs_index = 1;
         for (;;) {
+            // OOO: No no no, we need to batch these primary index gets (or refactor this entire function not to parallelize the whole traversal).
+            store_key_t primary = ql::datum_t::extract_primary(
+                as_char(key_slice.data), size_t(key_slice.length));
+            // TODO: We could avoid an allocation, whatever.
+            std::string kv_location = primary_prefix + primary.str();
+            rfdb::datum_fut value_fut = rfdb::kv_location_get(txn, kv_location);
+            fdb_value value = future_block_on_value(value_fut.fut, interruptor);
+            guarantee(value.present);  // TODO: fdb, graceful, msg
+
             // key_slice at this point has had the prefix truncated.
             continue_bool_t contbool = helper->handle_pair(
                 std::make_pair(as_char(key_slice.data), size_t(key_slice.length)),
-                std::make_pair(as_char(value_slice.data), size_t(value_slice.length)));
+                std::make_pair(as_char(value.data), size_t(value.length)));
             if (contbool == continue_bool_t::ABORT) {
                 return continue_bool_t::ABORT;
             }
@@ -569,7 +580,6 @@ continue_bool_t geo_fdb_traversal(
 
             key_slice = key_view{void_as_uint8(kvs[kvs_index].key), kvs[kvs_index].key_length};
             key_slice.guarantee_without_prefix(fdb_kv_prefix);
-            value_slice = rfdb::value_view{void_as_uint8(kvs[kvs_index].value), kvs[kvs_index].value_length};
 
             kvs_index++;
 
