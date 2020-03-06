@@ -25,7 +25,7 @@ read_response_t apply_read(FDBTransaction *txn,
     const signal_t *interruptor);
 
 write_response_t apply_write(FDBTransaction *txn,
-    reqlfdb_config_version expected_cv,
+    cv_check_fut &&cvc,
     const namespace_id_t &table_id,
     const table_config_t &table_config,
     const write_t &write,

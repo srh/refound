@@ -89,32 +89,40 @@ write_response_t table_query_client_write(
             config_version_exc_t) {
     write_response_t ret;
     const bool needed_config_permission = needs_config_permission(w);
-    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&](FDBTransaction *txn) {
-        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-        // we check_cv?), not after entire write op.
-        // TODO: Don't do double-get of user_t with this auth code.
-        auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
-        auth::fdb_user_fut<auth::db_table_config_permission> conf_fut;
-        if (needed_config_permission) {
-            conf_fut = user_context.transaction_require_db_and_table_config_permission(txn, table_config.basic.database, table_id);
-        }
+    try {
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+            cv_check_fut cvc;
+            cvc.cv_fut = transaction_get_config_version(txn);
+            cvc.expected_cv = prior_cv;
+            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+            // we check_cv?), not after entire write op.
+            // TODO: Don't do double-get of user_t with this auth code.
+            auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
+            auth::fdb_user_fut<auth::db_table_config_permission> conf_fut;
+            if (needed_config_permission) {
+                conf_fut = user_context.transaction_require_db_and_table_config_permission(txn, table_config.basic.database, table_id);
+            }
 
-        write_response_t resp = apply_write(txn, prior_cv, table_id, table_config,
-            w, interruptor);
-        auth_fut.block_and_check(interruptor);
-        if (needed_config_permission) {
-            conf_fut.block_and_check(interruptor);
-        }
+            write_response_t resp = apply_write(txn, std::move(cvc), table_id, table_config,
+                w, interruptor);
+            auth_fut.block_and_check(interruptor);
+            if (needed_config_permission) {
+                conf_fut.block_and_check(interruptor);
+            }
 
-        // OOO: Return a crystal clear response code from apply_write about whether we
-        // should commit the write.
-        commit(txn, interruptor);
+            // OOO: Return a crystal clear response code from apply_write about whether we
+            // should commit the write.
+            commit(txn, interruptor);
 
-        ret = std::move(resp);
-    });
-    guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
-    return ret;
+            ret = std::move(resp);
+        });
+        guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
+        return ret;
+    } catch (const provisional_assumption_exception &exc) {
+        // NNN: Remove config_version_exc_t.
+        throw config_version_exc_t();
+    }
 }
 
 namespace_id_t real_table_t::get_id() const {

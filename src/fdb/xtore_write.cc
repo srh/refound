@@ -511,8 +511,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 &mod_reports);
 
         // We call check_cv before using jobstate_futs_.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
 
         handle_mod_reports(txn_, table_id_, *table_config_, std::move(mod_reports),
             &jobstate_futs_, interruptor);
@@ -546,8 +545,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 &mod_reports);
 
         // We call check_cv before using jobstate_futs_.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
 
         handle_mod_reports(txn_, table_id_, *table_config_, std::move(mod_reports),
             &jobstate_futs_, interruptor);
@@ -563,8 +561,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         rdb_modification_report_t mod_report(w.key);
         rdb_fdb_set(txn_, table_id_, w.key, w.data, w.overwrite, res,
             &mod_report.info, interruptor);
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
 
         update_fdb_sindexes(txn_, table_id_, *table_config_, std::move(mod_report),
             &jobstate_futs_, interruptor);
@@ -581,8 +578,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         rdb_modification_report_t mod_report(d.key);
         rdb_fdb_delete(txn_, table_id_, d.key, res,
             &mod_report.info, interruptor);
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
 
         update_fdb_sindexes(txn_, table_id_, *table_config_, std::move(mod_report),
             &jobstate_futs_, interruptor);
@@ -594,16 +590,14 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 
         // We have to check cv, for the usual reasons: to make sure table name->id
         // mapping we used was legit.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
         response->response = sync_response_t();
     }
 
     void operator()(const dummy_write_t &) {
         // We have to check cv, for the usual reasons: to make sure table name->id
         // mapping we used was legit.
-        reqlfdb_config_version cv = cv_fut_.block_and_deserialize(interruptor);
-        check_cv(expected_cv_, cv);
+        cvc_.block_and_check(interruptor);
         response->response = dummy_write_response_t();
     }
 
@@ -611,7 +605,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     // before they try anything long and expensive.
 
     fdb_write_visitor(FDBTransaction *_txn,
-            reqlfdb_config_version _expected_cv,
+            cv_check_fut &&_cvc,
             const namespace_id_t &_table_id,
             const table_config_t *_table_config,
             profile::sampler_t *_sampler,
@@ -619,8 +613,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             write_response_t *_response,
             const signal_t *_interruptor) :
         txn_(_txn),
-        expected_cv_(_expected_cv),
-        cv_fut_(transaction_get_config_version(_txn)),
+        cvc_(std::move(_cvc)),
         jobstate_futs_(get_jobstates(_txn, *_table_config)),
         table_id_(_table_id),
         table_config_(_table_config),
@@ -632,8 +625,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 private:
 
     FDBTransaction *const txn_;
-    const reqlfdb_config_version expected_cv_;
-    fdb_value_fut<reqlfdb_config_version> cv_fut_;
+    cv_check_fut cvc_;
     // TODO: Maybe don't compute jobstate_futs for every write, like sync_t, if that still exists.
     // Note that we should call check_cv before we call code that assumes the jobstate
     // futs are legit.
@@ -653,7 +645,7 @@ private:
 // QQQ: Think twice about passing in an FDBTransaction here.  We might want to break up
 // batched writes into separate transactions per key.
 write_response_t apply_write(FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
+        cv_check_fut &&cvc,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         const write_t &write,
@@ -664,7 +656,7 @@ write_response_t apply_write(FDBTransaction *txn,
         // TODO: The read version has some PROFILER_STARER_IF_ENABLED macro.
         profile::sampler_t start_write("Perform write on shard.", trace);  // TODO: Change message.
         // TODO: Pass &response.response, actually.
-        fdb_write_visitor v(txn, expected_cv, table_id, &table_config, &start_write,
+        fdb_write_visitor v(txn, std::move(cvc), table_id, &table_config, &start_write,
             trace.get_or_null(), &response, interruptor);
         boost::apply_visitor(v, write.write);
     }
