@@ -74,9 +74,39 @@ read_response_t table_query_client_read_loop(
     }
 }
 
+write_response_t table_query_client_write(
+        FDBTransaction *txn,
+        cv_check_fut &&cvc,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const write_t &w,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            provisional_assumption_exception) {
+    const bool needed_config_permission = needs_config_permission(w);
+    // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+    // we check_cv?), not after entire write op.
+    // TODO: Don't do double-get of user_t with this auth code.
+    auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
+    auth::fdb_user_fut<auth::db_table_config_permission> conf_fut;
+    if (needed_config_permission) {
+        conf_fut = user_context.transaction_require_db_and_table_config_permission(txn, table_config.basic.database, table_id);
+    }
+
+    write_response_t resp = apply_write(txn, std::move(cvc), table_id, table_config,
+        w, interruptor);
+    auth_fut.block_and_check(interruptor);
+    if (needed_config_permission) {
+        conf_fut.block_and_check(interruptor);
+    }
+    return resp;
+}
+
 // Named such because it replicates the functionality and responsibilities of
 // table_query_client_t::read.
-write_response_t table_query_client_write(
+write_response_t table_query_client_write_loop(
         FDBDatabase *fdb,
         reqlfdb_config_version prior_cv,
         const namespace_id_t &table_id,
@@ -88,29 +118,16 @@ write_response_t table_query_client_write(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
             config_version_exc_t) {
     write_response_t ret;
-    const bool needed_config_permission = needs_config_permission(w);
     try {
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [&](FDBTransaction *txn) {
             cv_check_fut cvc;
             cvc.cv_fut = transaction_get_config_version(txn);
             cvc.expected_cv = prior_cv;
-            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-            // we check_cv?), not after entire write op.
-            // TODO: Don't do double-get of user_t with this auth code.
-            auth::fdb_user_fut<auth::write_permission> auth_fut = user_context.transaction_require_write_permission(txn, table_config.basic.database, table_id);
-            auth::fdb_user_fut<auth::db_table_config_permission> conf_fut;
-            if (needed_config_permission) {
-                conf_fut = user_context.transaction_require_db_and_table_config_permission(txn, table_config.basic.database, table_id);
-            }
 
-            write_response_t resp = apply_write(txn, std::move(cvc), table_id, table_config,
+            write_response_t resp = table_query_client_write(
+                txn, std::move(cvc), table_id, table_config, user_context,
                 w, interruptor);
-            auth_fut.block_and_check(interruptor);
-            if (needed_config_permission) {
-                conf_fut.block_and_check(interruptor);
-            }
-
             // OOO: Return a crystal clear response code from apply_write about whether we
             // should commit the write.
             commit(txn, interruptor);
@@ -474,7 +491,7 @@ void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
 
     /* Do the actual write. */
     try {
-        *response = table_query_client_write(
+        *response = table_query_client_write_loop(
             env->get_rdb_ctx()->fdb,
             cv.assert_nonempty(),
             uuid,
