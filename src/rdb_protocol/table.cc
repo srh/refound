@@ -71,34 +71,41 @@ std::pair<datum_t, scoped<table_t>> prov_read_row(
     read_t read(point_read_t(store_key_t(pval.print_primary())),
                 env->profile(), dummy_read_mode());
 
-    std::pair<datum_t, scoped<table_t>> ret;
+    // TODO: Duplicates code from real_table_t::read_row().
+    read_response_t res;
+    reqlfdb_config_version cv;
+    table_info info_out;
     fdb_error_t loop_err = txn_retry_loop_table(
             env->get_rdb_ctx()->fdb,
             env->get_rdb_ctx()->config_caches.get(),
             env->interruptor,
             prov_table,
             [&](FDBTransaction *txn, table_info &&info, cv_check_fut &&cvc) {
-        // TODO: Duplicates code from real_table_t::read_row().
-        reqlfdb_config_version cv = cvc.expected_cv;
+        // TODO: read-only txn
+        reqlfdb_config_version tmp_cv = cvc.expected_cv;
 
-        read_response_t res = prov_read_with_profile(env, txn, read, info, std::move(cvc));
-        point_read_response_t *p_res = boost::get<point_read_response_t>(&res.response);
-        r_sanity_check(p_res);
-        auto db = make_counted<db_t>(info.config->basic.database,
-            prov_table.prov_db.db_name, config_version_checker{cv.value});
-
-        ret.first = p_res->data;
-        ret.second = make_scoped<table_t>(
-            make_counted<real_table_t>(
-                info.table_id,
-                cv,
-                std::move(info.config)),
-            std::move(db),
-            prov_table.table_name,
-            dummy_read_mode(),
-            prov_table.bt);
+        res = prov_read_with_profile(env, txn, read, info, std::move(cvc));
+        cv = tmp_cv;
+        info_out = std::move(info);
     });
     guarantee_fdb_TODO(loop_err, "prov_read_row retry loop");
+
+    point_read_response_t *p_res = boost::get<point_read_response_t>(&res.response);
+    r_sanity_check(p_res);
+    auto db = make_counted<db_t>(info_out.config->basic.database,
+        prov_table.prov_db.db_name, config_version_checker{cv.value});
+
+    std::pair<datum_t, scoped<table_t>> ret;
+    ret.first = p_res->data;
+    ret.second = make_scoped<table_t>(
+        make_counted<real_table_t>(
+            info_out.table_id,
+            cv,
+            std::move(info_out.config)),
+        std::move(db),
+        prov_table.table_name,
+        dummy_read_mode(),
+        prov_table.bt);
 
     return ret;
 }
