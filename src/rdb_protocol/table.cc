@@ -52,6 +52,34 @@ read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
     return ret;
 }
 
+struct prov_read_result {
+    read_response_t resp;
+    reqlfdb_config_version cv;
+    table_info info;
+};
+
+prov_read_result prov_read_real_table(
+        env_t *env,
+        const provisional_table_id &prov_table,
+        const read_t &read) {
+    prov_read_result ret;
+    fdb_error_t loop_err = txn_retry_loop_table(
+            env->get_rdb_ctx()->fdb,
+            env->get_rdb_ctx()->config_caches.get(),
+            env->interruptor,
+            prov_table,
+            [&](FDBTransaction *txn, table_info &&info, cv_check_fut &&cvc) {
+        // TODO: read-only txn
+        reqlfdb_config_version tmp_cv = cvc.expected_cv;
+
+        ret.resp = prov_read_with_profile(env, txn, read, info, std::move(cvc));
+        ret.cv = tmp_cv;
+        ret.info = std::move(info);
+    });
+    guarantee_fdb_TODO(loop_err, "prov_read_row retry loop");
+    return ret;
+}
+
 std::pair<datum_t, scoped<table_t>> prov_read_row(
         env_t *env,
         const provisional_table_id &prov_table,
@@ -71,37 +99,20 @@ std::pair<datum_t, scoped<table_t>> prov_read_row(
     read_t read(point_read_t(store_key_t(pval.print_primary())),
                 env->profile(), dummy_read_mode());
 
-    // TODO: Duplicates code from real_table_t::read_row().
-    read_response_t res;
-    reqlfdb_config_version cv;
-    table_info info_out;
-    fdb_error_t loop_err = txn_retry_loop_table(
-            env->get_rdb_ctx()->fdb,
-            env->get_rdb_ctx()->config_caches.get(),
-            env->interruptor,
-            prov_table,
-            [&](FDBTransaction *txn, table_info &&info, cv_check_fut &&cvc) {
-        // TODO: read-only txn
-        reqlfdb_config_version tmp_cv = cvc.expected_cv;
+    prov_read_result res = prov_read_real_table(env, prov_table, read);
 
-        res = prov_read_with_profile(env, txn, read, info, std::move(cvc));
-        cv = tmp_cv;
-        info_out = std::move(info);
-    });
-    guarantee_fdb_TODO(loop_err, "prov_read_row retry loop");
-
-    point_read_response_t *p_res = boost::get<point_read_response_t>(&res.response);
+    point_read_response_t *p_res = boost::get<point_read_response_t>(&res.resp.response);
     r_sanity_check(p_res);
-    auto db = make_counted<db_t>(info_out.config->basic.database,
-        prov_table.prov_db.db_name, config_version_checker{cv.value});
+    auto db = make_counted<db_t>(res.info.config->basic.database,
+        prov_table.prov_db.db_name, config_version_checker{res.cv.value});
 
     std::pair<datum_t, scoped<table_t>> ret;
     ret.first = p_res->data;
     ret.second = make_scoped<table_t>(
         make_counted<real_table_t>(
-            info_out.table_id,
-            cv,
-            std::move(info_out.config)),
+            res.info.table_id,
+            res.cv,
+            std::move(res.info.config)),
         std::move(db),
         prov_table.table_name,
         dummy_read_mode(),
