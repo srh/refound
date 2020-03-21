@@ -316,10 +316,16 @@ bool convert_table_config_and_name_from_datum(
     }
 
     if (existed_before || converter.has("data")) {
+        // NNN: Is this called user_value?  What about 2.4 or 2.5?
         ql::datum_t user_data_datum;
         if (!converter.get("data", &user_data_datum, error_out)) {
             return false;
         }
+        if (user_data_datum.get_type() != ql::datum_t::R_OBJECT) {
+            error_out->msg = "The `data` field must contain an object.";
+            return false;
+        }
+
         config_out->user_data = {std::move(user_data_datum)};
     } else {
         config_out->user_data = default_user_data();
