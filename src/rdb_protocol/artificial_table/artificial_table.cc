@@ -378,6 +378,9 @@ void artificial_table_fdb_t::do_single_update(
                     &error)) {
                 REQL_RETHROW_DATUM(error);
             }
+            // Important!
+            commit(txn, interruptor);
+
             if (!new_row.has()) {
                 new_row = ql::datum_t::null();
             }
