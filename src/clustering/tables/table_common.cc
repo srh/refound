@@ -1,5 +1,5 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
-#include "clustering/tables/table_common.hpp"
+#include "clustering/tables/table_config.hpp"
 
 #include "clustering/auth/user_fut.hpp"
 #include "clustering/datum_adapter.hpp"
@@ -7,14 +7,7 @@
 #include "fdb/retry_loop.hpp"
 #include "fdb/system_tables.hpp"
 
-common_table_artificial_table_fdb_backend_t::common_table_artificial_table_fdb_backend_t(
-        name_string_t const &table_name,
-        admin_identifier_format_t _identifier_format)
-    : artificial_table_fdb_backend_t(table_name),
-      identifier_format(_identifier_format) {
-}
-
-bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
+bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
         auth::user_context_t const &user_context,
         const signal_t *interruptor,
@@ -61,7 +54,7 @@ bool common_table_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     return true;
 }
 
-bool common_table_artificial_table_fdb_backend_t::read_row(
+bool table_config_artificial_table_fdb_backend_t::read_row(
         FDBTransaction *txn,
         UNUSED auth::user_context_t const &user_context,
         ql::datum_t primary_key,

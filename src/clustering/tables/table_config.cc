@@ -15,9 +15,9 @@
 
 table_config_artificial_table_fdb_backend_t::table_config_artificial_table_fdb_backend_t(
         admin_identifier_format_t _identifier_format)
-    : common_table_artificial_table_fdb_backend_t(
-        name_string_t::guarantee_valid("table_config"),
-        _identifier_format) {
+    : artificial_table_fdb_backend_t(
+        name_string_t::guarantee_valid("table_config")),
+      identifier_format(_identifier_format) {
 }
 
 table_config_artificial_table_fdb_backend_t::~table_config_artificial_table_fdb_backend_t() {
