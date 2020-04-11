@@ -224,7 +224,6 @@ continue_bool_t fdb_traversal_primary(
         const key_range_t &range,
         direction_t direction,
         rocks_traversal_cb *cb) {
-    // TODO: Check if we use switches for this type direction_t in other code.
     fdb_bool_t reverse = direction != direction_t::forward;
     // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
     rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
@@ -273,7 +272,6 @@ continue_bool_t fdb_traversal_secondary(
         const key_range_t &range,
         direction_t direction,
         rocks_traversal_cb *cb) {
-    // TODO: Check if we use switches for this type direction_t in other code.
     fdb_bool_t reverse = direction != direction_t::forward;
     // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
     rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
