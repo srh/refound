@@ -128,13 +128,13 @@ scoped_ptr_t<val_t> nth_term_direct_impl(const term_t *term,
                         strprintf("Index out of bounds: %d", n));
                     return tbl.has()
                         ? term->new_val(single_selection_t::from_row(
-                                            term->backtrace(), tbl, last_d))
+                                            tbl, last_d))
                         : term->new_val(last_d);
                 }
                 if (i == n) {
                     return tbl.has()
                         ? term->new_val(single_selection_t::from_row(
-                                            term->backtrace(), tbl, d))
+                                            tbl, d))
                         : term->new_val(d);
                 }
                 last_d = d;

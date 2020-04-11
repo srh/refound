@@ -174,16 +174,12 @@ scoped<single_selection_t> single_selection_t::provisionally_from_key(
     return make_scoped<provisional_get_selection>(
         std::move(table), std::move(key));
 }
-// TODO: Remove bt param.
 scoped<single_selection_t> single_selection_t::from_key(
-    UNUSED backtrace_id_t bt,
     counted_t<table_t> table, datum_t key) {
     return make_scoped<get_selection_t>(
         std::move(table), std::move(key));
 }
-// TODO: Remove bt param.
 scoped<single_selection_t> single_selection_t::from_row(
-    UNUSED backtrace_id_t bt,
     counted_t<table_t> table, datum_t row) {
     datum_t d = row.get_field(datum_string_t(table->get_pkey()), NOTHROW);
     r_sanity_check(d.has());

@@ -153,10 +153,8 @@ public:
     static scoped<single_selection_t> provisionally_from_key(
         provisional_table_id &&table, datum_t key);
     static scoped<single_selection_t> from_key(
-        backtrace_id_t bt,
         counted_t<table_t> table, datum_t key);
     static scoped<single_selection_t> from_row(
-        backtrace_id_t bt,
         counted_t<table_t> table, datum_t row);
     static scoped<single_selection_t> from_slice(
         backtrace_id_t bt,

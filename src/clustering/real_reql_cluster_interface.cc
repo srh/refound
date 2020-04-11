@@ -147,7 +147,7 @@ scoped<ql::val_t> make_single_selection(
         bt);
 
     return make_scoped<ql::val_t>(
-        ql::single_selection_t::from_row(bt, table, row),
+        ql::single_selection_t::from_row(table, row),
         bt);
 }
 
