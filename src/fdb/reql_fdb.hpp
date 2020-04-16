@@ -1,7 +1,6 @@
 #ifndef RETHINKDB_FDB_REQL_FDB_HPP_
 #define RETHINKDB_FDB_REQL_FDB_HPP_
 
-#include "concurrency/cond_var.hpp"  // TODO: Remove, unused.
 #include "containers/uuid.hpp"
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
@@ -223,13 +222,6 @@ MUST_USE fdb_error_t commit_fdb_block_coro(
 inline void commit(FDBTransaction *txn, const signal_t *interruptor) {
     fdb_error_t err = commit_fdb_block_coro(txn, interruptor);
     check_for_fdb_transaction(err);
-}
-
-// TODO: Make callers use a commit/retry loop and remove this.
-inline void commit_TODO_retry(FDBTransaction *txn) {
-    cond_t non_interruptor;
-    fdb_error_t commit_err = commit_fdb_block_coro(txn, &non_interruptor);
-    guarantee_fdb_TODO(commit_err, "db_create commit failed");
 }
 
 // TODO: Return a string_view or something.
