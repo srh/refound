@@ -32,9 +32,8 @@ selection_t::~selection_t() {}
 
 class provisional_get_selection final : public single_selection_t {
 public:
-    // NNN: No default args, please.
     provisional_get_selection(provisional_table_id &&_prov_table,
-                    datum_t _key)
+            datum_t _key)
         : prov_table(std::move(_prov_table)),
           table(),
           key(std::move(_key)),
