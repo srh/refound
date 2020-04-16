@@ -232,7 +232,6 @@ public:
     ~val_t();
 
     provisional_db_id as_prov_db(env_t *env) &&;
-    counted_t<const db_t> as_db(env_t *env) &&;
     provisional_table_id as_prov_table(env_t *env) &&;
     scoped<table_t> as_table(env_t *env) &&;
     name_string_t get_underlying_table_name(env_t *env) const;

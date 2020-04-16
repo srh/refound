@@ -917,12 +917,6 @@ provisional_db_id val_t::as_prov_db(env_t *env) && {
     return std::move(db());
 }
 
-counted_t<const db_t> val_t::as_db(env_t *env) && {
-    provisional_db_id id = std::move(*this).as_prov_db(env);
-    // NNN: Remove as_db entirely.
-    return provisional_to_db(env, id);
-}
-
 datum_t val_t::as_ptype(env_t *env, const std::string s) const {
     try {
         datum_t d = as_datum(env);
