@@ -52,7 +52,7 @@ Table config:
 
 Index building:
 
-    rethinkdb/index_jobstate//" => table of fdb_index_jobstate by shared_task_id
+    rethinkdb/index_jobstate// => table of fdb_index_jobstate by shared_task_id
 
 User config:
 
@@ -85,8 +85,13 @@ Table format:
     Primary index:
     <table prefix>/<pkey> => <value>
 
+    // Note that this is probably incorrect, we just use sindex store_key_t encoding,
+    // still.
+
     Secondary index:
     <table prefix><index id>/<sindex key>/<pkey> => <portion of value>
+
+    // And there are no count indexes.
 
     Aggregate (count) index:
     <table prefix><index id> => number of records in primary index (I guess)
