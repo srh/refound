@@ -223,25 +223,6 @@ private:
     DISABLE_COPYING(scoped_array_t);
 };
 
-// This class has move semantics in its copy constructor.
-// It is meant to be used instead of C++14 generalized lambda capture,
-// to capture a variable using move semantics,
-// which GCC 4.6 doesn't support.
-template<class T>
-class copyable_unique_t {
-public:
-    explicit copyable_unique_t(T&& x)
-        : it(std::move(x)) { }
-    copyable_unique_t(const copyable_unique_t<T> &other)
-        : it(std::move(other.it)) { }
-    T release() const {
-        T x(std::move(it));
-        return x;
-    }
-private:
-    mutable T it;
-};
-
 /*
  * For pointers with custom allocators and deallocators
  */
@@ -270,12 +251,6 @@ public:
     scoped_alloc_t(scoped_alloc_t<U, alloc, dealloc> &&movee) noexcept
         : ptr_(movee.ptr_) {
         movee.ptr_ = nullptr;
-    }
-
-    template <class U>
-    scoped_alloc_t(copyable_unique_t<U> other) noexcept : ptr_(nullptr) { // NOLINT
-        scoped_alloc_t tmp(other.release());
-        swap(tmp);
     }
 
     void operator=(scoped_alloc_t &&movee) noexcept {
