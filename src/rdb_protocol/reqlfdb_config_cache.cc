@@ -628,7 +628,6 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
 
 bool config_cache_table_create(
         FDBTransaction *txn,
-        config_version_checker expected_cv,
         const auth::user_context_t &user_context,
         const namespace_id_t &new_table_id,
         const table_config_t &config,
@@ -647,7 +646,6 @@ bool config_cache_table_create(
         = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-    check_cv(expected_cv, cv);
 
     auth_fut.block_and_check(interruptor);
     fdb_value table_by_name_value

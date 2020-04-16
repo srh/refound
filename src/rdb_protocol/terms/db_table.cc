@@ -309,19 +309,19 @@ private:
                     write_durability_t::SOFT : write_durability_t::HARD;
         // TODO: Can we emit a warning somehow if durability wasn't HARD?
 
-        counted_t<const db_t> db;
+        provisional_db_id prov_db;
         name_string_t tbl_name;
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = std::move(*dbv).as_db(env->env);
+            prov_db = std::move(*dbv).as_prov_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
-            db = std::move(*args->arg(env, 0)).as_db(env->env);
+            prov_db = std::move(*args->arg(env, 0)).as_prov_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
-        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
             admin_err_t error{
                 strprintf("Database `%s` is special; you can't create new tables "
                       "in it.", artificial_reql_cluster_interface_t::database_name.c_str()),
@@ -331,26 +331,29 @@ private:
 
         // TODO: Fixup all '[&]' capture list usage.
 
-        table_config_t config;
-        config.basic.name = tbl_name;
-        config.basic.database = db->id;
-        config.basic.primary_key = primary_key;
-        // TODO: Remove sharding UI.
-        // TODO: Remove table_config_t::shards
-        config.user_data = default_user_data();
         namespace_id_t new_table_id{generate_uuid()};
 
         bool fdb_result;
+        table_config_t config_result;
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
+                // TODO: Put this in config_cache_table_create?  Have it return a table_config_t?
+                database_id_t db_id = expect_retrieve_db(txn, prov_db, env->env->interruptor);
+
+                table_config_t config;
+                config.basic.name = tbl_name;
+                config.basic.database = db_id;
+                config.basic.primary_key = primary_key;
+                // TODO: Remove sharding UI.
+                config.user_data = default_user_data();
                 bool success = config_cache_table_create(
-                    txn, db->cv,
-                    env->env->get_user_context(), new_table_id, config,
+                    txn, env->env->get_user_context(), new_table_id, config,
                     env->env->interruptor);
                 if (success) {
                     commit(txn, env->env->interruptor);
                 }
                 fdb_result = success;
+                config_result = config;
             });
             guarantee_fdb_TODO(loop_err, "table_create txn failed");
         } catch (auth::permission_error_t const &permission_error) {
@@ -358,13 +361,13 @@ private:
         }
 
         if (!fdb_result) {
-            admin_err_t error = table_already_exists_error(db->name, tbl_name);
+            admin_err_t error = table_already_exists_error(prov_db.db_name, tbl_name);
             REQL_RETHROW(error);
         }
         // TODO: Wipe the config cache after the txn succeeds?
 
         ql::datum_t new_config = convert_table_config_to_datum(new_table_id,
-            convert_name_to_datum(db->name), config,
+            convert_name_to_datum(prov_db.db_name), config_result,
             admin_identifier_format_t::name);
 
         ql::datum_object_builder_t result_builder;

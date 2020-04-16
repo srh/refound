@@ -613,7 +613,7 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
     }
 
     // This updates the reqlfdb_config_version.
-    bool success = config_cache_table_create(txn, config_version_checker::empty(),
+    bool success = config_cache_table_create(txn,
         user_context, new_table_id, new_config, interruptor);
     if (!success) {
         *error_out = admin_err_t{
