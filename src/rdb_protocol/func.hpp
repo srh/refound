@@ -176,11 +176,11 @@ protected:
 
 // Some queries, like filter, can take a shortcut object instead of a
 // function as their argument.
-counted_t<const func_t> new_constant_func(datum_t obj, backtrace_id_t bt);
-counted_t<const func_t> new_pluck_func(datum_t obj, backtrace_id_t bt);
-counted_t<const func_t> new_get_field_func(datum_t obj, backtrace_id_t bt);
-counted_t<const func_t> new_eq_comparison_func(datum_t obj, backtrace_id_t bt);
-counted_t<const func_t> new_page_func(datum_t method, backtrace_id_t bt);
+scoped<func_t> new_constant_func(datum_t obj, backtrace_id_t bt);
+scoped<func_t> new_pluck_func(datum_t obj, backtrace_id_t bt);
+scoped<func_t> new_get_field_func(datum_t obj, backtrace_id_t bt);
+scoped<func_t> new_eq_comparison_func(datum_t obj, backtrace_id_t bt);
+scoped<func_t> new_page_func(datum_t method, backtrace_id_t bt);
 
 class js_result_visitor_t : public boost::static_visitor<val_t *> {
 public:
@@ -214,7 +214,7 @@ public:
 
     // eval(scoped_env_t *env) is a dumb wrapper for this.  Evaluates the func_t without
     // going by way of val_t, and without requiring a full-blown env.
-    counted_t<const func_t> eval_to_func(const var_scope_t &env_scope) const;
+    scoped<func_t> eval_to_func(const var_scope_t &env_scope) const;
 
 private:
     virtual void accumulate_captures(var_captures_t *captures) const;

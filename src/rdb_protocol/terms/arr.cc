@@ -585,7 +585,7 @@ public:
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 1);
-        counted_t<const func_t> fun;
+        scoped<const func_t> fun;
         if (v->get_type().is_convertible(val_t::type_t::FUNC)) {
             fun = std::move(*v).as_func(env->env);
         } else {

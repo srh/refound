@@ -720,10 +720,10 @@ val_t::val_t(provisional_db_id &&_db, backtrace_id_t _bt)
       type(type_t::DB),
       u(std::move(_db)) {
 }
-val_t::val_t(counted_t<const func_t> _func, backtrace_id_t _bt)
+val_t::val_t(scoped<func_t> &&_func, backtrace_id_t _bt)
     : bt_rcheckable_t(_bt),
       type(type_t::FUNC),
-      u(_func) {
+      u(scoped<const func_t>(std::move(_func))) {
     guarantee(func().has());
 }
 
@@ -857,7 +857,7 @@ scoped<single_selection_t> val_t::as_single_selection(env_t *env) && {
     return std::move(single_selection());
 }
 
-counted_t<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) && {
+scoped<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) && {
     if (get_type().is_convertible(type_t::FUNC)) {
         r_sanity_check(func().has());
         return std::move(func());

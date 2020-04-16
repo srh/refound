@@ -350,7 +350,7 @@ public:
                 make_counted<func_term_t>(&empty_compile_env,
                                           r.fun(x, r.var(x)[name_datum]).root_term());
 
-            config.func = ql::deterministic_func{ql::wire_func_t(func_term_term->eval_to_func(env->scope))};
+            config.func = ql::deterministic_func{ql::wire_func_t(counted<const func_t>(func_term_term->eval_to_func(env->scope)))};
             config.func_version = reql_version_t::LATEST;
         }
 

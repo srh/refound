@@ -162,11 +162,11 @@ private:
                         backtrace());
                 return stream->run_terminal(env->env, count_wire_func_t());
             } else {
-                counted_t<const func_t> f =
+                scoped<const func_t> f =
                     new_eq_comparison_func(v1->as_datum(env), backtrace());
                 scoped<datum_stream_t> stream = std::move(*v0).as_seq(env->env);
                 stream->add_transformation(
-                        filter_wire_func_t(f, r_nullopt), backtrace());
+                        filter_wire_func_t(std::move(f), r_nullopt), backtrace());
 
                 return stream->run_terminal(env->env, count_wire_func_t());
             }
@@ -360,7 +360,7 @@ private:
         scoped<datum_stream_t> stream = std::move(*arg0).as_seq(env->env);
         stream->add_transformation(
             concatmap_wire_func_t(result_hint_t::NO_HINT,
-                                  std::move(*args->arg(env, 1)).as_func(env->env)),
+                                  counted<const func_t>(std::move(*args->arg(env, 1)).as_func(env->env))),
                 backtrace());
         return new_val(env->env, std::move(stream));
     }
@@ -388,7 +388,7 @@ private:
             scoped<table_slice_t> slice;
             if (index_str == tbl->get_pkey()) {
                 auto field = index->as_datum(env);
-                funcs.push_back(new_get_field_func(field, backtrace()));
+                funcs.push_back(scoped<const func_t>(new_get_field_func(field, backtrace())));
                 slice = make_scoped<table_slice_t>(tbl, make_optional(index_str));
             } else {
                 slice = make_scoped<table_slice_t>(
@@ -434,7 +434,7 @@ private:
         counted_t<const func_t> f = std::move(*v1).as_func(env->env, CONSTANT_SHORTCUT);
         optional<wire_func_t> defval;
         if (default_filter_term.has()) {
-            defval.set(wire_func_t(default_filter_term->eval_to_func(env->scope)));
+            defval.set(wire_func_t(counted<const func_t>(default_filter_term->eval_to_func(env->scope))));
         }
 
         if (v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
@@ -464,7 +464,7 @@ private:
         scope_env_t *env, args_t *args, eval_flags_t) const {
         scoped<val_t> arg0 = args->arg(env, 0);
         return std::move(*arg0).as_seq(env->env)->run_terminal(
-            env->env, reduce_wire_func_t(std::move(*args->arg(env, 1)).as_func(env->env)));
+            env->env, reduce_wire_func_t(counted<const func_t>(std::move(*args->arg(env, 1)).as_func(env->env))));
     }
     virtual const char *name() const { return "reduce"; }
 };

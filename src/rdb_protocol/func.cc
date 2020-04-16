@@ -228,9 +228,9 @@ scoped_ptr_t<val_t> func_term_t::term_eval(scope_env_t *env,
     return new_val(eval_to_func(env->scope));
 }
 
-counted_t<const func_t> func_term_t::eval_to_func(const var_scope_t &env_scope) const {
-    return make_counted<reql_func_t>(env_scope.filtered_by_captures(external_captures),
-                                     arg_names, body);
+scoped<func_t> func_term_t::eval_to_func(const var_scope_t &env_scope) const {
+    return make_scoped<reql_func_t>(env_scope.filtered_by_captures(external_captures),
+                                    arg_names, body);
 }
 
 deterministic_t func_term_t::is_deterministic() const {
@@ -363,7 +363,7 @@ bool func_t::filter_call(env_t *env, datum_t arg, counted_t<const func_t> defaul
     std::rethrow_exception(saved_exception);
 }
 
-counted_t<const func_t> new_constant_func(datum_t obj, backtrace_id_t bt) {
+scoped<func_t> new_constant_func(datum_t obj, backtrace_id_t bt) {
     minidriver_t r(bt);
     compile_env_t empty_compile_env((var_visibility_t()));
     counted_t<func_term_t> func_term =
@@ -372,7 +372,7 @@ counted_t<const func_t> new_constant_func(datum_t obj, backtrace_id_t bt) {
     return func_term->eval_to_func(var_scope_t());
 }
 
-counted_t<const func_t> new_get_field_func(datum_t key, backtrace_id_t bt) {
+scoped<func_t> new_get_field_func(datum_t key, backtrace_id_t bt) {
     minidriver_t r(bt);
     auto obj = minidriver_t::dummy_var_t::FUNC_GETFIELD;
     compile_env_t empty_compile_env((var_visibility_t()));
@@ -382,7 +382,7 @@ counted_t<const func_t> new_get_field_func(datum_t key, backtrace_id_t bt) {
     return func_term->eval_to_func(var_scope_t());
 }
 
-counted_t<const func_t> new_pluck_func(datum_t obj, backtrace_id_t bt) {
+scoped<func_t> new_pluck_func(datum_t obj, backtrace_id_t bt) {
     minidriver_t r(bt);
     auto var = minidriver_t::dummy_var_t::FUNC_PLUCK;
     compile_env_t empty_compile_env((var_visibility_t()));
@@ -392,7 +392,7 @@ counted_t<const func_t> new_pluck_func(datum_t obj, backtrace_id_t bt) {
     return func_term->eval_to_func(var_scope_t());
 }
 
-counted_t<const func_t> new_eq_comparison_func(datum_t obj, backtrace_id_t bt) {
+scoped<func_t> new_eq_comparison_func(datum_t obj, backtrace_id_t bt) {
     minidriver_t r(bt);
     auto var = minidriver_t::dummy_var_t::FUNC_EQCOMPARISON;
     compile_env_t empty_compile_env((var_visibility_t()));
@@ -402,7 +402,7 @@ counted_t<const func_t> new_eq_comparison_func(datum_t obj, backtrace_id_t bt) {
     return func_term->eval_to_func(var_scope_t());
 }
 
-counted_t<const func_t> new_page_func(datum_t method, backtrace_id_t bt) {
+scoped<func_t> new_page_func(datum_t method, backtrace_id_t bt) {
     if (method.get_type() != datum_t::R_NULL) {
         std::string name = method.as_str().to_std();
         if (name == "link-next") {
@@ -421,7 +421,7 @@ counted_t<const func_t> new_page_func(datum_t method, backtrace_id_t bt) {
             rcheck_src(bt, false, base_exc_t::LOGIC, msg);
         }
     }
-    return counted_t<const func_t>();
+    return scoped<func_t>();
 }
 
 val_t *js_result_visitor_t::operator()(const std::string &err_val) const {
@@ -434,10 +434,10 @@ val_t *js_result_visitor_t::operator()(
 }
 // This JS evaluation resulted in an id for a js function
 val_t *js_result_visitor_t::operator()(UNUSED const js_id_t id_val) const {
-    counted_t<const func_t> func = make_counted<js_func_t>(code,
-                                                           timeout_ms,
-                                                           parent->backtrace());
-    return new val_t(func, parent->backtrace());
+    scoped<func_t> func = make_scoped<js_func_t>(code,
+                                                 timeout_ms,
+                                                 parent->backtrace());
+    return new val_t(std::move(func), parent->backtrace());
 }
 
 } // namespace ql

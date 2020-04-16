@@ -228,7 +228,7 @@ public:
     val_t(scoped<table_slice_t> &&_table_slice, backtrace_id_t bt);
     val_t(scoped<selection_t> &&_selection, backtrace_id_t bt);
     val_t(provisional_db_id &&_db, backtrace_id_t bt);
-    val_t(counted_t<const func_t> _func, backtrace_id_t bt);
+    val_t(scoped<func_t> &&_func, backtrace_id_t bt);
     ~val_t();
 
     provisional_db_id as_prov_db(env_t *env) &&;
@@ -242,7 +242,7 @@ public:
     // The env doesn't get used, it's purely type safety.
     scoped<single_selection_t> as_single_selection(env_t *env) &&;
     // See func.hpp for an explanation of shortcut functions.
-    counted_t<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT) &&;
+    scoped<const func_t> as_func(env_t *env, function_shortcut_t shortcut = NO_SHORTCUT) &&;
 
     // This set of interfaces is atrocious.  Basically there are some places
     // where we want grouped_data, some places where we maybe want grouped_data,
@@ -312,7 +312,7 @@ private:
     boost::variant<provisional_db_id,
                    scoped<datum_stream_t>,
                    datum_t,
-                   counted_t<const func_t>,
+                   scoped<const func_t>,
                    counted_t<grouped_data_t>,
                    provisional_table_id,
                    scoped<table_slice_t>,
@@ -358,7 +358,7 @@ private:
     const scoped<table_slice_t> &table_slice() const {
         return boost::get<scoped<table_slice_t> >(u);
     }
-    counted_t<const func_t> &func() { return boost::get<counted_t<const func_t> >(u); }
+    scoped<const func_t> &func() { return boost::get<scoped<const func_t> >(u); }
 
     DISABLE_COPYING(val_t);
 };

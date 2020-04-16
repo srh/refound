@@ -80,7 +80,7 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         compile_env_t compile_env(env->scope.compute_visibility());
         counted_t<func_term_t> func_term =
             make_counted<func_term_t>(&compile_env, func);
-        counted_t<const func_t> f =
+        scoped<const func_t> f =
             func_term->eval_to_func(env->scope);
 
         scoped<datum_stream_t> stream;
@@ -94,15 +94,15 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         }
         switch (poly_type) {
         case MAP:
-            stream->add_transformation(map_wire_func_t(f), target->backtrace());
+            stream->add_transformation(map_wire_func_t(counted<const func_t>(std::move(f))), target->backtrace());
             break;
         case FILTER:
-            stream->add_transformation(filter_wire_func_t(f, r_nullopt),
+            stream->add_transformation(filter_wire_func_t(std::move(f), r_nullopt),
                                        target->backtrace());
             break;
         case SKIP_MAP:
             stream->add_transformation(
-                concatmap_wire_func_t(result_hint_t::AT_MOST_ONE, f),
+                concatmap_wire_func_t(result_hint_t::AT_MOST_ONE, counted<const func_t>(std::move(f))),
                 target->backtrace());
             break;
         default: unreachable();
