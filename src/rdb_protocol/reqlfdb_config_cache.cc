@@ -575,13 +575,14 @@ bool help_remove_table_if_exists(
 
 optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
         const auth::user_context_t &user_context,
-        const database_id_t &db_id,
+        const provisional_db_id &prov_db,
         const name_string_t &table_name,
         const signal_t *interruptor) {
 
     fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
+
+    database_id_t db_id = expect_retrieve_db(txn, prov_db, interruptor);
 
     fdb_value_fut<namespace_id_t> table_by_name_fut = transaction_lookup_uq_index<table_config_by_name>(
         txn, std::make_pair(db_id, table_name));
@@ -589,7 +590,6 @@ optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         txn, db_id);
 
     reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
-    check_cv(expected_cv, cv);
 
     {
         fdb_value db_by_id_value = future_block_on_value(db_by_id_fut.fut, interruptor);

@@ -450,19 +450,19 @@ public:
 private:
     scoped_ptr_t<val_t> eval_impl(
             scope_env_t *env, args_t *args, eval_flags_t) const override {
-        counted_t<const db_t> db;
+        provisional_db_id prov_db;
         name_string_t tbl_name;
         if (args->num_args() == 1) {
             scoped_ptr_t<val_t> dbv = args->optarg(env, "db");
             r_sanity_check(dbv);
-            db = std::move(*dbv).as_db(env->env);
+            prov_db = std::move(*dbv).as_prov_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 0), "Table");
         } else {
-            db = std::move(*args->arg(env, 0)).as_db(env->env);
+            prov_db = std::move(*args->arg(env, 0)).as_prov_db(env->env);
             tbl_name = get_name(env->env, args->arg(env, 1), "Table");
         }
 
-        if (db->name == artificial_reql_cluster_interface_t::database_name) {
+        if (prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
             admin_err_t error{
                 strprintf("Database `%s` is special; you can't drop tables in it.",
                           artificial_reql_cluster_interface_t::database_name.c_str()),
@@ -475,9 +475,8 @@ private:
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 optional<std::pair<namespace_id_t, table_config_t>> success
                     = config_cache_table_drop(txn,
-                        db->cv.assert_nonempty(),
                         env->env->get_user_context(),
-                        db->id, tbl_name,
+                        prov_db, tbl_name,
                         env->env->interruptor);
                 if (success.has_value()) {
                     commit(txn, env->env->interruptor);
@@ -490,12 +489,12 @@ private:
         }
 
         if (!fdb_result.has_value()) {
-            rfail_table_dne(db->name, tbl_name);
+            rfail_table_dne(prov_db.db_name, tbl_name);
         }
 
         // TODO: Wipe the config cache after the txn succeeds?
         ql::datum_t old_config = convert_table_config_to_datum(
-            fdb_result->first, convert_name_to_datum(db->name), fdb_result->second,
+            fdb_result->first, convert_name_to_datum(prov_db.db_name), fdb_result->second,
             admin_identifier_format_t::name);
 
         ql::datum_object_builder_t result_builder;

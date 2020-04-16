@@ -99,11 +99,12 @@ void help_remove_table(
         const table_config_t &config,
         const signal_t *interruptor);
 
+// TODO: Return config version too, and wipe out config cache.
 MUST_USE optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_drop(
         FDBTransaction *txn,
-        reqlfdb_config_version expected_cv,
         const auth::user_context_t &user_context,
-        const database_id_t &db_id, const name_string_t &table_name,
+        const provisional_db_id &prov_db,
+        const name_string_t &table_name,
         const signal_t *interruptor);
 
 MUST_USE optional<database_id_t> config_cache_db_drop(
