@@ -221,18 +221,68 @@ continue_bool_t fdb_traversal_primary(
         const signal_t *interruptor,
         FDBTransaction *txn,
         const std::string &fdb_kv_prefix,
-        const key_range_t &range,
+        const key_range_t &rangeparam,
         direction_t direction,
         rocks_traversal_cb *cb) {
-    fdb_bool_t reverse = direction != direction_t::forward;
-    // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
-    rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
-        txn, fdb_kv_prefix, range.left,
-        rfdb::lower_bound::closed,
-        range.right.unbounded ? nullptr : &range.right.internal_key,
-        0, 0, FDB_STREAMING_MODE_MEDIUM,
-        0, false, reverse);
+    const fdb_bool_t reverse = direction != direction_t::forward;
 
+    // OOO: We are now mixing rethinkdb batching and foundationdb batching.  Instead,
+    // use foundationdb batching (fixup old code commented below and make caller accept
+    // a return value which happens when foundationdb returned the end-of-batch.
+
+    key_range_t range = rangeparam;
+
+    fdb_bool_t more;
+    for (;;) {
+        // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
+        rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
+            txn, fdb_kv_prefix, range.left,
+            rfdb::lower_bound::closed,
+            range.right.unbounded ? nullptr : &range.right.internal_key,
+            0, 0, FDB_STREAMING_MODE_MEDIUM,
+            0, false, reverse);
+
+        fut.block_coro(interruptor);
+
+        const FDBKeyValue *kvs;
+        int kv_count;
+        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+        check_for_fdb_transaction(err);
+
+        // Initialized and used if kv_count > 0.
+        key_view last_key_view;
+
+        for (int i = 0; i < kv_count; ++i) {
+            key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
+            key_view store_key = full_key.guarantee_without_prefix(fdb_kv_prefix);
+            last_key_view = store_key;
+            rfdb::value_view full_value{void_as_uint8(kvs[i].value), kvs[i].value_length};
+
+            // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
+            continue_bool_t contbool = cb->handle_pair(
+                std::make_pair(as_char(store_key.data), size_t(store_key.length)),
+                std::make_pair(as_char(full_value.data), size_t(full_value.length)));
+            if (contbool == continue_bool_t::ABORT) {
+                return continue_bool_t::ABORT;
+            }
+        }
+        if (!more) {
+            return continue_bool_t::CONTINUE;
+        }
+        if (kv_count > 0) {
+            if (reverse) {
+                // Key is excluded from next read, and right bound is open.
+                range.right.internal_key.assign(last_key_view.length, last_key_view.data);
+                range.right.unbounded = false;
+            } else {
+                // Key is excluded from next read, so we increment.
+                range.left.assign(last_key_view.length, last_key_view.data);
+                range.left.increment();
+            }
+        }
+    }
+
+#if 0
     fut.block_coro(interruptor);
 
     const FDBKeyValue *kvs;
@@ -261,7 +311,10 @@ continue_bool_t fdb_traversal_primary(
     // perhaps keep consuming the range, or check that the caller doesn't demand some
     // sort of consistency between the cb state and this return value.
 
+    // NNN: Check this for fdb_traversal_secondary, too.
+
     return more ? continue_bool_t::ABORT : continue_bool_t::CONTINUE;
+#endif  // 0
 }
 
 continue_bool_t fdb_traversal_secondary(
@@ -269,10 +322,92 @@ continue_bool_t fdb_traversal_secondary(
         FDBTransaction *txn,
         const std::string &primary_prefix,
         const std::string &secondary_prefix,
-        const key_range_t &range,
+        const key_range_t &rangeparam,
         direction_t direction,
         rocks_traversal_cb *cb) {
-    fdb_bool_t reverse = direction != direction_t::forward;
+    const fdb_bool_t reverse = direction != direction_t::forward;
+
+    // OOO: We are now mixing rethinkdb batching and foundationdb batching.  Instead,
+    // use foundationdb batching (fixup old code, yadda yadda, see fdb_traversal_primary
+    // comment).
+
+    key_range_t range = rangeparam;
+
+    for (;;) {
+
+        // NNN: Handle reverse case properly!!!
+
+        // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
+        rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
+            txn, secondary_prefix, range.left,
+            rfdb::lower_bound::closed,
+            range.right.unbounded ? nullptr : &range.right.internal_key,
+            0, 0, FDB_STREAMING_MODE_MEDIUM,
+            0, false, reverse);
+
+        fut.block_coro(interruptor);
+
+        const FDBKeyValue *kvs;
+        int kv_count;
+        fdb_bool_t more;
+        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+        check_for_fdb_transaction(err);
+
+        // The store_key_t is the sindex store key.  Do we actually use it?
+        std::vector<std::pair<store_key_t, rfdb::datum_fut>> primary_futs;
+
+        // Initialized and used if kv_count > 0.
+        key_view last_key_view;
+
+        for (int i = 0; i < kv_count; ++i) {
+            key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
+            key_view store_key = full_key.guarantee_without_prefix(secondary_prefix);
+            last_key_view = store_key;
+            // Right now sindexes have no value.
+            rassert(kvs[i].value_length == 0);
+
+            store_key_t primary = ql::datum_t::extract_primary(
+                as_char(store_key.data), size_t(store_key.length));
+
+            // OOO: We could avoid an allocation here by appending/resizing in the loop.
+            std::string kv_location = primary_prefix + primary.str();
+            primary_futs.emplace_back(
+                store_key_t(std::string(as_char(store_key.data), size_t(store_key.length))),
+                rfdb::kv_location_get(txn, kv_location));
+        }
+
+        for (auto &pair : primary_futs) {
+            fdb_value value = future_block_on_value(pair.second.fut, interruptor);
+            guarantee(value.present);  // TODO: fdb consistency, graceful, msg
+            // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
+            continue_bool_t contbool = cb->handle_pair(
+                std::make_pair(pair.first.str().data(), pair.first.str().size()),
+                std::make_pair(as_char(value.data), size_t(value.length)));
+
+            // OOO: It's bad thinking to abandon the reads we've performed here.  We should consume everything we've read from fdb.
+            if (contbool == continue_bool_t::ABORT) {
+                return continue_bool_t::ABORT;
+            }
+        }
+
+        if (!more) {
+            return continue_bool_t::CONTINUE;
+        }
+        if (kv_count > 0) {
+            if (reverse) {
+                // Key is excluded from next read, and right bound is open.
+                range.right.internal_key.assign(last_key_view.length, last_key_view.data);
+                range.right.unbounded = false;
+            } else {
+                // Key is excluded from next read, so we increment.
+                range.left.assign(last_key_view.length, last_key_view.data);
+                range.left.increment();
+            }
+        }
+    }
+
+#if 0
+
     // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
     rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
         txn, secondary_prefix, range.left,
@@ -329,6 +464,8 @@ continue_bool_t fdb_traversal_secondary(
     // sort of consistency between the cb state and this return value.
 
     return more ? continue_bool_t::ABORT : continue_bool_t::CONTINUE;
+
+#endif  // 0
 }
 
 // TODO: Remove/merge with rdb_rget_slice again?  (Old rocksdb impl question.)
