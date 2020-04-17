@@ -63,6 +63,8 @@ MUST_USE fdb_error_t txn_retry_loop_table(
                 cvc.expected_cv = table.ci_cv;
                 fn(txn.txn, std::move(info), std::move(cvc));
             }
+            // Success!
+            return 0;
         } catch (const provisional_assumption_exception &exc) {
             guarantee(cached_table.has_value());
             cached_table.reset();
@@ -146,6 +148,8 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
                 }
                 fn(txn.txn, db_id, table_id, cv_check_fut());
             }
+            // Success!
+            return 0;
         } catch (const provisional_assumption_exception &exc) {
             guarantee(cached_table.has_value());
             cached_table.reset();
