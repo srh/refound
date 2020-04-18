@@ -381,21 +381,28 @@ private:
     }
 
     // TODO: Remove this eventually.
-    static MUST_USE bool add_table_info(
+    MUST_USE bool add_table_info(
             FDBDatabase *fdb,
             const signal_t *interruptor,
             datum_object_builder_t *onto,
-            const table_t *table) {
+            const table_t *table) const {
         r_sanity_check(!table->get_id().value.is_nil());
 
         // NNN: Handle system table case.
-        table_config_t config;
+        optional<table_config_t> opt_config;
         fdb_error_t loop_err = txn_retry_loop_coro(fdb,
                 interruptor, [&](FDBTransaction *txn) {
-            config = config_cache_get_table_config(
-                txn, table->tbl->cv.assert_nonempty() /* OOO: what if system table? */, table->get_id(), interruptor);
+            opt_config = config_cache_get_table_config_without_cv_check(
+                txn, table->get_id(), interruptor);
         });
         guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
+
+        if (!opt_config.has_value()) {
+            // OOO: Is this the most consistent way to deal with this error?
+            rfail(base_exc_t::OP_FAILED, "Table `%s` was removed during query evaluation.",
+                table->name.c_str());
+        }
+        table_config_t config = std::move(opt_config.get());
 
         bool b = onto->add("name", datum_t(table->name.str()));
         b |= onto->add("primary_key", datum_t(table->get_pkey()));
@@ -477,10 +484,10 @@ private:
         return b;
     }
 
-    static ql::datum_t table_info_datum(
+    ql::datum_t table_info_datum(
             FDBDatabase *fdb,
             const signal_t *interruptor,
-            const table_t *table) {
+            const table_t *table) const {
         datum_object_builder_t table_info;
         bool b = table_info.add("type", datum_t(get_name(TABLE_TYPE)));
         b |= add_table_info(fdb, interruptor, &table_info, table);
