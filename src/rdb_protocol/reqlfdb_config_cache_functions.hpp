@@ -149,12 +149,6 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_drop(
     const std::string &index_name,
     const signal_t *interruptor);
 
-table_config_t config_cache_get_table_config(
-    FDBTransaction *txn,
-    reqlfdb_config_version expected_cv,
-    const namespace_id_t &table_id,
-    const signal_t *interruptor);
-
 enum class rename_result {
     success,
     old_not_found,
