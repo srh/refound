@@ -50,21 +50,6 @@ public:
     }
 };
 
-inline void check_cv(const config_version_checker &older, reqlfdb_config_version newer) {
-    if (older.value != UINT64_MAX && older.value != newer.value) {
-        throw config_version_exc_t();
-    }
-}
-
-// TODO: Every caller could more gracefully check provenance to see if relevant subset
-// of config is actually different, between older and newer version.
-inline void check_cv(reqlfdb_config_version older, reqlfdb_config_version newer) {
-    rassert(older.value <= newer.value);
-    if (older.value != newer.value) {
-        throw config_version_exc_t();
-    }
-}
-
 // Carries config information and its provenance.
 template <class T>
 class config_info {
