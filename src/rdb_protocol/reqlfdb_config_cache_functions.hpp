@@ -172,11 +172,6 @@ std::pair<bool, reqlfdb_config_version> config_cache_set_write_hook(
         const optional<write_hook_config_t> &new_write_hook_config,
         const signal_t *interruptor);
 
-void config_cache_cv_check(
-    FDBTransaction *txn,
-    reqlfdb_config_version expected_cv,
-    const signal_t *interruptor);
-
 optional<table_config_t> config_cache_get_table_config_without_cv_check(
     FDBTransaction *txn,
     const namespace_id_t &table_id,
