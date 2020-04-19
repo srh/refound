@@ -54,7 +54,7 @@ private:
     }
     virtual bool uses_idx() const = 0;
     virtual scoped_ptr_t<val_t> on_idx(
-        env_t *env, counted_t<table_t> tbl, scoped_ptr_t<val_t> idx) const = 0;
+        env_t *env, scoped<table_t> &&tbl, scoped_ptr_t<val_t> idx) const = 0;
 };
 
 template<class T>
@@ -65,7 +65,7 @@ protected:
 private:
     virtual bool uses_idx() const { return false; }
     virtual scoped_ptr_t<val_t> on_idx(
-        env_t *, counted_t<table_t>, scoped_ptr_t<val_t>) const {
+        env_t *, scoped<table_t> &&, scoped_ptr_t<val_t>) const {
         rfail(base_exc_t::LOGIC, "Cannot call %s on an index.", this->name());
     }
 };
@@ -93,13 +93,13 @@ protected:
 private:
     virtual bool uses_idx() const { return true; }
     virtual scoped_ptr_t<val_t> on_idx(
-        env_t *env, counted_t<table_t> tbl, scoped_ptr_t<val_t> idx) const {
+        env_t *env, scoped<table_t> &&tbl, scoped_ptr_t<val_t> idx) const {
         optional<std::string> idx_str;
         if (idx.has()) {
             idx_str.set(idx->as_str(env).to_std());
         }
         scoped<table_slice_t> slice(
-            new table_slice_t(tbl, idx_str, sorting()));
+            new table_slice_t(std::move(tbl), idx_str, sorting()));
         return term_t::new_val(single_selection_t::from_slice(
             term_t::backtrace(),
             std::move(slice),
