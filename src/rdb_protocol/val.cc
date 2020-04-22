@@ -209,8 +209,10 @@ scoped<datum_stream_t> table_slice_t::as_seq(
 
 scoped<datum_stream_t> table_slice_t::as_seq_with_sorting(
         std::string _idx, sorting_t _sorting, env_t *env, backtrace_id_t bt) && {
-    scoped<table_slice_t> sl = std::move(*this).with_sorting(_idx, _sorting);
-    return std::move(*sl).as_seq(env, bt);
+    // Caller has to meet some particular requirements.
+    r_sanity_check(!idx.has_value() || *idx == _idx);
+    r_sanity_check(sorting == sorting_t::UNORDERED);
+    return tbl->as_seq(env, _idx, bt, bounds, _sorting);
 }
 
 scoped<table_slice_t>
