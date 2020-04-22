@@ -162,10 +162,12 @@ private:
                 s->add_transformation(std::move(mwf), backtrace());
                 return new_val(env->env, std::move(s));
             } else if (!tbl_slice->get_idx().has_value() || *tbl_slice->get_idx() == idx_str) {
+                scoped<datum_stream_t> s;
                 if (tbl_slice->sorting == sorting_t::UNORDERED) {
-                    tbl_slice = std::move(*tbl_slice).with_sorting(idx_str, sorting_t::ASCENDING);
+                    s = std::move(*tbl_slice).as_seq_with_sorting(idx_str, sorting_t::ASCENDING, env->env, backtrace());
+                } else {
+                    s = std::move(*tbl_slice).as_seq(env->env, backtrace());
                 }
-                scoped<datum_stream_t> s = std::move(*tbl_slice).as_seq(env->env, backtrace());
                 s->add_transformation(distinct_wire_func_t(idx.has()), backtrace());
                 return new_val(env->env, make_scoped<ordered_distinct_datum_stream_t>(std::move(s)));
             }
