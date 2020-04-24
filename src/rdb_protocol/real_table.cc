@@ -290,6 +290,8 @@ ql::datum_t real_table_t::read_nearest(
         rfail_datum(ql::base_exc_t::OP_FAILED, "Cannot perform read: %s", ex.what());
     } catch (auth::permission_error_t const &error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", error.what());
+    } catch (const config_version_exc_t &ex) {
+        rfail_datum(ql::base_exc_t::OP_FAILED, "System configuration changed while performing read");
     }
 
     nearest_geo_read_response_t *g_res =
@@ -514,6 +516,8 @@ void real_table_t::write_with_profile(ql::env_t *env, write_t *write,
         rfail_datum(type, "Cannot perform write: %s", e.what());
     } catch (auth::permission_error_t const &error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", error.what());
+    } catch (const config_version_exc_t &ex) {
+        rfail_datum(ql::base_exc_t::OP_FAILED, "System configuration changed while performing write");
     }
 
     /* Append the results of the profile to the current task */
