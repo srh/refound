@@ -66,7 +66,7 @@ std::string scram_authenticator_t::next_message(FDBDatabase *fdb, const signal_t
                     the_user.set(std::move(user));
                 });
                 guarantee_fdb_TODO(loop_err, "next_message loading user");
-                if (the_user.has_value()) {
+                if (!the_user.has_value()) {
                     m_is_user_known = false;
                     m_password =
                         password_t::generate_password_for_unknown_user();
