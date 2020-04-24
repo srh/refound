@@ -1095,8 +1095,10 @@ scoped<table_t> provisional_to_table(
     counted_t<const real_table_t> table;
     counted_t<const db_t> out_db;
 
-    // NNN: Callers are assuming these are _not_ cached lookups.
 
+    // OOO: Use the config cache to optimistically perform the table lookup.
+
+#if 0
     // TODO: ASSERT_NO_CORO_WAITING on these two cache lookups, as mutex assertion.
     optional<config_info<database_id_t>> cached_db_id
         = cc->try_lookup_cached_db(prov_table.prov_db.db_name);
@@ -1115,6 +1117,7 @@ scoped<table_t> provisional_to_table(
                 config_version_checker{cached_db_id->ci_cv.value}));
         }
     }
+#endif  // 0
 
     if (!table.has()) {
         // Perform a txn with both the db and table lookup.
