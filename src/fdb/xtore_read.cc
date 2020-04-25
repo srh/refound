@@ -215,8 +215,6 @@ private:
     DISABLE_COPYING(fdb_rget_cb_wrapper);
 };
 
-// NNN: fdb_traversal, and probably geo_fdb_traversal, and hey, anything accessing a secondary index, probably is trying to read the value off the sindex value instead of using the primary key.
-
 continue_bool_t fdb_traversal_primary(
         const signal_t *interruptor,
         FDBTransaction *txn,
