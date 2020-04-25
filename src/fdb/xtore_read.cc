@@ -335,8 +335,6 @@ continue_bool_t fdb_traversal_secondary(
 
     for (;;) {
 
-        // NNN: Handle reverse case properly!!!
-
         // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
         rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
             txn, secondary_prefix, range.left,

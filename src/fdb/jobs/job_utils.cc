@@ -1,6 +1,7 @@
 #include "fdb/jobs/job_utils.hpp"
 
 #include "containers/archive/string_stream.hpp"
+#include "debug.hpp"
 #include "fdb/index.hpp"
 
 bool block_and_check_info(
@@ -9,11 +10,13 @@ bool block_and_check_info(
         const signal_t *interruptor) {
     fdb_job_info real_info;
     if (!real_info_fut.block_and_deserialize(interruptor, &real_info)) {
+        debugf("block_and_check_info job not present\n");
         // The job is not present.  Something else must have claimed it.
         return false;
     }
 
     if (real_info.counter != expected_info.counter) {
+        debugf("block_and_check_info job is not same\n");
         // The job is not the same.  Another node must have claimed it.
         // (Possibly ourselves?  Who knows.)
         return false;

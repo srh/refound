@@ -1,6 +1,7 @@
 #include "fdb/jobs/index_create.hpp"
 
 #include "clustering/tables/table_metadata.hpp"
+#include "debug.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs/job_utils.hpp"
@@ -70,6 +71,7 @@ ql::datum_t parse_table_value(const char *value, size_t data_length) {
 optional<fdb_job_info> execute_index_create_job(
         FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_index_create &index_create_info, const signal_t *interruptor) {
+    debugf("execute_index_create_job\n");
     // TODO: Maybe caller can pass clock (as in all jobs).
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -85,6 +87,7 @@ optional<fdb_job_info> execute_index_create_job(
         = transaction_lookup_uq_index<index_jobstate_by_task>(txn, info.shared_task_id);
 
     if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
+        debugf("execute_index_create_jobexiting for lack of fdb_job_info\n");
         return r_nullopt;
     }
 
@@ -103,6 +106,8 @@ optional<fdb_job_info> execute_index_create_job(
     store_key_t js_lower_bound(jobstate.unindexed_lower_bound.ukey);
     store_key_t js_upper_bound(jobstate.unindexed_upper_bound.ukey);
 
+    debugf("execute_index_create_job lower_bound '%s'\n", jobstate.unindexed_lower_bound.ukey.c_str());
+    debugf("execute_index_create_job upper_bound '%s'\n", jobstate.unindexed_upper_bound.ukey.c_str());
     rfdb::datum_range_fut data_fut = rfdb::kv_prefix_get_range(txn, pkey_prefix,
         js_lower_bound, rfdb::lower_bound::closed, &js_upper_bound,
         0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
@@ -179,6 +184,7 @@ optional<fdb_job_info> execute_index_create_job(
 
     optional<fdb_job_info> ret;
     if (more) {
+        debugf("more = true, kv_count = %d\n", int(kv_count));
         if (kv_count > 0) {
             key_view full_key{
                 void_as_uint8(kvs[kv_count - 1].key),
@@ -200,6 +206,7 @@ optional<fdb_job_info> execute_index_create_job(
         fdb_job_info new_info = update_job_counter(txn, current_clock, info);
         ret.set(std::move(new_info));
     } else {
+        debugf("more = false, kv_count = %d\n", int(kv_count));
         transaction_erase_uq_index<index_jobstate_by_task>(txn, info.shared_task_id);
 
         remove_fdb_job(txn, info);
@@ -218,5 +225,7 @@ optional<fdb_job_info> execute_index_create_job(
     commit(txn, interruptor);
     return ret;
 }
+
+// OOO: Index creation is super-slow (because the first attempt to reclaim the job fails?)
 
 // TODO: Handle all LARGEVAL comments.
