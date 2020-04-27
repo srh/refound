@@ -915,7 +915,8 @@ class Server(object):
     def clean(self, final=False):
         
         # - clean rethinkdb._debug_scratch
-        r.db('rethinkdb').table('_debug_scratch').delete().run(self.conn)
+        # There is no _debug_scratch table in reql-on-fdb.
+        ## r.db('rethinkdb').table('_debug_scratch').delete().run(self.conn)
         
         # - restore users/permissions
         expectedUsers = self.existingUsers
