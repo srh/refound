@@ -388,21 +388,27 @@ private:
             const table_t *table) const {
         r_sanity_check(!table->get_id().value.is_nil());
 
-        // NNN: Handle system table case.
-        optional<table_config_t> opt_config;
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb,
-                interruptor, [&](FDBTransaction *txn) {
-            opt_config = config_cache_get_table_config_without_cv_check(
-                txn, table->get_id(), interruptor);
-        });
-        guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
+        std::unordered_map<std::string, sindex_metaconfig_t> sindexes;
+        if (table->db->name == artificial_reql_cluster_interface_t::database_name) {
+            // System tables don't have sindexes.  And we have a table_t, thus the table
+            // exists.
+        } else {
+            // TODO: We could just read the table_config_t off the real_table_t.
+            optional<table_config_t> opt_config;
+            fdb_error_t loop_err = txn_retry_loop_coro(fdb,
+                    interruptor, [&](FDBTransaction *txn) {
+                opt_config = config_cache_get_table_config_without_cv_check(
+                    txn, table->get_id(), interruptor);
+            });
+            guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
 
-        if (!opt_config.has_value()) {
-            // OOO: Is this the most consistent way to deal with this error?
-            rfail(base_exc_t::OP_FAILED, "Table `%s` was removed during query evaluation.",
-                table->name.c_str());
+            if (!opt_config.has_value()) {
+                // OOO: Is this the most consistent way to deal with this error?
+                rfail(base_exc_t::OP_FAILED, "Table `%s` was removed during query evaluation.",
+                    table->name.c_str());
+            }
+            sindexes = std::move(opt_config->sindexes);
         }
-        table_config_t config = std::move(opt_config.get());
 
         bool b = onto->add("name", datum_t(table->name.str()));
         b |= onto->add("primary_key", datum_t(table->get_pkey()));
@@ -421,7 +427,7 @@ private:
 
         {
             ql::datum_array_builder_t res(ql::configured_limits_t::unlimited);
-            for (const auto &pair : config.sindexes) {
+            for (const auto &pair : sindexes) {
                 res.add(ql::datum_t(datum_string_t(pair.first)));
             }
             res.sort();
