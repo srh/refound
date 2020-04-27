@@ -309,8 +309,6 @@ continue_bool_t fdb_traversal_primary(
     // perhaps keep consuming the range, or check that the caller doesn't demand some
     // sort of consistency between the cb state and this return value.
 
-    // NNN: Check this for fdb_traversal_secondary, too.
-
     return more ? continue_bool_t::ABORT : continue_bool_t::CONTINUE;
 #endif  // 0
 }
