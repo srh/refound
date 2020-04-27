@@ -100,10 +100,8 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
         C &&fn) {
     fdb_transaction txn{fdb};
 
-    // NNN: If we use this function on the artificial db, there is trouble.
-
     optional<namespace_id_t> artificial_table_id;
-    if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
+    if (prov_table.prov_db.db_name != artificial_reql_cluster_interface_t::database_name) {
         artificial_table_id = artificial_reql_cluster_interface_t::get_table_id(prov_table.table_name);
         if (!artificial_table_id.has_value()) {
             rfail_prov_table_dne(prov_table);
@@ -119,7 +117,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
         cached_db = cc->try_lookup_cached_db(prov_table.prov_db.db_name);
 
         if (cached_db.has_value()) {
-            // NNN: Just lookup the table id, not the config.
+            // NNN(1): Just lookup the table id, not the config.
             cached_table = cc->try_lookup_cached_table(std::make_pair(cached_db->ci_value, prov_table.table_name));
         }
     }
@@ -140,7 +138,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
                     table_id = *artificial_table_id;
                     db_id = artificial_reql_cluster_interface_t::database_id;
                 } else {
-                    // NNN: We should only load the db id and table id (which is one less round-trip).
+                    // NNN(1): We should only load the db id and table id (which is one less round-trip).
                     config_info<std::pair<namespace_id_t, table_config_t>>
                         table = expect_retrieve_table(txn.txn, prov_table, interruptor);
                     table_id = table.ci_value.first;
