@@ -159,7 +159,7 @@ public:
         return ql::changefeed::keyspec_t::limit_t{slice->get_range_spec(), 1};
     }
 #endif  // RDB_CF
-    // NNN: Ensure never used after get().
+    // Must never be used after get().  Just to maintain some linearity condition, for now.
     const counted_t<table_t> &get_tbl(env_t *) final override { return slice->get_tbl(); }
 private:
     backtrace_id_t bt;
@@ -759,7 +759,7 @@ scoped<table_t> val_t::as_table(env_t *env) && {
     return provisional_to_table(env, prov_table);
 }
 scoped<table_slice_t> val_t::as_table_slice(env_t *env) && {
-    // NNN: Make table_slice_t hold a provisional_table_id, ofc.
+    // OOO: Make table_slice_t hold a provisional_table_id, ofc.  (Oh rry?)
     if (type.raw_type == type_t::TABLE) {
         return make_scoped<table_slice_t>(std::move(*this).as_table(env));
     } else {
@@ -827,8 +827,9 @@ counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
 
 name_string_t val_t::get_underlying_table_name(env_t *env) const {
     if (type.raw_type == type_t::TABLE) {
-        // NNN: The performance expectations of get_underlying_table have been altered!  Look at callers.
-        // Force r.table() term error message to take precedence.
+        // OOO: The performance expectations of get_underlying_table have been altered!  Look at callers.
+
+        // Forces r.table() term error message to take precedence.
         scoped<table_t> tab = provisional_to_table(env, table());
         return tab->name;
     } else if (type.raw_type == type_t::SELECTION) {
