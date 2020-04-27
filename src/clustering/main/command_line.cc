@@ -1093,7 +1093,7 @@ bool configure_tls(
 
 // TODO: With porcelain creation, make sure we create 'test' db.
 
-// NNN: Next thing to do is to handle config_version_exc_t.  We never handle it and wipe the cache.
+// OOO: Remove config_version_exc_t?
 
 void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,

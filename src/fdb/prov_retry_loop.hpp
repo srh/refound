@@ -117,7 +117,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
         cached_db = cc->try_lookup_cached_db(prov_table.prov_db.db_name);
 
         if (cached_db.has_value()) {
-            // NNN(1): Just lookup the table id, not the config.
+            // OOO(1): Just lookup the table id, not the config.
             cached_table = cc->try_lookup_cached_table(std::make_pair(cached_db->ci_value, prov_table.table_name));
         }
     }
@@ -138,7 +138,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
                     table_id = *artificial_table_id;
                     db_id = artificial_reql_cluster_interface_t::database_id;
                 } else {
-                    // NNN(1): We should only load the db id and table id (which is one less round-trip).
+                    // OOO(1): We should only load the db id and table id (which is one less round-trip).
                     config_info<std::pair<namespace_id_t, table_config_t>>
                         table = expect_retrieve_table(txn.txn, prov_table, interruptor);
                     table_id = table.ci_value.first;

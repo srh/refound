@@ -240,7 +240,7 @@ ql::datum_t convert_table_config_to_datum(
         convert_write_ack_config_to_datum(write_ack_config_t::MAJORITY));
     builder.overwrite("durability",
         convert_durability_to_datum(write_durability_t::HARD));
-    builder.overwrite("data", config.user_data.datum);
+    builder.overwrite("user_value", config.user_data.datum);
     return std::move(builder).to_datum();
 }
 
@@ -400,14 +400,13 @@ bool convert_table_config_and_name_from_datum(
         }
     }
 
-    if (existed_before || converter.has("data")) {
-        // NNN: Is this called user_value?  What about 2.4 or 2.5?
+    if (existed_before || converter.has("user_value")) {
         ql::datum_t user_data_datum;
-        if (!converter.get("data", &user_data_datum, error_out)) {
+        if (!converter.get("user_value", &user_data_datum, error_out)) {
             return false;
         }
         if (user_data_datum.get_type() != ql::datum_t::R_OBJECT) {
-            error_out->msg = "The `data` field must contain an object.";
+            error_out->msg = "The `user_value` field must contain an object.";
             return false;
         }
 

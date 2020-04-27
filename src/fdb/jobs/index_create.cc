@@ -58,6 +58,8 @@ The information about the in-progress construction of the index changes frequent
 it needs to be stored elsewhere.  It gets stored in index_jobstate_by_task.
 */
 
+// NNN: Index create jobs are super-slow.
+
 ql::datum_t parse_table_value(const char *value, size_t data_length) {
     buffer_read_stream_t stream(value, data_length);
 

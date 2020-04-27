@@ -71,7 +71,7 @@ public:
     table_basic_config_t basic;
     std::unordered_map<std::string, sindex_metaconfig_t> sindexes;
     optional<write_hook_config_t> write_hook;
-    user_data_t user_data;  // has user-exposed name "data"
+    user_data_t user_data;  // has user-exposed name "user_value"
 };
 
 RDB_DECLARE_SERIALIZABLE(table_config_t);
