@@ -642,7 +642,7 @@ bool permissions_artificial_table_fdb_backend_t::database_to_datum(
         switch (m_identifier_format) {
             case admin_identifier_format_t::name:
                 {
-                    crash("identifier format name not supported");  // NNN: Ack.
+                    rfail_datum(ql::base_exc_t::INTERNAL, "identifier format name not supported in reql-on-fdb");  // NNN: Ack.  And product name.
 #if 0
                     optional<name_string_t> database_name =
                         m_name_resolver.database_id_to_name(
@@ -698,7 +698,7 @@ bool permissions_artificial_table_fdb_backend_t::table_to_datum(
         switch (m_identifier_format) {
             case admin_identifier_format_t::name:
                 {
-                    crash("identifier format name not supported");  // NNN: Ack.
+                    rfail_datum(ql::base_exc_t::OP_FAILED, "identifier format name not supported in reql-on-fdb");  // NNN: Ack.  And product name.
 #if 0
                     optional<name_string_t> database_name =
                         m_name_resolver.database_id_to_name(

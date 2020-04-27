@@ -88,7 +88,7 @@ env_t::env_t(rdb_context_t *ctx,
       evals_since_yield_(0),
       rdb_ctx_(ctx),
       eval_callback_(NULL) {
-    // NNN: The reasoning that we can comment this out, and that rdb_ctx_ can be nullptr, is based on some spooky global reasoning.  (More precisely, we crash if the global optargs have nondeterministic functions.)  I'm not a fan.
+    // OOO: The reasoning that we can comment this out, and that rdb_ctx_ can be nullptr, is based on some spooky global reasoning.  (More precisely, we crash if the global optargs have nondeterministic functions.)  I'm not a fan.
     // rassert(ctx != NULL);
     rassert(interruptor != NULL);
 }

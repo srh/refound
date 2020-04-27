@@ -190,23 +190,6 @@ reqlfdb_config_cache::try_lookup_cached_table(
     return ret;
 }
 
-// TODO: Uncomment or remove.
-#if 0
-optional<config_info<auth::user_t>>
-try_lookup_cached_user(
-        const reqlfdb_config_cache *cache, const auth::username_t &username) {
-    optional<config_info<auth::user_t>> ret;
-    ASSERT_NO_CORO_WAITING;  // mutex assertion
-    auto it = cache->auth_index.find(username);
-    if (it != cache->auth_index.end()) {
-        ret.emplace();
-        ret->ci_value = it->second;
-        ret->ci_cv = cache->config_version;
-    }
-    return ret;
-}
-#endif  // 0
-
 // OOO: Is this used anymore?
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(

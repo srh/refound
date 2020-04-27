@@ -11,7 +11,6 @@
 // the db was the artificial db and the id lookup doesn't need to be verified (because
 // it's constant).
 
-// NNN: Maybe this should have a backtrace_id_t in it.
 class provisional_db_id {
 public:
     name_string_t db_name;

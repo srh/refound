@@ -5,9 +5,6 @@
 
 #include <unordered_map>
 
-// TODO: Uncomment or remove.
-// #include "clustering/auth/username.hpp"
-// #include "clustering/auth/user.hpp"
 #include "clustering/id_types.hpp"
 #include "containers/counted.hpp"
 #include "containers/uuid.hpp"
@@ -17,7 +14,6 @@
 
 template <class T> class optional;
 
-// NNN: Remove this exception, and handle provisional_assumption_exception.
 class config_version_exc_t : public std::exception {
 public:
     config_version_exc_t() {}
@@ -105,17 +101,6 @@ private:
         namespace_id_hasher> table_id_index;
 
 public:
-    // TODO: Uncomment auth_index or remove.
-    //
-    // The table and db indexes are useful for implementing r.db() and r.table() terms
-    // efficiently.  The user auth checks, ultimately, cannot succeed or fail without a
-    // round-trip to the db, and the only purpose in caching is to avoid a key/value
-    // request from fdb.  This is something that may be worth implementing later, when
-    // we add the ability to recover from check_cv failures when it doesn't affect the
-    // config key in question.
-    //
-    // std::unordered_map<auth::username_t, auth::user_t> auth_index;
-
     void wipe();
 
     void note_version(reqlfdb_config_version cv) {
@@ -140,12 +125,5 @@ public:
 };
 
 // Returns r_nullopt if the cache doesn't have it.
-
-
-// TODO: Uncomment or remove
-#if 0
-optional<config_info<auth::user_t>>
-try_lookup_cached_user(const reqlfdb_config_cache *cache, const auth::username_t &username);
-#endif
 
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_

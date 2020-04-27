@@ -69,7 +69,6 @@ read_response_t table_query_client_read_loop(
         guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
-        // NNN: Handle exc properly, remove config_version_exc_t.
         throw config_version_exc_t();
     }
 }
@@ -137,7 +136,6 @@ write_response_t table_query_client_write_loop(
         guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
-        // NNN: Remove config_version_exc_t.
         throw config_version_exc_t();
     }
 }
