@@ -846,8 +846,9 @@ class Server(object):
     
     __conn   = None
     __server = None
-    
-    connectedServerIds  = None
+
+    ## Removed for reql-on-fdb
+    # connectedServerIds  = None
     existingDBsToTables = None
     existingUsers       = None
     existingPermissions = None
@@ -865,7 +866,8 @@ class Server(object):
             self.existingDBsToTables[dbName] = r.db(dbName).table_list().run(self.conn)
         
         # - collect list of connected servers
-        self.connectedServerIds = list(r.db('rethinkdb').table('server_config')['id'].run(self.conn))
+        # Removed for reql-on-fdb
+        ## self.connectedServerIds = list(r.db('rethinkdb').table('server_config')['id'].run(self.conn))
         
         # - collect list of non-default users/permissions
         self.existingUsers = dict((x['id'], x) for x in r.db('rethinkdb').table('users').run(self.conn))
@@ -971,7 +973,8 @@ class Server(object):
                 r.db(dbName).table_list().set_difference(self.existingDBsToTables.get(dbName, [])).for_each(r.db(dbName).table_drop(r.row)).run(self.conn)
         
         # - remove any newly connected servers
-        r.db('rethinkdb').table('server_config').filter(lambda row: r.expr(self.connectedServerIds).contains(row['id']).not_()).delete().run(self.conn)
+        # Removed for reql-on-fdb
+        ## r.db('rethinkdb').table('server_config').filter(lambda row: r.expr(self.connectedServerIds).contains(row['id']).not_()).delete().run(self.conn)
         
         if not final:
             # - ensure that the test db is present
