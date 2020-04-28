@@ -23,6 +23,14 @@ RDB_ID_TYPES_OP(database_id_t, !=);
 
 #undef RDB_ID_TYPES_OP
 
+namespace std {
+template<> struct hash<database_id_t> {
+    size_t operator()(const database_id_t& x) const {
+        return std::hash<uuid_u>()(x.value);
+    }
+};
+}  // namespace std
+
 inline std::string uuid_to_str(const namespace_id_t &x) {
     return uuid_to_str(x.value);
 }

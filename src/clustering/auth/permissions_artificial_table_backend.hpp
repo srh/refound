@@ -2,8 +2,13 @@
 #ifndef CLUSTERING_ADMINISTRATION_AUTH_PERMISSIONS_ARTIFICIAL_TABLE_BACKEND_HPP
 #define CLUSTERING_ADMINISTRATION_AUTH_PERMISSIONS_ARTIFICIAL_TABLE_BACKEND_HPP
 
+#include <unordered_map>
+
 #include "rdb_protocol/admin_identifier_format.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
+
+class table_basic_config_t;
+class table_config_t;
 
 namespace auth {
 class username_t;
@@ -42,14 +47,19 @@ public:
         admin_err_t *error_out) override;
 
 private:
+    // Some of these output fields are conditionally initialized dependent on primary
+    // key length.
     static uint8_t parse_primary_key(
         const signal_t *interruptor,
         FDBTransaction *txn,
         ql::datum_t const &primary_key,
         username_t *username_out,
         database_id_t *database_id_out,
+        name_string_t *database_name_out,  // looked up from fdb
         namespace_id_t *table_id_out,
+        table_config_t *table_config_out,
         admin_err_t *admin_err_out = nullptr);
+    // TODO: No default admin_err_out param.
 
     static bool global_to_datum(
         username_t const &username,
@@ -57,15 +67,22 @@ private:
         ql::datum_t *datum_out);
 
     bool database_to_datum(
+        FDBTransaction *txn,
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
         username_t const &username,
         database_id_t const &database_id,
         permissions_t const &permissions,
         ql::datum_t *datum_out);
 
     bool table_to_datum(
+        FDBTransaction *txn,
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
         username_t const &username,
         database_id_t const &database_id,
         namespace_id_t const &table_id,
+        table_basic_config_t const &table_basic_config,
         permissions_t const &permissions,
         ql::datum_t *datum_out);
 

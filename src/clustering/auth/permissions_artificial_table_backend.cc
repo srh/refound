@@ -21,6 +21,16 @@ permissions_artificial_table_fdb_backend_t::permissions_artificial_table_fdb_bac
       m_identifier_format(identifier_format) {
 }
 
+std::unordered_map<database_id_t, optional<name_string_t>>
+make_db_name_cache() {
+    std::unordered_map<database_id_t, optional<name_string_t>> ret;
+    ret.emplace(artificial_reql_cluster_interface_t::database_id,
+        make_optional(artificial_reql_cluster_interface_t::database_name));
+    return ret;
+}
+
+
+
 bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
         auth::user_context_t const &user_context,
@@ -35,6 +45,9 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         std::string prefix = users_by_username::prefix;
         transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
                 [&](const FDBKeyValue &kv) {
+            // Only used for admin_identifier_format_t::name, btw.
+            std::unordered_map<database_id_t, optional<name_string_t>> db_name_cache = make_db_name_cache();
+
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
             key_view username_key = whole_key.guarantee_without_prefix(prefix);
             username_t username = users_by_username::parse_ukey(username_key);
@@ -53,6 +66,9 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
             for (const auto &db_perm : user.get_database_permissions()) {
                 ql::datum_t row;
                 if (database_to_datum(
+                        txn,
+                        interruptor,
+                        &db_name_cache,
                         username,
                         db_perm.first,
                         db_perm.second,
@@ -80,9 +96,13 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
                 }
                 ql::datum_t row;
                 if (table_to_datum(
+                        txn,
+                        interruptor,
+                        &db_name_cache,
                         username,
                         config.basic.database,
                         perm_vec[i].first,
+                        config.basic,
                         perm_vec[i].second,
                         &row)) {
                     rows.push_back(std::move(row));
@@ -113,8 +133,13 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     }
 
     {
+        std::unordered_map<database_id_t, optional<name_string_t>> db_name_cache
+            = make_db_name_cache();
         ql::datum_t row;
         if (database_to_datum(
+                static_cast<FDBTransaction *>(nullptr),
+                interruptor,
+                &db_name_cache,
                 username_t("admin"),
                 artificial_reql_cluster_interface_t::database_id,
                 permissions_t(tribool::True, tribool::True, tribool::True),
@@ -144,14 +169,18 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
 
     username_t username;
     database_id_t database_id;
+    name_string_t database_name;
     namespace_id_t table_id;
+    table_config_t table_config;
     uint8_t array_size = parse_primary_key(
         interruptor,
         txn,
         primary_key,
         &username,
         &database_id,
-        &table_id);
+        &database_name,
+        &table_id,
+        &table_config);
     if (array_size == 0) {
         *row_out = ql::datum_t::null();
         return true;
@@ -169,7 +198,13 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
                 break;
             case 2:
                 if (database_id == artificial_reql_cluster_interface_t::database_id) {
+                    std::unordered_map<database_id_t, optional<name_string_t>> db_name_cache
+                        = make_db_name_cache();
+
                     database_to_datum(
+                        static_cast<FDBTransaction *>(nullptr),  // it uses the cache.
+                        interruptor,
+                        &db_name_cache,
                         username,
                         database_id,
                         permissions_t(tribool::True, tribool::True, tribool::True),
@@ -197,21 +232,32 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
                 user.get_global_permissions(),
                 row_out);
             break;
-        case 2:
+        case 2: {
+            std::unordered_map<database_id_t, optional<name_string_t>> db_name_cache
+                = make_db_name_cache();
             database_to_datum(
+                txn,
+                interruptor,
+                &db_name_cache,
                 username,
                 database_id,
                 user.get_database_permissions(database_id),
                 row_out);
-            break;
-        case 3:
+        } break;
+        case 3: {
+            std::unordered_map<database_id_t, optional<name_string_t>> db_name_cache
+                = make_db_name_cache();
             table_to_datum(
+                txn,
+                interruptor,
+                &db_name_cache,
                 username,
                 database_id,
                 table_id,
+                table_config.basic,
                 user.get_table_permissions(table_id),
                 row_out);
-            break;
+        } break;
     }
 
     return true;
@@ -233,14 +279,18 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
 
     username_t username_primary;
     database_id_t database_id_primary;
+    name_string_t database_name_primary;
     namespace_id_t table_id_primary;
+    table_config_t table_config_primary;
     uint8_t array_size = parse_primary_key(
         interruptor,
         txn,
         primary_key,
         &username_primary,
         &database_id_primary,
+        &database_name_primary,
         &table_id_primary,
+        &table_config_primary,
         error_out);
     if (array_size == 0) {
         return false;
@@ -293,13 +343,6 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
                 switch (m_identifier_format) {
                     case admin_identifier_format_t::name:
                         {
-                            // QQQ: Support admin_identifier_format_t::name
-                            *error_out = admin_err_t{
-                                "The `name` identifier format is not supported, sorry.",
-                                query_state_t::FAILED};
-                            return false;
-
-#if 0
                             name_string_t database_name;
                             if (!convert_name_from_datum(
                                     database,
@@ -309,16 +352,12 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
                                 return false;
                             }
 
-
-                            if (m_name_resolver.database_id_to_name(
-                                        database_id_primary, cluster_metadata
-                                    ).get() != database_name) {
+                            if (database_name_primary != database_name) {
                                 *error_out = admin_err_t{
                                     "The key `database` does not match the primary key.",
                                     query_state_t::FAILED};
                                 return false;
                             }
-#endif  // 0
                         }
                         break;
                     case admin_identifier_format_t::uuid:
@@ -349,13 +388,6 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
                 switch (m_identifier_format) {
                     case admin_identifier_format_t::name:
                         {
-                            // QQQ: Support admin_identifier_format_t::name
-                            *error_out = admin_err_t{
-                                "The `name` identifier format is not supported, sorry.",
-                                query_state_t::FAILED};
-                            return false;
-
-#if 0
                             name_string_t table_name;
                             if (!convert_name_from_datum(
                                     table,
@@ -365,17 +397,12 @@ bool permissions_artificial_table_fdb_backend_t::write_row(
                                 return false;
                             }
 
-                            optional<table_basic_config_t> table_basic_config =
-                                m_name_resolver.table_id_to_basic_config(
-                                    table_id_primary, make_optional(database_id_primary));
-                            if (!static_cast<bool>(table_basic_config) ||
-                                    table_basic_config->name != table_name) {
+                            if (table_config_primary.basic.name != table_name) {
                                 *error_out = admin_err_t{
                                     "The key `table` does not match the primary key.",
                                     query_state_t::FAILED};
                                 return false;
                             }
-#endif  // 0
                         }
                         break;
                     case admin_identifier_format_t::uuid:
@@ -500,7 +527,9 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
         ql::datum_t const &primary_key,
         username_t *username_out,
         database_id_t *database_id_out,
+        name_string_t *database_name_out,
         namespace_id_t *table_id_out,
+        table_config_t *table_config_out,
         admin_err_t *admin_err_out) {
     if (primary_key.get_type() != ql::datum_t::R_ARRAY ||
             primary_key.arr_size() < 1 ||
@@ -560,8 +589,8 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
     }
 
     if (primary_key.arr_size() > 1) {
-        fdb_value db_name = future_block_on_value(database_name_fut.fut, interruptor);
-        if (!db_name.present) {
+
+        if (!database_name_fut.block_and_deserialize(interruptor, database_name_out)) {
             if (admin_err_out != nullptr) {
                 *admin_err_out = admin_err_t{
                     strprintf(
@@ -574,8 +603,7 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
     }
 
     if (primary_key.arr_size() > 2) {
-        table_config_t config;
-        if (!table_config_fut.block_and_deserialize(interruptor, &config)) {
+        if (!table_config_fut.block_and_deserialize(interruptor, table_config_out)) {
             if (admin_err_out != nullptr) {
                 *admin_err_out = admin_err_t{
                     strprintf(
@@ -586,8 +614,10 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
             return 0;
         }
 
-        if (config.basic.database != *database_id_out) {
+        if (table_config_out->basic.database != *database_id_out) {
+            // TODO: Just force admin_err_out to be non-null.
             if (admin_err_out != nullptr) {
+                // TODO: This should be a better error message, right?
                 *admin_err_out = admin_err_t{
                     strprintf(
                         "No table with UUID `%s` exists.",
@@ -625,7 +655,31 @@ bool permissions_artificial_table_fdb_backend_t::global_to_datum(
     return false;
 }
 
+optional<name_string_t> lookup_db(
+        FDBTransaction *txn,
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
+        const database_id_t &database_id) {
+    optional<name_string_t> database_name;
+    auto cached = db_name_cache->find(database_id);
+    if (cached != db_name_cache->end()) {
+        database_name = cached->second;
+    } else {
+        // OOO(1): We ought to do this as a second batched request in read_all_rows_as_vector.
+        fdb_value_fut<name_string_t> fut = transaction_lookup_uq_index<db_config_by_id>(txn, database_id);
+        name_string_t name;
+        if (fut.block_and_deserialize(interruptor, &name)) {
+            database_name.set(std::move(name));
+        }
+        db_name_cache->emplace(database_id, database_name);
+    }
+    return database_name;
+}
+
 bool permissions_artificial_table_fdb_backend_t::database_to_datum(
+        FDBTransaction *txn,
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
         username_t const &username,
         database_id_t const &database_id,
         permissions_t const &permissions,
@@ -640,21 +694,16 @@ bool permissions_artificial_table_fdb_backend_t::database_to_datum(
 
         ql::datum_t database_name_or_uuid;
         switch (m_identifier_format) {
-            case admin_identifier_format_t::name:
-                {
-                    rfail_datum(ql::base_exc_t::INTERNAL, "identifier format name not supported in reql-on-fdb");  // NNN: Ack.  And product name.
-#if 0
-                    optional<name_string_t> database_name =
-                        m_name_resolver.database_id_to_name(
-                            database_id, cluster_metadata);
-                    database_name_or_uuid = ql::datum_t(database_name.value_or(
-                        name_string_t::guarantee_valid("__deleted_database__")).str());
-#endif  // 0
-                }
-                break;
-            case admin_identifier_format_t::uuid:
-                database_name_or_uuid = ql::datum_t(uuid_to_str(database_id));
-                break;
+        case admin_identifier_format_t::name: {
+            optional<name_string_t> database_name
+                = lookup_db(txn, interruptor, db_name_cache, database_id);
+
+            database_name_or_uuid = ql::datum_t(database_name.value_or(
+                name_string_t::guarantee_valid("__deleted_database__")).str());
+        } break;
+        case admin_identifier_format_t::uuid:
+            database_name_or_uuid = ql::datum_t(uuid_to_str(database_id));
+            break;
         }
 
         builder.overwrite("database", std::move(database_name_or_uuid));
@@ -670,9 +719,13 @@ bool permissions_artificial_table_fdb_backend_t::database_to_datum(
 }
 
 bool permissions_artificial_table_fdb_backend_t::table_to_datum(
+        FDBTransaction *txn,
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
         username_t const &username,
         database_id_t const &database_id,
         namespace_id_t const &table_id,
+        table_basic_config_t const &table_basic_config,
         permissions_t const &permissions,
         ql::datum_t *datum_out) {
     // NNN: Here we bailed out early if the table didn't exist, according to the name
@@ -696,19 +749,14 @@ bool permissions_artificial_table_fdb_backend_t::table_to_datum(
         ql::datum_t database_name_or_uuid;
         ql::datum_t table_name_or_uuid;
         switch (m_identifier_format) {
-            case admin_identifier_format_t::name:
-                {
-                    rfail_datum(ql::base_exc_t::OP_FAILED, "identifier format name not supported in reql-on-fdb");  // NNN: Ack.  And product name.
-#if 0
-                    optional<name_string_t> database_name =
-                        m_name_resolver.database_id_to_name(
-                            table_basic_config->database, cluster_metadata);
-                    database_name_or_uuid = ql::datum_t(database_name.value_or(
+            case admin_identifier_format_t::name: {
+                optional<name_string_t> database_name = lookup_db(txn, interruptor,
+                    db_name_cache, database_id);
+                // TODO: Missing db case is impossible, since it came from a table_config_t from this txn, right?
+                database_name_or_uuid = ql::datum_t(database_name.value_or(
                         name_string_t::guarantee_valid("__deleted_database__")).str());
-                    table_name_or_uuid = ql::datum_t(table_basic_config->name.str());
-#endif  // 0
-                }
-                break;
+                table_name_or_uuid = ql::datum_t(table_basic_config.name.str());
+            } break;
             case admin_identifier_format_t::uuid:
                 database_name_or_uuid =
                     ql::datum_t(uuid_to_str(database_id));
