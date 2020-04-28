@@ -5,6 +5,7 @@
 #include "clustering/auth/user.hpp"
 #include "clustering/auth/user_context.hpp"
 #include "clustering/auth/user_fut.hpp"
+#include "debug.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/retry_loop.hpp"
@@ -63,8 +64,6 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     *rows_out = std::move(datums);
     return true;
 }
-
-// QQQ: Double-check all fdb backend read_row functions output ql::datum_t::null().
 
 bool users_artificial_table_fdb_backend_t::read_row(
         FDBTransaction *txn,

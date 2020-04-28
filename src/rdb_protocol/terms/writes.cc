@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 
+#include "debug.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"

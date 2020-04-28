@@ -4,6 +4,7 @@
 #include "clustering/admin_op_exc.hpp"
 #include "clustering/artificial_reql_cluster_interface.hpp"
 #include "clustering/auth/user_fut.hpp"
+#include "debug.hpp"
 #include "fdb/retry_loop.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
 #include "rdb_protocol/datum_stream/readers.hpp"
@@ -33,9 +34,13 @@ bool checked_read_row_from_backend(
     if (!backend->read_row(txn, user_context, pval, interruptor, row_out, error_out)) {
         return false;
     }
+    // QQQ: Double-check all fdb backend read_row functions output ql::datum_t::null() and remove this.
+    if (!row_out->has()) {
+        *row_out = ql::datum_t::null();
+    }
 
 #ifndef NDEBUG
-    if (row_out->has()) {
+    if (row_out->get_type() != ql::datum_t::R_NULL) {
         ql::datum_t pval2 = row_out->get_field(
             datum_string_t(backend->get_primary_key_name()), ql::NOTHROW);
         rassert(pval2.has());
