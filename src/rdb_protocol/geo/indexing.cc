@@ -579,7 +579,8 @@ continue_bool_t geo_fdb_traversal(
             }
 
             key_slice = key_view{void_as_uint8(kvs[kvs_index].key), kvs[kvs_index].key_length};
-            key_slice.guarantee_without_prefix(fdb_kv_prefix);
+            key_slice = key_slice.guarantee_without_prefix(fdb_kv_prefix);
+            skey = store_key_t(key_slice.length, key_slice.data);
 
             kvs_index++;
 
