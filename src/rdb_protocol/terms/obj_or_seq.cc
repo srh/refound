@@ -83,25 +83,29 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
         scoped<const func_t> f =
             func_term->eval_to_func(env->scope);
 
+        // One of these is empty.
         scoped<datum_stream_t> stream;
-        scoped<selection_t> sel; // may be empty
+        scoped<selection_t> sel;
+
+        datum_stream_t *stream_ptr;
         if (poly_type == FILTER
             && v0->get_type().is_convertible(val_t::type_t::SELECTION)) {
             sel = std::move(*v0).as_selection(env->env);
-            stream = std::move(sel->seq);
+            stream_ptr = sel->seq.get();
         } else {
             stream = std::move(*v0).as_seq(env->env);
+            stream_ptr = stream.get();
         }
         switch (poly_type) {
         case MAP:
-            stream->add_transformation(map_wire_func_t(counted<const func_t>(std::move(f))), target->backtrace());
+            stream_ptr->add_transformation(map_wire_func_t(counted<const func_t>(std::move(f))), target->backtrace());
             break;
         case FILTER:
-            stream->add_transformation(filter_wire_func_t(std::move(f), r_nullopt),
-                                       target->backtrace());
+            stream_ptr->add_transformation(filter_wire_func_t(std::move(f), r_nullopt),
+                                           target->backtrace());
             break;
         case SKIP_MAP:
-            stream->add_transformation(
+            stream_ptr->add_transformation(
                 concatmap_wire_func_t(result_hint_t::AT_MOST_ONE, counted<const func_t>(std::move(f))),
                 target->backtrace());
             break;
