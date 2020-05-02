@@ -1313,7 +1313,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     void operator()(const intersecting_geo_read_t &geo_read) {
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
-            nullptr,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
+            ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             geo_read.serializable_env,
@@ -1379,7 +1379,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const nearest_geo_read_t &geo_read) {
         ql::env_t ql_env(
-            nullptr,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
+            ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             geo_read.serializable_env,
@@ -1451,7 +1451,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         // QQQ: When this is all done with we might not even construct a pristine env in read
         // and write code, except for sindex/write hook stuff.
         ql::env_t ql_env(
-            nullptr,  // QQQ: Do the rget's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.  It's commented as "lazy" so it might be.
+            ctx_,  // QQQ: Do the rget's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.  It's commented as "lazy" so it might be.
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             rget.serializable_env,
@@ -1475,6 +1475,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 #endif
 
     fdb_read_visitor(FDBTransaction *_txn,
+            rdb_context_t *ctx,
             cv_check_fut &&cvc,
             const namespace_id_t &_table_id,
             const table_config_t *_table_config,
@@ -1482,6 +1483,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             read_response_t *_response,
             const signal_t *_interruptor) :
         txn_(_txn),
+        ctx_(ctx),
         cvc_(std::move(cvc)),
         table_id_(_table_id),
         table_config_(_table_config),
@@ -1491,6 +1493,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
 private:
     FDBTransaction *const txn_;
+    rdb_context_t *const ctx_;
     cv_check_fut cvc_;
     const namespace_id_t table_id_;
     const table_config_t *table_config_;
@@ -1503,6 +1506,7 @@ private:
 };
 
 read_response_t apply_read(FDBTransaction *txn,
+        rdb_context_t *ctx,
         cv_check_fut &&cvc,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
@@ -1513,7 +1517,7 @@ read_response_t apply_read(FDBTransaction *txn,
     {
         PROFILE_STARTER_IF_ENABLED(
             _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-        fdb_read_visitor v(txn, std::move(cvc), table_id, &table_config, trace.get_or_null(),
+        fdb_read_visitor v(txn, ctx, std::move(cvc), table_id, &table_config, trace.get_or_null(),
             &response, interruptor);
         boost::apply_visitor(v, _read.read);
     }

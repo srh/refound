@@ -21,6 +21,7 @@
 
 read_response_t table_query_client_read(
         FDBTransaction *txn,
+        rdb_context_t *ctx,
         cv_check_fut &&cvc,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
@@ -34,7 +35,7 @@ read_response_t table_query_client_read(
     // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
     // we check_cv?), not after entire read op.
     auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
-    read_response_t resp = apply_read(txn, std::move(cvc), table_id, table_config,
+    read_response_t resp = apply_read(txn, ctx, std::move(cvc), table_id, table_config,
         r, interruptor);
     auth_fut.block_and_check(interruptor);
 
@@ -45,6 +46,7 @@ read_response_t table_query_client_read(
 // table_query_client_t::read.
 read_response_t table_query_client_read_loop(
         FDBDatabase *fdb,
+        rdb_context_t *ctx,
         reqlfdb_config_version prior_cv,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
@@ -63,7 +65,8 @@ read_response_t table_query_client_read_loop(
             cv_check_fut cvc;
             cvc.cv_fut = transaction_get_config_version(txn);
             cvc.expected_cv = prior_cv;
-            ret = table_query_client_read(txn, std::move(cvc), table_id, table_config,
+            // NNN: This is broken.  We can't perform subqueries in a loop like this.
+            ret = table_query_client_read(txn, ctx, std::move(cvc), table_id, table_config,
                 user_context, r, interruptor);
         });
         guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
@@ -280,7 +283,7 @@ ql::datum_t real_table_t::read_nearest(
     read_response_t res;
     try {
         res = table_query_client_read_loop(
-            env->get_rdb_ctx()->fdb, cv.assert_nonempty(), uuid, *table_config,
+            env->get_rdb_ctx()->fdb, env->get_rdb_ctx(), cv.assert_nonempty(), uuid, *table_config,
             env->get_user_context(),
             read,
             env->interruptor);
@@ -463,6 +466,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
     try {
         *response = table_query_client_read_loop(
             env->get_rdb_ctx()->fdb,
+            env->get_rdb_ctx(),
             cv.assert_nonempty(),
             uuid,
             *table_config,
