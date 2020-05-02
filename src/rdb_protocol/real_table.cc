@@ -136,7 +136,8 @@ write_response_t table_query_client_write_loop(
 
             ret = std::move(resp);
         });
-        guarantee_fdb_TODO(loop_err, "table_query_client_write loop");
+        // NNN: No.  Put the exception into the write response.
+        rcheck_fdb(loop_err, "table_query_client_write_loop");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();

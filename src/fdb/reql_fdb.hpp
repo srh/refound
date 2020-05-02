@@ -29,6 +29,16 @@ ownership. */
 // QQQ: Hook the indeterminate case up to fail with base_exc_t::OP_INDETERMINATE.
 #define guarantee_fdb_TODO(err, msg) guarantee_fdb((err), (msg))
 
+#define rcheck_fdb(err, where) do { \
+        fdb_error_t reql_fdb_rfail_fdb_err_val = (err); \
+        if (reql_fdb_rfail_fdb_err_val != 0) { \
+            const char *msg = fdb_get_error(reql_fdb_rfail_fdb_err_val); \
+            rfail_datum(reql_fdb_rfail_fdb_err_val == REQLFDB_commit_unknown_result ? \
+                ql::base_exc_t::OP_INDETERMINATE : ql::base_exc_t::OP_FAILED, \
+                "FDB error in %s: %s", (where), msg); \
+        } \
+    } while (false)
+
 // These are a bit safer than naked reinterpret_casts.
 inline const uint8_t *as_uint8(const char *s) {
     return reinterpret_cast<const uint8_t *>(s);
