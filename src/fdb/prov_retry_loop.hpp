@@ -35,6 +35,7 @@ MUST_USE fdb_error_t txn_retry_loop_table(
     }
 
     for (;;) {
+        fdb_error_t orig_err;
         try {
             // If there is a cached value, the first time through, we try using it, but
             // we have to check (in the txn) that the config version hasn't changed.
@@ -70,23 +71,25 @@ MUST_USE fdb_error_t txn_retry_loop_table(
             cached_table.reset();
             // Might as well wipe the cache if applicable.
             cc->note_version(exc.cv);
+            continue;
         } catch (const fdb_transaction_exception &exc) {
-            fdb_error_t orig_err = exc.error();
-            if (orig_err == REQLFDB_commit_unknown_result) {
-                // From fdb documentation:  if there is an unknown result,
-                // the txn must be an idempotent operation.
-                return orig_err;
-            }
+            // Fall out of catch block so that we can block the coroutine.
+            orig_err = exc.error();
+        }
+        if (orig_err == REQLFDB_commit_unknown_result) {
+            // From fdb documentation:  if there is an unknown result,
+            // the txn must be an idempotent operation.
+            return orig_err;
+        }
 
-            fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
-            // The exponential backoff strategy is what blocks the coro.
-            fut.block_coro(interruptor);
-            fdb_error_t err = fdb_future_get_error(fut.fut);
-            if (err != 0) {
-                // TODO: Remove this guarantee.
-                guarantee(err == exc.error());
-                return err;
-            }
+        fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
+        // The exponential backoff strategy is what blocks the coro.
+        fut.block_coro(interruptor);
+        fdb_error_t err = fdb_future_get_error(fut.fut);
+        if (err != 0) {
+            // TODO: Remove this guarantee.
+            guarantee(err == orig_err);
+            return err;
         }
     }
 }
@@ -123,6 +126,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
     }
 
     for (;;) {
+        fdb_error_t orig_err;
         try {
             // If there is a cached value, the first time through, we try using it, but
             // we have to check (in the txn) that the config version hasn't changed.
@@ -153,23 +157,25 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
             cached_table.reset();
             // Might as well wipe the cache if applicable.
             cc->note_version(exc.cv);
+            continue;
         } catch (const fdb_transaction_exception &exc) {
-            fdb_error_t orig_err = exc.error();
-            if (orig_err == REQLFDB_commit_unknown_result) {
-                // From fdb documentation:  if there is an unknown result,
-                // the txn must be an idempotent operation.
-                return orig_err;
-            }
+            // Fall out of catch block so that we can block the coroutine.
+            orig_err = exc.error();
+        }
+        if (orig_err == REQLFDB_commit_unknown_result) {
+            // From fdb documentation:  if there is an unknown result,
+            // the txn must be an idempotent operation.
+            return orig_err;
+        }
 
-            fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
-            // The exponential backoff strategy is what blocks the coro.
-            fut.block_coro(interruptor);
-            fdb_error_t err = fdb_future_get_error(fut.fut);
-            if (err != 0) {
-                // TODO: Remove this guarantee.
-                guarantee(err == exc.error());
-                return err;
-            }
+        fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
+        // The exponential backoff strategy is what blocks the coro.
+        fut.block_coro(interruptor);
+        fdb_error_t err = fdb_future_get_error(fut.fut);
+        if (err != 0) {
+            // TODO: Remove this guarantee.
+            guarantee(err == orig_err);
+            return err;
         }
     }
 }

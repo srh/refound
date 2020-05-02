@@ -11,26 +11,30 @@ MUST_USE fdb_error_t txn_retry_loop_pthread(
         C &&fn) {
     fdb_transaction txn{fdb};
     for (;;) {
+        fdb_error_t orig_err;
         try {
             fn(txn.txn);
             return 0;
         } catch (const fdb_transaction_exception &exc) {
-            fdb_error_t orig_err = exc.error();
-            if (orig_err == REQLFDB_commit_unknown_result) {
-                // From fdb documentation:  if there is an unknown result,
-                // the txn must be an idempotent operation.
-                return orig_err;
-            }
+            // Fall out of catch block so that we're consistent with txn_retry_loop_coro
+            // code (which needs to do this).
+            orig_err = exc.error();
+        }
 
-            fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
-            // The exponential backoff strategy is what blocks the pthread.
-            fut.block_pthread();
-            fdb_error_t err = fdb_future_get_error(fut.fut);
-            if (err != 0) {
-                // TODO: Remove this guarantee.
-                guarantee(err == exc.error());
-                return err;
-            }
+        if (orig_err == REQLFDB_commit_unknown_result) {
+            // From fdb documentation:  if there is an unknown result,
+            // the txn must be an idempotent operation.
+            return orig_err;
+        }
+
+        fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
+        // The exponential backoff strategy is what blocks the pthread.
+        fut.block_pthread();
+        fdb_error_t err = fdb_future_get_error(fut.fut);
+        if (err != 0) {
+            // TODO: Remove this guarantee.
+            guarantee(err == orig_err);
+            return err;
         }
     }
 }
@@ -42,26 +46,28 @@ MUST_USE fdb_error_t txn_retry_loop_coro(
         C &&fn) {
     fdb_transaction txn{fdb};
     for (;;) {
+        fdb_error_t orig_err;
         try {
             fn(txn.txn);
             return 0;
         } catch (const fdb_transaction_exception &exc) {
-            fdb_error_t orig_err = exc.error();
-            if (orig_err == REQLFDB_commit_unknown_result) {
-                // From fdb documentation:  if there is an unknown result,
-                // the txn must be an idempotent operation.
-                return orig_err;
-            }
+            // Fall-through out of catch block, so that we may block the coroutine.
+            orig_err = exc.error();
+        }
+        if (orig_err == REQLFDB_commit_unknown_result) {
+            // From fdb documentation:  if there is an unknown result,
+            // the txn must be an idempotent operation.
+            return orig_err;
+        }
 
-            fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
-            // The exponential backoff strategy is what blocks the coro.
-            fut.block_coro(interruptor);
-            fdb_error_t err = fdb_future_get_error(fut.fut);
-            if (err != 0) {
-                // TODO: Remove this guarantee.
-                guarantee(err == exc.error());
-                return err;
-            }
+        fdb_future fut{fdb_transaction_on_error(txn.txn, orig_err)};
+        // The exponential backoff strategy is what blocks the coro.
+        fut.block_coro(interruptor);
+        fdb_error_t err = fdb_future_get_error(fut.fut);
+        if (err != 0) {
+            // TODO: Remove this guarantee.
+            guarantee(err == orig_err);
+            return err;
         }
     }
 }
