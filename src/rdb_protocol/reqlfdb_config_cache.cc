@@ -782,7 +782,7 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
 
         fdb_job_description desc{
             fdb_job_type::index_create_job,
-            fdb_job_index_create{table_id, index_name, new_sindex_id},
+            fdb_job_index_create{table_id, new_sindex_id},
         };
 
         // TODO: We could split up the read/write portion of add_fdb_job, mix with above,

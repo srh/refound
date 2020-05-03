@@ -50,7 +50,6 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
         ql::datum_object_builder_t info_builder;
         info_builder.overwrite("table", ql::datum_t(uuid_to_str(index_create.table_id.value)));
         info_builder.overwrite("sindex", ql::datum_t(uuid_to_str(index_create.sindex_id.value)));
-        info_builder.overwrite("sindex_name", ql::datum_t(index_create.sindex_name));
         info_datum = std::move(info_builder).to_datum();
         // TODO: Formulate additional fdb query to get progress info.
     } break;

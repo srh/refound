@@ -70,6 +70,18 @@ ql::datum_t parse_table_value(const char *value, size_t data_length) {
     return ret;
 }
 
+std::unordered_map<std::string, sindex_metaconfig_t>::iterator
+find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
+        const sindex_id_t &id) {
+    auto it = sindexes->begin();
+    for (; it != sindexes->end(); ++it) {
+        if (it->second.sindex_id == id) {
+            return it;
+        }
+    }
+    return it;  // Returns sindexes->end().
+}
+
 optional<fdb_job_info> execute_index_create_job(
         FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_index_create &index_create_info, const signal_t *interruptor) {
@@ -126,11 +138,11 @@ optional<fdb_job_info> execute_index_create_job(
     }
 
     // sindexes_it is casually used to mutate table_config, much later.
-    const auto sindexes_it = table_config.sindexes.find(index_create_info.sindex_name);
+    const auto sindexes_it = find_sindex(&table_config.sindexes, index_create_info.sindex_id);
+
     guarantee(sindexes_it != table_config.sindexes.end());  // TODO: msg, graceful
 
     const sindex_metaconfig_t &sindex_config = sindexes_it->second;
-    guarantee(sindex_config.sindex_id == index_create_info.sindex_id);  // TODO: msg, graceful
     guarantee(sindex_config.creation_task_or_nil == info.shared_task_id);  // TODO: msg, graceful
 
     // LARGEVAL: Implementing large values will need handling here.

@@ -36,9 +36,8 @@ RDB_DECLARE_SERIALIZABLE(fdb_job_db_drop);
 
 struct fdb_job_index_create {
     namespace_id_t table_id;
-    // Sindex creation/destruction holds a task id, so there is no need for
-    // sindex uuid here.  But we have one, mostly to run assertions with.
-    std::string sindex_name;
+    // Sindex creation/destruction holds the job's task id, so we could use that to look
+    // up the sindex.  There is no strict need for sindex uuid here.
     sindex_id_t sindex_id;
 };
 RDB_DECLARE_SERIALIZABLE(fdb_job_index_create);
