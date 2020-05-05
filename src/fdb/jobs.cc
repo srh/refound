@@ -193,16 +193,16 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         switch (info.job_description.type) {
         case fdb_job_type::db_drop_job: {
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&info, interruptor, &reclaimed](FDBTransaction *txn) {
-                reclaimed = execute_db_drop_job(txn, info, boost::get<fdb_job_db_drop>(info.job_description.v), interruptor);
+            [interruptor, &reclaimed](FDBTransaction *txn) {
+                reclaimed = execute_db_drop_job(txn, *reclaimed, boost::get<fdb_job_db_drop>(reclaimed->job_description.v), interruptor);
             });
             guarantee_fdb_TODO(loop_err, "could not execute db drop job");
         } break;
         case fdb_job_type::index_create_job: {
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&info, interruptor, &reclaimed](FDBTransaction *txn) {
-                reclaimed = execute_index_create_job(txn, info,
-                    boost::get<fdb_job_index_create>(info.job_description.v),
+            [interruptor, &reclaimed](FDBTransaction *txn) {
+                reclaimed = execute_index_create_job(txn, *reclaimed,
+                    boost::get<fdb_job_index_create>(reclaimed->job_description.v),
                     interruptor);
             });
             guarantee_fdb_TODO(loop_err, "could not execute index create job");
