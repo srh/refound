@@ -147,7 +147,9 @@ private:
                                           args_t *args,
                                           eval_flags_t) const {
         scoped_ptr_t<val_t> v = args->arg(env, 0);
+        backtrace_id_t v_bt = v->backtrace();
         scoped_ptr_t<val_t> idx = args->optarg(env, "index");
+        scoped<datum_stream_t> stream;
         if (v->get_type().is_convertible(val_t::type_t::TABLE_SLICE)) {
             scoped<table_slice_t> tbl_slice = std::move(*v).as_table_slice(env->env);
             std::string tbl_pkey = tbl_slice->get_tbl()->get_pkey();
@@ -171,10 +173,14 @@ private:
                 s->add_transformation(distinct_wire_func_t(idx.has()), backtrace());
                 return new_val(env->env, make_scoped<ordered_distinct_datum_stream_t>(std::move(s)));
             }
+            rcheck(!idx, base_exc_t::LOGIC,
+                   "Can only perform an indexed distinct on a TABLE.");
+            stream = std::move(*tbl_slice).as_seq(env->env, v_bt);
+        } else {
+            rcheck(!idx, base_exc_t::LOGIC,
+                   "Can only perform an indexed distinct on a TABLE.");
+            stream = std::move(*v).as_seq(env->env);
         }
-        rcheck(!idx, base_exc_t::LOGIC,
-               "Can only perform an indexed distinct on a TABLE.");
-        scoped<datum_stream_t> s = std::move(*v).as_seq(env->env);
         // The reql_version matters here, because we copy `results` into `toret`
         // in ascending order.
         std::set<datum_t, optional_datum_less_t> results;
@@ -183,7 +189,7 @@ private:
             profile::sampler_t sampler("Evaluating elements in distinct.",
                                        env->env->trace);
             datum_t d;
-            while (d = s->next(env->env, batchspec), d.has()) {
+            while (d = stream->next(env->env, batchspec), d.has()) {
                 results.insert(std::move(d));
                 rcheck_array_size(results, env->env->limits());
                 sampler.new_sample();
