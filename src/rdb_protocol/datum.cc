@@ -1096,8 +1096,8 @@ std::string datum_t::print_secondary(const store_key_t &primary_key,
 
 components_t parse_secondary(const char *key, size_t length) THROWS_NOTHING {
     guarantee(length > 2);
-    size_t start_of_primary = key[length - 2];
-    size_t start_of_tag = key[length - 1];
+    size_t start_of_primary = uint8_t(key[length - 2]);
+    size_t start_of_tag = uint8_t(key[length - 1]);
     size_t end_of_primary = start_of_tag;
 
     // This parses the NULL byte into secondary. We rely on this in
