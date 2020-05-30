@@ -1,6 +1,7 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
 #include "rdb_protocol/func.hpp"
 
+#include "debug.hpp"
 #include "pprint/js_pprint.hpp"
 #include "pprint/pprint.hpp"
 #include "rdb_protocol/env.hpp"

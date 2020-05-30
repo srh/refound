@@ -4,6 +4,7 @@
 #include <string>
 #include <functional>
 
+#include "debug.hpp"
 #include "rdb_protocol/datum_stream.hpp"
 #include "rdb_protocol/error.hpp"
 #include "rdb_protocol/func.hpp"
@@ -120,10 +121,9 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
     }
 
     /* This was an rfail_typed_target.  But since we don't want to call exc_type on
-       val_t anymore (since we'd have to pass an env_t), and we _know_ that v0 is not
-       is_convertable(DATUM) because code above checks that condition, so
-       base_exc_t::LOGIC can be hard-coded here. */
-    rfail_target(v0, base_exc_t::LOGIC,
+       val_t (since we'd have to pass an env_t), and since we already called as_datum,
+       we use that. */
+    rfail_target(v0, d.has() ? exc_type(&d) : base_exc_t::LOGIC,
         "Cannot perform %s on a non-object non-sequence `%s`.",
             target->name(), v0->trunc_print(env->env).c_str());
 }
