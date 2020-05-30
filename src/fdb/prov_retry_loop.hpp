@@ -104,7 +104,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
     fdb_transaction txn{fdb};
 
     optional<namespace_id_t> artificial_table_id;
-    if (prov_table.prov_db.db_name != artificial_reql_cluster_interface_t::database_name) {
+    if (prov_table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
         artificial_table_id = artificial_reql_cluster_interface_t::get_table_id(prov_table.table_name);
         if (!artificial_table_id.has_value()) {
             rfail_prov_table_dne(prov_table);
