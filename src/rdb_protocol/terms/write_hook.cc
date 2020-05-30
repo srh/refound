@@ -104,7 +104,7 @@ public:
                    strprintf("Write hook functions must expect 3 arguments."));
         }
 
-        deletion_message = true;
+        deletion_message = false;
 
         // QQQ: In 2.4.x we didn't call get_write_hook inside of a try catch block for the permission_error_t exception that might get thrown.  What happens if the user doesn't have permission?
 
