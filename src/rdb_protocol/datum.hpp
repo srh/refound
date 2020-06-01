@@ -281,6 +281,7 @@ public:
     template <class json_writer_t> void write_json(json_writer_t *writer) const;
 
     scoped<datum_stream_t> as_datum_stream(backtrace_id_t backtrace) const;
+    void throw_if_as_datum_stream_type_errors(backtrace_id_t backtrace) const;
 
     // These behave as expected and defined in RQL.  Theoretically, two data of the
     // same type should compare appropriately, while disparate types are compared

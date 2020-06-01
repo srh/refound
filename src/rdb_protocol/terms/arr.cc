@@ -148,6 +148,9 @@ scoped_ptr_t<val_t> nth_term_impl(const term_t *term, scope_env_t *env,
                                   scoped_ptr_t<val_t> aggregate,
                                   const scoped_ptr_t<val_t> &index) {
     if (aggregate->get_type().is_convertible(val_t::type_t::SEQUENCE)) {
+        // throw_if_as_seq_throws throws if as_seq would throw, to stay compatible with
+        // pre-reql-on-fdb behavior.
+        aggregate->throw_if_as_seq_type_errors(env->env);
         if (aggregate->is_grouped_seq()) {
             const backtrace_id_t agg_bt = aggregate->backtrace();
             scoped<datum_stream_t> seq = std::move(*aggregate).as_seq(env->env);

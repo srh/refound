@@ -789,6 +789,7 @@ bool val_t::is_grouped_seq() const {
 }
 
 scoped<datum_stream_t> val_t::as_seq(env_t *env) && {
+    // See val_t::throw_if_as_seq_type_errors.
     if (type.raw_type == type_t::SEQUENCE) {
         return std::move(sequence());
     } else if (type.raw_type == type_t::SELECTION) {
@@ -801,6 +802,23 @@ scoped<datum_stream_t> val_t::as_seq(env_t *env) && {
     }
     rcheck_literal_type(env, type_t::SEQUENCE);
     unreachable();
+}
+
+void val_t::throw_if_as_seq_type_errors(env_t *env) const {
+    // See val_t::as_seq.
+    if (type.raw_type == type_t::SEQUENCE) {
+        return;
+    } else if (type.raw_type == type_t::SELECTION) {
+        return;
+    } else if (type.raw_type == type_t::TABLE_SLICE || type.raw_type == type_t::TABLE) {
+        return;
+    } else if (type.raw_type == type_t::DATUM) {
+        datum().throw_if_as_datum_stream_type_errors(backtrace());
+        return;
+    }
+    rcheck_literal_type(env, type_t::SEQUENCE);
+    unreachable();
+
 }
 
 counted_t<grouped_data_t> val_t::as_grouped_data(env_t *env) && {

@@ -1470,6 +1470,27 @@ datum_t::as_datum_stream(backtrace_id_t backtrace) const {
     unreachable();
 }
 
+// TODO: make BINARY, STR, and OBJECT convertible to sequence?
+void datum_t::throw_if_as_datum_stream_type_errors(backtrace_id_t backtrace) const {
+    switch (get_type()) {
+    case MINVAL:   // fallthru
+    case MAXVAL:   // fallthru
+    case R_NULL:   // fallthru
+    case R_BINARY: // fallthru
+    case R_BOOL:   // fallthru
+    case R_NUM:    // fallthru
+    case R_STR:    // fallthru
+    case R_OBJECT: // fallthru
+        type_error(strprintf("Cannot convert %s to SEQUENCE",
+                             get_type_name().c_str()));
+    case R_ARRAY:
+        return;
+    case UNINITIALIZED: // fallthru
+    default: unreachable();
+    }
+    unreachable();
+}
+
 void datum_t::replace_field(const datum_string_t &key, datum_t val) {
     check_type(R_OBJECT);
     r_sanity_check(val.has());

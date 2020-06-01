@@ -241,6 +241,10 @@ public:
     scoped<selection_t> as_selection(env_t *env) &&;
     bool is_grouped_seq() const;
     scoped<datum_stream_t> as_seq(env_t *env) &&;
+    // Throws if as_seq would throw with a type error (but not with some operation
+    // involving env_t).  Only uses env_t in the throwing case.
+    void throw_if_as_seq_type_errors(env_t *env) const;
+
     // The env doesn't get used, it's purely type safety.
     scoped<single_selection_t> as_single_selection(env_t *env) &&;
     // See func.hpp for an explanation of shortcut functions.
