@@ -325,6 +325,7 @@ def compare(expected, result, options=None):
         # - unordered
         else:
             haystack = list(result)
+            print_debug('comparing expected %s to unordered result %s' % (expected, haystack))
             for needle in expected:
                 for straw in haystack:
                     if compare(needle, straw, options=options):

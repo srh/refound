@@ -554,6 +554,7 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
     }
     *username_out = username_t(username.as_str().to_std());
 
+    // Left empty if the database is the system db.
     fdb_value_fut<name_string_t> database_name_fut;
 
     if (primary_key.arr_size() > 1) {
@@ -568,7 +569,9 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
             return 0;
         }
 
-        database_name_fut = transaction_lookup_uq_index<db_config_by_id>(txn, *database_id_out);
+        if (*database_id_out != artificial_reql_cluster_interface_t::database_id) {
+            database_name_fut = transaction_lookup_uq_index<db_config_by_id>(txn, *database_id_out);
+        }
     }
 
     fdb_value_fut<table_config_t> table_config_fut;
@@ -585,46 +588,65 @@ uint8_t permissions_artificial_table_fdb_backend_t::parse_primary_key(
             return 0;
         }
 
-        table_config_fut = transaction_lookup_uq_index<table_config_by_id>(txn, *table_id_out);
+        if (!database_name_fut.empty()) {
+            table_config_fut = transaction_lookup_uq_index<table_config_by_id>(txn, *table_id_out);
+        }
     }
 
     if (primary_key.arr_size() > 1) {
-
-        if (!database_name_fut.block_and_deserialize(interruptor, database_name_out)) {
-            if (admin_err_out != nullptr) {
-                *admin_err_out = admin_err_t{
-                    strprintf(
-                        "No database with UUID `%s` exists.",
-                        uuid_to_str(*database_id_out).c_str()),
-                    query_state_t::FAILED};
+        if (database_name_fut.empty()) {
+            *database_name_out = artificial_reql_cluster_interface_t::database_name;
+        } else {
+            if (!database_name_fut.block_and_deserialize(interruptor, database_name_out)) {
+                if (admin_err_out != nullptr) {
+                    *admin_err_out = admin_err_t{
+                        strprintf(
+                            "No database with UUID `%s` exists.",
+                            uuid_to_str(*database_id_out).c_str()),
+                        query_state_t::FAILED};
+                }
+                return 0;
             }
-            return 0;
         }
     }
 
     if (primary_key.arr_size() > 2) {
-        if (!table_config_fut.block_and_deserialize(interruptor, table_config_out)) {
-            if (admin_err_out != nullptr) {
-                *admin_err_out = admin_err_t{
-                    strprintf(
-                        "No table with UUID `%s` exists.",
-                        uuid_to_str(*table_id_out).c_str()),
-                    query_state_t::FAILED};
+        if (database_name_fut.empty()) {
+            bool exists = artificial_reql_cluster_interface_t::check_by_uuid_table_exists(*table_id_out);
+            if (!exists) {
+                if (admin_err_out != nullptr) {
+                    *admin_err_out = admin_err_t{
+                        strprintf(
+                            "No table with UUID `%s` exists.",
+                            uuid_to_str(*table_id_out).c_str()),
+                        query_state_t::FAILED};
+                }
+                return 0;
             }
-            return 0;
-        }
+        } else {
+            if (!table_config_fut.block_and_deserialize(interruptor, table_config_out)) {
+                if (admin_err_out != nullptr) {
+                    *admin_err_out = admin_err_t{
+                        strprintf(
+                            "No table with UUID `%s` exists.",
+                            uuid_to_str(*table_id_out).c_str()),
+                        query_state_t::FAILED};
+                }
+                return 0;
+            }
 
-        if (table_config_out->basic.database != *database_id_out) {
-            // TODO: Just force admin_err_out to be non-null.
-            if (admin_err_out != nullptr) {
-                // TODO: This should be a better error message, right?
-                *admin_err_out = admin_err_t{
-                    strprintf(
-                        "No table with UUID `%s` exists.",
-                        uuid_to_str(*table_id_out).c_str()),
-                    query_state_t::FAILED};
+            if (table_config_out->basic.database != *database_id_out) {
+                // TODO: Just force admin_err_out to be non-null.
+                if (admin_err_out != nullptr) {
+                    // TODO: This should be a better error message, right?
+                    *admin_err_out = admin_err_t{
+                        strprintf(
+                            "No table with UUID `%s` exists.",
+                            uuid_to_str(*table_id_out).c_str()),
+                        query_state_t::FAILED};
+                }
+                return 0;
             }
-            return 0;
         }
     }
 

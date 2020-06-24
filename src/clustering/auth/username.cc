@@ -20,10 +20,6 @@ bool username_t::is_admin() const {
     return m_username == "admin";
 }
 
-std::string const &username_t::to_string() const {
-    return m_username;
-}
-
 bool username_t::operator<(username_t const &rhs) const {
     return m_username < rhs.m_username;
 }

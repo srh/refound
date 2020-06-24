@@ -5,7 +5,6 @@
 #include "clustering/auth/user.hpp"
 #include "clustering/auth/user_context.hpp"
 #include "clustering/auth/user_fut.hpp"
-#include "debug.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/reql_fdb_utils.hpp"
 #include "fdb/retry_loop.hpp"

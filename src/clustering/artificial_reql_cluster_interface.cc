@@ -4,6 +4,7 @@
 #include "clustering/admin_op_exc.hpp"
 #include "clustering/auth/permissions_artificial_table_backend.hpp"
 #include "clustering/auth/users_artificial_table_backend.hpp"
+#include "clustering/id_types.hpp"
 #include "clustering/jobs/jobs_backend.hpp"
 #include "clustering/tables/db_config.hpp"
 #include "clustering/tables/table_config.hpp"
@@ -82,6 +83,25 @@ artificial_reql_cluster_interface_t::get_table_backend_or_null(
     }
     return nullptr;
 }
+
+bool artificial_reql_cluster_interface_t::check_by_uuid_table_exists(
+        const namespace_id_t &table_id) {
+    // Keep in sync with table_list_sorted or get_table_backend_or_null.
+
+    std::vector<name_string_t> tables = table_list_sorted();
+    for (const name_string_t &name : tables) {
+        if (table_id == artificial_table_fdb_backend_t::compute_artificial_table_id(name)) {
+            return true;
+        }
+    }
+
+    if (table_id == artificial_table_fdb_backend_t::compute_artificial_table_id(name_string_t::guarantee_valid("_debug_scratch"))) {
+        return true;
+    }
+
+    return false;
+}
+
 
 optional<namespace_id_t> artificial_reql_cluster_interface_t::get_table_id(
         const name_string_t &table_name) {

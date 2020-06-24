@@ -59,6 +59,8 @@ User config:
     rethinkdb/users/ => table of user_t, primary key being username_t.
     Admin user is present (since we have password stuff).
       multi-indexed by uuid -- every database id or table id referenced by the user_t, with keys [uuid, username]
+      -- Yes, it's gross that we overlap table and db uuid's in the same namespace in the index,
+         but they're uuid's.
 
 Config version:
 

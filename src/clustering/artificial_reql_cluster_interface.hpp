@@ -75,6 +75,8 @@ public:
 
     static optional<namespace_id_t> get_table_id(const name_string_t &table_name);
 
+    static bool check_by_uuid_table_exists(const namespace_id_t &table_id);
+
 private:
     artificial_reql_cluster_backends_t m_backends;
 };

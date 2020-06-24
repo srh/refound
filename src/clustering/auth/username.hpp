@@ -16,7 +16,9 @@ public:
 
     bool is_admin() const;
 
-    std::string const &to_string() const;
+    std::string const &to_string() const {
+        return m_username;
+    }
 
     bool operator<(username_t const &rhs) const;
     bool operator==(username_t const &rhs) const;
