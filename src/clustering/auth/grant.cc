@@ -29,7 +29,16 @@ bool grant(
     }
 
 
-    fdb_user_fut<write_permission> auth_fut
+    // TODO: Don't do a separate query for read permission.  We do this to report the
+    // right error message to the user (consistent with RethinkDB-proper).
+    fdb_user_fut<read_permission> auth_fut1
+        = user_context.transaction_require_read_permission(
+            txn,
+            artificial_reql_cluster_interface_t::database_id,
+            artificial_table_fdb_backend_t::compute_artificial_table_id(
+                name_string_t::guarantee_valid("permissions")));
+
+    fdb_user_fut<write_permission> auth_fut2
         = user_context.transaction_require_write_permission(
             txn,
             artificial_reql_cluster_interface_t::database_id,
@@ -41,7 +50,8 @@ bool grant(
 
     // TODO: A question to answer is, why don't we perform this using an
     // artificial_table_t operation?
-    auth_fut.block_and_check(interruptor);
+    auth_fut1.block_and_check(interruptor);
+    auth_fut2.block_and_check(interruptor);
 
     user_t user;
     if (!user_fut.block_and_deserialize(interruptor, &user)) {
