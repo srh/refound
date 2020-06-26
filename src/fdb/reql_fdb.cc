@@ -80,23 +80,44 @@ Issues:
 TODO: Implement logging to FDB.
 TODO: Implement issues.
 
-Table format:
+New large value table format:
+
+----
+TODO: (For impling large values.)
+1. Implement new_primary_store_key_t, and think about max key size adjustments.
+2. Add the \x30 and \x31
+
+----
 
     Given a table prefix like "tables/uuid/",
 
-    Primary index:
-    <table prefix>/<pkey> => <value>
+    We use a new primary key encoding that lets us append to it (like the secondary keys have)
 
-    // Note that this is probably incorrect, we just use sindex store_key_t encoding,
-    // still.
+    Primary kv prefix:
 
-    Secondary index:
-    <table prefix><index id>/<sindex key>/<pkey> => <portion of value>
+    <table prefix>/<new_primary_store_key_t>/
 
-    // And there are no count indexes.
+    (^^ <table prefix> includes a trailing slash, so there are two slashes)
+    (^^ the last trailing slash isn't necessary)
 
-    Aggregate (count) index:
-    <table prefix><index id> => number of records in primary index (I guess)
+    Secondary index kv:
+    <table prefix><index id>/<secondary_key_t><new_primary_store_key_t> => <empty>
+
+    Underneath the primary kv prefix:
+
+    <prefix>\x30<number of entries u16 in hex> => first part
+    <prefix>\x31<u16 in big-endian hex> => remaining parts
+
+    (^^ every part but the last has size MAX_PART_SIZE)
+    (^^ just concatenate them to get the serialized value)
+    (^^ MAX_PART_SIZE should be 16384 or 10000)
+    (^^ the \x31-prefixed keys start with 0001, not zero.)
+
+    // TODO: After this is working and tested, replace \x30/\x31 with \x00/\x01, remove
+    // hexadecimal (from everything).  Perhaps replace \x00 with \x00\x00 for "nice"
+    // extensibility, though idk how that would help.
+
+    Count index: TODO
 
     Changefeed index:  TODO
 
