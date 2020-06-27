@@ -474,7 +474,7 @@ continue_bool_t geo_fdb_traversal(
             return continue_bool_t::CONTINUE;
         }
 
-        rfdb::datum_range_fut rfut = rfdb::kv_prefix_get_range_str(txn, fdb_kv_prefix,
+        rfdb::secondary_range_fut rfut = rfdb::secondary_prefix_get_range_str(txn, fdb_kv_prefix,
             pos, rfdb::lower_bound::closed, sindex_range_right_ptr,
             0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
 
@@ -560,7 +560,7 @@ continue_bool_t geo_fdb_traversal(
                 kv_count = 0;
                 while (more && kv_count == 0) {
                     // It's important that we reassign to rfut for kvs lifetime to be correct.
-                    rfut = rfdb::kv_prefix_get_range_str(
+                    rfut = rfdb::secondary_prefix_get_range_str(
                         txn, fdb_kv_prefix,
                         std::string(as_char(key_slice.data), size_t(key_slice.length)),
                         rfdb::lower_bound::open,

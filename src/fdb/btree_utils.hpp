@@ -71,6 +71,12 @@ struct datum_range_fut : public fdb_future {
     explicit datum_range_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
 };
 
+// QQQ: And here, there are no values.
+struct secondary_range_fut : public fdb_future {
+    using fdb_future::fdb_future;
+    explicit secondary_range_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
+};
+
 MUST_USE ql::serialization_result_t
 kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
@@ -93,7 +99,7 @@ datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_p
 
 // Uses lower and upper_or_null should be store_key_t's, but they're std::strings.
 // TODO: Remove.
-datum_range_fut kv_prefix_get_range_str(FDBTransaction *txn, const std::string &prefix,
+secondary_range_fut secondary_prefix_get_range_str(FDBTransaction *txn, const std::string &prefix,
     const std::string &lower, lower_bound lower_bound_closed,
     const std::string *upper_or_null,
     int limit, int target_bytes, FDBStreamingMode mode, int iteration,
