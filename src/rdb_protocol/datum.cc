@@ -1019,7 +1019,7 @@ std::string datum_t::mangle_secondary(
     // it was truncated (in which case it's fixed-width and doesn't need a
     // terminator).
     std::string res = secondary + primary;
-    res += std::string(1, 0);
+    res.push_back('\0');
     uint8_t tag_offset = res.size();
     guarantee(res.size() <= MAX_KEY_SIZE);
     res += tag + std::string(1, pk_offset) + std::string(1, tag_offset);
@@ -1107,7 +1107,7 @@ std::string datum_t::print_secondary(const store_key_t &primary_key,
         unreachable();
     }
 
-    secondary_key_string.append(1, '\x00');
+    secondary_key_string.push_back('\0');
 
     return compose_secondary(secondary_key_string, primary_key, tag_num);
 }
