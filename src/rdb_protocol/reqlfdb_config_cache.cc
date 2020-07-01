@@ -496,12 +496,6 @@ fdb_future transaction_get_table_range(
         false)};
 }
 
-void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix) {
-    std::string end = prefix_end(prefix);
-    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
-        as_uint8(end.data()), int(end.size()));
-}
-
 void help_remove_table(
         FDBTransaction *txn,
         const namespace_id_t &table_id,

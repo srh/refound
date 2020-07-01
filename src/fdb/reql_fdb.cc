@@ -148,6 +148,12 @@ void transaction_set_std_str(FDBTransaction *txn, const std::string &key,
         as_uint8(value.data()), int(value.size()));
 }
 
+void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix) {
+    std::string end = prefix_end(prefix);
+    fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
+        as_uint8(end.data()), int(end.size()));
+}
+
 fdb_value future_block_on_value(FDBFuture *fut, const signal_t *interruptor) {
     future_block_coro(fut, interruptor);
     fdb_value value;

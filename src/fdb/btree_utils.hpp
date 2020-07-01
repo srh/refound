@@ -117,5 +117,4 @@ inline sindex_disk_info_t sindex_config_to_disk_info(const sindex_config_t &sind
 
 }  // namespace rfdb
 
-
 #endif  // RETHINKDB_FDB_BTREE_UTILS_HPP_
