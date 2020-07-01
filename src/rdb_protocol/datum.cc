@@ -955,6 +955,8 @@ void datum_t::rcheck_valid_replace(datum_t old_val,
 
 std::string datum_t::print_primary_internal() const {
     std::string s;
+    s.reserve(MAX_KEY_SIZE);
+
     switch (get_type()) {
     case MINVAL: // fallthru
     case MAXVAL:
@@ -1065,28 +1067,44 @@ std::string datum_t::print_secondary(const store_key_t &primary_key,
     // Reserve max key size to reduce reallocations
     secondary_key_string.reserve(MAX_KEY_SIZE);
 
-    if (get_type() == R_NUM) {
+    switch (get_type()) {
+    case R_NUM:
         num_to_str_key(&secondary_key_string);
-    } else if (get_type() == R_STR) {
+        break;
+    case R_STR:
         str_to_str_key(escape_nulls_t::YES, &secondary_key_string);
-    } else if (get_type() == R_BINARY) {
+        break;
+    case R_BINARY:
         binary_to_str_key(&secondary_key_string);
-    } else if (get_type() == R_BOOL) {
+        break;
+    case R_BOOL:
         bool_to_str_key(&secondary_key_string);
-    } else if (get_type() == R_ARRAY) {
+        break;
+    case R_ARRAY:
         // Before version 2.3, `minval` and `maxval` were always allowed inside of
         // an array. Now they are no longer allowed in this context.
         array_to_str_key(
             extrema_ok_t::NOT_OK,
             escape_nulls_t::YES,
             &secondary_key_string);
-    } else if (get_type() == R_OBJECT && is_ptype()) {
-        pt_to_str_key(&secondary_key_string);
-    } else {
+        break;
+    case R_OBJECT:
+        if (is_ptype()) {
+            pt_to_str_key(&secondary_key_string);
+            break;
+        }
+        // fallthru
+    case R_NULL:
+    case MINVAL:
+    case MAXVAL:
         type_error(strprintf(
             "Secondary keys must be a number, string, bool, pseudotype, "
             "or array (got type %s):\n%s",
             get_type_name().c_str(), trunc_print().c_str()));
+        break;
+    case UNINITIALIZED:  // fallthru
+    default:
+        unreachable();
     }
 
     secondary_key_string.append(1, '\x00');
