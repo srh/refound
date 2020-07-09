@@ -144,9 +144,8 @@ S2CellId key_to_s2cellid(const std::string &sid) {
 /* Returns the S2CellId corresponding to the given key, which must be a correctly
 formatted sindex key. */
 S2CellId btree_key_to_s2cellid(const store_key_t &key) {
-    std::string tmp(reinterpret_cast<const char *>(key.data()), key.size());
     return key_to_s2cellid(
-        datum_t::extract_secondary(tmp));
+        datum_t::extract_secondary(key.str()));
 }
 
 // TODO: Delete this?  Or move to geo_btree.cc.
@@ -383,22 +382,21 @@ bool geo_index_traversal_helper_t::any_cell_contains(
 // beginning of a query cell, or an ancestor of a query cell, or pos itself, if
 // pos lies within the range of a query cell range or ancestor cell value.
 // Whatever is smallest and >=*pos, among all such values.
-bool geo_index_traversal_helper_t::skip_forward_to_seek_key(std::string *pos) const {
+bool geo_index_traversal_helper_t::skip_forward_to_seek_key(store_key_t *pos) const {
     rassert(!query_cells_.empty());
     if (query_cells_.empty()) {  // TODO: Verify if this is impossible.
         return false;
     }
 
     // TODO: We parse this twice, I'm pretty sure.
-    store_key_t skey(*pos);
 
     // TODO: Fragile code.
     geo::S2CellId pos_cell;
-    if (*pos < "GC") {
+    if (pos->str() < "GC") {
         // The minimal cell id.
         pos_cell = geo::S2CellId(1);
-    } else if (*pos < "GD") {
-        pos_cell = btree_key_to_s2cellid(skey);
+    } else if (pos->str() < "GD") {
+        pos_cell = btree_key_to_s2cellid(*pos);
     } else {
         return false;
     }
@@ -439,7 +437,7 @@ bool geo_index_traversal_helper_t::skip_forward_to_seek_key(std::string *pos) co
         }
     }
     if (has_candidate) {
-        *pos = s2cellid_to_key(candidate_pos);
+        *pos = store_key_t(s2cellid_to_key(candidate_pos));
         return true;
     }
     return false;
@@ -460,10 +458,10 @@ continue_bool_t geo_fdb_traversal(
     // There are two modes of iteration:  Stepping forward to cells and cell
     // ancestors, and stepping through the contents of a cover cell or ancestor cell.
 
-    std::string pos = key_to_unescaped_str(sindex_range.left);
+    store_key_t pos = sindex_range.left;
 
-    const std::string *sindex_range_right_ptr = sindex_range.right.unbounded ? nullptr :
-        &sindex_range.right.internal_key.str();
+    const store_key_t *sindex_range_right_ptr = sindex_range.right.unbounded ? nullptr :
+        &sindex_range.right.internal_key;
 
     for (;;) {
         // QQQ: We could (should) perform a bunch of parallel queries to fdb, right?
@@ -483,15 +481,16 @@ continue_bool_t geo_fdb_traversal(
         fdb_bool_t more = true;
         // It's unclear if a zero-count read (except at end of stream) is even possible.
         while (more && kv_count == 0) {
-            rfut = rfdb::secondary_prefix_get_range_str(txn, fdb_kv_prefix,
+            rfut = rfdb::secondary_prefix_get_range(txn, fdb_kv_prefix,
                 pos, rfdb::lower_bound::closed, sindex_range_right_ptr,
                 0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
-            rfut.block_coro(interruptor);
-            fdb_error_t err = fdb_future_get_keyvalue_array(rfut.fut, &kvs, &kv_count, &more);
+            rfut.future.block_coro(interruptor);
+            fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
             check_for_fdb_transaction(err);
         }
 
         if (kv_count == 0) {
+            // (We have !more here.)
             return continue_bool_t::CONTINUE;
         }
 
@@ -524,7 +523,7 @@ continue_bool_t geo_fdb_traversal(
         }
 
         if (!found_cell) {
-            pos = skey.str();
+            pos = skey;
             continue;
         }
 
@@ -543,13 +542,14 @@ continue_bool_t geo_fdb_traversal(
             // TODO: We could avoid an allocation, whatever.
             std::string kv_location = primary_prefix + primary.str();
             rfdb::datum_fut value_fut = rfdb::kv_location_get(txn, kv_location);
-            fdb_value value = future_block_on_value(value_fut.fut, interruptor);
-            guarantee(value.present);  // TODO: fdb, graceful, msg
+            optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
+                txn, std::move(value_fut), interruptor);
+            guarantee(value.has_value());  // TODO: fdb, graceful, msg
 
             // key_slice at this point has had the prefix truncated.
             continue_bool_t contbool = helper->handle_pair(
                 std::make_pair(as_char(key_slice.data), size_t(key_slice.length)),
-                std::make_pair(as_char(value.data), size_t(value.length)));
+                std::make_pair(as_char(value->data()), value->size()));
             if (contbool == continue_bool_t::ABORT) {
                 return continue_bool_t::ABORT;
             }
@@ -562,13 +562,13 @@ continue_bool_t geo_fdb_traversal(
                 kv_count = 0;
                 while (more && kv_count == 0) {
                     // It's important that we reassign to rfut for kvs lifetime to be correct.
-                    rfut = rfdb::secondary_prefix_get_range_str(
+                    rfut = rfdb::secondary_prefix_get_range(
                         txn, fdb_kv_prefix,
-                        std::string(as_char(key_slice.data), size_t(key_slice.length)),
+                        store_key_t(key_slice.length, key_slice.data),
                         rfdb::lower_bound::open,
                         sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
-                    rfut.block_coro(interruptor);
-                    fdb_error_t err = fdb_future_get_keyvalue_array(rfut.fut, &kvs, &kv_count, &more);
+                    rfut.future.block_coro(interruptor);
+                    fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
                     check_for_fdb_transaction(err);
                 }
 
@@ -600,7 +600,7 @@ continue_bool_t geo_fdb_traversal(
         }
         // At this point key_slice has had the prefix truncated.
         // TODO: The key_slice lifetime logic (relative to the fdb future) is a bit fragile.
-        pos = std::string(as_char(key_slice.data), size_t(key_slice.length));
+        pos = store_key_t(key_slice.length, key_slice.data);
     }
 
 }

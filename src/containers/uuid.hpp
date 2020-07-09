@@ -68,6 +68,9 @@ struct database_id_t {
     uuid_u value;
 };
 
+// Internal utility useful elsewhere.
+void push_hex(std::string *s, uint8_t byte);
+
 namespace std {
 template<> struct hash<uuid_u> {
     size_t operator()(const uuid_u& x) const {

@@ -59,22 +59,23 @@ inline std::string index_key_concat_str(const std::string &kv_prefix, const std:
     return kv_prefix + key;
 }
 
-// QQQ: Of course, at some point, this will not be a raw fdb_future, or not one we get
-// values off of, so we'll want to hard-wrap the future type.
-struct datum_fut : public fdb_future {
-    explicit datum_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
+struct datum_fut {
+    explicit datum_fut(FDBFuture *range_fut, std::string _prefix, std::string _upper_key)
+        : future{range_fut}, prefix{std::move(_prefix)}, upper_key{std::move(_upper_key)} {}
+    fdb_future future;
+    std::string prefix;
+    std::string upper_key;
 };
 
-// QQQ: Likewise here -- it may be a range-based single fdb_future, sure.
-struct datum_range_fut : public fdb_future {
-    using fdb_future::fdb_future;
-    explicit datum_range_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
+struct datum_range_fut {
+    explicit datum_range_fut(FDBFuture *fut) : future{fut} {}
+    fdb_future future;
 };
 
-// QQQ: And here, there are no values.
-struct secondary_range_fut : public fdb_future {
-    using fdb_future::fdb_future;
-    explicit secondary_range_fut(fdb_future &&ff) : fdb_future{std::move(ff)} {}
+struct secondary_range_fut {
+    secondary_range_fut() = default;
+    explicit secondary_range_fut(FDBFuture *fut) : future{fut} {}
+    fdb_future future;
 };
 
 MUST_USE ql::serialization_result_t
@@ -86,15 +87,42 @@ void kv_location_delete(FDBTransaction *txn, const std::string &kv_location);
 
 datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_location);
 
+optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
+        FDBTransaction *txn,
+        rfdb::datum_fut &&fut, const signal_t *interruptor);
+
+std::string kv_prefix(std::string &&kv_location);
+std::string kv_prefix_end(std::string &&kv_location);
+
 enum class lower_bound {
     open,
     closed,
 };
 
-datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_prefix,
-    const store_key_t &lower, lower_bound lower_bound_closed,
-    const store_key_t *upper_or_null,
-    int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+struct datum_range_iterator {
+    std::string pkey_prefix_;
+    // If forward-iterating, lower is either a large value prefix with its '\0' suffix
+    // or with a '\1' suffix (for an open bound).
+    std::string lower_;
+    std::string upper_;
+    fdb_bool_t snapshot_;
+    fdb_bool_t reverse_;
+
+    // Iterating forward, it's num_parts_.  Iterating in reverse, it's the last seen
+    // counter number (possibly zero).
+    uint32_t number_;
+    // These parts are in _iteration order_.  If iterating in reverse, that means they
+    // need to be reversed before concatenation.
+    std::vector<std::vector<uint8_t>> partial_document_;
+
+    // TODO: Maybe split into prep_for_step() and block_for_step().
+    // It is possible to have no results and bool = true.
+    std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
+    query_and_step(FDBTransaction *txn, const signal_t *interruptor);
+};
+
+datum_range_iterator primary_prefix_make_iterator(const std::string &kv_prefix,
+    const store_key_t &lower, const store_key_t *upper_or_null,
     fdb_bool_t snapshot, fdb_bool_t reverse);
 
 secondary_range_fut secondary_prefix_get_range(FDBTransaction *txn,
@@ -103,14 +131,6 @@ secondary_range_fut secondary_prefix_get_range(FDBTransaction *txn,
         const store_key_t *upper_or_null,
         int limit, int target_bytes, FDBStreamingMode mode, int iteration,
         fdb_bool_t snapshot, fdb_bool_t reverse);
-
-// Uses lower and upper_or_null should be store_key_t's, but they're std::strings.
-// TODO: Remove.
-secondary_range_fut secondary_prefix_get_range_str(FDBTransaction *txn, const std::string &prefix,
-    const std::string &lower, lower_bound lower_bound_closed,
-    const std::string *upper_or_null,
-    int limit, int target_bytes, FDBStreamingMode mode, int iteration,
-    fdb_bool_t snapshot, fdb_bool_t reverse);
 
 // TODO: Making this copy is gross, this function shouldn't exist.
 inline sindex_disk_info_t sindex_config_to_disk_info(const sindex_config_t &sindex_config) {

@@ -84,8 +84,7 @@ New large value table format:
 
 ----
 TODO: (For impling large values.)
-1. Implement new_primary_store_key_t, and think about max key size adjustments.
-2. Add the \x30 and \x31
+2. Add the \x00, \x30, and \x31
 
 ----
 
@@ -95,23 +94,23 @@ TODO: (For impling large values.)
 
     Primary kv prefix:
 
-    <table prefix>/<new_primary_store_key_t>/
+    <table prefix>/<store_key_t>\00
 
     (^^ <table prefix> includes a trailing slash, so there are two slashes)
-    (^^ the last trailing slash isn't necessary)
+    (^^ store_key_t is the primary key as a store_key_t, which already never has nul characters)
 
     Secondary index kv:
-    <table prefix><index id>/<secondary_key_t><new_primary_store_key_t> => <empty>
+    <table prefix><index id>/<secondary_key_t><store_key_t> => <empty>
 
     Underneath the primary kv prefix:
 
-    <prefix>\x30<number of entries u16 in hex> => first part
+    <prefix>\x30<number of entries u16 in big-endian hex> => first part
     <prefix>\x31<u16 in big-endian hex> => remaining parts
 
     (^^ every part but the last has size MAX_PART_SIZE)
     (^^ just concatenate them to get the serialized value)
     (^^ MAX_PART_SIZE should be 16384 or 10000)
-    (^^ the \x31-prefixed keys start with 0001, not zero.)
+    (^^ the \x31-prefixed keys start with 0001, not zero (because zero is the \x30 part index).)
 
     // TODO: After this is working and tested, replace \x30/\x31 with \x00/\x01, remove
     // hexadecimal (from everything).  Perhaps replace \x00 with \x00\x00 for "nice"

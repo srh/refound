@@ -210,6 +210,11 @@ struct key_view {
         guarantee(0 == memcmp(prefix.data(), data, int(prefix.size())));
         return key_view{data + prefix.size(), length - int(prefix.size())};
     }
+
+    // For debugging purposes.
+    std::string to_string() const {
+        return std::string(reinterpret_cast<const char *>(data), size_t(length));
+    }
 };
 
 MUST_USE inline fdb_error_t future_get_value(FDBFuture *fut, fdb_value *out) {

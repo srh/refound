@@ -1,12 +1,16 @@
 #include "fdb/jobs/index_create.hpp"
 
 #include "clustering/tables/table_metadata.hpp"
+#include "debug.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs/job_utils.hpp"
 #include "fdb/system_tables.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/btree.hpp"  // For compute_keys
+
+#define icdb(...) debugf(__VA_ARGS__)
+// #define icdb(...)
 
 /* We encounter a question of conflict resolution when building a secondary index.  The
 reason is, there is a min_pkey.  The problem is, with a naive implementation:
@@ -84,6 +88,7 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
 optional<fdb_job_info> execute_index_create_job(
         FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_index_create &index_create_info, const signal_t *interruptor) {
+    icdb("eicj\n");
     // TODO: Maybe caller can pass clock (as in all jobs).
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -113,13 +118,16 @@ optional<fdb_job_info> execute_index_create_job(
     // block?  Small block?  Medium?  Going with medium.
 
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
+    icdb("eicj '%s'\n", debug_str(pkey_prefix).c_str());
 
     store_key_t js_lower_bound(jobstate.unindexed_lower_bound.ukey);
     store_key_t js_upper_bound(jobstate.unindexed_upper_bound.ukey);
 
-    rfdb::datum_range_fut data_fut = rfdb::kv_prefix_get_range(txn, pkey_prefix,
-        js_lower_bound, rfdb::lower_bound::closed, &js_upper_bound,
-        0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+    rfdb::datum_range_iterator data_iter = rfdb::primary_prefix_make_iterator(pkey_prefix,
+        js_lower_bound, &js_upper_bound, false, false);  // snapshot=false, reverse=false
+    // QQQ: create data_iter fut here, block later.
+    icdb("eicj '%s', lb '%s'\n", debug_str(pkey_prefix).c_str(),
+        debug_str(js_lower_bound.str()).c_str());
 
     // TODO: Apply a workaround for write contention problems mentioned above.
     table_config_t table_config;
@@ -140,15 +148,15 @@ optional<fdb_job_info> execute_index_create_job(
     const sindex_metaconfig_t &sindex_config = sindexes_it->second;
     guarantee(sindex_config.creation_task_or_nil == info.shared_task_id);  // TODO: msg, graceful
 
-    // LARGEVAL: Implementing large values will need handling here.
+    // TODO: You know, it is kind of sad that we do key/handling fluff redundantly here.
 
-    data_fut.block_coro(interruptor);
-
-    const FDBKeyValue *kvs;
-    int kv_count;
-    fdb_bool_t more;
-    fdb_error_t err = fdb_future_get_keyvalue_array(data_fut.fut, &kvs, &kv_count, &more);
-    check_for_fdb_transaction(err);
+    std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> kvs;
+    // We have a loop to ensure we slurp at least one document.
+    do {
+        icdb("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
+            debug_str(js_lower_bound.str()).c_str());
+        kvs = data_iter.query_and_step(txn, interruptor);
+    } while (kvs.first.empty() && kvs.second);
 
     // TODO: Maybe FDB should store sindex_disk_info_t, using
     // sindex_reql_version_info_t.
@@ -164,18 +172,15 @@ optional<fdb_job_info> execute_index_create_job(
     const size_t index_prefix_size = fdb_key.size();
 
     // See rdb_update_sindexes    <- TODO: Remove this comment.
-    for (int i = 0; i < kv_count; ++i) {
-        key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
-        key_view pkey_view = full_key.guarantee_without_prefix(pkey_prefix);
-        // TODO: Needless copy.
+    for (const auto &elem : kvs.first) {
         // TODO: Increase MAX_KEY_SIZE at some point.
-        store_key_t primary_key(pkey_view.length, pkey_view.data);
-        ql::datum_t doc = parse_table_value(void_as_char(kvs[i].value), kvs[i].value_length);
+
+        ql::datum_t doc = parse_table_value(as_char(elem.second.data()), elem.second.size());
 
         // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
         try {
             std::vector<std::pair<store_key_t, ql::datum_t>> keys;
-            compute_keys(primary_key, std::move(doc), index_info, &keys, nullptr);
+            compute_keys(elem.first, std::move(doc), index_info, &keys, nullptr);
 
             for (auto &sindex_key_pair : keys) {
                 // TODO: Make sure fdb key limits are followed.
@@ -192,16 +197,14 @@ optional<fdb_job_info> execute_index_create_job(
     }
 
     optional<fdb_job_info> ret;
-    if (more) {
-        if (kv_count > 0) {
-            key_view full_key{
-                void_as_uint8(kvs[kv_count - 1].key),
-                kvs[kv_count - 1].key_length};
-            key_view pkey_view = full_key.guarantee_without_prefix(pkey_prefix);
-            std::string pkey_str{as_char(pkey_view.data), size_t(pkey_view.length)};
+    if (kvs.second) {
+        if (!kvs.first.empty()) {
+            std::string pkey_str = kvs.first.front().first.str();
             // Increment the pkey lower bound since it's inclusive and we need to do
             // that.
-            pkey_str.push_back('\0');
+            pkey_str.push_back(1);  // MMM: Use rfdb::kv_prefix_end
+            icdb("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
+                debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
             fdb_index_jobstate new_jobstate{
                 ukey_string{std::move(pkey_str)},
                 std::move(jobstate.unindexed_upper_bound)};
@@ -234,5 +237,3 @@ optional<fdb_job_info> execute_index_create_job(
 }
 
 // OOO: Index creation is super-slow (because the first attempt to reclaim the job fails?)
-
-// TODO: Handle all LARGEVAL comments.

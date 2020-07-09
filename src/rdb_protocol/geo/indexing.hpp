@@ -77,7 +77,7 @@ public:
         return query_cells_;
     }
 
-    bool skip_forward_to_seek_key(std::string *pos) const;
+    bool skip_forward_to_seek_key(store_key_t *pos) const;
 
 protected:
     virtual ~geo_index_traversal_helper_t() { }

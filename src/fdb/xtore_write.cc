@@ -179,16 +179,17 @@ void rdb_fdb_set(
     std::string kv_location = rfdb::table_primary_key(table_id, key);
     rfdb::datum_fut old_value_fut = rfdb::kv_location_get(txn, kv_location);
 
-    fdb_value old_value = future_block_on_value(old_value_fut.fut, interruptor);
+    optional<std::vector<uint8_t>> old_value
+        = block_and_read_unserialized_datum(txn, std::move(old_value_fut), interruptor);
 
-    if (old_value.present) {
-        mod_info->deleted = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
+    if (old_value.has_value()) {
+        mod_info->deleted = datum_deserialize_from_uint8(old_value->data(), old_value->size());
     }
 
     // TODO: Review datum_t copy performance.
     mod_info->added = data;
 
-    if (overwrite || !old_value.present) {
+    if (overwrite || !old_value.has_value()) {
         ql::serialization_result_t res = rfdb::kv_location_set(txn, kv_location, data);
         if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
             rfail_typed_target(&data, "Array too large for disk writes "
@@ -201,7 +202,7 @@ void rdb_fdb_set(
     }
 
     response_out->result =
-        (old_value.present ? point_write_result_t::DUPLICATE : point_write_result_t::STORED);
+        (old_value.has_value() ? point_write_result_t::DUPLICATE : point_write_result_t::STORED);
 }
 
 
@@ -219,15 +220,16 @@ void rdb_fdb_delete(
     std::string kv_location = rfdb::table_primary_key(table_id, key);
     rfdb::datum_fut old_value_fut = rfdb::kv_location_get(txn, kv_location);
 
-    fdb_value old_value = future_block_on_value(old_value_fut.fut, interruptor);
+    optional<std::vector<uint8_t>> old_value
+        = block_and_read_unserialized_datum(txn, std::move(old_value_fut), interruptor);
 
     /* Update the modification report. */
-    if (old_value.present) {
-        mod_info->deleted = datum_deserialize_from_uint8(old_value.data, size_t(old_value.length));
+    if (old_value.has_value()) {
+        mod_info->deleted = datum_deserialize_from_uint8(old_value->data(), old_value->size());
         rfdb::kv_location_delete(txn, kv_location);
     }
 
-    response->result = (old_value.present ? point_delete_result_t::DELETED : point_delete_result_t::MISSING);
+    response->result = (old_value.has_value() ? point_delete_result_t::DELETED : point_delete_result_t::MISSING);
 }
 
 class one_fdb_replace_t {
@@ -267,15 +269,16 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         // info.btree->slice->stats.pm_keys_set.record();
         // info.btree->slice->stats.pm_total_keys_set += 1;
 
-        fdb_value maybe_fdb_value = future_block_on_value(old_value_fut.fut, interruptor);
+        optional<std::vector<uint8_t>> maybe_fdb_value
+            = block_and_read_unserialized_datum(txn, std::move(old_value_fut), interruptor);
 
         ql::datum_t old_val;
-        if (!maybe_fdb_value.present) {
+        if (!maybe_fdb_value.has_value()) {
             // If there's no entry with this key, pass NULL to the function.
             old_val = ql::datum_t::null();
         } else {
             // Otherwise pass the entry with this key to the function.
-            old_val = datum_deserialize_from_uint8(maybe_fdb_value.data, size_t(maybe_fdb_value.length));
+            old_val = datum_deserialize_from_uint8(maybe_fdb_value->data(), maybe_fdb_value->size());
             guarantee(old_val.get_field(primary_key, ql::NOTHROW).has());
         }
         guarantee(old_val.has());
