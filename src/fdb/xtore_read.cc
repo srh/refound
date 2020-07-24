@@ -233,10 +233,10 @@ continue_bool_t fdb_traversal_primary(
     fdb_bool_t more;
     for (;;) {
         // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
-        rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range_str(
-            txn, fdb_kv_prefix, range.left.str(),
+        rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
+            txn, fdb_kv_prefix, range.left,
             rfdb::lower_bound::closed,
-            range.right.unbounded ? nullptr : &range.right.internal_key.str(),
+            range.right.unbounded ? nullptr : &range.right.internal_key,
             0, 0, FDB_STREAMING_MODE_MEDIUM,
             0, false, reverse);
 
@@ -300,7 +300,7 @@ continue_bool_t fdb_traversal_secondary(
     for (;;) {
 
         // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
-        rfdb::datum_range_fut fut = rfdb::kv_prefix_get_range(
+        rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range(
             txn, secondary_prefix, range.left,
             rfdb::lower_bound::closed,
             range.right.unbounded ? nullptr : &range.right.internal_key,

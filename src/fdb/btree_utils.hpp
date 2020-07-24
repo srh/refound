@@ -97,6 +97,13 @@ datum_range_fut kv_prefix_get_range(FDBTransaction *txn, const std::string &kv_p
     int limit, int target_bytes, FDBStreamingMode mode, int iteration,
     fdb_bool_t snapshot, fdb_bool_t reverse);
 
+secondary_range_fut secondary_prefix_get_range(FDBTransaction *txn,
+        const std::string &kv_prefix,
+        const store_key_t &lower, lower_bound lower_bound_closed,
+        const store_key_t *upper_or_null,
+        int limit, int target_bytes, FDBStreamingMode mode, int iteration,
+        fdb_bool_t snapshot, fdb_bool_t reverse);
+
 // Uses lower and upper_or_null should be store_key_t's, but they're std::strings.
 // TODO: Remove.
 secondary_range_fut secondary_prefix_get_range_str(FDBTransaction *txn, const std::string &prefix,
