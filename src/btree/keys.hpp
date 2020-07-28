@@ -82,6 +82,8 @@ public:
     const std::string &str() const { return str_; }
 
     bool increment();
+    // MMM: This is a gross test-hack.
+    bool increment1();
 
     int compare(const store_key_t& k) const {
         return sized_strcmp(data(), size(), k.data(), k.size());
@@ -150,11 +152,11 @@ public:
             return rb;
         }
 
-        bool increment() {
+        bool increment1() {
             if (unbounded) {
                 return false;
             } else {
-                if (!internal_key.increment()) {
+                if (!internal_key.increment1()) {
                     unbounded = true;
                 }
                 return true;

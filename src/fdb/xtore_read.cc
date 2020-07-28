@@ -337,7 +337,7 @@ continue_bool_t fdb_traversal_secondary(
             } else {
                 // Key is excluded from next read, so we increment.
                 range.left.assign(last_key_view.length, last_key_view.data);
-                range.left.increment();
+                range.left.increment1();
             }
         }
     }
@@ -591,7 +591,7 @@ public:
             if (!reversed(job.sorting)) {
                 if (sindex_data.active_region_range_inout->left < key) {
                     sindex_data.active_region_range_inout->left = key;
-                    sindex_data.active_region_range_inout->left.increment();
+                    sindex_data.active_region_range_inout->left.increment1();
                 }
             } else {
                 if (sindex_data.active_region_range_inout->right.right_of_key(key)) {

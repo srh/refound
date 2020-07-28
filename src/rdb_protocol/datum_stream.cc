@@ -984,7 +984,7 @@ void primary_readgen_t::restrict_active_ranges(
                     if (right_of_bound(key, pair.second.second)) {
                         // Would be a good place for an upper_key_bound.
                         store_key_t tmp = key;
-                        tmp.increment();
+                        tmp.increment1();
                         pair.second.second = lower_key_bound(std::move(tmp));
                     }
                     break;

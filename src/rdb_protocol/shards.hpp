@@ -118,7 +118,7 @@ struct limit_read_last_key {
         rassert(!raw_key.infinite);
         store_key_t ret = raw_key.key;
         if (!is_decremented) {
-            ret.increment();
+            ret.increment1();
         }
         return ret;
     }
@@ -153,7 +153,7 @@ struct limit_read_last_key {
         // TODO: Performance.
         store_key_t tmp = rhs;
         // OK if rhs is max key -- we return false correctly.
-        tmp.increment();
+        tmp.increment1();
         return raw_key.greater_than_key(tmp);
     }
 };

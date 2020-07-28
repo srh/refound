@@ -25,6 +25,24 @@ bool store_key_t::increment() {
     return true;
 }
 
+bool store_key_t::increment1() {
+    if (str_.size() < MAX_KEY_SIZE) {
+        str_.push_back(1);
+        return true;
+    }
+    while (str_.size() > 0 && static_cast<uint8_t>(str_.back()) == 255) {
+        str_.pop_back();
+    }
+    if (str_.empty()) {
+        /* We were the largest possible key. Oops. Restore our previous
+        state and return `false`. */
+        str_.resize(MAX_KEY_SIZE, char(255));
+        return false;
+    }
+    str_.back() = 1 + static_cast<uint8_t>(str_.back());
+    return true;
+}
+
 // The wire format of serialize_for_metainfo must not change.
 void store_key_t::serialize_for_metainfo(write_message_t *wm) const {
     uint8_t sz = size();
@@ -108,7 +126,7 @@ void key_range_t::init(bound_t lm, store_key_t &&l, bound_t rm, store_key_t &&r)
             break;
         case bound_t::open:
             left = std::move(l);
-            if (left.increment()) {
+            if (left.increment1()) {
                 break;
             } else {
                 rassert(rm == bound_t::none);
@@ -128,7 +146,7 @@ void key_range_t::init(bound_t lm, store_key_t &&l, bound_t rm, store_key_t &&r)
         case bound_t::closed: {
             right.unbounded = false;
             right.key() = std::move(r);
-            bool ok = right.increment();
+            bool ok = right.increment1();
             guarantee(ok);
             break;
         }
