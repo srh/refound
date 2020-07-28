@@ -244,7 +244,7 @@ datum_range_iterator primary_prefix_make_iterator(const std::string &pkey_prefix
 
 std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
 datum_range_iterator::query_and_step(
-        FDBTransaction *txn, const signal_t *interruptor) {
+        FDBTransaction *txn, const signal_t *interruptor, FDBStreamingMode mode) {
     const int limit = 0;
     const int target_bytes = 0;
     const int iteration = 0;
@@ -257,7 +257,7 @@ datum_range_iterator::query_and_step(
         FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper_.data()), int(upper_.size())),
         limit,
         target_bytes,
-        FDB_STREAMING_MODE_MEDIUM,
+        mode,
         iteration,
         snapshot_,
         reverse_)};

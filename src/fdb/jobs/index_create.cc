@@ -88,7 +88,7 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
 optional<fdb_job_info> execute_index_create_job(
         FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_index_create &index_create_info, const signal_t *interruptor) {
-    icdb("eicj\n");
+    icdb("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
     // TODO: Maybe caller can pass clock (as in all jobs).
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -155,8 +155,12 @@ optional<fdb_job_info> execute_index_create_job(
     do {
         icdb("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
             debug_str(js_lower_bound.str()).c_str());
-        kvs = data_iter.query_and_step(txn, interruptor);
+        kvs = data_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
     } while (kvs.first.empty() && kvs.second);
+
+    icdb("eicj '%s', lb '%s' exited loop, kvs count = %zu, more = %d\n", debug_str(pkey_prefix).c_str(),
+        debug_str(js_lower_bound.str()).c_str(),
+        kvs.first.size(), kvs.second);
 
     // TODO: Maybe FDB should store sindex_disk_info_t, using
     // sindex_reql_version_info_t.
@@ -173,6 +177,9 @@ optional<fdb_job_info> execute_index_create_job(
 
     // See rdb_update_sindexes    <- TODO: Remove this comment.
     for (const auto &elem : kvs.first) {
+        icdb("eicj '%s', lb '%s' loop, elem '%s'\n", debug_str(pkey_prefix).c_str(),
+            debug_str(js_lower_bound.str()).c_str(),
+            debug_str(elem.first.str()).c_str());
         // TODO: Increase MAX_KEY_SIZE at some point.
 
         ql::datum_t doc = parse_table_value(as_char(elem.second.data()), elem.second.size());
@@ -198,6 +205,9 @@ optional<fdb_job_info> execute_index_create_job(
 
     optional<fdb_job_info> ret;
     if (kvs.second) {
+        icdb("eicj '%s', lb '%s', we have more\n",
+            debug_str(pkey_prefix).c_str(),
+                debug_str(js_lower_bound.str()).c_str());
         if (!kvs.first.empty()) {
             std::string pkey_str = kvs.first.front().first.str();
             // Increment the pkey lower bound since it's inclusive and we need to do
