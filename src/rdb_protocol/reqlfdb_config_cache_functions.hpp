@@ -20,6 +20,7 @@ class backtrace_id_t;
 class db_t;
 }
 
+struct fdb_job_info;
 struct ukey_string;
 class provisional_db_id;
 class provisional_table_id;
@@ -131,7 +132,7 @@ std::vector<name_string_t> config_cache_table_list_sorted(
     provisional_db_id prov_db,
     const signal_t *interruptor);
 
-MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
+MUST_USE optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> config_cache_sindex_create(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,
     const provisional_table_id &table,

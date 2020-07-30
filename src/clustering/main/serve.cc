@@ -111,6 +111,7 @@ bool do_serve(FDBDatabase *fdb,
         terms. It contains pointers to all the things that the ReQL term evaluation code
         needs. */
         rdb_context_t rdb_ctx(fdb,
+                              &node_holder,
                               &extproc_pool,
                               &artificial_reql_cluster_interface,
                               &get_global_perfmon_collection(),

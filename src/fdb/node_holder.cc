@@ -2,6 +2,7 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "arch/timing.hpp"
+#include "concurrency/wait_any.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/jobs.hpp"
 #include "fdb/reql_fdb.hpp"
@@ -100,30 +101,53 @@ MUST_USE fdb_error_t erase_node_entry(
     });
 }
 
-void run_node_coro(FDBDatabase *fdb, fdb_node_id node_id, auto_drainer_t::lock_t lock) {
+void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
     const signal_t *const interruptor = lock.get_drain_signal();
     for (;;) {
         // Read node count.
         uint64_t node_count;
         {
-            fdb_error_t err = read_node_count(fdb, interruptor, &node_count);
+            fdb_error_t err = read_node_count(fdb_, interruptor, &node_count);
             guarantee_fdb_TODO(err, "read_node_count");
         }
 
         // Now we've got a node count.  Now what?
         for (uint64_t i = 0; i < node_count; ++i) {
             // TODO: Avoid having one node take _all_ the jobs (somehow).
-            try_claim_and_start_job(fdb, node_id, lock);
+            try_claim_and_start_job(fdb_, node_id_, lock);
 
+            {
+                // TODO: Should we randomize this timestep?  Yes.
+                signal_timer_t timer(REQLFDB_TIMESTEP_MS);
+                new_semaphore_in_line_t sem_acq(&supplied_job_sem_, 1);
+                const signal_t *sem_signal = sem_acq.acquisition_signal();
 
+                {
+                    wait_any_t waiter(&timer, sem_signal, interruptor);
+                    waiter.wait();
+                }
+                if (interruptor->is_pulsed()) {
+                    throw interrupted_exc_t();
+                }
+                if (!timer.is_pulsed()) {
+                    // MMM: we should hold a timer and run this logic in a loop.
+                    rassert(sem_signal->is_pulsed());
 
-            // TODO: Should we randomize this?  Yes.
+                    guarantee(!supplied_jobs_.empty());
+                    std::vector<fdb_job_info> job_infos = std::move(supplied_jobs_);
+                    supplied_jobs_.clear();  // Don't trust std::move (on principle).
+                    supplied_job_sem_holder_.transfer_in(std::move(sem_acq));
+
+                    try_start_supplied_jobs(fdb_, std::move(job_infos), lock);
+                }
+            }
+
             nap(REQLFDB_TIMESTEP_MS, interruptor);
-            fdb_error_t write_err = write_node_entry(fdb, node_id, interruptor);
+            fdb_error_t write_err = write_node_entry(fdb_, node_id_, interruptor);
             guarantee_fdb_TODO(write_err, "write_node_entry failed in loop");
         }
 
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [interruptor](FDBTransaction *txn) {
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb_, interruptor, [interruptor](FDBTransaction *txn) {
             // TODO: Put a unit test somewhere that reqlfdb_clock_t is serialized as an
             // 8-byte little-endian uint64.
             uint8_t value[REQLFDB_CLOCK_SIZE] = { 1, 0 };
@@ -142,14 +166,25 @@ void run_node_coro(FDBDatabase *fdb, fdb_node_id node_id, auto_drainer_t::lock_t
     }
 }
 
+void fdb_node_holder::supply_job(fdb_job_info job) {
+    assert_thread();
+    // TODO: We just kind of assume these operations happen atomically.  And they do,
+    // but the code should use a mutex assertion around this stuff.
+    // MMM: Really, I mean really, investigate this.
+    supplied_jobs_.push_back(std::move(job));
+    supplied_job_sem_holder_.change_count(0);  // Possibly already released.
+}
+
 fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor)
-        : fdb_(fdb), node_id_{generate_uuid()} {
+        : fdb_(fdb), node_id_{generate_uuid()},
+          supplied_job_sem_(1),
+          supplied_job_sem_holder_(&supplied_job_sem_, 1) {
     fdb_error_t err = write_node_entry(fdb, node_id_, interruptor);
     guarantee_fdb_TODO(err, "write_node_entry failed");
 
     coro_t::spawn_later_ordered([this, lock = drainer_.lock()]() {
         try {
-            run_node_coro(fdb_, node_id_, lock);
+            run_node_coro(lock);
         } catch (const interrupted_exc_t &) {
             // TODO: Do we handle other interrupted_exc_t's like this?
         }

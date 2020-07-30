@@ -29,6 +29,7 @@ class user_context_t;
 }  // namespace auth
 
 class artificial_reql_cluster_interface_t;
+class fdb_node_holder;
 class reqlfdb_config_cache;
 
 namespace ql {
@@ -126,6 +127,7 @@ public:
     // The "real" constructor used outside of unit tests.
     rdb_context_t(
         FDBDatabase *_fdb,
+        fdb_node_holder *_node_holder,
         extproc_pool_t *_extproc_pool,
         artificial_reql_cluster_interface_t *_cluster_interface,
         perfmon_collection_t *global_stats,
@@ -134,6 +136,7 @@ public:
     ~rdb_context_t();
 
     FDBDatabase *fdb = nullptr;
+    fdb_node_holder *node_holder = nullptr;
     one_per_thread_t<reqlfdb_config_cache> config_caches;
     extproc_pool_t *extproc_pool;
     // OOO: Just replace artificial_interface_or_null with the backends field it contains.

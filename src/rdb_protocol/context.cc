@@ -79,6 +79,7 @@ rdb_context_t::rdb_context_t()
       reql_http_proxy(),
       stats(&get_global_perfmon_collection()) { }
 
+// TODO: Unit test should get a node_holder?
 rdb_context_t::rdb_context_t(
         FDBDatabase *_fdb,
         extproc_pool_t *_extproc_pool)
@@ -91,11 +92,13 @@ rdb_context_t::rdb_context_t(
 
 rdb_context_t::rdb_context_t(
         FDBDatabase *_fdb,
+        fdb_node_holder *_node_holder,
         extproc_pool_t *_extproc_pool,
         artificial_reql_cluster_interface_t *_cluster_interface,
         perfmon_collection_t *global_stats,
         const std::string &_reql_http_proxy)
     : fdb(_fdb),
+      node_holder(_node_holder),
       extproc_pool(_extproc_pool),
       artificial_interface_or_null(_cluster_interface),
       reql_http_proxy(_reql_http_proxy),

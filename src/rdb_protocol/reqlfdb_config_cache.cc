@@ -722,7 +722,7 @@ std::vector<name_string_t> config_cache_table_list_sorted(
     return table_names;
 }
 
-MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
+MUST_USE optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> config_cache_sindex_create(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
         const provisional_table_id &table,
@@ -770,6 +770,7 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
         return r_nullopt;
     }
 
+    optional<fdb_job_info> job_info_ret;
     if (table_has_data) {
         // TODO: This node should claim the job.
         fdb_node_id claiming_node_id{nil_uuid()};
@@ -782,9 +783,8 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
         // TODO: We could split up the read/write portion of add_fdb_job, mix with above,
         // and avoid double round-trip latency.
 
-        fdb_job_info ignored = add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
-            std::move(desc), interruptor);
-        (void)ignored;
+        job_info_ret.set(add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
+            std::move(desc), interruptor));
 
         key_view pkey_only = last_key_view.without_prefix(int(pkey_prefix.size()));
         std::string upper_bound_str(as_char(pkey_only.data), size_t(pkey_only.length));
@@ -798,7 +798,7 @@ MUST_USE optional<reqlfdb_config_version> config_cache_sindex_create(
 
     cv.value++;
     transaction_set_config_version(txn, cv);
-    return make_optional(cv);
+    return make_optional(std::make_pair(cv, std::move(job_info_ret)));
 }
 
 

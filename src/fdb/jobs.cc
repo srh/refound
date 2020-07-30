@@ -213,6 +213,16 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
     }
 }
 
+void try_start_supplied_jobs(
+        FDBDatabase *fdb, std::vector<fdb_job_info> &&job_infos,
+        const auto_drainer_t::lock_t &lock) {
+    for (fdb_job_info &info : job_infos) {
+        coro_t::spawn_later_ordered([fdb, job = std::move(info), lock] {
+            execute_job(fdb, job, lock);
+        });
+    }
+}
+
 void try_claim_and_start_job(
         FDBDatabase *fdb, fdb_node_id self_node_id, const auto_drainer_t::lock_t &lock) {
     // TODO: Do we actually want a retry-loop?  Maybe a no-retry loop.

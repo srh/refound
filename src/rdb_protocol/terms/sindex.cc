@@ -7,6 +7,8 @@
 #include "clustering/artificial_reql_cluster_interface.hpp"
 #include "containers/archive/buffer_stream.hpp"
 #include "containers/archive/string_stream.hpp"
+#include "fdb/jobs.hpp"
+#include "fdb/node_holder.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
 #include "rdb_protocol/artificial_table/backend.hpp"
@@ -384,11 +386,12 @@ public:
         sindex_id_t new_sindex_id{generate_uuid()};
         fdb_shared_task_id new_task_id{generate_uuid()};
 
-        optional<reqlfdb_config_version> fdb_result;
+        optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> fdb_result;
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb,
                     env->env->interruptor, [&](FDBTransaction *txn) {
-                optional<reqlfdb_config_version> success = config_cache_sindex_create(
+                optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> success
+                    = config_cache_sindex_create(
                     txn,
                     env->env->get_user_context(),
                     table,
@@ -413,7 +416,12 @@ public:
                 "Index `%s` already exists on table `%s`.",
                 index_name.c_str(), table.display_name().c_str());
         }
-        env->env->get_rdb_ctx()->config_caches.get()->note_version(*fdb_result);
+        env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result->first);
+        if (fdb_result->second.has_value()) {
+            fdb_node_holder *node_holder = env->env->get_rdb_ctx()->node_holder;
+            on_thread_t th(node_holder->home_thread());
+            node_holder->supply_job(std::move(*fdb_result->second));
+        }
 
         ql::datum_object_builder_t res;
         res.overwrite("created", datum_t(1.0));
