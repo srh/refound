@@ -9,8 +9,8 @@
 #include "fdb/typed.hpp"
 #include "rdb_protocol/btree.hpp"  // For compute_keys
 
-#define icdb(...) debugf(__VA_ARGS__)
-// #define icdb(...)
+// #define icdbf(...) debugf(__VA_ARGS__)
+#define icdbf(...)
 
 /* We encounter a question of conflict resolution when building a secondary index.  The
 reason is, there is a min_pkey.  The problem is, with a naive implementation:
@@ -88,7 +88,7 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
 optional<fdb_job_info> execute_index_create_job(
         FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_index_create &index_create_info, const signal_t *interruptor) {
-    icdb("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
+    icdbf("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
     // TODO: Maybe caller can pass clock (as in all jobs).
 
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -118,7 +118,7 @@ optional<fdb_job_info> execute_index_create_job(
     // block?  Small block?  Medium?  Going with medium.
 
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
-    icdb("eicj '%s'\n", debug_str(pkey_prefix).c_str());
+    icdbf("eicj '%s'\n", debug_str(pkey_prefix).c_str());
 
     store_key_t js_lower_bound(jobstate.unindexed_lower_bound.ukey);
     store_key_t js_upper_bound(jobstate.unindexed_upper_bound.ukey);
@@ -126,7 +126,7 @@ optional<fdb_job_info> execute_index_create_job(
     rfdb::datum_range_iterator data_iter = rfdb::primary_prefix_make_iterator(pkey_prefix,
         js_lower_bound, &js_upper_bound, false, false);  // snapshot=false, reverse=false
     // QQQ: create data_iter fut here, block later.
-    icdb("eicj '%s', lb '%s'\n", debug_str(pkey_prefix).c_str(),
+    icdbf("eicj '%s', lb '%s'\n", debug_str(pkey_prefix).c_str(),
         debug_str(js_lower_bound.str()).c_str());
 
     // TODO: Apply a workaround for write contention problems mentioned above.
@@ -153,12 +153,12 @@ optional<fdb_job_info> execute_index_create_job(
     std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> kvs;
     // We have a loop to ensure we slurp at least one document.
     do {
-        icdb("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
+        icdbf("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
             debug_str(js_lower_bound.str()).c_str());
         kvs = data_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
     } while (kvs.first.empty() && kvs.second);
 
-    icdb("eicj '%s', lb '%s' exited loop, kvs count = %zu, more = %d\n", debug_str(pkey_prefix).c_str(),
+    icdbf("eicj '%s', lb '%s' exited loop, kvs count = %zu, more = %d\n", debug_str(pkey_prefix).c_str(),
         debug_str(js_lower_bound.str()).c_str(),
         kvs.first.size(), kvs.second);
 
@@ -177,7 +177,7 @@ optional<fdb_job_info> execute_index_create_job(
 
     // See rdb_update_sindexes    <- TODO: Remove this comment.
     for (const auto &elem : kvs.first) {
-        icdb("eicj '%s', lb '%s' loop, elem '%s'\n", debug_str(pkey_prefix).c_str(),
+        icdbf("eicj '%s', lb '%s' loop, elem '%s'\n", debug_str(pkey_prefix).c_str(),
             debug_str(js_lower_bound.str()).c_str(),
             debug_str(elem.first.str()).c_str());
         // TODO: Increase MAX_KEY_SIZE at some point.
@@ -205,7 +205,7 @@ optional<fdb_job_info> execute_index_create_job(
 
     optional<fdb_job_info> ret;
     if (kvs.second) {
-        icdb("eicj '%s', lb '%s', we have more\n",
+        icdbf("eicj '%s', lb '%s', we have more\n",
             debug_str(pkey_prefix).c_str(),
                 debug_str(js_lower_bound.str()).c_str());
         if (!kvs.first.empty()) {
@@ -213,7 +213,7 @@ optional<fdb_job_info> execute_index_create_job(
             // Increment the pkey lower bound since it's inclusive and we need to do
             // that.
             pkey_str.push_back(1);  // MMM: Use rfdb::kv_prefix_end
-            icdb("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
+            icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
                 debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
             fdb_index_jobstate new_jobstate{
                 ukey_string{std::move(pkey_str)},
