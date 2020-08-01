@@ -137,10 +137,14 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                     }
                     rassert(sem_signal->is_pulsed());
 
-                    rassert(!supplied_jobs_.empty());
-                    std::vector<fdb_job_info> job_infos = std::move(supplied_jobs_);
-                    supplied_jobs_.clear();  // Don't trust std::move (on principle).
-                    supplied_job_sem_holder_.transfer_in(std::move(sem_acq));
+                    std::vector<fdb_job_info> job_infos;
+                    {
+                        ASSERT_NO_CORO_WAITING;
+                        rassert(!supplied_jobs_.empty());
+                        job_infos = std::move(supplied_jobs_);
+                        supplied_jobs_.clear();  // Don't trust std::move (on principle).
+                        supplied_job_sem_holder_.transfer_in(std::move(sem_acq));
+                    }
 
                     try_start_supplied_jobs(fdb_, std::move(job_infos), lock);
                 }
@@ -171,9 +175,14 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
 
 void fdb_node_holder::supply_job(fdb_job_info job) {
     assert_thread();
-    // TODO: We just kind of assume these operations happen atomically.  And they do,
-    // but the code should use a mutex assertion around this stuff.
-    // MMM: Really, I mean really, investigate this.
+
+    // We're careful to assert (and read the code and ensure) that these updates happen
+    // atomically (due to cooperative multithreading).  If the coro blocked or got
+    // interrupted before supply_job_sem_holder_.change_count(0) was called, it would be
+    // possible that the values got moved out of supplied_jobs_ and
+    // supplied_job_sem_holder_ got set back to 1, before we set it down to 0.  And then
+    // it would be out of sync.
+    ASSERT_NO_CORO_WAITING;
     supplied_jobs_.push_back(std::move(job));
     supplied_job_sem_holder_.change_count(0);  // Possibly already released.
 }
