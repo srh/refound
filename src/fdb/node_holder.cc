@@ -116,24 +116,28 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
             // TODO: Avoid having one node take _all_ the jobs (somehow).
             try_claim_and_start_job(fdb_, node_id_, lock);
 
+            // This block is written such that we don't exit the block until the timer
+            // has expired or interruptor has been pulsed.
             {
                 // TODO: Should we randomize this timestep?  Yes.
                 signal_timer_t timer(REQLFDB_TIMESTEP_MS);
-                new_semaphore_in_line_t sem_acq(&supplied_job_sem_, 1);
-                const signal_t *sem_signal = sem_acq.acquisition_signal();
+                for (;;) {
+                    new_semaphore_in_line_t sem_acq(&supplied_job_sem_, 1);
+                    const signal_t *sem_signal = sem_acq.acquisition_signal();
 
-                {
-                    wait_any_t waiter(&timer, sem_signal, interruptor);
-                    waiter.wait();
-                }
-                if (interruptor->is_pulsed()) {
-                    throw interrupted_exc_t();
-                }
-                if (!timer.is_pulsed()) {
-                    // MMM: we should hold a timer and run this logic in a loop.
+                    {
+                        wait_any_t waiter(&timer, sem_signal, interruptor);
+                        waiter.wait();
+                    }
+                    if (interruptor->is_pulsed()) {
+                        throw interrupted_exc_t();
+                    }
+                    if (timer.is_pulsed()) {
+                        break;
+                    }
                     rassert(sem_signal->is_pulsed());
 
-                    guarantee(!supplied_jobs_.empty());
+                    rassert(!supplied_jobs_.empty());
                     std::vector<fdb_job_info> job_infos = std::move(supplied_jobs_);
                     supplied_jobs_.clear();  // Don't trust std::move (on principle).
                     supplied_job_sem_holder_.transfer_in(std::move(sem_acq));
@@ -142,7 +146,6 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                 }
             }
 
-            nap(REQLFDB_TIMESTEP_MS, interruptor);
             fdb_error_t write_err = write_node_entry(fdb_, node_id_, interruptor);
             guarantee_fdb_TODO(write_err, "write_node_entry failed in loop");
         }
