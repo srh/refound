@@ -11,6 +11,9 @@
 namespace rfdb {
 
 static const size_t LARGE_VALUE_SPLIT_SIZE = 16384;
+static const char LARGE_VALUE_FIRST_PREFIX = '\x30';
+static const char LARGE_VALUE_SECOND_PREFIX = '\x31';
+static const char LARGE_VALUE_SUFFIX_LENGTH = 5;  // prefix char followed by 4-digit hex value
 
 // TODO: Try making callers avoid string copy (by not taking a const string& themselves).
 std::string kv_prefix(const std::string &kv_location) {
@@ -101,11 +104,10 @@ kv_location_set(
 
     for (size_t i = 0; i < num_parts; ++i) {
         if (i == 0) {
-            // NNN: Constants for \x30, \x31
-            prefix.push_back('\x30');
+            prefix.push_back(LARGE_VALUE_FIRST_PREFIX);
             append_bigendian_hex16(&prefix, num_parts);
         } else {
-            prefix.push_back('\x31');
+            prefix.push_back(LARGE_VALUE_SECOND_PREFIX);
             append_bigendian_hex16(&prefix, i);
         }
         btubugf("kls '%s', writing key '%s'\n", debug_str(prefix).c_str(), debug_str(key).c_str());
@@ -179,17 +181,16 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
             btubugf("barud '%s' see key '%s'\n", debug_str(prefix).c_str(),
                 debug_str(key_slice.to_string()).c_str());
             key_view post_prefix = key_slice.guarantee_without_prefix(prefix);
-            // NNN: Use a constant for 5.
-            // NNN: Constants for \x30 and \x31.
-            guarantee(post_prefix.length == 5);  // TODO: fdb, graceful, etc.
+            guarantee(post_prefix.length == LARGE_VALUE_SUFFIX_LENGTH);  // TODO: fdb, graceful, etc.
+            static_assert(LARGE_VALUE_SUFFIX_LENGTH == 5, "bad suffix logic");
             uint32_t number = decode_bigendian_hex16(post_prefix.data + 1, 4);
             if (counter == 0) {
-                guarantee(post_prefix.data[0] == '\x30');  // TODO: fdb, graceful, etc.
+                guarantee(post_prefix.data[0] == LARGE_VALUE_FIRST_PREFIX);  // TODO: fdb, graceful, etc.
                 num_parts = number;
                 guarantee(num_parts > 0);
                 ret.emplace();
             } else {
-                guarantee(post_prefix.data[0] == '\x31');  // TODO: fdb, graceful, etc.
+                guarantee(post_prefix.data[0] == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful, etc.
                 guarantee(number == counter);  // TODO: fdb, graceful, etc.
             }
 
@@ -287,10 +288,11 @@ datum_range_iterator::query_and_step(
         last_key_view = full_key;
         // QQQ: Constants.
         // Now, we've got a primary key, followed by '\0', followed by 5 bytes.
+        static_assert(LARGE_VALUE_SUFFIX_LENGTH == 5, "bad suffix logic");
         guarantee(partial_key.length >= 6);  // TODO: fdb, graceful, etc.
         guarantee(partial_key.data[partial_key.length - 6] == '\0');  // TODO: fdb, graceful
         uint8_t b = partial_key.data[partial_key.length - 5];
-        guarantee(b == '\x30' || b == '\x31');  // TODO: fdb, graceful
+        guarantee(b == LARGE_VALUE_FIRST_PREFIX || b == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful
         uint32_t number = decode_bigendian_hex16(partial_key.data + (partial_key.length - 4), 4);
 
         // QQQ: We might sanity check that the key doesn't change.
@@ -300,7 +302,7 @@ datum_range_iterator::query_and_step(
         std::vector<uint8_t> buf{
             void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + size_t(kvs[i].value_length)};
         if (reverse_) {
-            if (b == '\x31') {
+            if (b == LARGE_VALUE_SECOND_PREFIX) {
                 // NNN: Verify sequence counter in key.
                 partial_document_.push_back(std::move(buf));
                 guarantee(number_ == 0 || number == number_ - 1);  // TODO: fdb, graceful
@@ -317,7 +319,7 @@ datum_range_iterator::query_and_step(
             }
             ret.first.emplace_back(std::move(the_key), std::move(buf));
         } else {
-            if (b == '\x30') {
+            if (b == LARGE_VALUE_FIRST_PREFIX) {
                 guarantee(number > 0);  // TODO: fdb, graceful
                 guarantee(partial_document_.empty());  // TODO: fdb, graceful
                 guarantee(number_ == 0);
