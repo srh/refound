@@ -548,7 +548,7 @@ class JrbLang(RbLang):
         self.interpreter_name_exe_names.append('jruby')
 
 interpreters = {
-    'js':     [JsLang('5.12'), JsLang('16.14')],
+    'js':     [JsLang('5.12'), JsLang('6.11.4'), JsLang('10.16.3'), JsLang('16.14')],
     'py':     [PyLang('2.7'), PyLang('3.6'), PyLang('3.8')],
     'rb':     [RbLang('2.5'), RbLang('2.6'), RbLang('2.7'), JrbLang('9.2')],
     'jrb':    [JrbLang('9.0')],
