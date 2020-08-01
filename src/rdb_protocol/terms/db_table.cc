@@ -1004,7 +1004,7 @@ private:
                         };
                     } else {
                         permissions_selector = [table](auth::user_t *user, FDBTransaction *txn, const signal_t *interruptor) -> auth::permissions_t * {
-                            // NNN: Just retrieve table id, not table config or cv.
+                            // TODO: Just retrieve table id, not table config or cv.
                             std::pair<namespace_id_t, table_config_t> info =
                                 expect_retrieve_table(txn, table, interruptor).ci_value;
                             return &user->get_table_permissions(info.first);

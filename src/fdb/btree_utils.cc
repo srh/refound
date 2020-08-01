@@ -286,7 +286,6 @@ datum_range_iterator::query_and_step(
         btubugf("qas '%s', key '%s'\n", debug_str(lower_).c_str(), debug_str(std::string(as_char(full_key.data), full_key.length)).c_str());
         key_view partial_key = full_key.guarantee_without_prefix(pkey_prefix_);
         last_key_view = full_key;
-        // QQQ: Constants.
         // Now, we've got a primary key, followed by '\0', followed by 5 bytes.
         static_assert(LARGE_VALUE_SUFFIX_LENGTH == 5, "bad suffix logic");
         guarantee(partial_key.length >= 6);  // TODO: fdb, graceful, etc.
@@ -303,7 +302,6 @@ datum_range_iterator::query_and_step(
             void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + size_t(kvs[i].value_length)};
         if (reverse_) {
             if (b == LARGE_VALUE_SECOND_PREFIX) {
-                // NNN: Verify sequence counter in key.
                 partial_document_.push_back(std::move(buf));
                 guarantee(number_ == 0 || number == number_ - 1);  // TODO: fdb, graceful
                 number_ = number;
