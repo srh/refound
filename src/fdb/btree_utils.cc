@@ -97,19 +97,22 @@ kv_location_set(
     // TODO: Declare this constant.  We have it because of the file format.
     guarantee(num_parts < 16384);  // OOO: Fail more gracefully.
 
+    const size_t prefix_size = prefix.size();
+
     for (size_t i = 0; i < num_parts; ++i) {
-        // NNN: String view value; key copyage performance.
-        std::string key = prefix;
         if (i == 0) {
             // NNN: Constants for \x30, \x31
-            key.push_back('\x30');
-            append_bigendian_hex16(&key, num_parts);
+            prefix.push_back('\x30');
+            append_bigendian_hex16(&prefix, num_parts);
         } else {
-            key.push_back('\x31');
-            append_bigendian_hex16(&key, i);
+            prefix.push_back('\x31');
+            append_bigendian_hex16(&prefix, i);
         }
         btubugf("kls '%s', writing key '%s'\n", debug_str(prefix).c_str(), debug_str(key).c_str());
-        transaction_set_std_str(txn, key, str.substr(i * LARGE_VALUE_SPLIT_SIZE, LARGE_VALUE_SPLIT_SIZE));
+        const size_t front = i * LARGE_VALUE_SPLIT_SIZE;
+        const size_t back = std::min(front + LARGE_VALUE_SPLIT_SIZE, str.size());
+        transaction_set_buf(txn, prefix, str.data() + front, back - front);
+        prefix.resize(prefix_size);
     }
 
     return res;

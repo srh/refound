@@ -179,6 +179,8 @@ inline fdb_future transaction_get_c_str(FDBTransaction *txn, const char *key) {
 fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_clear_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_set_std_str(FDBTransaction *txn, const std::string &key, const std::string &vaue);
+void transaction_set_buf(FDBTransaction *txn, const std::string &key,
+        const char *value, size_t value_length);
 void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix);
 
 

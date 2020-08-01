@@ -147,6 +147,16 @@ void transaction_set_std_str(FDBTransaction *txn, const std::string &key,
         as_uint8(value.data()), int(value.size()));
 }
 
+void transaction_set_buf(FDBTransaction *txn, const std::string &key,
+        const char *value, size_t value_length) {
+    // TODO: Look at all callers and make an rassert.
+    guarantee(key.size() <= INT_MAX);
+    guarantee(value_length <= INT_MAX);
+    fdb_transaction_set(txn, as_uint8(key.data()), int(key.size()),
+        as_uint8(value), int(value_length));
+}
+
+
 void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix) {
     std::string end = prefix_end(prefix);
     fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
