@@ -29,10 +29,7 @@ std::string serialize_to_string(const T &value) {
     // We still make a second copy when serializing.
     write_message_t wm;
     serialize<W>(&wm, value);
-    string_stream_t stream;
-    DEBUG_VAR int res = send_write_message(&stream, &wm);
-    rassert(res == 0);
-    return std::move(stream.str());
+    return wm.send_to_string();
 }
 
 template <class T>

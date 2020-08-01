@@ -6,6 +6,7 @@
 
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "containers/intrusive_list.hpp"
 #include "containers/printf_buffer.hpp"
@@ -99,6 +100,9 @@ public:
     size_t size() const;
 
     intrusive_list_t<write_buffer_t> *unsafe_expose_buffers() { return &buffers_; }
+
+    std::string send_to_string() const;
+    std::vector<char> send_to_vector() const;
 
 private:
     friend int send_write_message(write_stream_t *s, const write_message_t *wm);

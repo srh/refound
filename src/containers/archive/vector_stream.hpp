@@ -44,11 +44,7 @@ template <class T>
 std::vector<char> serialize_for_cluster_to_vector(const T &x) {
     write_message_t wm;
     serialize_for_cluster(&wm, x);
-    vector_stream_t vs;
-    bool res = send_write_message(&vs, &wm);
-    guarantee(res == 0);
-    std::vector<char> ret = std::move(vs.vector());
-    return ret;
+    return wm.send_to_vector();
 }
 
 #endif  // CONTAINERS_ARCHIVE_VECTOR_STREAM_HPP_

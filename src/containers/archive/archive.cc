@@ -89,6 +89,24 @@ size_t write_message_t::size() const {
     return ret;
 }
 
+std::string write_message_t::send_to_string() const {
+    std::string ret;
+    ret.reserve(size());
+    for (write_buffer_t *h = buffers_.head(); h != nullptr; h = buffers_.next(h)) {
+        ret.append(h->data, h->size);
+    }
+    return ret;
+}
+
+std::vector<char> write_message_t::send_to_vector() const {
+    std::vector<char> ret;
+    ret.reserve(size());
+    for (write_buffer_t *h = buffers_.head(); h != nullptr; h = buffers_.next(h)) {
+        ret.insert(ret.end(), h->data, h->data + h->size);
+    }
+    return ret;
+}
+
 int send_write_message(write_stream_t *s, const write_message_t *wm) {
     intrusive_list_t<write_buffer_t> *list = const_cast<write_message_t *>(wm)->unsafe_expose_buffers();
     for (write_buffer_t *p = list->head(); p; p = list->next(p)) {

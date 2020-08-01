@@ -36,10 +36,7 @@ ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, s
     if (bad(res)) {
         return res;
     }
-    string_stream_t stream;
-    int write_res = send_write_message(&stream, &wm);
-    guarantee(write_res == 0);
-    *out = std::move(stream.str());
+    *out = wm.send_to_string();
     return res;
 }
 
