@@ -4,8 +4,7 @@
 
 void wait_interruptible(const signal_t *signal, const signal_t *interruptor)
         THROWS_ONLY(interrupted_exc_t) {
-    wait_any_t waiter(signal, interruptor);
-    waiter.wait_lazily_unordered();
+    wait_any(signal, interruptor);
     if (interruptor->is_pulsed()) {
         throw interrupted_exc_t();
     }

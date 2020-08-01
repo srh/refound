@@ -125,10 +125,7 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                     new_semaphore_in_line_t sem_acq(&supplied_job_sem_, 1);
                     const signal_t *sem_signal = sem_acq.acquisition_signal();
 
-                    {
-                        wait_any_t waiter(&timer, sem_signal, interruptor);
-                        waiter.wait();
-                    }
+                    wait_any(&timer, sem_signal, interruptor);
                     if (interruptor->is_pulsed()) {
                         throw interrupted_exc_t();
                     }

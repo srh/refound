@@ -45,4 +45,16 @@ private:
     DISABLE_COPYING(wait_any_t);
 };
 
+// These two don't use variadic templates because (a) there's only two of them, and (b)
+// default_preallocated_subs is 3.
+inline void wait_any(const signal_t *arg1, const signal_t *arg2) {
+    wait_any_t waiter{arg1, arg2};
+    waiter.wait();
+}
+
+inline void wait_any(const signal_t *arg1, const signal_t *arg2, const signal_t *arg3) {
+    wait_any_t waiter{arg1, arg2, arg3};
+    waiter.wait();
+}
+
 #endif /* CONCURRENCY_WAIT_ANY_HPP_ */
