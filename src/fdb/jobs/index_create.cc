@@ -204,10 +204,12 @@ job_execution_result execute_index_create_job(
             debug_str(pkey_prefix).c_str(),
                 debug_str(js_lower_bound.str()).c_str());
         if (!kvs.first.empty()) {
-            std::string pkey_str = kvs.first.front().first.str();
-            // Increment the pkey lower bound since it's inclusive and we need to do
-            // that.
-            pkey_str.push_back(1);  // MMM: Use rfdb::kv_prefix_end
+            // Increment the pkey lower bound (with kv_prefix_end) since it's inclusive
+            // and we need to do that.
+
+            // (This could use std::move instead of std::string, but I don't want to risk
+            // bugs.)
+            std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.front().first.str()));
             icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
                 debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
             fdb_index_jobstate new_jobstate{
