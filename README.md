@@ -1,5 +1,3 @@
-<img style="width:100%;" src="/github-banner.png">
-
 [RethinkDB](https://www.rethinkdb.com)
 ======================================
 
