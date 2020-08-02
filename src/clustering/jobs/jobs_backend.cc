@@ -66,6 +66,9 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
         ql::datum_t::null() : ql::datum_t(uuid_to_str(info.claiming_node_or_nil.value)));
     builder.overwrite("counter", ql::datum_t(double(info.counter)));
     builder.overwrite("lease_expiration", clock_datum(info.lease_expiration));
+    builder.overwrite("failed", ql::datum_t::boolean(info.failed.has_value()));
+    builder.overwrite("message", info.failed.has_value() ?
+        ql::datum_t(*info.failed) : ql::datum_t::null());
     builder.overwrite("info", std::move(info_datum));
     return std::move(builder).to_datum();
 }
