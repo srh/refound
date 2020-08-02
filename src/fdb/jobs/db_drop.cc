@@ -7,7 +7,7 @@
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 
 // Returns new job info if we have re-claimed this job and want to execute it again.
-MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
+MUST_USE job_execution_result execute_db_drop_job(FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_db_drop &db_drop_info, const signal_t *interruptor) {
     // TODO: Maybe caller can pass clock (as in all jobs).
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
@@ -29,8 +29,10 @@ MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const f
         txn, db_drop_info.database_id, min_table_name, true,
         FDB_STREAMING_MODE_SMALL);
 
+    job_execution_result ret;
+
     if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
-        return r_nullopt;
+        return ret;
     }
 
     range_fut.block_coro(interruptor);
@@ -56,15 +58,14 @@ MUST_USE optional<fdb_job_info> execute_db_drop_job(FDBTransaction *txn, const f
         last_table = table_name;
     }
 
-    optional<fdb_job_info> ret;
     if (more) {
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
 
         fdb_job_info new_info = update_job_counter(txn, current_clock, info);
-        ret.set(std::move(new_info));
+        ret.reclaimed.set(std::move(new_info));
     } else {
         remove_fdb_job(txn, info);
-        ret = r_nullopt;
+        ret.reclaimed = r_nullopt;
     }
 
     commit(txn, interruptor);

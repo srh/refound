@@ -3,6 +3,7 @@
 #include "containers/archive/string_stream.hpp"
 #include "debug.hpp"
 #include "fdb/index.hpp"
+#include "logger.hpp"
 
 bool block_and_check_info(
         const fdb_job_info &expected_info,
@@ -64,4 +65,22 @@ fdb_job_info update_job_counter(FDBTransaction *txn, reqlfdb_clock current_clock
     replace_fdb_job(txn, old_info, new_info);
 
     return new_info;
+}
+
+void execute_job_failed(FDBTransaction *txn, const fdb_job_info &info,
+        const std::string &message, const signal_t *interruptor) {
+    fdb_value_fut<fdb_job_info> real_info_fut
+        = transaction_get_real_job_info(txn, info);
+
+    if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
+        logWRN("Job info was updated after this node failed, for job %s, after failure '%s'",
+            uuid_to_str(info.job_id.value).c_str(), message.c_str());
+        return;
+    }
+
+    fdb_job_info new_info = info;
+    new_info.lease_expiration = reqlfdb_clock{UINT64_MAX};
+    new_info.failed.set(message);
+    replace_fdb_job(txn, info, new_info);
+    commit(txn, interruptor);
 }

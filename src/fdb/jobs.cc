@@ -155,7 +155,7 @@ fdb_job_info add_fdb_job(FDBTransaction *txn,
         claiming_node_or_nil,
         0,  // counter
         lease_expiration,
-        false,  // failed
+        r_nullopt,  // failed
         std::move(desc),
     };
 
@@ -191,21 +191,23 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         const auto_drainer_t::lock_t &lock) {
     const signal_t *interruptor = lock.get_drain_signal();
 
-    optional<fdb_job_info> reclaimed{info};
-    while (reclaimed.has_value()) {
+    // A "reclaimed
+    fdb_job_info reclaimed{info};
+    for (;;) {
+        job_execution_result result;
         switch (info.job_description.type) {
         case fdb_job_type::db_drop_job: {
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [interruptor, &reclaimed](FDBTransaction *txn) {
-                reclaimed = execute_db_drop_job(txn, *reclaimed, boost::get<fdb_job_db_drop>(reclaimed->job_description.v), interruptor);
+            [interruptor, &reclaimed, &result](FDBTransaction *txn) {
+                result = execute_db_drop_job(txn, reclaimed, boost::get<fdb_job_db_drop>(reclaimed.job_description.v), interruptor);
             });
             guarantee_fdb_TODO(loop_err, "could not execute db drop job");
         } break;
         case fdb_job_type::index_create_job: {
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [interruptor, &reclaimed](FDBTransaction *txn) {
-                reclaimed = execute_index_create_job(txn, *reclaimed,
-                    boost::get<fdb_job_index_create>(reclaimed->job_description.v),
+            [interruptor, &reclaimed, &result](FDBTransaction *txn) {
+                result = execute_index_create_job(txn, reclaimed,
+                    boost::get<fdb_job_index_create>(reclaimed.job_description.v),
                     interruptor);
             });
             guarantee_fdb_TODO(loop_err, "could not execute index create job");
@@ -213,6 +215,20 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         default:
             unreachable();
         }
+
+        if (result.failed.has_value()) {
+            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [interruptor, &reclaimed, &result](FDBTransaction *txn) {
+                    execute_job_failed(txn, reclaimed, *result.failed, interruptor);
+                });
+            guarantee_fdb_TODO(loop_err, "could not execute update_job_failed");
+            break;
+        }
+
+        if (!result.reclaimed.has_value()) {
+            break;
+        }
+        reclaimed = std::move(*result.reclaimed);
     }
 }
 

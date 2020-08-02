@@ -58,8 +58,8 @@ struct fdb_job_info {
     fdb_node_id claiming_node_or_nil;  // Or the nil uuid, if unclaimed
     uint64_t counter;
     reqlfdb_clock lease_expiration;
-    // If true, then lease_expiration is set to UINT64_MAX.
-    bool failed;
+    // Contains an error message. If non-empty, then lease_expiration is set to UINT64_MAX.
+    optional<std::string> failed;
     fdb_job_description job_description;
 };
 
@@ -90,5 +90,18 @@ optional<fdb_job_info> lookup_fdb_job(FDBTransaction *txn, fdb_job_id job_id,
     const signal_t *interruptor);
 std::vector<fdb_job_info> lookup_all_fdb_jobs(FDBTransaction *txn,
     const signal_t *interruptor);
+
+struct job_execution_result {
+    // This result value has zero or one of these optionals non-empty.
+
+    // A "reclaimed" job is one where we split the job into multiple txns (because small
+    // txns are better) and we have more work to do (immediately) so we already have the
+    // job claimed.
+    optional<fdb_job_info> reclaimed;
+
+    // A "failed" job has a message, and it needs its failed state to be written to the
+    // db.  (For cleanliness, that is done in a fresh transaction.)
+    optional<std::string> failed;
+};
 
 #endif  // RETHINKDB_FDB_JOBS_HPP_

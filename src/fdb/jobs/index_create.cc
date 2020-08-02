@@ -85,7 +85,7 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
     return it;  // Returns sindexes->end().
 }
 
-optional<fdb_job_info> execute_index_create_job(
+job_execution_result execute_index_create_job(
         FDBTransaction *txn, const fdb_job_info &info,
         const fdb_job_index_create &index_create_info, const signal_t *interruptor) {
     icdbf("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
@@ -103,8 +103,9 @@ optional<fdb_job_info> execute_index_create_job(
     fdb_value_fut<fdb_index_jobstate> jobstate_fut
         = transaction_lookup_uq_index<index_jobstate_by_task>(txn, info.shared_task_id);
 
+    job_execution_result ret;
     if (!block_and_check_info(info, std::move(real_info_fut), interruptor)) {
-        return r_nullopt;
+        return ret;
     }
 
     // TODO: Obviously, index creation needs to initialize the jobstate when it
@@ -203,7 +204,6 @@ optional<fdb_job_info> execute_index_create_job(
         }
     }
 
-    optional<fdb_job_info> ret;
     if (kvs.second) {
         icdbf("eicj '%s', lb '%s', we have more\n",
             debug_str(pkey_prefix).c_str(),
@@ -225,7 +225,7 @@ optional<fdb_job_info> execute_index_create_job(
 
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
         fdb_job_info new_info = update_job_counter(txn, current_clock, info);
-        ret.set(std::move(new_info));
+        ret.reclaimed.set(std::move(new_info));
     } else {
         transaction_erase_uq_index<index_jobstate_by_task>(txn, info.shared_task_id);
 
@@ -240,7 +240,7 @@ optional<fdb_job_info> execute_index_create_job(
         reqlfdb_config_version cv = cv_fut.block_and_deserialize(interruptor);
         cv.value++;
         transaction_set_config_version(txn, cv);
-        ret = r_nullopt;
+        ret.reclaimed = r_nullopt;
     }
     commit(txn, interruptor);
     return ret;
