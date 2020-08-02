@@ -1489,7 +1489,7 @@ datum_t::as_datum_stream(backtrace_id_t backtrace) const {
 }
 
 // TODO: make BINARY, STR, and OBJECT convertible to sequence?
-void datum_t::throw_if_as_datum_stream_type_errors(backtrace_id_t backtrace) const {
+void datum_t::throw_if_as_datum_stream_type_errors() const {
     switch (get_type()) {
     case MINVAL:   // fallthru
     case MAXVAL:   // fallthru

@@ -813,7 +813,7 @@ void val_t::throw_if_as_seq_type_errors(env_t *env) const {
     } else if (type.raw_type == type_t::TABLE_SLICE || type.raw_type == type_t::TABLE) {
         return;
     } else if (type.raw_type == type_t::DATUM) {
-        datum().throw_if_as_datum_stream_type_errors(backtrace());
+        datum().throw_if_as_datum_stream_type_errors();
         return;
     }
     rcheck_literal_type(env, type_t::SEQUENCE);
