@@ -41,6 +41,8 @@ Facts about jobs:
 2. A job may be unclaimed, or it may be claimed by a node with a lease expiration
 timestamp (a rethinkdb/clock logical timestamp).
 
+2.5.  An unclaimed job may be in a "failed" state.
+
 3. A job may only be operated on by one node at a time.  (You might parallelize by
 splitting it into smaller jobs, that share the same "shared task id".)
 
@@ -86,13 +88,13 @@ RDB_IMPL_EQUALITY_COMPARABLE_2(fdb_job_index_create,
 RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(fdb_job_description, type, v);
 RDB_IMPL_EQUALITY_COMPARABLE_2(fdb_job_description, type, v);
 
-RDB_IMPL_SERIALIZABLE_6_SINCE_v2_5(fdb_job_info,
+RDB_IMPL_SERIALIZABLE_7_SINCE_v2_5(fdb_job_info,
     job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
-    job_description);
+    failed, job_description);
 
-RDB_IMPL_EQUALITY_COMPARABLE_6(fdb_job_info,
+RDB_IMPL_EQUALITY_COMPARABLE_7(fdb_job_info,
     job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
-    job_description);
+    failed, job_description);
 
 // TODO: Think about reusing datum sindex key format.
 skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
@@ -153,6 +155,7 @@ fdb_job_info add_fdb_job(FDBTransaction *txn,
         claiming_node_or_nil,
         0,  // counter
         lease_expiration,
+        false,  // failed
         std::move(desc),
     };
 
@@ -267,6 +270,9 @@ void try_claim_and_start_job(
 
         if (current_clock.value < sp.first.value) {
             // The lease hasn't expired; we do not claim any job.
+
+            // (This comparison also prevents us from claiming any failed jobs, with
+            // lease expiration UINT64_MAX.)
             return;
         }
 

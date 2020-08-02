@@ -58,6 +58,8 @@ struct fdb_job_info {
     fdb_node_id claiming_node_or_nil;  // Or the nil uuid, if unclaimed
     uint64_t counter;
     reqlfdb_clock lease_expiration;
+    // If true, then lease_expiration is set to UINT64_MAX.
+    bool failed;
     fdb_job_description job_description;
 };
 
