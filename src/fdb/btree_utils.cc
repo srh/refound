@@ -126,8 +126,6 @@ void kv_location_delete(
     transaction_clear_prefix_range(txn, prefix);
 }
 
-// NNN: Handle MMM comments.
-
 rfdb::datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_location) {
     std::string lower_key = kv_prefix(kv_location);
     std::string upper_key = prefix_end(lower_key);
