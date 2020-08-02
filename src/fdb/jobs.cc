@@ -13,6 +13,7 @@
 #include "fdb/jobs/job_utils.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
+#include "logger.hpp"
 // TODO: I don't like this dependency order.
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
 #include "utils.hpp"
@@ -217,6 +218,8 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         }
 
         if (result.failed.has_value()) {
+            logERR("Error in job execution for job %s: %s", uuid_to_str(info.job_id.value).c_str(),
+                result.failed->c_str());
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [interruptor, &reclaimed, &result](FDBTransaction *txn) {
                     execute_job_failed(txn, reclaimed, *result.failed, interruptor);

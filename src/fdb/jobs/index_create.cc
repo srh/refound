@@ -112,7 +112,8 @@ job_execution_result execute_index_create_job(
     // initialize the job.
     fdb_index_jobstate jobstate;
     if (!jobstate_fut.block_and_deserialize(interruptor, &jobstate)) {
-        crash("fdb jobstate in invalid state");  // TODO better msg, graceful, etc.
+        ret.failed.set("jobstate in invalid state");
+        return ret;
     }
 
     // So we've got the key from which to start scanning.  Now what?  Scan in a big
@@ -133,12 +134,8 @@ job_execution_result execute_index_create_job(
     // TODO: Apply a workaround for write contention problems mentioned above.
     table_config_t table_config;
     if (!table_config_fut.block_and_deserialize(interruptor, &table_config)) {
-        // NNN: Because jobs get claimed any time a process starts up, allow all jobs to fail gracefully and be put in a failed mode, so that we don't put the fdb storage in a stuck state.
-        crash("Missing table config referencing index creation job %s, for "
-            "table id %s\n",
-            uuid_to_str(info.job_id.value).c_str(),
-            uuid_to_str(index_create_info.table_id.value).c_str());
-        // TODO: msg, graceful, etc.
+        ret.failed.set("missing table config");
+        return ret;
     }
 
     // sindexes_it is casually used to mutate table_config, much later.
