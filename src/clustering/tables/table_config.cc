@@ -226,8 +226,7 @@ bool convert_sindexes_from_datum(
 ql::datum_t convert_table_config_to_datum(
         namespace_id_t table_id,
         const ql::datum_t &db_name_or_uuid,
-        const table_config_t &config,
-        admin_identifier_format_t identifier_format) {
+        const table_config_t &config) {
     ql::datum_object_builder_t builder;
     builder.overwrite("name", convert_name_to_datum(config.basic.name));
     builder.overwrite("db", db_name_or_uuid);
@@ -249,10 +248,24 @@ ql::datum_t table_config_artificial_table_fdb_backend_t::format_row(
         const table_config_t &config,
         const ql::datum_t &db_name_or_uuid) const {
     return convert_table_config_to_datum(table_id, db_name_or_uuid,
-        config, identifier_format);
+        config);
+}
+
+bool convert_database_id_from_datum(
+        const signal_t *interruptor,
+        FDBTransaction *txn,
+        const ql::datum_t &db_datum,
+        admin_identifier_format_t identifier_format,
+        database_id_t *db_out,
+        admin_err_t *error_out) {
+    // OOO: Use identifier_format.  Handle db_drop case?  Old logic looked up database,
+    // so we knew it existed -- make sure we do that (somehow).
+    return convert_uuid_from_datum(db_datum, &db_out->value, error_out);
 }
 
 bool convert_table_config_and_name_from_datum(
+        const signal_t *interruptor,
+        FDBTransaction *txn,
         ql::datum_t datum,
         bool existed_before,
         admin_identifier_format_t identifier_format,
@@ -284,8 +297,9 @@ bool convert_table_config_and_name_from_datum(
         return false;
     }
     // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
-    if (!convert_uuid_from_datum(
-            db_datum, &config_out->basic.database.value,
+    if (!convert_database_id_from_datum(
+            interruptor,
+            txn, db_datum, identifier_format, &config_out->basic.database,
             error_out)) {
         return false;
     }
@@ -471,9 +485,10 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
             // TODO: identifier_format freaks me out.
             namespace_id_t new_table_id;
             table_config_t new_config;
-            if (!convert_table_config_and_name_from_datum(*new_value_inout, true,
-                identifier_format, old_config, &new_table_id, &new_config,
-                error_out)) {
+            if (!convert_table_config_and_name_from_datum(
+                    interruptor, txn, *new_value_inout, true,
+                    identifier_format, old_config, &new_table_id, &new_config,
+                    error_out)) {
                 error_out->msg = "The change you're trying to make to "
                     "`rethinkdb.table_config` has the wrong format. "
                     + error_out->msg;
@@ -579,9 +594,10 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
 
     namespace_id_t new_table_id;
     table_config_t new_config;
-    if (!convert_table_config_and_name_from_datum(*new_value_inout, false,
-        identifier_format, table_config_t(),
-        &new_table_id, &new_config, error_out)) {
+    if (!convert_table_config_and_name_from_datum(
+            interruptor, txn, *new_value_inout, false,
+            identifier_format, table_config_t(),
+            &new_table_id, &new_config, error_out)) {
         error_out->msg = "The change you're trying to make to "
             "`rethinkdb.table_config` has the wrong format. " + error_out->msg;
         return false;
@@ -593,8 +609,7 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
     fields, so we need to write back the filled-in values to `new_value_inout`.
     */
     *new_value_inout = convert_table_config_to_datum(
-        table_id, new_value_inout->get_field("db"), new_config,
-        identifier_format);
+        table_id, new_value_inout->get_field("db"), new_config);
 
     // At this point we need to create the table.
 

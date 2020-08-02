@@ -18,8 +18,7 @@ class write_hook_config_t;
 ql::datum_t convert_table_config_to_datum(
         namespace_id_t table_id,
         const ql::datum_t &db_name_or_uuid,
-        const table_config_t &config,
-        admin_identifier_format_t identifier_format);
+        const table_config_t &config);
 
 ql::datum_t convert_write_hook_to_datum(
     const optional<write_hook_config_t> &write_hook);

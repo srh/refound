@@ -190,7 +190,7 @@ reqlfdb_config_cache::try_lookup_cached_table(
     return ret;
 }
 
-// OOO: Is this used anymore?
+// NNN: Is this used anymore?
 config_info<optional<database_id_t>>
 config_cache_retrieve_db_by_name(
         const reqlfdb_config_version config_cache_cv,

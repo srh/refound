@@ -366,8 +366,7 @@ private:
         // TODO: Wipe the config cache after the txn succeeds?
 
         ql::datum_t new_config = convert_table_config_to_datum(new_table_id,
-            convert_name_to_datum(prov_db.db_name), config_result,
-            admin_identifier_format_t::name);
+            convert_name_to_datum(prov_db.db_name), config_result);
 
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("tables_created", ql::datum_t(1.0));
@@ -496,8 +495,7 @@ private:
 
         // TODO: Wipe the config cache after the txn succeeds?
         ql::datum_t old_config = convert_table_config_to_datum(
-            fdb_result->first, convert_name_to_datum(prov_db.db_name), fdb_result->second,
-            admin_identifier_format_t::name);
+            fdb_result->first, convert_name_to_datum(prov_db.db_name), fdb_result->second);
 
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("tables_dropped", ql::datum_t(1.0));
