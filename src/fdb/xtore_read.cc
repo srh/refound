@@ -344,7 +344,6 @@ continue_bool_t fdb_traversal_secondary(
 
 }
 
-// TODO: Remove/merge with rdb_rget_slice again?  (Old rocksdb impl question.)
 void rdb_fdb_rget_snapshot_slice(
         const signal_t *interruptor,
         FDBTransaction *txn,
