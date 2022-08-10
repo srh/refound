@@ -113,7 +113,7 @@ public:
         fdb_error_t err = fdb_create_database(nullptr, &db);
         if (err != 0) {
             const char *msg = fdb_get_error(err);
-            printf("ERROR: fdb_create_database failed: %s", msg);
+            fprintf(stderr, "ERROR: fdb_create_database failed: %s\n", msg);
             abort();  // TODO: abort?
         }
     }
