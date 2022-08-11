@@ -626,6 +626,11 @@ private:
                         backtrace(),
                         streams.size()));
             }
+#else
+            (void)include_states;
+            (void)include_types;
+            (void)include_initial;
+            (void)include_offsets;
 #endif  // RDB_CF
         } else if (v->get_type().is_convertible(val_t::type_t::SINGLE_SELECTION)) {
             scoped<single_selection_t> sel = std::move(*v).as_single_selection(env->env);
