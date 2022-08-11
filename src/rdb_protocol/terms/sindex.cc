@@ -186,6 +186,7 @@ sindex_config_t sindex_config_from_string(
             default:
                 unreachable();
             }
+            break;
         case cluster_version_result_t::UNRECOGNIZED_VERSION:
             rfail_toplevel(ql::base_exc_t::INTERNAL,
                 "Unrecognized secondary index version,"
