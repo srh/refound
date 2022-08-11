@@ -3,8 +3,7 @@
 ##### Build parameters
 
 # TODO: Do we want a static lib, do we want to statically link FDB?
-FDB_DYNAMIC_LIB := $(BUILD_DIR)/fdb/libfdb_c_6.2.10.so
-FDB_LIBS := $(FDB_DYNAMIC_LIB) -lm -lrt -lpthread
+FDB_LIBS := -lfdb_c -lm -lrt -lpthread
 
 # We assemble path directives.
 LDFLAGS ?=
@@ -298,7 +297,7 @@ generate-headers: $(TOP)/src/rpc/equality_macros.hpp $(TOP)/src/rpc/serialize_ma
 .PHONY: rethinkdb
 rethinkdb: $(BUILD_DIR)/$(SERVER_EXEC_NAME)
 
-RETHINKDB_DEPENDENCIES_LIBS := $(MALLOC_LIBS_DEP) $(PROTOBUF_LIBS_DEP) $(RE2_LIBS_DEP) $(Z_LIBS_DEP) $(CURL_LIBS_DEP) $(CRYPTO_LIBS_DEP) $(SSL_LIBS_DEP) $(QUICKJS_LIBS_DEP) $(FDB_DYNAMIC_LIB)
+RETHINKDB_DEPENDENCIES_LIBS := $(MALLOC_LIBS_DEP) $(PROTOBUF_LIBS_DEP) $(RE2_LIBS_DEP) $(Z_LIBS_DEP) $(CURL_LIBS_DEP) $(CRYPTO_LIBS_DEP) $(SSL_LIBS_DEP) $(QUICKJS_LIBS_DEP)
 
 MAYBE_CHECK_STATIC_MALLOC =
 ifeq ($(STATIC_MALLOC),1) # if the allocator is statically linked
@@ -317,11 +316,6 @@ ifneq (1,$(SYMBOLS))
     $(error Conflicting build flags: SYMBOLS=0 and SPLIT_SYMBOLS=1)
   endif
 endif
-
-$(FDB_DYNAMIC_LIB): | $(BUILD_DIR)/.
-	$P FDB
-	mkdir -p $(BUILD_DIR)/fdb
-	cp -R $(TOP)/fdb/libfdb_c_6.2.10.so $(BUILD_DIR)/fdb
 
 $(BUILD_DIR)/$(SERVER_EXEC_NAME): $(SERVER_EXEC_OBJS) | $(BUILD_DIR)/. $(RETHINKDB_DEPENDENCIES_LIBS)
 	$P LD $@

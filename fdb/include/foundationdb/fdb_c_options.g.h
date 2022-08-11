@@ -52,6 +52,18 @@ typedef enum {
     // Parameter: (String) Format of trace files
     FDB_NET_OPTION_TRACE_FORMAT=34,
 
+    // Select clock source for trace files. now (the default) or realtime are supported.
+    // Parameter: (String) Trace clock source
+    FDB_NET_OPTION_TRACE_CLOCK_SOURCE=35,
+
+    // Once provided, this string will be used to replace the port/PID in the log file names.
+    // Parameter: (String) The identifier that will be part of all trace file names
+    FDB_NET_OPTION_TRACE_FILE_IDENTIFIER=36,
+
+    // 
+    // Parameter: (String) Append this suffix to partially written log files. When a log file is complete, it is renamed to remove the suffix. No separator is added between the file and the suffix. If you want to add a file extension, you should include the separator - e.g. '.tmp' instead of 'tmp' to add the 'tmp' extension.
+    FDB_NET_OPTION_TRACE_PARTIAL_FILE_SUFFIX=39,
+
     // Set internal tuning or debugging knobs
     // Parameter: (String) knob_name=knob_value
     FDB_NET_OPTION_KNOB=40,
@@ -124,17 +136,25 @@ typedef enum {
     // Parameter: (String) path to directory containing client libraries
     FDB_NET_OPTION_EXTERNAL_CLIENT_DIRECTORY=63,
 
-    // Prevents connections through the local client, allowing only connections through externally loaded client libraries. Intended primarily for testing.
+    // Prevents connections through the local client, allowing only connections through externally loaded client libraries.
     // Parameter: Option takes no parameter
     FDB_NET_OPTION_DISABLE_LOCAL_CLIENT=64,
+
+    // Spawns multiple worker threads for each version of the client that is loaded.  Setting this to a number greater than one implies disable_local_client.
+    // Parameter: (Int) Number of client threads to be spawned.  Each cluster will be serviced by a single client thread.
+    FDB_NET_OPTION_CLIENT_THREADS_PER_VERSION=65,
 
     // Disables logging of client statistics, such as sampled transaction activity.
     // Parameter: Option takes no parameter
     FDB_NET_OPTION_DISABLE_CLIENT_STATISTICS_LOGGING=70,
 
-    // Enables debugging feature to perform slow task profiling. Requires trace logging to be enabled. WARNING: this feature is not recommended for use in production.
+    // Deprecated
     // Parameter: Option takes no parameter
     FDB_NET_OPTION_ENABLE_SLOW_TASK_PROFILING=71,
+
+    // Enables debugging feature to perform run loop profiling. Requires trace logging to be enabled. WARNING: this feature is not recommended for use in production.
+    // Parameter: Option takes no parameter
+    FDB_NET_OPTION_ENABLE_RUN_LOOP_PROFILING=71,
 
     // Enable client buggify - will make requests randomly fail (intended for client testing)
     // Parameter: Option takes no parameter
@@ -186,7 +206,7 @@ typedef enum {
     // Parameter: (Int) value in milliseconds of timeout
     FDB_DB_OPTION_TRANSACTION_TIMEOUT=500,
 
-    // Set a timeout in milliseconds which, when elapsed, will cause a transaction automatically to be cancelled. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.
+    // Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.
     // Parameter: (Int) number of times to retry
     FDB_DB_OPTION_TRANSACTION_RETRY_LIMIT=501,
 
@@ -202,9 +222,13 @@ typedef enum {
     // Parameter: Option takes no parameter
     FDB_DB_OPTION_TRANSACTION_CAUSAL_READ_RISKY=504,
 
-    // Addresses returned by get_addresses_for_key include the port when enabled. This will be enabled by default in api version 700, and this option will be deprecated.
+    // Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.
     // Parameter: Option takes no parameter
-    FDB_DB_OPTION_TRANSACTION_INCLUDE_PORT_IN_ADDRESS=505
+    FDB_DB_OPTION_TRANSACTION_INCLUDE_PORT_IN_ADDRESS=505,
+
+    // Allows ``get`` operations to read from sections of keyspace that have become unreadable because of versionstamp operations. This sets the ``bypass_unreadable`` option of each transaction created by this database. See the transaction option description for more information.
+    // Parameter: Option takes no parameter
+    FDB_DB_OPTION_TRANSACTION_BYPASS_UNREADABLE=700
 } FDBDatabaseOption;
 
 typedef enum {
@@ -220,7 +244,7 @@ typedef enum {
     // Parameter: Option takes no parameter
     FDB_TR_OPTION_CAUSAL_READ_DISABLE=21,
 
-    // Addresses returned by get_addresses_for_key include the port when enabled. This will be enabled by default in api version 700, and this option will be deprecated.
+    // Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.
     // Parameter: Option takes no parameter
     FDB_TR_OPTION_INCLUDE_PORT_IN_ADDRESS=23,
 
@@ -280,13 +304,17 @@ typedef enum {
     // Parameter: (String) String identifier to be used when tracing or profiling this transaction. The identifier must not exceed 100 characters.
     FDB_TR_OPTION_DEBUG_TRANSACTION_IDENTIFIER=403,
 
-    // Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled and to get log output.
+    // Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled to get log output.
     // Parameter: Option takes no parameter
     FDB_TR_OPTION_LOG_TRANSACTION=404,
 
     // Sets the maximum escaped length of key and value fields to be logged to the trace file via the LOG_TRANSACTION option, after which the field will be truncated. A negative value disables truncation.
     // Parameter: (Int) Maximum length of escaped key and value fields.
     FDB_TR_OPTION_TRANSACTION_LOGGING_MAX_FIELD_LENGTH=405,
+
+    // Sets an identifier for server tracing of this transaction. When committed, this identifier triggers logging when each part of the transaction authority encounters it, which is helpful in diagnosing slowness in misbehaving clusters. The identifier is randomly generated. When there is also a debug_transaction_identifier, both IDs are logged together.
+    // Parameter: Option takes no parameter
+    FDB_TR_OPTION_SERVER_REQUEST_TRACING=406,
 
     // Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Prior to API version 610, like all other transaction options, the timeout must be reset after a call to ``onError``. If the API version is 610 or greater, the timeout is not reset after an ``onError`` call. This allows the user to specify a longer timeout on specific transactions than the default timeout specified through the ``transaction_timeout`` database option without the shorter database timeout cancelling transactions that encounter a retryable error. Note that at all API versions, it is safe and legal to set the timeout each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.
     // Parameter: (Int) value in milliseconds of timeout
@@ -312,7 +340,7 @@ typedef enum {
     // Parameter: Option takes no parameter
     FDB_TR_OPTION_SNAPSHOT_RYW_DISABLE=601,
 
-    // The transaction can read and write to locked databases, and is resposible for checking that it took the lock.
+    // The transaction can read and write to locked databases, and is responsible for checking that it took the lock.
     // Parameter: Option takes no parameter
     FDB_TR_OPTION_LOCK_AWARE=700,
 
@@ -326,14 +354,34 @@ typedef enum {
 
     // This option should only be used by tools which change the database configuration.
     // Parameter: Option takes no parameter
-    FDB_TR_OPTION_USE_PROVISIONAL_PROXIES=711
+    FDB_TR_OPTION_USE_PROVISIONAL_PROXIES=711,
+
+    // The transaction can retrieve keys that are conflicting with other transactions.
+    // Parameter: Option takes no parameter
+    FDB_TR_OPTION_REPORT_CONFLICTING_KEYS=712,
+
+    // By default, the special key space will only allow users to read from exactly one module (a subspace in the special key space). Use this option to allow reading from zero or more modules. Users who set this option should be prepared for new modules, which may have different behaviors than the modules they're currently reading. For example, a new module might block or return an error.
+    // Parameter: Option takes no parameter
+    FDB_TR_OPTION_SPECIAL_KEY_SPACE_RELAXED=713,
+
+    // Adds a tag to the transaction that can be used to apply manual targeted throttling. At most 5 tags can be set on a transaction.
+    // Parameter: (String) String identifier used to associated this transaction with a throttling group. Must not exceed 16 characters.
+    FDB_TR_OPTION_TAG=800,
+
+    // Adds a tag to the transaction that can be used to apply manual or automatic targeted throttling. At most 5 tags can be set on a transaction.
+    // Parameter: (String) String identifier used to associated this transaction with a throttling group. Must not exceed 16 characters.
+    FDB_TR_OPTION_AUTO_THROTTLE_TAG=801,
+
+    // Allows ``get`` operations to read from sections of keyspace that have become unreadable because of versionstamp operations. These reads will view versionstamp operations as if they were set operations that did not fill in the versionstamp.
+    // Parameter: Option takes no parameter
+    FDB_TR_OPTION_BYPASS_UNREADABLE=1100
 } FDBTransactionOption;
 
 typedef enum {
     // Client intends to consume the entire range and would like it all transferred as early as possible.
     FDB_STREAMING_MODE_WANT_ALL=-2,
 
-    // The default. The client doesn't know how much of the range it is likely to used and wants different performance concerns to be balanced. Only a small portion of data is transferred to the client initially (in order to minimize costs if the client doesn't read the entire range), and as the caller iterates over more items in the range larger batches will be transferred in order to minimize latency.
+    // The default. The client doesn't know how much of the range it is likely to used and wants different performance concerns to be balanced. Only a small portion of data is transferred to the client initially (in order to minimize costs if the client doesn't read the entire range), and as the caller iterates over more items in the range larger batches will be transferred in order to minimize latency. After enough iterations, the iterator mode will eventually reach the same byte limit as ``WANT_ALL``
     FDB_STREAMING_MODE_ITERATOR=-1,
 
     // Infrequently used. The client has passed a specific row limit and wants that many rows delivered in a single batch. Because of iterator operation in client drivers make request batches transparent to the user, consider ``WANT_ALL`` StreamingMode instead. A row limit must be specified if this mode is used.
