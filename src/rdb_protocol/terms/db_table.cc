@@ -724,6 +724,8 @@ private:
                                  wait_writes_str, wait_all_str);
                 }
             }
+            // We don't actually use the readiness parameter with fdb.
+            (void)readiness;
         }
 
         // Handle 'timeout' optarg
@@ -822,6 +824,8 @@ private:
         if (scoped_ptr_t<val_t> v = args->optarg(env, "dry_run")) {
             dry_run = v->as_bool(env);
         }
+        // But we ignore the parameter.
+        (void)dry_run;
 
         /* Figure out whether we're doing a regular reconfiguration or an emergency
         repair. */
@@ -891,6 +895,8 @@ private:
                     "individually.");
             }
 
+            // We of course ignore the parameter after parsing it.
+            (void)mode;
             rfail(base_exc_t::OP_FAILED, "Per-table reconfiguration is not supported on Reql-on-FDB");  // TODO: Product name
         }
     }
@@ -1207,6 +1213,7 @@ private:
         }
 
         // We don't use `read_mode` because that only got used pre-fdb.
+        (void)read_mode;
         return new_val(provisional_table_id{
             db, table_name, identifier_format, backtrace()});
     }
