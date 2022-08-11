@@ -26,8 +26,6 @@ private:
     std::string path_;
 };
 
-static const char *TEMPORARY_DIRECTORY_NAME = "tmp";
-
 void recreate_temporary_directory(const base_path_t& base_path);
 
 void remove_directory_recursive(const char *path);
