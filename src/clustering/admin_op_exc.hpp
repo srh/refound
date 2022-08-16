@@ -2,6 +2,8 @@
 #ifndef CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
 #define CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
 
+#include <stdexcept>
+
 #include "containers/name_string.hpp"
 #include "query_state.hpp"
 #include "utils.hpp"

@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <stdexcept>
 
 #include "containers/scoped.hpp"
 #include "logger.hpp"

@@ -12,7 +12,7 @@
 template <cluster_version_t W, class K, class V, class C>
 size_t serialized_size(const std::unordered_map<K, V, C> &m) {
     size_t ret = varint_uint64_serialized_size(m.size());
-    for (const std::pair<K, V> &pair : m) {
+    for (const auto &pair : m) {
         ret += serialized_size<W>(pair);
     }
     return ret;
@@ -21,7 +21,7 @@ size_t serialized_size(const std::unordered_map<K, V, C> &m) {
 template <cluster_version_t W, class K, class V, class C>
 void serialize(write_message_t *wm, const std::unordered_map<K, V, C> &m) {
     serialize_varint_uint64(wm, m.size());
-    for (const std::pair<K, V> &pair : m) {
+    for (const auto &pair : m) {
         serialize<W>(wm, pair);
     }
 }
