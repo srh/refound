@@ -251,6 +251,7 @@ ql::datum_t table_config_artificial_table_fdb_backend_t::format_row(
         config);
 }
 
+// This is for use with convert_table_config_from_datum -- not for the db drop jobs table.
 bool convert_database_id_from_datum(
         const signal_t *interruptor,
         FDBTransaction *txn,
@@ -258,9 +259,26 @@ bool convert_database_id_from_datum(
         admin_identifier_format_t identifier_format,
         database_id_t *db_out,
         admin_err_t *error_out) {
-    // OOO: Use identifier_format.  Handle db_drop case?  Old logic looked up database,
-    // so we knew it existed -- make sure we do that (somehow).
-    return convert_uuid_from_datum(db_datum, &db_out->value, error_out);
+    switch (identifier_format) {
+    case admin_identifier_format_t::name: {
+        // Tables with a db_drop job don't exist other than as rendered in the jobs table,
+        // so (it should go without saying, once we say it enough) we only look up in the
+        // active db's table.
+        name_string_t name;
+        if (!convert_name_from_datum(db_datum, "database name", &name, error_out)) {
+            return false;
+        }
+        fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(txn, name);
+        if (!fut.block_and_deserialize(interruptor, db_out)) {
+            *error_out = admin_err_t{strprintf("Database `%s` does not exist.", name.c_str()), query_state_t::FAILED};
+            return false;
+        }
+        return true;
+    }
+    case admin_identifier_format_t::uuid:
+        return convert_uuid_from_datum(db_datum, &db_out->value, error_out);
+    }
+    unreachable();
 }
 
 bool convert_table_config_and_name_from_datum(

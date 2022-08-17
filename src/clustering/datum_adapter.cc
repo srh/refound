@@ -29,6 +29,7 @@ ql::datum_t convert_name_to_datum(
     return ql::datum_t(value.c_str());
 }
 
+// OOO: what's the deal with this "what" string?  Make a const char *?
 bool convert_name_from_datum(
         ql::datum_t datum,
         const std::string &what,

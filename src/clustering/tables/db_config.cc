@@ -37,7 +37,7 @@ bool convert_db_config_and_name_from_datum(
     if (!converter.get("name", &name_datum, error_out)) {
         return false;
     }
-    if (!convert_name_from_datum(name_datum, "db name", db_name_out, error_out)) {
+    if (!convert_name_from_datum(name_datum, "database name", db_name_out, error_out)) {
         error_out->msg = "In `name`: " + error_out->msg;
         return false;
     }
