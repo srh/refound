@@ -26,7 +26,7 @@ bool convert_string_from_datum(
 
 ql::datum_t convert_name_to_datum(
         const name_string_t &value) {
-    return ql::datum_t(value.c_str());
+    return ql::datum_t(value.str());
 }
 
 // OOO: what's the deal with this "what" string?  Make a const char *?

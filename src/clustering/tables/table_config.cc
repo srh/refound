@@ -37,11 +37,13 @@ bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     std::string prefix = table_config_by_id::prefix;
     std::string pend = prefix_end(prefix);
     std::vector<std::pair<namespace_id_t, table_config_t>> configs;
+    std::vector<std::pair<database_id_t, name_string_t>> db_names;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&](FDBTransaction *txn) {
         // TODO: Might be worth making a typed version of this read_whole_range func -- similar code to config_cache_db_list_sorted_by_id.
         auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
         std::vector<std::pair<namespace_id_t, table_config_t>> builder;
+
         transaction_read_whole_range_coro(txn, prefix, pend, interruptor,
                 [&](const FDBKeyValue &kv) {
             key_view whole_key{void_as_uint8(kv.key), kv.key_length};
@@ -53,16 +55,47 @@ bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
             return true;
         });
         auth_fut.block_and_check(interruptor);
+
+        std::vector<std::pair<database_id_t, name_string_t>> db_name_lookups;
+        if (identifier_format == admin_identifier_format_t::name) {
+            std::unordered_set<database_id_t> db_ids;
+            for (auto &pair : builder) {
+                db_ids.insert(pair.second.basic.database);
+            }
+            std::vector<std::pair<database_id_t, fdb_value_fut<name_string_t>>> db_name_futs;
+            db_name_futs.reserve(db_ids.size());
+            for (auto &db_id : db_ids) {
+                db_name_futs.emplace_back(db_id, transaction_lookup_uq_index<db_config_by_id>(txn, db_id));
+            }
+            for (auto &fut_pair : db_name_futs) {
+                name_string_t name;
+                bool result = fut_pair.second.block_and_deserialize(interruptor, &name);
+                // TODO: DB is corrupt, what to do?
+                guarantee(result, "DB cannot be found within table config txn for id `%s`.  DB is corrupt?", uuid_to_str(fut_pair.first).c_str());
+                db_name_lookups.emplace_back(fut_pair.first, std::move(name));
+            }
+        }
+
         configs = std::move(builder);
+        db_names = std::move(db_name_lookups);
     });
     guarantee_fdb_TODO(loop_err, "common_table_artificial_table_fdb_backend_t::"
         "read_all_rows_as_vector retry loop");
 
+    std::unordered_map<database_id_t, name_string_t> db_name_table(db_names.begin(), db_names.end());
     std::vector<ql::datum_t> rows;
     rows.reserve(configs.size());
     for (auto &pair : configs) {
-        // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
-        ql::datum_t db_name_or_uuid = convert_uuid_to_datum(pair.second.basic.database.value);
+
+        ql::datum_t db_name_or_uuid;
+        switch (identifier_format) {
+        case admin_identifier_format_t::name:
+            db_name_or_uuid = convert_name_to_datum(db_name_table.at(pair.second.basic.database));
+            break;
+        case admin_identifier_format_t::uuid:
+            db_name_or_uuid = convert_uuid_to_datum(pair.second.basic.database.value);
+            break;
+        }
         rows.push_back(format_row(
             pair.first,
             pair.second,
@@ -72,13 +105,41 @@ bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     return true;
 }
 
+bool convert_database_id_to_datum(
+        const signal_t *interruptor,
+        FDBTransaction *txn,
+        database_id_t db_id,
+        admin_identifier_format_t identifier_format,
+        ql::datum_t *out,
+        admin_err_t *error_out) {
+    switch (identifier_format) {
+    case admin_identifier_format_t::name: {
+        fdb_value_fut<name_string_t> db_by_id_fut = transaction_lookup_uq_index<db_config_by_id>(txn, db_id);
+        name_string_t name;
+        bool exists = db_by_id_fut.block_and_deserialize(interruptor, &name);
+        if (!exists) {
+            *error_out = admin_err_t{
+                strprintf("Database `%s` does not exist.", uuid_to_str(db_id.value).c_str()),
+                query_state_t::FAILED};
+            return false;
+        }
+        *out = convert_name_to_datum(name);
+        return true;
+    } break;
+    case admin_identifier_format_t::uuid:
+        *out = convert_uuid_to_datum(db_id.value);
+        return true;
+    }
+    unreachable();
+}
+
 bool table_config_artificial_table_fdb_backend_t::read_row(
         FDBTransaction *txn,
         UNUSED auth::user_context_t const &user_context,
         ql::datum_t primary_key,
         const signal_t *interruptor,
         ql::datum_t *row_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
     // TODO: Did we need to use user_context here?
     namespace_id_t table_id;
     admin_err_t dummy_error;
@@ -99,8 +160,10 @@ bool table_config_artificial_table_fdb_backend_t::read_row(
         return true;
     }
 
-    // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
-    ql::datum_t db_name_or_uuid = convert_uuid_to_datum(config.basic.database.value);
+    ql::datum_t db_name_or_uuid;
+    if (!convert_database_id_to_datum(interruptor, txn, config.basic.database, identifier_format, &db_name_or_uuid, error_out)) {
+        return false;
+    }
     *row_out = format_row(
         table_id,
         config,
@@ -251,7 +314,6 @@ ql::datum_t table_config_artificial_table_fdb_backend_t::format_row(
         config);
 }
 
-// This is for use with convert_table_config_from_datum -- not for the db drop jobs table.
 bool convert_database_id_from_datum(
         const signal_t *interruptor,
         FDBTransaction *txn,
@@ -270,11 +332,13 @@ bool convert_database_id_from_datum(
         }
         fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(txn, name);
         if (!fut.block_and_deserialize(interruptor, db_out)) {
-            *error_out = admin_err_t{strprintf("Database `%s` does not exist.", name.c_str()), query_state_t::FAILED};
+            *error_out = admin_err_t{
+                strprintf("Database `%s` does not exist.", name.c_str()),
+                query_state_t::FAILED};
             return false;
         }
         return true;
-    }
+    } break;
     case admin_identifier_format_t::uuid:
         return convert_uuid_from_datum(db_datum, &db_out->value, error_out);
     }
@@ -314,7 +378,6 @@ bool convert_table_config_and_name_from_datum(
     if (!converter.get("db", &db_datum, error_out)) {
         return false;
     }
-    // QQQ: Make use of identifier_format, and handle db_drop in-progress case.
     if (!convert_database_id_from_datum(
             interruptor,
             txn, db_datum, identifier_format, &config_out->basic.database,
@@ -500,7 +563,6 @@ bool table_config_artificial_table_fdb_backend_t::write_row(
         auth_fut.block_and_check(interruptor);
 
         if (new_value_inout->has()) {
-            // TODO: identifier_format freaks me out.
             namespace_id_t new_table_id;
             table_config_t new_config;
             if (!convert_table_config_and_name_from_datum(
