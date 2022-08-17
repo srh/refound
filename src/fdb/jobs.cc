@@ -77,10 +77,10 @@ rethinkdb/jobs/ => table of fdb_job_info by job id
 
 */
 
-RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(fdb_job_db_drop,
-    database_id, last_table_name);
-RDB_IMPL_EQUALITY_COMPARABLE_2(fdb_job_db_drop,
-    database_id, last_table_name);
+RDB_IMPL_SERIALIZABLE_3_SINCE_v2_5(fdb_job_db_drop,
+    database_id, database_name, last_table_name);
+RDB_IMPL_EQUALITY_COMPARABLE_3(fdb_job_db_drop,
+    database_id, database_name, last_table_name);
 RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(fdb_job_index_create,
     table_id, sindex_id);
 RDB_IMPL_EQUALITY_COMPARABLE_2(fdb_job_index_create,

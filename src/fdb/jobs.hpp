@@ -5,6 +5,7 @@
 #include <boost/variant.hpp>
 
 #include "concurrency/auto_drainer.hpp"
+#include "containers/name_string.hpp"
 #include "containers/optional.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/id_types.hpp"
@@ -25,11 +26,13 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(fdb_job_type, int8_t,
 
 struct fdb_job_db_drop {
     database_id_t database_id;
+    // Used only for displaying the job in the jobs table.
+    name_string_t database_name;
 
     optional<std::string> last_table_name;
 
-    static fdb_job_db_drop make(database_id_t db_id) {
-        return fdb_job_db_drop{db_id, r_nullopt};
+    static fdb_job_db_drop make(database_id_t db_id, const name_string_t &db_name) {
+        return fdb_job_db_drop{db_id, db_name, r_nullopt};
     }
 };
 RDB_DECLARE_SERIALIZABLE(fdb_job_db_drop);

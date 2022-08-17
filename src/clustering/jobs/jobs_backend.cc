@@ -27,7 +27,6 @@ ql::datum_t clock_datum(reqlfdb_clock clk) {
 
 ql::datum_t job_info_to_datum(const fdb_job_info &info,
         admin_identifier_format_t identifier_format) {
-    // OOO: Make use of identifier_format.
     // "info" is the old pre-fdb name for fdb_job_description data.
     ql::datum_t info_datum;
     std::string type_str;
@@ -36,7 +35,9 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
         type_str = "db_drop";
         ql::datum_object_builder_t info_builder;
         const fdb_job_db_drop &db_drop = boost::get<fdb_job_db_drop>(info.job_description.v);
-        info_builder.overwrite("db", ql::datum_t(uuid_to_str(db_drop.database_id.value)));
+        info_builder.overwrite("db", convert_name_or_uuid_to_datum(db_drop.database_name,
+                                                                   db_drop.database_id.value,
+                                                                   identifier_format));
         const optional<std::string> &last_table_name
             = db_drop.last_table_name;
         info_builder.overwrite("progress",
@@ -45,6 +46,7 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
         info_datum = std::move(info_builder).to_datum();
     } break;
     case fdb_job_type::index_create_job: {
+        // OOO: Make use of identifier_format.
         const fdb_job_index_create &index_create = boost::get<fdb_job_index_create>(info.job_description.v);
         type_str = "index_construction";
         ql::datum_object_builder_t info_builder;
