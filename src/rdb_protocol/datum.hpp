@@ -446,6 +446,8 @@ class datum_object_builder_t {
 public:
     datum_object_builder_t() { }
     explicit datum_object_builder_t(const datum_t &copy_from);
+    datum_object_builder_t(datum_object_builder_t &&) = default;
+    datum_object_builder_t &operator=(datum_object_builder_t &&) = default;
 
     bool empty() const {
         return map.empty();

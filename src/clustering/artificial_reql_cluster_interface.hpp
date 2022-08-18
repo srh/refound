@@ -23,6 +23,7 @@ class db_config_artificial_table_fdb_backend_t;
 class in_memory_artificial_table_fdb_backend_t;
 class jobs_artificial_table_fdb_backend_t;
 class table_config_artificial_table_fdb_backend_t;
+class table_status_artificial_table_fdb_backend_t;
 class artificial_reql_cluster_backends_t;
 
 class artificial_reql_cluster_backends_t {
@@ -37,6 +38,7 @@ public:
     scoped<auth::permissions_artificial_table_fdb_backend_t>
         permissions_backend[2];
     scoped<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
+    scoped<table_status_artificial_table_fdb_backend_t> table_status_backend[2];
     scoped<auth::users_artificial_table_fdb_backend_t> users_backend;
     scoped<in_memory_artificial_table_fdb_backend_t> debug_scratch_backend;
 

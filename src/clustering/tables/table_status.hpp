@@ -1,6 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
-#ifndef CLUSTERING_ADMINISTRATION_TABLES_TABLE_CONFIG_HPP_
-#define CLUSTERING_ADMINISTRATION_TABLES_TABLE_CONFIG_HPP_
+#ifndef CLUSTERING_ADMINISTRATION_TABLES_TABLE_STATUS_HPP_
+#define CLUSTERING_ADMINISTRATION_TABLES_TABLE_STATUS_HPP_
 
 #include <memory>
 #include <string>
@@ -11,43 +11,15 @@
 #include "rdb_protocol/artificial_table/backend.hpp"
 
 class table_config_t;
-class write_hook_config_t;
+class table_status_t;
 
-/* This is publicly exposed so that it can be used to create the return value of
-`table.reconfigure()`. */
-ql::datum_t convert_table_config_to_datum(
-        namespace_id_t table_id,
-        const ql::datum_t &db_name_or_uuid,
-        const table_config_t &config);
-
-ql::datum_t convert_write_hook_to_datum(
-    const optional<write_hook_config_t> &write_hook);
-
-// Exposed for reuse by table_status_artificial_table_fdb_backend_t.
-bool read_all_table_configs(
-        artificial_table_fdb_backend_t *backend,
-        const signal_t *interruptor,
-        FDBDatabase *fdb,
-        auth::user_context_t const &user_context,
-        admin_identifier_format_t identifier_format,
-        std::vector<std::pair<namespace_id_t, table_config_t>> *configs_out,
-        std::unordered_map<database_id_t, name_string_t> *db_names_out,
-        admin_err_t *error_out);
-bool convert_database_id_to_datum(
-        const signal_t *interruptor,
-        FDBTransaction *txn,
-        database_id_t db_id,
-        admin_identifier_format_t identifier_format,
-        ql::datum_t *out,
-        admin_err_t *error_out);
-
-class table_config_artificial_table_fdb_backend_t :
+class table_status_artificial_table_fdb_backend_t :
     public artificial_table_fdb_backend_t
 {
 public:
-    explicit table_config_artificial_table_fdb_backend_t(
+    explicit table_status_artificial_table_fdb_backend_t(
             admin_identifier_format_t _identifier_format);
-    ~table_config_artificial_table_fdb_backend_t();
+    ~table_status_artificial_table_fdb_backend_t();
 
     bool read_all_rows_as_vector(
             FDBDatabase *fdb,
@@ -82,5 +54,5 @@ private:
     const admin_identifier_format_t identifier_format;
 };
 
-#endif /* CLUSTERING_ADMINISTRATION_TABLES_TABLE_CONFIG_HPP_ */
+#endif /* CLUSTERING_ADMINISTRATION_TABLES_TABLE_STATUS_HPP_ */
 

@@ -8,6 +8,7 @@
 #include "clustering/jobs/jobs_backend.hpp"
 #include "clustering/tables/db_config.hpp"
 #include "clustering/tables/table_config.hpp"
+#include "clustering/tables/table_status.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
 #include "rdb_protocol/artificial_table/in_memory.hpp"
 #include "rdb_protocol/env.hpp"
@@ -35,6 +36,7 @@ std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorte
         name_string_t::guarantee_valid("jobs"),
         name_string_t::guarantee_valid("permissions"),
         name_string_t::guarantee_valid("table_config"),
+        name_string_t::guarantee_valid("table_status"),
         name_string_t::guarantee_valid("users"),
         // Nope -- we don't show '_'-prefixed system tables to the user unless they explicitly request it.
         // name_string_t::guarantee_valid("_debug_scratch"),
@@ -73,6 +75,9 @@ artificial_reql_cluster_interface_t::get_table_backend_or_null(
     } else {
         if (table_name.str() == "table_config") {
             return m_backends.table_config_backend[static_cast<int>(admin_identifier_format)].get();
+        }
+        if (table_name.str() == "table_status") {
+            return m_backends.table_status_backend[static_cast<int>(admin_identifier_format)].get();
         }
         if (table_name.str() == "users") {
             return m_backends.users_backend.get();
@@ -119,6 +124,8 @@ optional<namespace_id_t> artificial_reql_cluster_interface_t::get_table_id(
     } else {
         if (table_name.str() == "table_config") {
             found = true;
+        } else if (table_name.str() == "table_status") {
+            found = true;
         } else if (table_name.str() == "users") {
             found = true;
         } else if (table_name.str() == "_debug_scratch") {
@@ -154,6 +161,12 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t() {
     for (int format = 0; format < 2; ++format) {
         table_config_backend[format].init(
             new table_config_artificial_table_fdb_backend_t(
+                static_cast<admin_identifier_format_t>(format)));
+    }
+
+    for (int format = 0; format < 2; ++format) {
+        table_status_backend[format].init(
+            new table_status_artificial_table_fdb_backend_t(
                 static_cast<admin_identifier_format_t>(format)));
     }
 

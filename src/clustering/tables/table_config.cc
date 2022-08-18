@@ -24,24 +24,25 @@ table_config_artificial_table_fdb_backend_t::table_config_artificial_table_fdb_b
 table_config_artificial_table_fdb_backend_t::~table_config_artificial_table_fdb_backend_t() {
 }
 
-
-bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
+bool read_all_table_configs(
+        artificial_table_fdb_backend_t *backend,
+        const signal_t *interruptor,
         FDBDatabase *fdb,
         auth::user_context_t const &user_context,
-        const signal_t *interruptor,
-        std::vector<ql::datum_t> *rows_out,
+        admin_identifier_format_t identifier_format,
+        std::vector<std::pair<namespace_id_t, table_config_t>> *configs_out,
+        std::unordered_map<database_id_t, name_string_t> *db_names_out,
         UNUSED admin_err_t *error_out) {
-    // QQQ: Did we need to use user_context_t here?
+    const std::string prefix = table_config_by_id::prefix;
+    const std::string pend = prefix_end(prefix);
 
-    // TODO: Break into parts...
-    std::string prefix = table_config_by_id::prefix;
-    std::string pend = prefix_end(prefix);
     std::vector<std::pair<namespace_id_t, table_config_t>> configs;
     std::vector<std::pair<database_id_t, name_string_t>> db_names;
+
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&](FDBTransaction *txn) {
         // TODO: Might be worth making a typed version of this read_whole_range func -- similar code to config_cache_db_list_sorted_by_id.
-        auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
+        auth::fdb_user_fut<auth::read_permission> auth_fut = backend->get_read_permission(txn, user_context);
         std::vector<std::pair<namespace_id_t, table_config_t>> builder;
 
         transaction_read_whole_range_coro(txn, prefix, pend, interruptor,
@@ -82,7 +83,27 @@ bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     guarantee_fdb_TODO(loop_err, "common_table_artificial_table_fdb_backend_t::"
         "read_all_rows_as_vector retry loop");
 
-    std::unordered_map<database_id_t, name_string_t> db_name_table(db_names.begin(), db_names.end());
+    *configs_out = std::move(configs);
+    db_names_out->clear();
+    db_names_out->insert(db_names.begin(), db_names.end());
+    return true;
+}
+
+
+bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
+        FDBDatabase *fdb,
+        auth::user_context_t const &user_context,
+        const signal_t *interruptor,
+        std::vector<ql::datum_t> *rows_out,
+        UNUSED admin_err_t *error_out) {
+
+    std::vector<std::pair<namespace_id_t, table_config_t>> configs;
+    std::unordered_map<database_id_t, name_string_t> db_name_table;
+    if (!read_all_table_configs(this, interruptor, fdb, user_context, identifier_format,
+                                &configs, &db_name_table, error_out)) {
+        return false;
+    }
+
     std::vector<ql::datum_t> rows;
     rows.reserve(configs.size());
     for (auto &pair : configs) {
