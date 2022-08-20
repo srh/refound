@@ -291,7 +291,8 @@ constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;
 
 // TODO: Calculate this rationally using constants like TIMESTEP_MS and how fdb
 // transaction duration is configured.
-constexpr const int REQLFDB_JOB_LEASE_DURATION = 10;
+constexpr int REQLFDB_JOB_LEASE_DURATION = 10;
+constexpr uint64_t REQLFDB_CONNECTIVITY_COMPLAINT_TIMEOUT_MS = 3000;
 
 constexpr uint64_t REQLFDB_TIMESTEP_MS = 5000;
 

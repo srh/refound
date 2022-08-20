@@ -67,11 +67,26 @@ void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interr
 
 MUST_USE fdb_error_t write_node_entry(
         FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
-    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [&node_id, interruptor](FDBTransaction *txn) {
-        write_body(txn, node_id, interruptor);
-    });
-    return loop_err;
+    for (;;) {
+        signal_timer_t timer(REQLFDB_CONNECTIVITY_COMPLAINT_TIMEOUT_MS);
+        wait_any_t waiter(&timer, interruptor);
+        try {
+            fdb_error_t loop_err = txn_retry_loop_coro(fdb, &waiter,
+                [&node_id, &waiter](FDBTransaction *txn) {
+                write_body(txn, node_id, &waiter);
+            });
+            return loop_err;
+        } catch (const interrupted_exc_t &ex) {
+            if (interruptor->is_pulsed()) {
+                throw;
+            }
+            if (timer.is_pulsed()) {
+                printf("Trouble registering node... Is FoundationDB running? Is the config correct?\n"
+                       "Retrying...\n");
+            }
+            continue;
+        }
+    }
 }
 
 MUST_USE fdb_error_t erase_node_entry(
