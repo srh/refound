@@ -228,6 +228,9 @@ bool do_serve(FDBDatabase *fdb,
     } catch (const tcp_socket_exc_t &ex) {
         logERR("%s.\n", ex.what());
         return false;
+    } catch (const interrupted_exc_t &ex) {
+        // fdb_node_holder stop_cond param
+        return false;
     }
 
     return true;
