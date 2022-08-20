@@ -18,7 +18,7 @@ void *fdb_thread(void *ctx) {
     fdb_error_t err = fdb_run_network();
     if (err != 0) {
         const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_run_network failed: %s", msg);
+        printf("ERROR: fdb_run_network failed: %s\n", msg);
         return (void *)1;
     }
 
@@ -30,18 +30,19 @@ bool setup_fdb(pthread_t *thread) {
     fdb_error_t err = fdb_select_api_version(FDB_API_VERSION);
     if (err != 0) {
         const char *msg = fdb_get_error(err);
-        printf("ERROR: Could not initialize FoundationDB client library: %s", msg);
+        printf("ERROR: Could not initialize FoundationDB client library: %s\n", msg);
         return false;
     }
     err = fdb_setup_network();
     if (err != 0) {
         const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_setup_network failed: %s", msg);
+        printf("ERROR: fdb_setup_network failed: %s\n", msg);
         return false;
     }
 
     int result = pthread_create(thread, nullptr, fdb_thread, nullptr);
     guarantee_xerr(result == 0, result, "Could not create thread: %d", result);
+
     return true;
 }
 
@@ -49,7 +50,7 @@ bool join_fdb(pthread_t thread) {
     fdb_error_t err = fdb_stop_network();
     if (err != 0) {
         const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_stop_network failed: %s", msg);
+        printf("ERROR: fdb_stop_network failed: %s\n", msg);
         return false;
     }
 
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]) {
 
         if (subcommand == "--version" || subcommand == "-v") {
             if (argc != 2) {
-                printf("WARNING: Ignoring extra parameters after '%s'.", subcommand.c_str());
+                printf("WARNING: Ignoring extra parameters after '%s'.\n", subcommand.c_str());
             }
             print_version_message();
             return 0;
