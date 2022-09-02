@@ -7,6 +7,8 @@
 #include "clustering/id_types.hpp"
 #include "clustering/jobs/jobs_backend.hpp"
 #include "clustering/tables/db_config.hpp"
+#include "clustering/tables/server_config.hpp"
+#include "clustering/tables/server_status.hpp"
 #include "clustering/tables/table_config.hpp"
 #include "clustering/tables/table_status.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
@@ -38,6 +40,8 @@ std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorte
         name_string_t::guarantee_valid("table_config"),
         name_string_t::guarantee_valid("table_status"),
         name_string_t::guarantee_valid("users"),
+        name_string_t::guarantee_valid("server_config"),
+        name_string_t::guarantee_valid("server_status"),
         // Nope -- we don't show '_'-prefixed system tables to the user unless they explicitly request it.
         // name_string_t::guarantee_valid("_debug_scratch"),
     };
@@ -71,6 +75,13 @@ artificial_reql_cluster_interface_t::get_table_backend_or_null(
         }
         if (table_name.str() == "permissions") {
             return m_backends.permissions_backend[static_cast<int>(admin_identifier_format)].get();
+        }
+    } else if (table_name.str() < "t") {
+        if (table_name.str() == "server_config") {
+            return m_backends.server_config_backend.get();
+        }
+        if (table_name.str() == "server_status") {
+            return m_backends.server_status_backend[static_cast<int>(admin_identifier_format)].get();
         }
     } else {
         if (table_name.str() == "table_config") {
@@ -119,6 +130,12 @@ optional<namespace_id_t> artificial_reql_cluster_interface_t::get_table_id(
         } else if (table_name.str() == "jobs") {
             found = true;
         } else if (table_name.str() == "permissions") {
+            found = true;
+        }
+    } else if (table_name.str() < "t") {
+        if (table_name.str() == "server_config") {
+            found = true;
+        } else if (table_name.str() == "server_status") {
             found = true;
         }
     } else {
