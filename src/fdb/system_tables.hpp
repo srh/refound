@@ -8,8 +8,24 @@
 
 namespace auth {
 class username_t;
+class user_t;
 }
 class table_config_t;
+
+struct node_info_by_id {
+    using ukey_type = fdb_node_id;
+    using value_type = node_info;
+    static constexpr const char *prefix = REQLFDB_NODES_BY_ID;
+
+    static ukey_string ukey_str(const ukey_type &k) {
+        // TODO: Use binary uuid?  In general.
+        return uuid_primary_key(k.value);
+    }
+
+    static ukey_type parse_ukey(key_view k) {
+        return fdb_node_id{parse_uuid_primary_key(k)};
+    }
+};
 
 struct table_config_by_id {
     using ukey_type = namespace_id_t;

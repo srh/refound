@@ -24,7 +24,7 @@ Node presence and clock configuration:
 
     rethinkdb/clock => monotonic integer, meanderingly increments approx. every REQLFDB_TIMESTEP
     rethinkdb/nodes_count => number of keys under rethinkdb/nodes/
-    rethinkdb/nodes/ => table of node_info_t by server uuid
+    rethinkdb/nodes/ => table of node_info by server uuid
       indexed with total count in place of rethinkdb/node_count?
       indexed by lease expiration?
 
@@ -238,3 +238,4 @@ void future_block_coro(FDBFuture *fut, const signal_t *interruptor) {
 #endif
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_clock, value);
+RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(node_info, lease_expiration);

@@ -289,6 +289,11 @@ constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 
 constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;
 
+struct node_info {
+    reqlfdb_clock lease_expiration;
+};
+RDB_DECLARE_SERIALIZABLE(node_info);
+
 // TODO: Calculate this rationally using constants like TIMESTEP_MS and how fdb
 // transaction duration is configured.
 constexpr int REQLFDB_JOB_LEASE_DURATION = 10;

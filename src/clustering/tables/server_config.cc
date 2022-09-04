@@ -23,6 +23,16 @@ server_config_artificial_table_fdb_backend_t::server_config_artificial_table_fdb
 server_config_artificial_table_fdb_backend_t::~server_config_artificial_table_fdb_backend_t() {
 }
 
+ql::datum_t format_row(const uuid_u& node_id) {
+    ql::datum_object_builder_t builder;
+    const std::string node_id_string = uuid_to_str(node_id);
+    const std::string node_name = node_id_string;
+    builder.overwrite("name", ql::datum_t(node_name));
+    builder.overwrite("id", ql::datum_t(node_id_string));
+    builder.overwrite("tags", ql::datum_t(std::vector<ql::datum_t>{}, ql::datum_t::no_array_size_limit_check_t{}));
+    builder.overwrite("cache_size_mb", ql::datum_t("auto"));
+    return std::move(builder).to_datum();
+}
 
 bool server_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,

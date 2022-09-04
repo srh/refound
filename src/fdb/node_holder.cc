@@ -7,14 +7,10 @@
 #include "fdb/jobs.hpp"
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
+#include "fdb/system_tables.hpp"
 #include "fdb/typed.hpp"
 #include "utils.hpp"
 
-std::string node_key(const fdb_node_id &node_id) {
-    std::string key = REQLFDB_NODES_BY_ID;
-    uuid_onto_str(node_id.value, &key);  // TODO: use binary uuid?
-    return key;
-}
 fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint64_t *out) {
     fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [interruptor, out](FDBTransaction *txn) {
         fdb_future nodes_count_fut = transaction_get_c_str(txn, REQLFDB_NODES_COUNT_KEY);
@@ -33,23 +29,16 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
 
 
 void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interruptor) {
-    std::string key = node_key(node_id);
-
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
-    fdb_future old_node_fut = transaction_get_std_str(txn, key);
+    fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
 
     reqlfdb_clock clock = clock_fut.block_and_deserialize(interruptor);
     fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 
     {
-        reqlfdb_clock lease_expiration{clock.value + REQLFDB_NODE_LEASE_DURATION};
-        std::string buf = serialize_for_cluster_to_string(lease_expiration);
-
-        fdb_transaction_set(txn,
-            as_uint8(key.data()),
-            int(key.size()),
-            as_uint8(buf.data()),
-            int(buf.size()));
+        node_info info;
+        info.lease_expiration = reqlfdb_clock{clock.value + REQLFDB_NODE_LEASE_DURATION};
+        transaction_set_uq_index<node_info_by_id>(txn, node_id, info);
     }
 
     if (!old_node.present) {
@@ -92,12 +81,10 @@ MUST_USE fdb_error_t write_node_entry(
 MUST_USE fdb_error_t erase_node_entry(
         FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
     return txn_retry_loop_coro(fdb, interruptor, [&node_id, interruptor](FDBTransaction *txn) {
-        std::string key = node_key(node_id);
-
-        fdb_future old_node_fut = transaction_get_std_str(txn, key);
+        fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
         fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 
-        fdb_transaction_clear(txn, as_uint8(key.data()), int(key.size()));
+        transaction_erase_uq_index<node_info_by_id>(txn, node_id);
         if (old_node.present) {
             static_assert(8 == REQLFDB_NODES_COUNT_SIZE, "array initializer must match array size");
             uint8_t value[REQLFDB_NODES_COUNT_SIZE] = {

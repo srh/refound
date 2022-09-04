@@ -175,6 +175,15 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t() {
                 static_cast<admin_identifier_format_t>(format)));
     }
 
+    server_config_backend.init(
+        new server_config_artificial_table_fdb_backend_t());
+
+    for (int format = 0; format < 2; ++format) {
+        server_status_backend[format].init(
+            new server_status_artificial_table_fdb_backend_t(
+                static_cast<admin_identifier_format_t>(format)));
+    }
+
     for (int format = 0; format < 2; ++format) {
         table_config_backend[format].init(
             new table_config_artificial_table_fdb_backend_t(
