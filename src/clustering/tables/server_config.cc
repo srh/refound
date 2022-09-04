@@ -1,12 +1,7 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
 #include "clustering/tables/server_config.hpp"
 
-// TODO: Trim includes
-#include "clustering/auth/user_fut.hpp"
 #include "clustering/datum_adapter.hpp"
-#include "clustering/real_reql_cluster_interface.hpp"  // for table_already_exists_error
-#include "clustering/tables/table_metadata.hpp"
-#include "containers/archive/string_stream.hpp"
 #include "containers/uuid.hpp"
 #include "fdb/index.hpp"
 #include "fdb/retry_loop.hpp"
@@ -23,12 +18,18 @@ server_config_artificial_table_fdb_backend_t::server_config_artificial_table_fdb
 server_config_artificial_table_fdb_backend_t::~server_config_artificial_table_fdb_backend_t() {
 }
 
-ql::datum_t format_row(const fdb_node_id& node_id, UNUSED const node_info& info) {
+node_name_and_id compute_node_name_and_id(const fdb_node_id &node_id) {
+    node_name_and_id ret;
+    ret.id_string = uuid_to_str(node_id.value);
+    ret.name = ret.id_string;
+    return ret;
+}
+
+ql::datum_t format_server_config_row(const fdb_node_id& node_id, const node_info& info) {
     ql::datum_object_builder_t builder;
-    const std::string node_id_string = uuid_to_str(node_id.value);
-    const std::string node_name = node_id_string;
-    builder.overwrite("name", ql::datum_t(node_name));
-    builder.overwrite("id", ql::datum_t(node_id_string));
+    node_name_and_id nai = compute_node_name_and_id(node_id);
+    builder.overwrite("name", ql::datum_t(nai.name));
+    builder.overwrite("id", ql::datum_t(nai.id_string));
     builder.overwrite("tags", ql::datum_t(std::vector<ql::datum_t>{}, ql::datum_t::no_array_size_limit_check_t{}));
     builder.overwrite("cache_size_mb", ql::datum_t("auto"));
     ql::datum_object_builder_t fdb;
@@ -70,7 +71,7 @@ bool server_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
 
     std::vector<ql::datum_t> result;
     for (auto& pair : node_infos) {
-        result.push_back(format_row(pair.first, pair.second));
+        result.push_back(format_server_config_row(pair.first, pair.second));
     }
 
     *rows_out = std::move(result);
@@ -102,7 +103,7 @@ bool server_config_artificial_table_fdb_backend_t::read_row(
         return true;
     }
 
-    *row_out = format_row(node_id, info);
+    *row_out = format_server_config_row(node_id, info);
     return true;
 }
 
