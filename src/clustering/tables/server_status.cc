@@ -20,7 +20,7 @@ server_status_artificial_table_fdb_backend_t::server_status_artificial_table_fdb
 server_status_artificial_table_fdb_backend_t::~server_status_artificial_table_fdb_backend_t() {
 }
 
-ql::datum_t format_server_status_row(const fdb_node_id &node_id, UNUSED const node_info &info) {
+ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info &info, reqlfdb_clock current_clock) {
     ql::datum_object_builder_t builder;
     node_name_and_id nai = compute_node_name_and_id(node_id);
     builder.overwrite("name", ql::datum_t(nai.name));
@@ -41,6 +41,11 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, UNUSED const no
     proc_builder.overwrite("cache_size_mb", ql::datum_t(fake_cache_size_mb));
     builder.overwrite("process", std::move(proc_builder).to_datum());
 
+    ql::datum_object_builder_t fdb;
+    fdb.overwrite("lease_expiration", ql::datum_t(std::to_string(info.lease_expiration.value)));
+    fdb.overwrite("current_clock", ql::datum_t(std::to_string(current_clock.value)));
+    builder.overwrite("fdb", std::move(fdb).to_datum());
+
     // TODO: This doesn't include the network information.  Maybe we can put that off.
     return std::move(builder).to_datum();
 }
@@ -53,17 +58,19 @@ bool server_status_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     std::vector<std::pair<fdb_node_id, node_info>> node_infos;
+    reqlfdb_clock current_clock;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
-        reqlfdb_clock clock_discard;
-        auto infos = read_all_node_infos(interruptor, txn, &clock_discard);
+        reqlfdb_clock clock;
+        auto infos = read_all_node_infos(interruptor, txn, &clock);
 
         node_infos = std::move(infos);
+        current_clock = clock;
     });
     guarantee_fdb_TODO(loop_err, "server_status_artificial_table_fdb_backend_t read_all_rows retry loop");
 
     std::vector<ql::datum_t> result;
     for (auto& pair : node_infos) {
-        result.push_back(format_server_status_row(pair.first, pair.second));
+        result.push_back(format_server_status_row(pair.first, pair.second, current_clock));
     }
 
     *rows_out = std::move(result);
@@ -106,7 +113,7 @@ bool server_status_artificial_table_fdb_backend_t::read_row(
         return true;
     }
 
-    *row_out = format_server_status_row(node_id, info);
+    *row_out = format_server_status_row(node_id, info, clock);
     return true;
 }
 

@@ -25,18 +25,13 @@ node_name_and_id compute_node_name_and_id(const fdb_node_id &node_id) {
     return ret;
 }
 
-ql::datum_t format_server_config_row(const fdb_node_id& node_id, const node_info& info, reqlfdb_clock current_clock) {
+ql::datum_t format_server_config_row(const fdb_node_id& node_id, UNUSED const node_info& info) {
     ql::datum_object_builder_t builder;
     node_name_and_id nai = compute_node_name_and_id(node_id);
     builder.overwrite("name", ql::datum_t(nai.name));
     builder.overwrite("id", ql::datum_t(nai.id_string));
     builder.overwrite("tags", ql::datum_t(std::vector<ql::datum_t>{}, ql::datum_t::no_array_size_limit_check_t{}));
     builder.overwrite("cache_size_mb", ql::datum_t("auto"));
-    // TODO: Possibly this should be part of server_status.
-    ql::datum_object_builder_t fdb;
-    fdb.overwrite("lease_expiration", ql::datum_t(std::to_string(info.lease_expiration.value)));
-    fdb.overwrite("current_clock", ql::datum_t(std::to_string(current_clock.value)));
-    builder.overwrite("fdb", std::move(fdb).to_datum());
     return std::move(builder).to_datum();
 }
 
@@ -61,19 +56,17 @@ bool server_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         std::vector<ql::datum_t> *rows_out,
         UNUSED admin_err_t *error_out) {
     std::vector<std::pair<fdb_node_id, node_info>> node_infos;
-    reqlfdb_clock current_clock;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
-        reqlfdb_clock clock;
-        auto infos = read_all_node_infos(interruptor, txn, &clock);
+        reqlfdb_clock clock_discard;
+        auto infos = read_all_node_infos(interruptor, txn, &clock_discard);
 
         node_infos = std::move(infos);
-        current_clock = clock;
     });
     guarantee_fdb_TODO(loop_err, "server_config_artificial_table_fdb_backend_t read_all_rows retry loop");
 
     std::vector<ql::datum_t> result;
     for (auto& pair : node_infos) {
-        result.push_back(format_server_config_row(pair.first, pair.second, current_clock));
+        result.push_back(format_server_config_row(pair.first, pair.second));
     }
 
     *rows_out = std::move(result);
@@ -116,7 +109,7 @@ bool server_config_artificial_table_fdb_backend_t::read_row(
         return true;
     }
 
-    *row_out = format_server_config_row(node_id, info, clock);
+    *row_out = format_server_config_row(node_id, info);
     return true;
 }
 
