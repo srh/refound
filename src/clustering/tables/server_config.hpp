@@ -10,6 +10,7 @@
 
 struct fdb_node_id;
 struct node_info;
+struct reqlfdb_clock;
 
 // Used to dedup logic in server_status.
 struct node_name_and_id {
@@ -18,7 +19,8 @@ struct node_name_and_id {
 };
 node_name_and_id compute_node_name_and_id(const fdb_node_id &node_id);
 
-std::vector<std::pair<fdb_node_id, node_info>> read_all_node_infos(const signal_t *interruptor, FDBTransaction *txn);
+std::vector<std::pair<fdb_node_id, node_info>> read_all_node_infos(const signal_t *interruptor, FDBTransaction *txn,
+                                                                   reqlfdb_clock *clock_out);
 
 class server_config_artificial_table_fdb_backend_t :
     public artificial_table_fdb_backend_t

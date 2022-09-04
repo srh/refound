@@ -54,7 +54,8 @@ bool server_status_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         UNUSED admin_err_t *error_out) {
     std::vector<std::pair<fdb_node_id, node_info>> node_infos;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
-        auto infos = read_all_node_infos(interruptor, txn);
+        reqlfdb_clock clock_discard;
+        auto infos = read_all_node_infos(interruptor, txn, &clock_discard);
 
         node_infos = std::move(infos);
     });
