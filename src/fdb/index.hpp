@@ -115,7 +115,6 @@ transaction_lookup_uq_index_raw(
     return ret;
 }
 
-
 template <class index_traits>
 void transaction_erase_uq_index(
         FDBTransaction *txn,
@@ -133,6 +132,25 @@ void transaction_set_uq_index(
     transaction_set_unique_index(txn, index_traits::prefix,
         index_traits::ukey_str(index_key), valstr);
 }
+
+template <class index_traits>
+std::vector<std::pair<typename index_traits::ukey_type, typename index_traits::value_type>>
+transaction_read_range_uq_index_coro(const signal_t *interruptor, FDBTransaction *txn) {
+    std::vector<std::pair<typename index_traits::ukey_type, typename index_traits::value_type>> ret;
+    std::string prefix = index_traits::prefix;
+    transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
+        [&](const FDBKeyValue &kv) {
+            key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+            key_view ukey = whole_key.guarantee_without_prefix(prefix);
+            fdb_node_id key = index_traits::parse_ukey(ukey);
+            typename index_traits::value_type value;
+            deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &value);
+            ret.emplace_back(key, value);
+            return true;
+        });
+    return ret;
+}
+
 
 template <class index_traits>
 void transaction_erase_plain_index(

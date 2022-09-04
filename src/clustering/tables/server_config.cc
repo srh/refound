@@ -38,20 +38,9 @@ ql::datum_t format_server_config_row(const fdb_node_id& node_id, const node_info
     return std::move(builder).to_datum();
 }
 
-// TODO: This could probably be a template function in index.hpp.
 std::vector<std::pair<fdb_node_id, node_info>> read_all_node_infos(const signal_t *interruptor, FDBTransaction *txn) {
-    std::vector<std::pair<fdb_node_id, node_info>> ret;
-    std::string prefix = node_info_by_id::prefix;
-    transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
-        [&](const FDBKeyValue &kv) {
-            key_view whole_key{void_as_uint8(kv.key), kv.key_length};
-            key_view node_id_key = whole_key.guarantee_without_prefix(prefix);
-            fdb_node_id node_id = node_info_by_id::parse_ukey(node_id_key);
-            node_info info;
-            deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &info);
-            ret.emplace_back(node_id, info);
-            return true;
-        });
+    std::vector<std::pair<fdb_node_id, node_info>> ret
+        = transaction_read_range_uq_index_coro<node_info_by_id>(interruptor, txn);
     return ret;
 }
 
