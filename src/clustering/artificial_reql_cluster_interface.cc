@@ -9,6 +9,7 @@
 #include "clustering/tables/db_config.hpp"
 #include "clustering/tables/server_config.hpp"
 #include "clustering/tables/server_status.hpp"
+#include "clustering/tables/stats.hpp"
 #include "clustering/tables/table_config.hpp"
 #include "clustering/tables/table_status.hpp"
 #include "rdb_protocol/artificial_table/artificial_table.hpp"
@@ -37,11 +38,12 @@ std::vector<name_string_t> artificial_reql_cluster_interface_t::table_list_sorte
         name_string_t::guarantee_valid("db_config"),
         name_string_t::guarantee_valid("jobs"),
         name_string_t::guarantee_valid("permissions"),
+        name_string_t::guarantee_valid("server_config"),
+        name_string_t::guarantee_valid("server_status"),
+        name_string_t::guarantee_valid("stats"),
         name_string_t::guarantee_valid("table_config"),
         name_string_t::guarantee_valid("table_status"),
         name_string_t::guarantee_valid("users"),
-        name_string_t::guarantee_valid("server_config"),
-        name_string_t::guarantee_valid("server_status"),
         // Nope -- we don't show '_'-prefixed system tables to the user unless they explicitly request it.
         // name_string_t::guarantee_valid("_debug_scratch"),
     };
@@ -82,6 +84,9 @@ artificial_reql_cluster_interface_t::get_table_backend_or_null(
         }
         if (table_name.str() == "server_status") {
             return m_backends.server_status_backend[static_cast<int>(admin_identifier_format)].get();
+        }
+        if (table_name.str() == "stats") {
+            return m_backends.stats_backend[static_cast<int>(admin_identifier_format)].get();
         }
     } else {
         if (table_name.str() == "table_config") {
@@ -137,6 +142,8 @@ optional<namespace_id_t> artificial_reql_cluster_interface_t::get_table_id(
             found = true;
         } else if (table_name.str() == "server_status") {
             found = true;
+        } else if (table_name.str() == "stats") {
+            found = true;
         }
     } else {
         if (table_name.str() == "table_config") {
@@ -181,6 +188,12 @@ artificial_reql_cluster_backends_t::artificial_reql_cluster_backends_t() {
     for (int format = 0; format < 2; ++format) {
         server_status_backend[format].init(
             new server_status_artificial_table_fdb_backend_t(
+                static_cast<admin_identifier_format_t>(format)));
+    }
+
+    for (int format = 0; format < 2; ++format) {
+        stats_backend[format].init(
+            new stats_artificial_table_fdb_backend_t(
                 static_cast<admin_identifier_format_t>(format)));
     }
 

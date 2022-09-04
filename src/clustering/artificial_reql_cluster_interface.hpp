@@ -24,6 +24,7 @@ class in_memory_artificial_table_fdb_backend_t;
 class jobs_artificial_table_fdb_backend_t;
 class server_config_artificial_table_fdb_backend_t;
 class server_status_artificial_table_fdb_backend_t;
+class stats_artificial_table_fdb_backend_t;
 class table_config_artificial_table_fdb_backend_t;
 class table_status_artificial_table_fdb_backend_t;
 class artificial_reql_cluster_backends_t;
@@ -41,6 +42,7 @@ public:
         permissions_backend[2];
     scoped<server_config_artificial_table_fdb_backend_t> server_config_backend;
     scoped<server_status_artificial_table_fdb_backend_t> server_status_backend[2];
+    scoped<stats_artificial_table_fdb_backend_t> stats_backend[2];
     scoped<table_config_artificial_table_fdb_backend_t> table_config_backend[2];
     scoped<table_status_artificial_table_fdb_backend_t> table_status_backend[2];
     scoped<auth::users_artificial_table_fdb_backend_t> users_backend;
@@ -48,14 +50,9 @@ public:
 
     /* QQQ: Reimplement these backends:
 
-    - server status - we could report info about what nodes are registered, and they
-      could include basic config information in their report.
-
     - _debug_stats - from the debug_stats_artificial_table_backend_t - request that
       servers dump their perfmon stats and whatnot to some FDB location.  (They could
       set up a watch for such requests.)
-
-    - stats - from the stats_artificial_table_backend_t.  As with _debug_stats.
 
     */
 
