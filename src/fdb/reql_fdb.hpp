@@ -294,6 +294,8 @@ struct node_info {
 };
 RDB_DECLARE_SERIALIZABLE(node_info);
 
+bool is_node_expired(reqlfdb_clock current_clock, const node_info& info);
+
 // TODO: Calculate this rationally using constants like TIMESTEP_MS and how fdb
 // transaction duration is configured.
 constexpr int REQLFDB_JOB_LEASE_DURATION = 10;

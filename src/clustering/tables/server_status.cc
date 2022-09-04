@@ -76,6 +76,10 @@ bool server_status_artificial_table_fdb_backend_t::read_row(
         const signal_t *interruptor,
         ql::datum_t *row_out,
         UNUSED admin_err_t *error_out) {
+    // This duplicates everything except formatting with
+    // server_config_artificial_table_fdb_backend_t::read_row.
+    //
+    // In o.g. RethinkDb we had a server_common... base class.
 
     fdb_node_id node_id;
     admin_err_t dummy_error;
@@ -86,10 +90,17 @@ bool server_status_artificial_table_fdb_backend_t::read_row(
         return true;
     }
 
+    fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
     fdb_value_fut<node_info> fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
 
     node_info info;
     if (!fut.block_and_deserialize(interruptor, &info)) {
+        *row_out = ql::datum_t::null();
+        return true;
+    }
+
+    reqlfdb_clock clock = clock_fut.block_and_deserialize(interruptor);
+    if (is_node_expired(clock, info)) {
         *row_out = ql::datum_t::null();
         return true;
     }

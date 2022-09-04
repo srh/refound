@@ -239,3 +239,9 @@ void future_block_coro(FDBFuture *fut, const signal_t *interruptor) {
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_clock, value);
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(node_info, lease_expiration);
+
+// Does this really belong.. here?
+bool is_node_expired(reqlfdb_clock current_clock, const node_info& info) {
+    return info.lease_expiration.value <= current_clock.value;
+}
+
