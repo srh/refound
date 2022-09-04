@@ -33,8 +33,8 @@ MUST_USE fdb_error_t txn_retry_loop_pthread(
         fut.block_pthread();
         fdb_error_t err = fdb_future_get_error(fut.fut);
         if (err != 0) {
-            // TODO: Remove this guarantee.
-            guarantee(err == orig_err);
+            // This is not a guarantee, in case FDB changes behavior in future versions.
+            rassert(err == orig_err);
             return err;
         }
     }
@@ -68,8 +68,8 @@ MUST_USE fdb_error_t txn_retry_loop_coro(
         fut.block_coro(interruptor);
         fdb_error_t err = fdb_future_get_error(fut.fut);
         if (err != 0) {
-            // TODO: Remove this guarantee.
-            guarantee(err == orig_err);
+            // This is not a guarantee, in case FDB changes behavior in future versions.
+            rassert(err == orig_err);
             return err;
         }
     }
