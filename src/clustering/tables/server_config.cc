@@ -23,43 +23,87 @@ server_config_artificial_table_fdb_backend_t::server_config_artificial_table_fdb
 server_config_artificial_table_fdb_backend_t::~server_config_artificial_table_fdb_backend_t() {
 }
 
-ql::datum_t format_row(const uuid_u& node_id) {
+ql::datum_t format_row(const fdb_node_id& node_id, UNUSED const node_info& info) {
     ql::datum_object_builder_t builder;
-    const std::string node_id_string = uuid_to_str(node_id);
+    const std::string node_id_string = uuid_to_str(node_id.value);
     const std::string node_name = node_id_string;
     builder.overwrite("name", ql::datum_t(node_name));
     builder.overwrite("id", ql::datum_t(node_id_string));
     builder.overwrite("tags", ql::datum_t(std::vector<ql::datum_t>{}, ql::datum_t::no_array_size_limit_check_t{}));
     builder.overwrite("cache_size_mb", ql::datum_t("auto"));
+    ql::datum_object_builder_t fdb;
+    fdb.overwrite("lease_expiration", ql::datum_t(std::to_string(info.lease_expiration.value)));
+    builder.overwrite("fdb", std::move(fdb).to_datum());
     return std::move(builder).to_datum();
+}
+
+// TODO: This could probably be a template function in index.hpp.
+std::vector<std::pair<fdb_node_id, node_info>> read_all_node_infos(const signal_t *interruptor, FDBTransaction *txn) {
+    std::vector<std::pair<fdb_node_id, node_info>> ret;
+    std::string prefix = node_info_by_id::prefix;
+    transaction_read_whole_range_coro(txn, prefix, prefix_end(prefix), interruptor,
+        [&](const FDBKeyValue &kv) {
+            key_view whole_key{void_as_uint8(kv.key), kv.key_length};
+            key_view node_id_key = whole_key.guarantee_without_prefix(prefix);
+            fdb_node_id node_id = node_info_by_id::parse_ukey(node_id_key);
+            node_info info;
+            deserialize_off_fdb(void_as_uint8(kv.value), kv.value_length, &info);
+            ret.emplace_back(node_id, info);
+            return true;
+        });
+    return ret;
 }
 
 bool server_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
-        auth::user_context_t const &user_context,
+        UNUSED auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
-        admin_err_t *error_out) {
-    // TODO: Implement.
-    *error_out = admin_err_t{
-        "server_config read_all_rows_as_vector not implemented.",
-        query_state_t::FAILED};
-    (void)fdb, (void)user_context, (void)interruptor, (void)rows_out;
-    return false;
+        UNUSED admin_err_t *error_out) {
+    std::vector<std::pair<fdb_node_id, node_info>> node_infos;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
+        auto infos = read_all_node_infos(interruptor, txn);
+
+        node_infos = std::move(infos);
+    });
+    guarantee_fdb_TODO(loop_err, "server_config_artificial_table_fdb_backend_t read_all_rows retry loop");
+
+    std::vector<ql::datum_t> result;
+    for (auto& pair : node_infos) {
+        result.push_back(format_row(pair.first, pair.second));
+    }
+
+    *rows_out = std::move(result);
+    return true;
 }
 
 bool server_config_artificial_table_fdb_backend_t::read_row(
         FDBTransaction *txn,
-        auth::user_context_t const &user_context,
+        UNUSED auth::user_context_t const &user_context,
         ql::datum_t primary_key,
         const signal_t *interruptor,
         ql::datum_t *row_out,
-        admin_err_t *error_out) {
-    *error_out = admin_err_t{
-        "server_config read_row not implemented.",
-        query_state_t::FAILED};
-    (void)txn, (void)user_context, (void)primary_key, (void)interruptor, (void)row_out;
-    return false;
+        UNUSED admin_err_t *error_out) {
+
+    fdb_node_id node_id;
+    admin_err_t dummy_error;
+    if (!convert_uuid_from_datum(primary_key, &node_id.value, &dummy_error)) {
+        /* If the primary key was not a valid UUID, then it must refer to a nonexistent
+        row. */
+        *row_out = ql::datum_t::null();
+        return true;
+    }
+
+    fdb_value_fut<node_info> fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
+
+    node_info info;
+    if (!fut.block_and_deserialize(interruptor, &info)) {
+        *row_out = ql::datum_t::null();
+        return true;
+    }
+
+    *row_out = format_row(node_id, info);
+    return true;
 }
 
 
