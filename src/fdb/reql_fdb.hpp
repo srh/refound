@@ -33,7 +33,7 @@ ownership. */
         fdb_error_t reql_fdb_rfail_fdb_err_val = (err); \
         if (reql_fdb_rfail_fdb_err_val != 0) { \
             const char *msg = fdb_get_error(reql_fdb_rfail_fdb_err_val); \
-            rfail_datum(reql_fdb_rfail_fdb_err_val == REQLFDB_commit_unknown_result ? \
+            rfail_datum(fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, reql_fdb_rfail_fdb_err_val) ? \
                 ql::base_exc_t::OP_INDETERMINATE : ql::base_exc_t::OP_FAILED, \
                 "FDB error in %s: %s", (where), msg); \
         } \
@@ -303,7 +303,7 @@ constexpr uint64_t REQLFDB_CONNECTIVITY_COMPLAINT_TIMEOUT_MS = 3000;
 
 constexpr uint64_t REQLFDB_TIMESTEP_MS = 5000;
 
-// from fdb documentation
+// We now use fdb_error_predicate instead of using commit_unknown_result directly.
 constexpr int REQLFDB_commit_unknown_result = 1021;
 // This is retryable.  Maybe transaction_too_old is better?  Idk.
 constexpr int REQLFDB_not_committed = 1020;

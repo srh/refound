@@ -76,7 +76,7 @@ MUST_USE fdb_error_t txn_retry_loop_table(
             // Fall out of catch block so that we can block the coroutine.
             orig_err = exc.error();
         }
-        if (orig_err == REQLFDB_commit_unknown_result) {
+        if (fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, orig_err)) {
             // From fdb documentation:  if there is an unknown result,
             // the txn must be an idempotent operation.
             return orig_err;
@@ -162,7 +162,7 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
             // Fall out of catch block so that we can block the coroutine.
             orig_err = exc.error();
         }
-        if (orig_err == REQLFDB_commit_unknown_result) {
+        if (fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, orig_err)) {
             // From fdb documentation:  if there is an unknown result,
             // the txn must be an idempotent operation.
             return orig_err;
