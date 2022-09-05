@@ -95,7 +95,8 @@ ql::datum_t artificial_table_fdb_t::read_row(
             }
             row_result = std::move(row);
         });
-        guarantee_fdb_TODO(loop_err, "artificial_table_fdb_t::read_row retry loop");
+        // TODO: Could we be more specific about the system table?
+        rcheck_fdb(loop_err, "reading system table");
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -185,7 +186,7 @@ scoped<ql::datum_stream_t> artificial_table_fdb_t::read_intersecting(
                 = m_backend->get_read_permission(txn, env->get_user_context());
             auth_fut.block_and_check(env->interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "artificial_table_fdb_t::read_intersecting retry loop");
+        rcheck_fdb(loop_err, "reading system table");
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -215,7 +216,7 @@ ql::datum_t artificial_table_fdb_t::read_nearest(
                 = m_backend->get_read_permission(txn, env->get_user_context());
             auth_fut.block_and_check(env->interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "artificial_table_fdb_t::read_nearest retry loop");
+        rcheck_fdb(loop_err, "reading system table");
     } catch (auth::permission_error_t const &permission_error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }
@@ -404,7 +405,7 @@ void artificial_table_fdb_t::do_single_update(
 
         resp_out = std::move(resp);
     });
-    guarantee_fdb_TODO(loop_err, "do_single_update retry loop");
+    rcheck_fdb(loop_err, "updating row of system table");
 
     *stats_inout = (*stats_inout).merge(
         resp_out, ql::stats_merge, env->limits(), conditions_inout);
