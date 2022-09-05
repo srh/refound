@@ -55,7 +55,6 @@ scoped<ql::val_t> make_db_config_selection(
             backtrace_id,
             env,
             [&](FDBTransaction *txn) -> uuid_u {
-                // NNN: This throws, so we need to catch it and put that into *error_out.  Likewise with make_table_config_selection.
                 database_id_t db_id = expect_retrieve_db(txn, db, env->interruptor);
                 auth::fdb_user_fut<auth::db_config_permission> auth_fut
                     = user_context.transaction_require_db_config_permission(
