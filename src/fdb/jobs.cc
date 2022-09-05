@@ -335,7 +335,11 @@ void try_claim_and_start_job(
         commit(txn, interruptor);
         claimed_job.set(std::move(job_info));
     });
-    guarantee_fdb_TODO(loop_err, "try_claim_and_start_job failed");
+    if (loop_err != 0) {
+        logERR("Trying to claim and start a job failed with FoundationDB error: %s",
+               fdb_get_error(loop_err));
+        return;
+    }
 
     if (claimed_job.has_value()) {
         coro_t::spawn_later_ordered([fdb, job = std::move(claimed_job.get()), lock] {

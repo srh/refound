@@ -1815,7 +1815,11 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         print_out.append(print.data(), size_t(print.size()));
         return;
     });
-    guarantee_fdb_TODO(loop_err, "error in create txn");
+    if (loop_err != 0) {
+        // TODO: stderr?
+        printf("Error when creating FoundationDB database: %s\n", fdb_get_error(loop_err));
+        return EXIT_FAILURE;
+    }
     printf("%s", print_out.c_str());
 
     if (failure) {

@@ -9,6 +9,7 @@
 #include "fdb/retry_loop.hpp"
 #include "fdb/system_tables.hpp"
 #include "fdb/typed.hpp"
+#include "logger.hpp"
 #include "utils.hpp"
 
 fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint64_t *out) {
@@ -110,7 +111,12 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
         uint64_t node_count;
         {
             fdb_error_t err = read_node_count(fdb_, interruptor, &node_count);
-            guarantee_fdb_TODO(err, "read_node_count");
+            logERR("Node presence routine encountered FoundationDB error: %s", fdb_get_error(err));
+            // Wait... let's say, one "timestep" before retrying.  (Regular exponential
+            // backoff, if that is a thing at all for a read-only txn, is handled by the
+            // retry loop in read_node_count of course.)
+            nap(REQLFDB_TIMESTEP_MS, interruptor);
+            continue;
         }
 
         // Now we've got a node count.  Now what?
