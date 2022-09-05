@@ -1,6 +1,6 @@
 // Copyright 2010-2014 RethinkDB, all rights reserved.
-#ifndef CLUSTERING_ADMINISTRATION_MAIN_SERVE_HPP_
-#define CLUSTERING_ADMINISTRATION_MAIN_SERVE_HPP_
+#ifndef CLUSTERING_MAIN_SERVE_HPP_
+#define CLUSTERING_MAIN_SERVE_HPP_
 
 #include <set>
 #include <string>
@@ -15,6 +15,15 @@
 #include "utils.hpp"
 
 class os_signal_cond_t;
+
+// Used to throw failure in startup operations, handled by serve.cc, with errors _already_
+// logged, silent exit.
+class startup_failed_exc_t : public std::exception {
+public:
+    const char *what() const noexcept {
+        return "startup failed";
+    }
+};
 
 class invalid_port_exc_t : public std::exception {
 public:
@@ -157,4 +166,4 @@ bool serve(FDBDatabase *db,
            const serve_info_t &serve_info,
            os_signal_cond_t *stop_cond);
 
-#endif /* CLUSTERING_ADMINISTRATION_MAIN_SERVE_HPP_ */
+#endif /* CLUSTERING_MAIN_SERVE_HPP_ */

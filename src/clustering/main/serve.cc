@@ -231,6 +231,8 @@ bool do_serve(FDBDatabase *fdb,
     } catch (const interrupted_exc_t &ex) {
         // fdb_node_holder stop_cond param
         return false;
+    } catch (const startup_failed_exc_t &ex) {
+        return false;
     }
 
     return true;

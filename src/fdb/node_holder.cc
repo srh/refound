@@ -2,6 +2,7 @@
 
 #include "arch/runtime/coroutines.hpp"
 #include "arch/timing.hpp"
+#include "clustering/main/serve.hpp"
 #include "concurrency/wait_any.hpp"
 #include "containers/archive/string_stream.hpp"
 #include "fdb/jobs.hpp"
@@ -85,7 +86,8 @@ MUST_USE fdb_error_t write_node_entry(
 
 MUST_USE fdb_error_t erase_node_entry(
         FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
-    return txn_retry_loop_coro(fdb, interruptor, [&node_id, interruptor](FDBTransaction *txn) {
+ top:
+    fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [&node_id, interruptor](FDBTransaction *txn) {
         fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
         fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
 
@@ -106,6 +108,11 @@ MUST_USE fdb_error_t erase_node_entry(
 
         commit(txn, interruptor);
     });
+    if (op_indeterminate(err)) {
+        // The operation is trivially idempotent
+        goto top;
+    }
+    return err;
 }
 
 void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
@@ -212,7 +219,13 @@ fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor)
           supplied_job_sem_(1),
           supplied_job_sem_holder_(&supplied_job_sem_, 1) {
     fdb_error_t err = write_node_entry(fdb, node_id_, interruptor);
-    guarantee_fdb_TODO(err, "write_node_entry failed");
+    if (err != 0) {
+        logERR("Initial node presence registration encountered FoundationDB error: %s", fdb_get_error(err));
+        // TODO: This is a bit of a hack -- we just happen to know the exception handler
+        // cleanly returns false.  How about a new exception type?
+        throw startup_failed_exc_t();
+    }
+
 
     coro_t::spawn_later_ordered([this, lock = drainer_.lock()]() {
         try {
@@ -228,7 +241,10 @@ void fdb_node_holder::shutdown(const signal_t *interruptor) {
     initiated_shutdown_ = true;
     drainer_.drain();
     fdb_error_t err = erase_node_entry(fdb_, node_id_, interruptor);
-    guarantee_fdb_TODO(err, "erase_node_entry failed");  // We'll want to report but ignore error.
+    if (err != 0) {
+        logERR("Node shutdown presence erasure encountered FoundationDB error: %s", fdb_get_error(err));
+        // Report but ignore error.
+    }
 }
 
 fdb_node_holder::~fdb_node_holder() {
