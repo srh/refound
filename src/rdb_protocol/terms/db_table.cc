@@ -182,7 +182,7 @@ counted_t<const db_t> provisional_to_db(
         result = config_cache_retrieve_db_by_name(
             prior_cv, txn, prov_db.db_name, interruptor);
     });
-    guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_by_name loop");
+    rcheck_fdb(loop_err, "retrieving database id by name");
 
     cc->note_version(result.ci_cv);
 
@@ -248,7 +248,7 @@ private:
                 }
                 fdb_result = success;
             });
-            guarantee_fdb_TODO(loop_err, "db_create txn failed");
+            rcheck_fdb(loop_err, "creating database");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -354,7 +354,7 @@ private:
                 fdb_result = success;
                 config_result = config;
             });
-            guarantee_fdb_TODO(loop_err, "table_create txn failed");
+            rcheck_fdb(loop_err, "creating table");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -413,7 +413,7 @@ private:
                 }
                 fdb_result = success;
             });
-            guarantee_fdb_TODO(loop_err, "db_drop txn failed");
+            rcheck_fdb(loop_err, "dropping database");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -484,7 +484,7 @@ private:
                 }
                 fdb_result = std::move(success);
             });
-            guarantee_fdb_TODO(loop_err, "table_drop txn failed");
+            rcheck_fdb(loop_err, "dropping table");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -523,7 +523,7 @@ private:
             // TODO: Use a snapshot read for this?  Config txn appropriately?
             db_list = config_cache_db_list_sorted(txn, env->env->interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "db_list txn failed");
+        rcheck_fdb(loop_err, "listing databases");
         // TODO: Use the db_list (and get the config version) to write to the config cache?
 
         sorted_vector_insert(&db_list, artificial_reql_cluster_interface_t::database_name);
@@ -562,7 +562,7 @@ private:
                 // TODO: Use a snapshot read for this?  Config txn appropriately?
                 table_list = config_cache_table_list_sorted(txn, db, env->env->interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "db_list txn failed");
+            rcheck_fdb(loop_err, "listing tables");
         }
 
         // table_list is in sorted order.
@@ -764,7 +764,7 @@ private:
                     config = expect_retrieve_table(txn, *args_pair.second,
                         env->env->interruptor);
                 });
-                guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
+                rcheck_fdb(loop_err, "retrieving table in `wait`");
 
                 result = 1.0;
             } else {
@@ -774,7 +774,7 @@ private:
                     table_list = config_cache_table_list_sorted(txn, args_pair.first,
                         env->env->interruptor);
                 });
-                guarantee_fdb_TODO(loop_err, "wait term txn failed on table_list");
+                rcheck_fdb(loop_err, "listing tables in `wait`");
 
                 result = static_cast<double>(table_list.size());
             }
@@ -945,7 +945,7 @@ private:
                 cvc.block_and_check(env->env->interruptor);
                 auth_fut.block_and_check(env->env->interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "sync_term_t retry loop");
+            rcheck_fdb(loop_err, "evaluating `sync` term");
         } catch (auth::permission_error_t const &permission_error) {
             // Taken from artificial_table.cc
             rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
@@ -1040,7 +1040,7 @@ private:
                 fdb_result = result;
                 fdb_err = err;
             });
-            guarantee_fdb_TODO(err, "retry loop in grant_term_t for grant_global");
+            rcheck_fdb(err, "granting permissions");
 
             if (!fdb_success) {
                 REQL_RETHROW(fdb_err);
@@ -1125,7 +1125,7 @@ scoped<table_t> provisional_to_table(
             result = config_cache_retrieve_db_and_table_by_name(
                 txn, prov_table.prov_db.db_name, prov_table.table_name, interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "config_cache_retrieve_db_and_table_by_name loop");
+        rcheck_fdb(loop_err, "looking up database and table by name");
         cc->note_version(result.ci_cv);
 
         if (!result.ci_value.has_value()) {
