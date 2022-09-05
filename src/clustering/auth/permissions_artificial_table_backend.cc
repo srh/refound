@@ -114,7 +114,9 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
 
         rows_from_db = std::move(rows);
     });
-    guarantee_fdb_TODO(loop_err, "permissions_artificial_table_fdb_backend_t read_all_rows retry loop");
+    if (set_fdb_error(loop_err, error_out, "Error reading `rethinkdb.permissions` table")) {
+        return false;
+    }
 
     // We build result with the admin user being the first result -- in the same order
     // as pre-fdb.

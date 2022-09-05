@@ -51,8 +51,9 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         auth_fut.block_and_check(interruptor);
         rows = std::move(builder);
     });
-    guarantee_fdb_TODO(loop_err, "users_artificial_table_fdb_backend_t::read_all_rows_as_vector"
-        " retry loop");
+    if (set_fdb_error(loop_err, error_out, "Error reading `rethinkdb.users` table")) {
+        return false;
+    }
 
     std::vector<ql::datum_t> datums;
     datums.reserve(rows.size());

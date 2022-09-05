@@ -1,10 +1,11 @@
 // Copyright 2010-2015 RethinkDB, all rights reserved.
-#ifndef CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
-#define CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_
+#ifndef CLUSTERING_ADMIN_OP_EXC_HPP_
+#define CLUSTERING_ADMIN_OP_EXC_HPP_
 
 #include <stdexcept>
 
 #include "containers/name_string.hpp"
+#include "fdb/fdb.hpp"
 #include "query_state.hpp"
 #include "utils.hpp"
 
@@ -32,6 +33,11 @@ struct admin_err_t {
                     : ql::base_exc_t::OP_INDETERMINATE, \
                     "%s", (X).msg.c_str())
 
+bool help_set_fdb_error(fdb_error_t err, admin_err_t *error_out, const char *msg);
+
+inline bool set_fdb_error(fdb_error_t err, admin_err_t *error_out, const char *msg) {
+    return err != 0 && help_set_fdb_error(err, error_out, msg);
+}
 
 
 /* This is a generic class for errors that occur during administrative operations. It has
@@ -65,5 +71,5 @@ private:
     rfail_src((prov_table).bt, ql::base_exc_t::OP_FAILED, "Table `%s.%s` does not exist.", \
           (prov_table).prov_db.db_name.c_str(), (prov_table).table_name.c_str())
 
-#endif /* CLUSTERING_ADMINISTRATION_ADMIN_OP_EXC_HPP_ */
+#endif /* CLUSTERING_ADMIN_OP_EXC_HPP_ */
 
