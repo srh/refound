@@ -647,7 +647,14 @@ private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
         provisional_table_id table = std::move(*args->arg(env, 0)).as_prov_table(env->env);
 
-        // NNN: First check if the table exists?
+        // First we check the table exists, to provide that error message instead of
+        // reporting about the `status` term.
+        config_info<std::pair<namespace_id_t, table_config_t>> config;
+        fdb_error_t loop_err = txn_retry_loop_coro(env->fdb(), env->env->interruptor, [&](FDBTransaction *txn) {
+            // TODO: Use a snapshot read for this?  Config txn appropriately?
+            config = expect_retrieve_table(txn, table, env->env->interruptor);
+        });
+        rcheck_fdb(loop_err, "retrieving table in `status`");
 
         admin_err_t error{
             "The `status` term is not supported in reql-on-fdb.",  // TODO: Product name
