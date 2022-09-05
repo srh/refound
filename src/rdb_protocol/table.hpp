@@ -19,8 +19,11 @@ public:
     optional<admin_identifier_format_t> identifier_format;
     ql::backtrace_id_t bt;
 
-    // NNN: Remove -- or look at every usage to see if error message does not falsely assume table exists.
-    std::string display_name() const {
+    // Callers of this function generally must _not_ assume the table exists, e.g. for use
+    // in error messages -- every caller right now has verified the table exists when
+    // using this function for error message creation.  The trailing underscore is left in
+    // the name as a marker of weirdness.
+    std::string display_name_() const {
         return prov_db.db_name.str() + "." + table_name.str();
     }
 };

@@ -415,7 +415,7 @@ public:
         if (!fdb_result.has_value()) {
             rfail(ql::base_exc_t::OP_FAILED,
                 "Index `%s` already exists on table `%s`.",
-                index_name.c_str(), table.display_name().c_str());
+                index_name.c_str(), table.display_name_().c_str());
         }
         env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result->first);
         if (fdb_result->second.has_value()) {
@@ -448,7 +448,7 @@ public:
             // TODO: Dedup index dne errors.
             rfail(ql::base_exc_t::OP_FAILED,
                 "Index `%s` does not exist on table `%s`.",
-                index_name.c_str(), table.display_name().c_str());
+                index_name.c_str(), table.display_name_().c_str());
         }
 
         optional<reqlfdb_config_version> fdb_result;
@@ -474,7 +474,7 @@ public:
         if (!fdb_result.has_value()) {
             rfail(ql::base_exc_t::OP_FAILED,
                 "Index `%s` does not exist on table `%s`.",
-                index_name.c_str(), table.display_name().c_str());
+                index_name.c_str(), table.display_name_().c_str());
         }
         env->env->get_rdb_ctx()->config_caches.get()->note_version(*fdb_result);
 
@@ -597,7 +597,7 @@ public:
         rcheck(remaining_sindexes.empty(), base_exc_t::OP_FAILED,
             strprintf("Index `%s` was not found on table `%s`.",
                       remaining_sindexes.begin()->c_str(),
-                      table.display_name().c_str()));
+                      table.display_name_().c_str()));
 
         return new_val(std::move(res).to_datum());
     }
@@ -632,7 +632,7 @@ public:
                 base_exc_t::OP_FAILED,
                 strprintf("Index `%s` was not found on table `%s`.",
                           sindexes.begin()->c_str(),
-                          prov_table.display_name().c_str()));
+                          prov_table.display_name_().c_str()));
             return new_val(datum_t::empty_array());
         }
 
@@ -664,7 +664,7 @@ public:
                 rcheck(table_config->sindexes.count(sindex) == 1, base_exc_t::OP_FAILED,
                     strprintf("Index `%s` was not found on table `%s`.",
                               sindex.c_str(),
-                              prov_table.display_name().c_str()));
+                              prov_table.display_name_().c_str()));
             }
 
             ql::datum_array_builder_t statuses(ql::configured_limits_t::unlimited);
@@ -742,7 +742,7 @@ public:
             rfail(base_exc_t::OP_FAILED,
                 "Index `%s` was not found on table `%s`.",
                           old_name.c_str(),
-                          table.display_name().c_str());
+                          table.display_name_().c_str());
         }
 
 
@@ -778,12 +778,12 @@ public:
         case rename_result::old_not_found: {
             rfail(ql::base_exc_t::OP_FAILED,
                   "Index `%s` does not exist on table `%s`.",
-                  old_name.c_str(), table.display_name().c_str());
+                  old_name.c_str(), table.display_name_().c_str());
         } break;
         case rename_result::new_already_exists: {
             rfail(ql::base_exc_t::OP_FAILED,
                   "Index `%s` already exists on table `%s`.",
-                  new_name.c_str(), table.display_name().c_str());
+                  new_name.c_str(), table.display_name_().c_str());
         } break;
         default: unreachable();
         }
