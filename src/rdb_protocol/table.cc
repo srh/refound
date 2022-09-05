@@ -77,7 +77,7 @@ prov_read_result prov_read_real_table(
         ret.cv = tmp_cv;
         ret.info = std::move(info);
     });
-    guarantee_fdb_TODO(loop_err, "prov_read_row retry loop");
+    rcheck_fdb(loop_err, "reading table");
     return ret;
 }
 

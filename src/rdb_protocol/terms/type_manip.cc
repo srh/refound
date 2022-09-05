@@ -400,7 +400,7 @@ private:
                 opt_config = config_cache_get_table_config_without_cv_check(
                     txn, table->get_id(), interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
+            rcheck_fdb(loop_err, "reading table configuration");
 
             if (!opt_config.has_value()) {
                 // OOO: Is this the most consistent way to deal with this error?
@@ -459,7 +459,7 @@ private:
                     interruptor, [&](FDBTransaction *txn) {
                 info = expect_retrieve_table(txn, prov_table, interruptor).ci_value;
             });
-            guarantee_fdb_TODO(loop_err, "info term, table, retry loop failed");
+            rcheck_fdb(loop_err, "reading table configuration");
             table_id = info.first;
             config = std::move(info.second);
         }
@@ -519,7 +519,7 @@ private:
                     // TODO: Read-only txn
                     db_id = expect_retrieve_db(txn, database, env->interruptor);
                 });
-                guarantee_fdb_TODO(loop_err, "info term, db, retry loop failed");
+                rcheck_fdb(loop_err, "looking up database by name");
             }
 
             b |= add_db_info(&info, database.db_name, db_id);

@@ -235,7 +235,7 @@ scoped_ptr_t<val_t> http_term_t::eval_impl(scope_env_t *env, args_t *args,
             auth::fdb_user_fut<auth::connect_permission> user_fut = env->env->get_user_context().transaction_require_connect_permission(txn);
             user_fut.block_and_check(env->env->interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "http_term_t retry loop");
+        rcheck_fdb(loop_err, "verifying user has `connect` permission");
     } catch (auth::permission_error_t const &permission_error) {
         rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
     }

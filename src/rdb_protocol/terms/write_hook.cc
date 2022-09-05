@@ -133,7 +133,7 @@ public:
                 commit(txn, env->env->interruptor);
                 existed = old_existed;
             });
-            guarantee_fdb_TODO(loop_err, "retry loop fail in get_write_hook_term");
+            rcheck_fdb(loop_err, "setting write hook");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -191,7 +191,7 @@ public:
 
                 table_config = std::move(info.second);
             });
-            guarantee_fdb_TODO(loop_err, "retry loop fali in get_write_hook_term");
+            rcheck_fdb(loop_err, "reading write hook");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }

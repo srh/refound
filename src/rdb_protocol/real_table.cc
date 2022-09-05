@@ -69,7 +69,7 @@ read_response_t table_query_client_read_loop(
             ret = table_query_client_read(txn, ctx, std::move(cvc), table_id, table_config,
                 user_context, r, interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "table_query_client_read loop");
+        rcheck_fdb(loop_err, "reading table");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();

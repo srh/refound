@@ -407,7 +407,7 @@ public:
                 }
                 fdb_result = success;
             });
-            guarantee_fdb_TODO(loop_err, "sindex_create retry loop failed");
+            rcheck_fdb(loop_err, "initiating secondary index creation");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -466,7 +466,7 @@ public:
                 }
                 fdb_result = success;
             });
-            guarantee_fdb_TODO(loop_err, "sindex_drop retry loop failed");
+            rcheck_fdb(loop_err, "dropping secondary index");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
@@ -507,7 +507,7 @@ public:
             // TODO: Read-only txn.
             fdb_result = expect_retrieve_table(txn, table, env->env->interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "sindex_list txn failed");
+        rcheck_fdb(loop_err, "listing secondary indexes");
 
         env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
 
@@ -562,7 +562,7 @@ public:
                 // TODO: Read-only txn.
                 fdb_result = expect_retrieve_table(txn, table, env->env->interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "sindex_status txn failed");
+            rcheck_fdb(loop_err, "reading table configuration");
 
             env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
 
@@ -644,7 +644,7 @@ public:
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 fdb_result = expect_retrieve_table(txn, prov_table, env->env->interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "sindex_wait first txn failed");
+            rcheck_fdb(loop_err, "retrieving table configuration");
 
             env->env->get_rdb_ctx()->config_caches.get()->note_version(fdb_result.ci_cv);
             // We fix the table id -- subsequent lookups use the table id.  (As if the
@@ -695,7 +695,7 @@ public:
                     table_id,
                     env->env->interruptor);
             });
-            guarantee_fdb_TODO(loop_err2, "sindex_wait second txn failed");
+            rcheck_fdb(loop_err2, "verifying table configuration");
 
             if (!table_config.has_value()) {
                 // QQQ: Maybe we should fail with a different message, mentioning that the table previously existed -- and mentioning the table id.
@@ -766,7 +766,7 @@ public:
                 }
                 fdb_result = result;
             });
-            guarantee_fdb_TODO(loop_err, "sindex_drop retry loop failed");
+            rcheck_fdb(loop_err, "renaming secondary index");
         } catch (auth::permission_error_t const &permission_error) {
             rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
         }
