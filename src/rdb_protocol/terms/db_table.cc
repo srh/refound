@@ -613,7 +613,11 @@ private:
                 provisional_table_id table = std::move(*target).as_prov_table(env->env);
 
                 if (table.prov_db.db_name == artificial_reql_cluster_interface_t::database_name) {
-                    // NNN: We should fail with a table d.n.e. error if the table dne.
+                    optional<namespace_id_t> table_id = artificial_reql_cluster_interface_t::get_table_id(table.table_name);
+                    if (!table_id.has_value()) {
+                        rfail_prov_table_dne(table);
+                    }
+
                     rfail(ql::base_exc_t::OP_FAILED,
                           "Database `%s` is special; you can't configure the tables in it.",
                           artificial_reql_cluster_interface_t::database_name.c_str());
