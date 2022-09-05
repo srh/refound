@@ -24,7 +24,7 @@ MUST_USE fdb_error_t txn_retry_loop_pthread(
         // From fdb documentation: if there is an unknown result, the txn must be an
         // idempotent operation.  This could be commit_unknown_result or
         // cluster_version_changed (as of the last version I looked at).
-        if (fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, orig_err)) {
+        if (op_indeterminate(orig_err)) {
             return orig_err;
         }
 
@@ -59,7 +59,7 @@ MUST_USE fdb_error_t txn_retry_loop_coro(
         // From fdb documentation: if there is an unknown result, the txn must be an
         // idempotent operation.  This could be commit_unknown_result or
         // cluster_version_changed (as of the last version I looked at).
-        if (fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, orig_err)) {
+        if (op_indeterminate(orig_err)) {
             return orig_err;
         }
 

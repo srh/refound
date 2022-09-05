@@ -29,11 +29,15 @@ ownership. */
 // QQQ: Hook the indeterminate case up to fail with base_exc_t::OP_INDETERMINATE.
 #define guarantee_fdb_TODO(err, msg) guarantee_fdb((err), (msg))
 
+inline bool op_indeterminate(fdb_error_t err) {
+    return fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, err);
+}
+
 #define rcheck_fdb(err, where) do { \
         fdb_error_t reql_fdb_rfail_fdb_err_val = (err); \
         if (reql_fdb_rfail_fdb_err_val != 0) { \
             const char *msg = fdb_get_error(reql_fdb_rfail_fdb_err_val); \
-            rfail_datum(fdb_error_predicate(FDB_ERROR_PREDICATE_MAYBE_COMMITTED, reql_fdb_rfail_fdb_err_val) ? \
+            rfail_datum(op_indeterminate(reql_fdb_rfail_fdb_err_val) ?  \
                 ql::base_exc_t::OP_INDETERMINATE : ql::base_exc_t::OP_FAILED, \
                 "FDB error in %s: %s", (where), msg); \
         } \
