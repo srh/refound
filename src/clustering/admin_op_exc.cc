@@ -8,10 +8,10 @@ bool help_set_fdb_error(fdb_error_t err, admin_err_t *error_out, const char *msg
     }
     if (op_indeterminate(err)) {
         // TODO: Better messages, using fdb error code.
-        error_out->msg = std::string(msg) + ": FoundationDB transaction may have failed";
+        error_out->msg = (std::string(msg) + ": FoundationDB transaction may have failed: ") + fdb_get_error(err);
         error_out->query_state = query_state_t::INDETERMINATE;
     } else {
-        error_out->msg = std::string(msg) + ": FoundationDB transaction failed";
+        error_out->msg = (std::string(msg) + ": FoundationDB transaction failed: ") + fdb_get_error(err);
         error_out->query_state = query_state_t::FAILED;
     }
     return true;
