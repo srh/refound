@@ -69,7 +69,10 @@ std::string scram_authenticator_t::next_message(FDBDatabase *fdb, const signal_t
                     }
                     the_user.set(std::move(user));
                 });
-                guarantee_fdb_TODO(loop_err, "next_message loading user");
+                if (loop_err != 0) {
+                    throw authentication_error_t(authentication_error_t::no_resources,
+                                                 std::string("FoundationDB error: ") + fdb_get_error(loop_err));
+                }
                 if (!the_user.has_value()) {
                     m_is_user_known = false;
                     m_password =

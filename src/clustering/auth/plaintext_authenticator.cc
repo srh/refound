@@ -31,8 +31,10 @@ std::string plaintext_authenticator_t::next_message(
         }
         user.set(std::move(loop_user));
     });
-    guarantee_fdb_TODO(loop_err, "next_message loading user");
-
+    if (loop_err != 0) {
+        throw authentication_error_t(authentication_error_t::no_resources,
+                                     std::string("FoundationDB transaction failed: ") + fdb_get_error(loop_err));
+    }
 
     if (!user.has_value()) {
         // The user doesn't exist
