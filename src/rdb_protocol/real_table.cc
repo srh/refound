@@ -69,7 +69,7 @@ read_response_t table_query_client_read_loop(
             ret = table_query_client_read(txn, ctx, std::move(cvc), table_id, table_config,
                 user_context, r, interruptor);
         });
-        rcheck_fdb(loop_err, "reading table");
+        rcheck_fdb_datum(loop_err, "reading table");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();
@@ -137,7 +137,7 @@ write_response_t table_query_client_write_loop(
             ret = std::move(resp);
         });
         // NNN: No.  Put the exception into the write response.
-        rcheck_fdb(loop_err, "table_query_client_write_loop");
+        rcheck_fdb_datum(loop_err, "table_query_client_write_loop");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();

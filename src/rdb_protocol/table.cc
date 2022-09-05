@@ -77,7 +77,7 @@ prov_read_result prov_read_real_table(
         ret.cv = tmp_cv;
         ret.info = std::move(info);
     });
-    rcheck_fdb(loop_err, "reading table");
+    rcheck_fdb_datum(loop_err, "reading table");
     return ret;
 }
 

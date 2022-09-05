@@ -182,7 +182,7 @@ counted_t<const db_t> provisional_to_db(
         result = config_cache_retrieve_db_by_name(
             prior_cv, txn, prov_db.db_name, interruptor);
     });
-    rcheck_fdb(loop_err, "retrieving database id by name");
+    rcheck_fdb_datum(loop_err, "retrieving database id by name");
 
     cc->note_version(result.ci_cv);
 
@@ -1125,7 +1125,7 @@ scoped<table_t> provisional_to_table(
             result = config_cache_retrieve_db_and_table_by_name(
                 txn, prov_table.prov_db.db_name, prov_table.table_name, interruptor);
         });
-        rcheck_fdb(loop_err, "looking up database and table by name");
+        rcheck_fdb_datum(loop_err, "looking up database and table by name");
         cc->note_version(result.ci_cv);
 
         if (!result.ci_value.has_value()) {

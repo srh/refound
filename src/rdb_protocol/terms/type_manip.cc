@@ -382,6 +382,7 @@ private:
 
     // TODO: Remove this eventually.
     MUST_USE bool add_table_info(
+            ql::backtrace_id_t bt,
             FDBDatabase *fdb,
             const signal_t *interruptor,
             datum_object_builder_t *onto,
@@ -400,7 +401,7 @@ private:
                 opt_config = config_cache_get_table_config_without_cv_check(
                     txn, table->get_id(), interruptor);
             });
-            rcheck_fdb(loop_err, "reading table configuration");
+            rcheck_fdb_src(bt, loop_err, "reading table configuration");
 
             if (!opt_config.has_value()) {
                 // OOO: Is this the most consistent way to deal with this error?
@@ -437,6 +438,7 @@ private:
     }
 
     static MUST_USE bool add_table_info(
+            ql::backtrace_id_t bt,
             FDBDatabase *fdb,
             const signal_t *interruptor,
             datum_object_builder_t *onto,
@@ -459,7 +461,7 @@ private:
                     interruptor, [&](FDBTransaction *txn) {
                 info = expect_retrieve_table(txn, prov_table, interruptor).ci_value;
             });
-            rcheck_fdb(loop_err, "reading table configuration");
+            rcheck_fdb_src(bt, loop_err, "reading table configuration");
             table_id = info.first;
             config = std::move(info.second);
         }
@@ -496,7 +498,7 @@ private:
             const table_t *table) const {
         datum_object_builder_t table_info;
         bool b = table_info.add("type", datum_t(get_name(TABLE_TYPE)));
-        b |= add_table_info(fdb, interruptor, &table_info, table);
+        b |= add_table_info(backtrace(), fdb, interruptor, &table_info, table);
         r_sanity_check(!b);
         return std::move(table_info).to_datum();
     }
@@ -526,7 +528,7 @@ private:
         } break;
         case TABLE_TYPE: {
             provisional_table_id table = std::move(*v).as_prov_table(env);
-            b |= add_table_info(env->get_rdb_ctx()->fdb, env->interruptor,
+            b |= add_table_info(backtrace(), env->get_rdb_ctx()->fdb, env->interruptor,
                 &info, table);
         } break;
         case TABLE_SLICE_TYPE: {

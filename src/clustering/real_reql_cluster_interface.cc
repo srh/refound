@@ -137,7 +137,7 @@ scoped<ql::val_t> make_single_selection(
         }
         row = std::move(tmp_row);
     });
-    rcheck_fdb(loop_err, "making single selection");
+    rcheck_fdb_src(bt, loop_err, "making single selection");
 
     counted_t<ql::table_t> table = make_counted<ql::table_t>(
         make_counted<artificial_table_fdb_t>(table_backend),

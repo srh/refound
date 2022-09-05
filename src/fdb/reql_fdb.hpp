@@ -37,7 +37,27 @@ inline bool op_indeterminate(fdb_error_t err) {
         fdb_error_t reql_fdb_rfail_fdb_err_val = (err); \
         if (reql_fdb_rfail_fdb_err_val != 0) { \
             const char *msg = fdb_get_error(reql_fdb_rfail_fdb_err_val); \
+            rfail(op_indeterminate(reql_fdb_rfail_fdb_err_val) ?  \
+                ql::base_exc_t::OP_INDETERMINATE : ql::base_exc_t::OP_FAILED, \
+                "FoundationDB error in %s: %s", (where), msg); \
+        } \
+    } while (false)
+
+#define rcheck_fdb_datum(err, where) do { \
+        fdb_error_t reql_fdb_rfail_fdb_err_val = (err); \
+        if (reql_fdb_rfail_fdb_err_val != 0) { \
+            const char *msg = fdb_get_error(reql_fdb_rfail_fdb_err_val); \
             rfail_datum(op_indeterminate(reql_fdb_rfail_fdb_err_val) ?  \
+                ql::base_exc_t::OP_INDETERMINATE : ql::base_exc_t::OP_FAILED, \
+                "FoundationDB error in %s: %s", (where), msg); \
+        } \
+    } while (false)
+
+#define rcheck_fdb_src(bt, err, where) do {             \
+        fdb_error_t reql_fdb_rfail_fdb_err_val = (err); \
+        if (reql_fdb_rfail_fdb_err_val != 0) { \
+            const char *msg = fdb_get_error(reql_fdb_rfail_fdb_err_val); \
+            rfail_src(bt, op_indeterminate(reql_fdb_rfail_fdb_err_val) ? \
                 ql::base_exc_t::OP_INDETERMINATE : ql::base_exc_t::OP_FAILED, \
                 "FoundationDB error in %s: %s", (where), msg); \
         } \
