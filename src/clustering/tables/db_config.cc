@@ -71,7 +71,7 @@ bool db_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
     std::vector<std::pair<database_id_t, name_string_t>> result;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
             [&](FDBTransaction *txn) {

@@ -56,7 +56,7 @@ bool server_status_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         UNUSED auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
     std::vector<std::pair<fdb_node_id, node_info>> node_infos;
     reqlfdb_clock current_clock;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {

@@ -32,7 +32,7 @@ bool read_all_table_configs(
         admin_identifier_format_t identifier_format,
         std::vector<std::pair<namespace_id_t, table_config_t>> *configs_out,
         std::unordered_map<database_id_t, name_string_t> *db_names_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
     const std::string prefix = table_config_by_id::prefix;
     const std::string pend = prefix_end(prefix);
 
@@ -96,7 +96,7 @@ bool table_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
 
     std::vector<std::pair<namespace_id_t, table_config_t>> configs;
     std::unordered_map<database_id_t, name_string_t> db_name_table;

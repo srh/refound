@@ -87,7 +87,7 @@ bool jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         auth::user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
     rows_out->clear();
 
     if (!filter_jobs_by_permissions(user_context)) {
@@ -107,7 +107,9 @@ bool jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         auth_fut.block_and_check(interruptor);
         rows = std::move(job_reports);
     });
-    guarantee_fdb_TODO(loop_err, "jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector");
+    if (set_fdb_error(loop_err, error_out, "Error reading `rethinkdb.jobs` table")) {
+        return false;
+    }
 
     *rows_out = std::move(rows);
     return true;

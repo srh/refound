@@ -29,7 +29,7 @@ bool users_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         user_context_t const &user_context,
         const signal_t *interruptor,
         std::vector<ql::datum_t> *rows_out,
-        UNUSED admin_err_t *error_out) {
+        admin_err_t *error_out) {
     // QQQ: Do we need to filter out the admin user (which is put into fdb)?
     std::string prefix = users_by_username::prefix;
     std::string end = prefix_end(prefix);
