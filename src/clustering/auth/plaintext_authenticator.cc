@@ -36,7 +36,7 @@ std::string plaintext_authenticator_t::next_message(
 
     if (!user.has_value()) {
         // The user doesn't exist
-        throw authentication_error_t(17, "Unknown user");
+        throw authentication_error_t(authentication_error_t::unknown_user, "Unknown user");
     }
 
     std::array<unsigned char, SHA256_DIGEST_LENGTH> hash =
@@ -46,7 +46,7 @@ std::string plaintext_authenticator_t::next_message(
             user->get_password().get_iteration_count());
 
     if (!crypto::compare_equal(user->get_password().get_hash(), hash)) {
-        throw authentication_error_t(12, "Wrong password");
+        throw authentication_error_t(authentication_error_t::invalid_proof, "Wrong password");
     }
 
     m_is_authenticated = true;
@@ -59,7 +59,7 @@ username_t plaintext_authenticator_t::get_authenticated_username() const
     if (m_is_authenticated) {
         return m_username;
     } else {
-        throw authentication_error_t(20, "No authenticated user");
+        throw authentication_error_t(authentication_error_t::other_error, "No authenticated user");
     }
 }
 

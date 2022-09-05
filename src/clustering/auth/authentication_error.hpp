@@ -29,6 +29,15 @@ public:
         return m_error_code;
     }
 
+    static constexpr uint32_t invalid_encoding = 10;
+    static constexpr uint32_t extensions_not_supported = 11;
+    static constexpr uint32_t invalid_proof = 12;
+    static constexpr uint32_t channel_binding_not_supported = 15;
+    static constexpr uint32_t unknown_user = 17;
+    static constexpr uint32_t invalid_username_encoding = 18;
+    static constexpr uint32_t no_resources = 19;
+    static constexpr uint32_t other_error = 20;
+
 private:
     uint32_t m_error_code;
 };
