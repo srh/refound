@@ -1138,7 +1138,12 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                     }
                     already_configured = !not_configured;
                 });
-                guarantee_fdb_TODO(loop_err, "run_rethinkdb_serve initial_password retry loop");
+                if (loop_err != 0) {
+                    logERR("FoundationDB error when processing --initial-password option: %s",
+                           fdb_get_error(loop_err));
+                    *result_out = false;
+                    return;
+                }
 
                 if (already_configured) {
                     logNTC("Ignoring --initial-password option because the admin "
