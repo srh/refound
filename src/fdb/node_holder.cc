@@ -65,6 +65,10 @@ MUST_USE fdb_error_t write_node_entry(
                 [&node_id, &waiter](FDBTransaction *txn) {
                 write_body(txn, node_id, &waiter);
             });
+            if (op_indeterminate(loop_err)) {
+                // Just try again.
+                continue;
+            }
             return loop_err;
         } catch (const interrupted_exc_t &ex) {
             if (interruptor->is_pulsed()) {
@@ -105,6 +109,10 @@ MUST_USE fdb_error_t erase_node_entry(
 }
 
 void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
+    // This doesn't exponentially backoff -- the retry loops are supposed to do actual
+    // exponential backoff.
+    const int64_t error_nap_value = REQLFDB_TIMESTEP_MS;
+
     const signal_t *const interruptor = lock.get_drain_signal();
     for (;;) {
         // Read node count.
@@ -112,10 +120,7 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
         {
             fdb_error_t err = read_node_count(fdb_, interruptor, &node_count);
             logERR("Node presence routine encountered FoundationDB error: %s", fdb_get_error(err));
-            // Wait... let's say, one "timestep" before retrying.  (Regular exponential
-            // backoff, if that is a thing at all for a read-only txn, is handled by the
-            // retry loop in read_node_count of course.)
-            nap(REQLFDB_TIMESTEP_MS, interruptor);
+            nap(error_nap_value, interruptor);
             continue;
         }
 
@@ -156,7 +161,11 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
             }
 
             fdb_error_t write_err = write_node_entry(fdb_, node_id_, interruptor);
-            guarantee_fdb_TODO(write_err, "write_node_entry failed in loop");
+            if (write_err != 0) {
+                logERR("Node presence registration encountered FoundationDB error: %s", fdb_get_error(write_err));
+                nap(error_nap_value, interruptor);
+                continue;
+            }
         }
 
         fdb_error_t loop_err = txn_retry_loop_coro(fdb_, interruptor, [interruptor](FDBTransaction *txn) {
@@ -171,7 +180,13 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                 FDB_MUTATION_TYPE_ADD);
             commit(txn, interruptor);
         });
-        guarantee_fdb_TODO(loop_err, "clock update retry loop failed");
+
+        if (loop_err != 0) {
+            logERR("Node presence clock update operation encountered FoundationDB error: %s", fdb_get_error(loop_err));
+            nap(error_nap_value, interruptor);
+            continue;
+        }
+
         // TODO: Maybe we should monitor the node count as we loop ^^.
 
         // TODO: We need to participate in garbage collection of expired nodes, too.
