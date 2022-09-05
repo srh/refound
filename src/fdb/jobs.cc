@@ -192,43 +192,70 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
         const auto_drainer_t::lock_t &lock) {
     const signal_t *interruptor = lock.get_drain_signal();
 
-    // A "reclaimed
     fdb_job_info reclaimed{info};
     for (;;) {
         job_execution_result result;
-        switch (info.job_description.type) {
+        fdb_error_t loop_err;
+        switch (reclaimed.job_description.type) {
         case fdb_job_type::db_drop_job: {
-            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            loop_err = txn_retry_loop_coro(fdb, interruptor,
             [interruptor, &reclaimed, &result](FDBTransaction *txn) {
                 result = execute_db_drop_job(txn, reclaimed, boost::get<fdb_job_db_drop>(reclaimed.job_description.v), interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "could not execute db drop job");
         } break;
         case fdb_job_type::index_create_job: {
-            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            loop_err = txn_retry_loop_coro(fdb, interruptor,
             [interruptor, &reclaimed, &result](FDBTransaction *txn) {
                 result = execute_index_create_job(txn, reclaimed,
                     boost::get<fdb_job_index_create>(reclaimed.job_description.v),
                     interruptor);
             });
-            guarantee_fdb_TODO(loop_err, "could not execute index create job");
         } break;
         default:
             unreachable();
         }
 
-        if (result.failed.has_value()) {
-            logERR("Error in job execution for job %s: %s", uuid_to_str(info.job_id.value).c_str(),
+        if (loop_err != 0) {
+            if (op_indeterminate(loop_err)) {
+                // Just put job info into reclaimed -- we'll always reload the "real" job
+                // info in the next transaction, as it's idempotent.  But log the anomaly.
+                logERR("Retrying job execution for job %s: FoundationDB operation indeterminate: %s",
+                       uuid_to_str(reclaimed.job_id.value).c_str(), fdb_get_error(loop_err));
+
+                continue;
+            } else {
+                // I guess we aren't retrying here.
+                logERR("Error in job execution for job %s: FoundationDB operation failed: %s",
+                       uuid_to_str(reclaimed.job_id.value).c_str(), fdb_get_error(loop_err));
+
+                break;
+            }
+        } else if (result.failed.has_value()) {
+            logERR("Error in job execution for job %s: %s", uuid_to_str(reclaimed.job_id.value).c_str(),
                 result.failed->c_str());
-            fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+            fdb_error_t loop2_err;
+            do {
+                loop2_err = txn_retry_loop_coro(fdb, interruptor,
                 [interruptor, &reclaimed, &result](FDBTransaction *txn) {
                     execute_job_failed(txn, reclaimed, *result.failed, interruptor);
                 });
-            guarantee_fdb_TODO(loop_err, "could not execute update_job_failed");
-            break;
-        }
+                if (op_indeterminate(loop2_err)) {
+                    logERR("Retrying writing failure state of job %s: FoundationDB operation indeterminate: %s",
+                           uuid_to_str(reclaimed.job_id.value).c_str(), fdb_get_error(loop2_err));
+                    continue;
+                }
+            } while (false);
 
-        if (!result.reclaimed.has_value()) {
+            if (loop2_err != 0) {
+                // This fdb error handling logic is getting awkward and tedious.
+                logERR("Error writing failure state of job %s: FoundationDB operation failed: %s",
+                       uuid_to_str(reclaimed.job_id.value).c_str(), fdb_get_error(loop2_err));
+
+                // Some later job execution may re-encounter the failure but succeed in execute_job_failed.
+            }
+
+            break;
+        } else if (!result.reclaimed.has_value()) {
             break;
         }
         reclaimed = std::move(*result.reclaimed);
