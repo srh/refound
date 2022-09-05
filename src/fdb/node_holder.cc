@@ -126,9 +126,11 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
         uint64_t node_count;
         {
             fdb_error_t err = read_node_count(fdb_, interruptor, &node_count);
-            logERR("Node presence routine encountered FoundationDB error: %s", fdb_get_error(err));
-            nap(error_nap_value, interruptor);
-            continue;
+            if (err != 0) {
+                logERR("Node presence routine encountered FoundationDB error: %s", fdb_get_error(err));
+                nap(error_nap_value, interruptor);
+                continue;
+            }
         }
 
         // Now we've got a node count.  Now what?
