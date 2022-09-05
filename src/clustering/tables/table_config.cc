@@ -80,8 +80,9 @@ bool read_all_table_configs(
         configs = std::move(builder);
         db_names = std::move(db_name_lookups);
     });
-    guarantee_fdb_TODO(loop_err, "common_table_artificial_table_fdb_backend_t::"
-        "read_all_rows_as_vector retry loop");
+    if (set_fdb_error(loop_err, error_out, "Error reading `rethinkdb.table_config` table")) {
+        return false;
+    }
 
     *configs_out = std::move(configs);
     db_names_out->clear();

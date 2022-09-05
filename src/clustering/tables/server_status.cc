@@ -66,7 +66,9 @@ bool server_status_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         node_infos = std::move(infos);
         current_clock = clock;
     });
-    guarantee_fdb_TODO(loop_err, "server_status_artificial_table_fdb_backend_t read_all_rows retry loop");
+    if (set_fdb_error(loop_err, error_out, "Error reading `rethinkdb.server_status` table")) {
+        return false;
+    }
 
     std::vector<ql::datum_t> result;
     for (auto& pair : node_infos) {

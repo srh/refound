@@ -80,7 +80,9 @@ bool db_config_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         auth_fut.block_and_check(interruptor);
         result = std::move(dbs);
     });
-    guarantee_fdb_TODO(loop_err, "read_all_rows_as_vector retry loop");
+    if (set_fdb_error(loop_err, error_out, "Error reading `rethinkdb.db_config` table")) {
+        return false;
+    }
 
     rows_out->clear();
     for (auto &pair : result) {
