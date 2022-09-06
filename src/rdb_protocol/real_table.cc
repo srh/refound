@@ -34,15 +34,12 @@ read_response_t table_query_client_point_read(
         THROWS_ONLY(
             interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
             provisional_assumption_exception) {
-    read_t r(point_read_t(pkey),
-            profile, dummy_read_mode());
-
     // TODO: This ignores r.read_mode (as it must).
     // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
     // we check_cv?), not after entire read op.
     auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
-    read_response_t resp = apply_read(txn, ctx, std::move(cvc), table_id, table_config,
-        r, interruptor);
+    read_response_t resp = apply_point_read(txn, ctx, std::move(cvc), table_id, table_config,
+                                            pkey, profile, interruptor);
     auth_fut.block_and_check(interruptor);
 
     return resp;

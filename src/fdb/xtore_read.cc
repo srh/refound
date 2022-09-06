@@ -15,6 +15,9 @@
 #include "rdb_protocol/val.hpp"
 #include "utils.hpp"
 
+// TODO: Decl in a header.
+read_mode_t dummy_read_mode();
+
 enum class direction_t {
     forward,
     backward,
@@ -1385,6 +1388,40 @@ private:
 
     DISABLE_COPYING(fdb_read_visitor);
 };
+
+read_response_t apply_point_read(FDBTransaction *txn,
+        rdb_context_t *ctx,
+        cv_check_fut &&cvc,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const store_key_t &pkey,
+        const profile_bool_t profile,
+        const signal_t *interruptor) {
+    read_t _read(point_read_t(pkey),
+            profile, dummy_read_mode());
+
+    scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
+    read_response_t response;
+    {
+        PROFILE_STARTER_IF_ENABLED(
+            _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
+        fdb_read_visitor v(txn, ctx, std::move(cvc), table_id, &table_config, trace.get_or_null(),
+            &response, interruptor);
+        boost::apply_visitor(v, _read.read);
+    }
+
+    if (trace.has()) {
+        response.event_log = std::move(*trace).extract_event_log();
+    }
+
+    // (Taken from store_t::protocol_read.)
+    // This is a tad hacky, this just adds a stop event to signal the end of the
+    // parallel task.
+
+    // TODO: Is this is the right thing to do if profiling's not enabled?
+    response.event_log.push_back(profile::stop_t());
+    return response;
+}
 
 read_response_t apply_read(FDBTransaction *txn,
         rdb_context_t *ctx,

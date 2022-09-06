@@ -10,13 +10,24 @@ class cv_check_fut;
 struct reqlfdb_config_version;
 class interrupted_exc_t;
 struct namespace_id_t;
+enum class profile_bool_t;
 class rdb_context_t;
 class signal_t;
+struct store_key_t;
 class table_config_t;
 struct read_t;
 struct read_response_t;
 struct write_t;
 struct write_response_t;
+
+read_response_t apply_point_read(FDBTransaction *txn,
+        rdb_context_t *ctx,
+        cv_check_fut &&cvc,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const store_key_t &pkey,
+        const profile_bool_t profile,
+        const signal_t *interruptor);
 
 read_response_t apply_read(FDBTransaction *txn,
     rdb_context_t *ctx,
