@@ -19,6 +19,18 @@ This repo is built (forked) off of RethinkDB 2.4.x >= 2.4.2.
 
 This is *sorely* lacking in documentation.  Questions are welcome.
 
+Missing Features/Differences
+============================
+
+Your code might break if you use:
+
+- change feeds (not supported, but could be)
+- system tables (some data is inapplicable, faked for compatibility, or missing)
+- shard configuration commands (which are inapplicable)
+- long-running recursive range scans (that may overflow FoundationDB's transaction time limit) (this is a bug)
+
+You might suffer performance regressions.  These would be addressable.
+
 License
 =======
 
