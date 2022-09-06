@@ -37,7 +37,6 @@ read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
     try {
         ret = table_query_client_point_read(
             txn,
-            env->get_rdb_ctx(),
             std::move(cvc),
             info.table_id,
             *info.config,

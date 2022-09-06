@@ -1186,12 +1186,18 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 #endif  // 0
 
-    void operator()(const point_read_t &get) {
+    // Dedups code between our operator() and apply_point_read.
+    static void do_point_read(FDBTransaction *txn, cv_check_fut *cvc, const namespace_id_t &table_id,
+            const store_key_t &pkey, read_response_t *response, const signal_t *interruptor) {
         response->response = point_read_response_t();
         point_read_response_t *res =
             boost::get<point_read_response_t>(&response->response);
-        rdb_fdb_get(txn_, table_id_, get.key, res, interruptor);
-        cvc_.block_and_check(interruptor);
+        rdb_fdb_get(txn, table_id, pkey, res, interruptor);
+        cvc->block_and_check(interruptor);
+    }
+
+    void operator()(const point_read_t &get) {
+        do_point_read(txn_, &cvc_, table_id_, get.key, response, interruptor);
     }
 
     void operator()(const intersecting_geo_read_t &geo_read) {
@@ -1420,24 +1426,18 @@ read_response_t apply_read(FDBTransaction *txn,
 }
 
 read_response_t apply_point_read(FDBTransaction *txn,
-        rdb_context_t *ctx,
         cv_check_fut &&cvc,
         const namespace_id_t &table_id,
-        const table_config_t &table_config,
         const store_key_t &pkey,
         const profile_bool_t profile,
         const signal_t *interruptor) {
-    read_t _read(point_read_t(pkey),
-            profile, dummy_read_mode());
-
-    scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
+    scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
     read_response_t response;
     {
         PROFILE_STARTER_IF_ENABLED(
-            _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-        fdb_read_visitor v(txn, ctx, std::move(cvc), table_id, &table_config, trace.get_or_null(),
-            &response, interruptor);
-        boost::apply_visitor(v, _read.read);
+            profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
+
+        fdb_read_visitor::do_point_read(txn, &cvc, table_id, pkey, &response, interruptor);
     }
 
     if (trace.has()) {
