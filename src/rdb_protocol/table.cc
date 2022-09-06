@@ -6,13 +6,14 @@
 #include "rdb_protocol/real_table.hpp"
 #include "rdb_protocol/val.hpp"
 
+read_mode_t dummy_read_mode();
+
 namespace ql {
 
 // TODO: Move to db_table.hpp or something.
 scoped<table_t> make_artificial_table(
         artificial_reql_cluster_interface_t *art,
         const provisional_table_id &prov_table);
-read_mode_t dummy_read_mode();
 
 read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
         const store_key_t &pkey, const table_info &info, cv_check_fut &&cvc) {

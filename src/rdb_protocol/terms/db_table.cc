@@ -32,6 +32,9 @@
 #include "rdb_protocol/table_common.hpp"
 #include "rdb_protocol/terms/writes.hpp"
 
+// NNN: Remove
+read_mode_t dummy_read_mode() { return read_mode_t::SINGLE; }
+
 namespace ql {
 
 name_string_t get_name(backtrace_id_t src, const datum_string_t &raw_name,
@@ -1066,9 +1069,6 @@ private:
         return "grant";
     }
 };
-
-// NNN: Remove
-read_mode_t dummy_read_mode() { return read_mode_t::SINGLE; }
 
 // For when prov_table.prov_db.db_name has the artificial db.
 scoped<table_t> make_artificial_table(
