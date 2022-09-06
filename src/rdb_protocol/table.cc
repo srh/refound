@@ -15,31 +15,34 @@ scoped<table_t> make_artificial_table(
 read_mode_t dummy_read_mode();
 
 read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
-        const read_t &read, const table_info &info, cv_check_fut &&cvc) {
+        const store_key_t &pkey, const table_info &info, cv_check_fut &&cvc) {
+    read_mode_t read_mode = dummy_read_mode();
+
     PROFILE_STARTER_IF_ENABLED(
         env->profile() == profile_bool_t::PROFILE,
-        (read.read_mode == read_mode_t::OUTDATED ? "Perform outdated read." :
-         (read.read_mode == read_mode_t::DEBUG_DIRECT ? "Perform debug_direct read." :
-         (read.read_mode == read_mode_t::SINGLE ? "Perform read." :
-                                                  "Perform majority read."))),
+        (read_mode == read_mode_t::OUTDATED ? "Perform outdated read." :
+         (read_mode == read_mode_t::DEBUG_DIRECT ? "Perform debug_direct read." :
+         (read_mode == read_mode_t::SINGLE ? "Perform read." :
+                                             "Perform majority read."))),
         env->trace);
+
     // TODO: Remove splitter.
     profile::splitter_t splitter(env->trace);
     /* propagate whether or not we're doing profiles */
-    r_sanity_check(read.profile == env->profile());
 
     /* Do the actual read. */
     read_response_t ret;
 
     try {
-        ret = table_query_client_read(
+        ret = table_query_client_point_read(
             txn,
             env->get_rdb_ctx(),
             std::move(cvc),
             info.table_id,
             *info.config,
             env->get_user_context(),
-            read,
+            pkey,
+            env->profile(),
             env->interruptor);
     } catch (const cannot_perform_query_exc_t &e) {
         rfail_datum(ql::base_exc_t::OP_FAILED, "Cannot perform read: %s", e.what());
@@ -62,7 +65,7 @@ struct prov_read_result {
 prov_read_result prov_read_real_table(
         env_t *env,
         const provisional_table_id &prov_table,
-        const read_t &read) {
+        store_key_t pkey) {
     prov_read_result ret;
     fdb_error_t loop_err = txn_retry_loop_table(
             env->get_rdb_ctx()->fdb,
@@ -73,7 +76,7 @@ prov_read_result prov_read_real_table(
         // TODO: read-only txn
         reqlfdb_config_version tmp_cv = cvc.expected_cv;
 
-        ret.resp = prov_read_with_profile(env, txn, read, info, std::move(cvc));
+        ret.resp = prov_read_with_profile(env, txn, pkey, info, std::move(cvc));
         ret.cv = tmp_cv;
         ret.info = std::move(info);
     });
@@ -97,10 +100,7 @@ std::pair<datum_t, scoped<table_t>> prov_read_row(
         return ret;
     }
 
-    read_t read(point_read_t(store_key_t(pval.print_primary())),
-                env->profile(), dummy_read_mode());
-
-    prov_read_result res = prov_read_real_table(env, prov_table, read);
+    prov_read_result res = prov_read_real_table(env, prov_table, store_key_t(pval.print_primary()));
 
     point_read_response_t *p_res = boost::get<point_read_response_t>(&res.resp.response);
     r_sanity_check(p_res);

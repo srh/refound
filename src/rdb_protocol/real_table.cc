@@ -19,6 +19,36 @@
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 
+read_mode_t dummy_read_mode();
+
+read_response_t table_query_client_point_read(
+        FDBTransaction *txn,
+        rdb_context_t *ctx,
+        cv_check_fut &&cvc,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const auth::user_context_t &user_context,
+        const store_key_t &pkey,
+        const profile_bool_t profile,
+        const signal_t *interruptor)
+        THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
+            provisional_assumption_exception) {
+    read_t r(point_read_t(pkey),
+            profile, dummy_read_mode());
+
+    // TODO: This ignores r.read_mode (as it must).
+    // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+    // we check_cv?), not after entire read op.
+    auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
+    read_response_t resp = apply_read(txn, ctx, std::move(cvc), table_id, table_config,
+        r, interruptor);
+    auth_fut.block_and_check(interruptor);
+
+    return resp;
+}
+
+
 read_response_t table_query_client_read(
         FDBTransaction *txn,
         rdb_context_t *ctx,
