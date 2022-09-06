@@ -1,8 +1,45 @@
-[RethinkDB](https://www.rethinkdb.com)
-======================================
+ReQL-on-FDB (pre-alpha)
+=======================
 
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3038/badge)](https://bestpractices.coreinfrastructure.org/projects/3038)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/6e0fed97691941b1aa3fc5098bfc9385)](https://www.codacy.com/app/RethinkDB/rethinkdb?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rethinkdb/rethinkdb&amp;utm_campaign=Badge_Grade)
+This is a port of RethinkDB that uses FoundationDB as the clustering
+layer.  To build, install FoundationDB client libraries onto your
+system (e.g. your Linux system) and then use the usual RethinkDB
+`./configure --allow-fetch` and `make -j8` commands.
+
+Useful commands:
+
+    rethinkdb create
+    rethinkdb create --fdb-wipe
+    rethinkdb serve
+
+These expect you to have a FoundationDB instance running and a
+FoundationDB configuration file.
+
+This repo is built (forked) off of RethinkDB 2.4.x >= 2.4.2.
+
+This is *sorely* lacking in documentation.  Questions are welcome.
+
+License
+=======
+
+This is licensed under the Affero GPL v3 (unlike RethinkDB, which is
+Apache 2).
+
+Contributing
+============
+
+Please contact me before working on this, if you want your
+contributions not to go to waste.  I might reject all PR's, or require
+a CLA much like the one at RethinkDB.com which allows me to relicense
+under Apache 2.
+
+Want to see further development on this project?  Email me at
+sam@samuelhughes.com.
+
+
+
+RethinkDB (Original README below)
+======================================
 
 What is RethinkDB?
 ------------------
@@ -109,14 +146,6 @@ If you need help right now, you can also find us [on
 Slack](https://join.slack.com/t/rethinkdb/shared_invite/enQtNzAxOTUzNTk1NzMzLWY5ZTA0OTNmMWJiOWFmOGVhNTUxZjQzODQyZjIzNjgzZjdjZDFjNDg1NDY3MjFhYmNhOTY1MDVkNDgzMWZiZWM),
 [Twitter](https://twitter.com/rethinkdb), or IRC at
 [#rethinkdb](irc://chat.freenode.net/#rethinkdb) on Freenode.
-
-Contributing
-------------
-
-RethinkDB was built by a dedicated team, but it wouldn't have been
-possible without the support and contributions of hundreds of people
-from all over the world. We could use your help too! Check out our
-[contributing guidelines](CONTRIBUTING.md) to get started.
 
 Donors
 ------
