@@ -29,6 +29,10 @@ struct provisional_assumption_exception {
 
 class cv_check_fut {
 public:
+    cv_check_fut() = default;
+    cv_check_fut(FDBTransaction *txn, reqlfdb_config_version prior_cv)
+        : cv_fut(transaction_get_config_version(txn)), expected_cv(prior_cv) {}
+
     // Possibly empty, in which case a cv check is unnecessary.
     fdb_value_fut<reqlfdb_config_version> cv_fut;
     // Ignored if cv_fut is empty.

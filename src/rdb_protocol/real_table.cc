@@ -44,29 +44,15 @@ read_response_t table_query_client_point_read(
     return resp;
 }
 
+struct cv_auth_check_fut_read {
+    cv_auth_check_fut_read(FDBTransaction *txn, reqlfdb_config_version prior_cv, const auth::user_context_t &user_context,
+            const namespace_id_t &table_id, const table_config_t &table_config)
+        : cvc(txn, prior_cv),
+          auth_fut(user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id)) {}
 
-read_response_t table_query_client_read(
-        FDBTransaction *txn,
-        rdb_context_t *ctx,
-        cv_check_fut &&cvc,
-        const namespace_id_t &table_id,
-        const table_config_t &table_config,
-        const auth::user_context_t &user_context,
-        const read_t &r,
-        const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
-            provisional_assumption_exception) {
-    // TODO: This ignores r.read_mode (as it must).
-    // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-    // we check_cv?), not after entire read op.
-    auth::fdb_user_fut<auth::read_permission> auth_fut = user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id);
-    read_response_t resp = apply_read(txn, ctx, std::move(cvc), table_id, table_config,
-        r, interruptor);
-    auth_fut.block_and_check(interruptor);
-
-    return resp;
-}
+    cv_check_fut cvc;
+    auth::fdb_user_fut<auth::read_permission> auth_fut;
+};
 
 // Named such because it replicates the functionality and responsibilities of
 // table_query_client_t::read.
@@ -88,12 +74,17 @@ read_response_t table_query_client_read_loop(
         read_response_t ret;
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [&](FDBTransaction *txn) {
-            cv_check_fut cvc;
-            cvc.cv_fut = transaction_get_config_version(txn);
-            cvc.expected_cv = prior_cv;
+
+            // TODO: This ignores r.read_mode (as it must).
+            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+            // we check_cv?), not after entire read op.
+            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
+
             // NNN: This is broken.  We can't perform subqueries in a loop like this.
-            ret = table_query_client_read(txn, ctx, std::move(cvc), table_id, table_config,
-                user_context, r, interruptor);
+            read_response_t resp = apply_read(txn, ctx, std::move(cva.cvc), table_id, table_config,
+                    r, interruptor);
+            cva.auth_fut.block_and_check(interruptor);
+            ret = std::move(resp);
         });
         rcheck_fdb_datum(loop_err, "reading table");
         return ret;
@@ -149,9 +140,7 @@ write_response_t table_query_client_write_loop(
     try {
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [&](FDBTransaction *txn) {
-            cv_check_fut cvc;
-            cvc.cv_fut = transaction_get_config_version(txn);
-            cvc.expected_cv = prior_cv;
+            cv_check_fut cvc(txn, prior_cv);
 
             write_response_t resp = table_query_client_write(
                 txn, std::move(cvc), table_id, table_config, user_context,

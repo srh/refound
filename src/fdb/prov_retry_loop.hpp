@@ -40,9 +40,7 @@ MUST_USE fdb_error_t txn_retry_loop_table(
             // If there is a cached value, the first time through, we try using it, but
             // we have to check (in the txn) that the config version hasn't changed.
             if (cached_table.has_value()) {
-                cv_check_fut cvc;
-                cvc.cv_fut = transaction_get_config_version(txn.txn);
-                cvc.expected_cv = cached_table->ci_cv;
+                cv_check_fut cvc(txn.txn, cached_table->ci_cv);
                 table_info info;
                 info.table_id = cached_table->ci_value.first;
                 info.config = cached_table->ci_value.second;
