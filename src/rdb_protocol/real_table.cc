@@ -24,9 +24,9 @@ read_mode_t dummy_read_mode();
 read_response_t table_query_client_point_read(
         FDBTransaction *txn,
         cv_check_fut &&cvc,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
-        const auth::user_context_t &user_context,
         const store_key_t &pkey,
         const profile_bool_t profile,
         const signal_t *interruptor)
@@ -44,25 +44,15 @@ read_response_t table_query_client_point_read(
     return resp;
 }
 
-struct cv_auth_check_fut_read {
-    cv_auth_check_fut_read(FDBTransaction *txn, reqlfdb_config_version prior_cv, const auth::user_context_t &user_context,
-            const namespace_id_t &table_id, const table_config_t &table_config)
-        : cvc(txn, prior_cv),
-          auth_fut(user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id)) {}
-
-    cv_check_fut cvc;
-    auth::fdb_user_fut<auth::read_permission> auth_fut;
-};
-
 // Named such because it replicates the functionality and responsibilities of
 // table_query_client_t::read.
 read_response_t table_query_client_read_loop(
         FDBDatabase *fdb,
         rdb_context_t *ctx,
         reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
-        const auth::user_context_t &user_context,
         const read_t &r,
         const signal_t *interruptor)
         THROWS_ONLY(
@@ -72,18 +62,13 @@ read_response_t table_query_client_read_loop(
     // TODO: Read-only txn
     try {
         read_response_t ret;
+        // TODO: This ignores r.read_mode (as it must).
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [&](FDBTransaction *txn) {
 
-            // TODO: This ignores r.read_mode (as it must).
-            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-            // we check_cv?), not after entire read op.
-            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
-
             // NNN: This is broken.  We can't perform subqueries in a loop like this.
-            read_response_t resp = apply_read(txn, ctx, std::move(cva.cvc), table_id, table_config,
+            read_response_t resp = apply_read(txn, ctx, prior_cv, user_context, table_id, table_config,
                     r, interruptor);
-            cva.auth_fut.block_and_check(interruptor);
             ret = std::move(resp);
         });
         rcheck_fdb_datum(loop_err, "reading table");
@@ -299,8 +284,9 @@ ql::datum_t real_table_t::read_nearest(
     read_response_t res;
     try {
         res = table_query_client_read_loop(
-            env->get_rdb_ctx()->fdb, env->get_rdb_ctx(), cv.assert_nonempty(), uuid, *table_config,
+            env->get_rdb_ctx()->fdb, env->get_rdb_ctx(), cv.assert_nonempty(),
             env->get_user_context(),
+            uuid, *table_config,
             read,
             env->interruptor);
     } catch (const cannot_perform_query_exc_t &ex) {
@@ -484,9 +470,9 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
             env->get_rdb_ctx()->fdb,
             env->get_rdb_ctx(),
             cv.assert_nonempty(),
+            env->get_user_context(),
             uuid,
             *table_config,
-            env->get_user_context(),
             read,
             env->interruptor);
     } catch (const cannot_perform_query_exc_t &e) {

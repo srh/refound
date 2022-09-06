@@ -38,9 +38,9 @@ read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
         ret = table_query_client_point_read(
             txn,
             std::move(cvc),
+            env->get_user_context(),
             info.table_id,
             *info.config,
-            env->get_user_context(),
             pkey,
             env->profile(),
             env->interruptor);

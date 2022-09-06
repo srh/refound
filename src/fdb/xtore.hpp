@@ -6,6 +6,9 @@
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
 
+namespace auth {
+class user_context_t;
+}
 class cv_check_fut;
 struct reqlfdb_config_version;
 class interrupted_exc_t;
@@ -29,7 +32,8 @@ read_response_t apply_point_read(FDBTransaction *txn,
 
 read_response_t apply_read(FDBTransaction *txn,
     rdb_context_t *ctx,
-    cv_check_fut &&cvc,
+    reqlfdb_config_version prior_cv,
+    const auth::user_context_t &user_context,
     const namespace_id_t &table_id,
     const table_config_t &table_config,
     const read_t &read,

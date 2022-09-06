@@ -3,6 +3,8 @@
 #include "errors.hpp"
 #include <boost/variant/static_visitor.hpp>
 
+#include "clustering/auth/user_context.hpp"
+#include "clustering/auth/user_fut.hpp"
 #include "clustering/tables/table_metadata.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/typed.hpp"
@@ -17,6 +19,16 @@
 
 // TODO: Decl in a header.
 read_mode_t dummy_read_mode();
+
+struct cv_auth_check_fut_read {
+    cv_auth_check_fut_read(FDBTransaction *txn, reqlfdb_config_version prior_cv, const auth::user_context_t &user_context,
+            const namespace_id_t &table_id, const table_config_t &table_config)
+        : cvc(txn, prior_cv),
+          auth_fut(user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id)) {}
+
+    cv_check_fut cvc;
+    auth::fdb_user_fut<auth::read_permission> auth_fut;
+};
 
 enum class direction_t {
     forward,
@@ -1397,17 +1409,24 @@ private:
 
 read_response_t apply_read(FDBTransaction *txn,
         rdb_context_t *ctx,
-        cv_check_fut &&cvc,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         const read_t &_read,
         const signal_t *interruptor) {
+
+    // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+    // we check_cv?), not after entire read op.
+    cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
+
+
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
     read_response_t response;
     {
         PROFILE_STARTER_IF_ENABLED(
             _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-        fdb_read_visitor v(txn, ctx, std::move(cvc), table_id, &table_config, trace.get_or_null(),
+        fdb_read_visitor v(txn, ctx, std::move(cva.cvc), table_id, &table_config, trace.get_or_null(),
             &response, interruptor);
         boost::apply_visitor(v, _read.read);
     }
@@ -1422,6 +1441,9 @@ read_response_t apply_read(FDBTransaction *txn,
 
     // TODO: Is this is the right thing to do if profiling's not enabled?
     response.event_log.push_back(profile::stop_t());
+
+    cva.auth_fut.block_and_check(interruptor);
+
     return response;
 }
 
