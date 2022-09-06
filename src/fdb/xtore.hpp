@@ -30,7 +30,7 @@ read_response_t apply_point_read(FDBTransaction *txn,
         const profile_bool_t profile,
         const signal_t *interruptor);
 
-read_response_t apply_read(FDBTransaction *txn,
+read_response_t apply_read(FDBDatabase *fdb,
     rdb_context_t *ctx,
     reqlfdb_config_version prior_cv,
     const auth::user_context_t &user_context,

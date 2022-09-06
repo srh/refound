@@ -7,6 +7,7 @@
 #include "clustering/auth/user_fut.hpp"
 #include "clustering/tables/table_metadata.hpp"
 #include "fdb/btree_utils.hpp"
+#include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"
@@ -1407,7 +1408,7 @@ private:
     DISABLE_COPYING(fdb_read_visitor);
 };
 
-read_response_t apply_read(FDBTransaction *txn,
+read_response_t apply_read(FDBDatabase *fdb,
         rdb_context_t *ctx,
         reqlfdb_config_version prior_cv,
         const auth::user_context_t &user_context,
@@ -1416,35 +1417,53 @@ read_response_t apply_read(FDBTransaction *txn,
         const read_t &_read,
         const signal_t *interruptor) {
 
-    // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-    // we check_cv?), not after entire read op.
-    cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
+    read_response_t ret;
+
+    // TODO: This ignores r.read_mode (as it must).
+    // TODO: Read-only txn
+    try {
+        // TODO: This ignores r.read_mode (as it must).
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+
+            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+            // we check_cv?), not after entire read op.
+            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
 
 
-    scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
-    read_response_t response;
-    {
-        PROFILE_STARTER_IF_ENABLED(
-            _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-        fdb_read_visitor v(txn, ctx, std::move(cva.cvc), table_id, &table_config, trace.get_or_null(),
-            &response, interruptor);
-        boost::apply_visitor(v, _read.read);
+            scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
+            read_response_t response;
+            {
+                PROFILE_STARTER_IF_ENABLED(
+                    _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
+
+                // NNN: This is broken.  We can't perform subqueries in a loop like this.
+                fdb_read_visitor v(txn, ctx, std::move(cva.cvc), table_id, &table_config, trace.get_or_null(),
+                    &response, interruptor);
+                boost::apply_visitor(v, _read.read);
+            }
+
+            if (trace.has()) {
+                response.event_log = std::move(*trace).extract_event_log();
+            }
+
+            // (Taken from store_t::protocol_read.)
+            // This is a tad hacky, this just adds a stop event to signal the end of the
+            // parallel task.
+
+            // TODO: Is this is the right thing to do if profiling's not enabled?
+            response.event_log.push_back(profile::stop_t());
+
+            cva.auth_fut.block_and_check(interruptor);
+
+            ret = std::move(response);
+        });
+        rcheck_fdb_datum(loop_err, "reading table");
+    } catch (const provisional_assumption_exception &exc) {
+        throw config_version_exc_t();
     }
 
-    if (trace.has()) {
-        response.event_log = std::move(*trace).extract_event_log();
-    }
-
-    // (Taken from store_t::protocol_read.)
-    // This is a tad hacky, this just adds a stop event to signal the end of the
-    // parallel task.
-
-    // TODO: Is this is the right thing to do if profiling's not enabled?
-    response.event_log.push_back(profile::stop_t());
-
-    cva.auth_fut.block_and_check(interruptor);
-
-    return response;
+    return ret;
 }
 
 read_response_t apply_point_read(FDBTransaction *txn,

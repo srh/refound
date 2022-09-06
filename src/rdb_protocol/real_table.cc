@@ -44,40 +44,6 @@ read_response_t table_query_client_point_read(
     return resp;
 }
 
-// Named such because it replicates the functionality and responsibilities of
-// table_query_client_t::read.
-read_response_t table_query_client_read_loop(
-        FDBDatabase *fdb,
-        rdb_context_t *ctx,
-        reqlfdb_config_version prior_cv,
-        const auth::user_context_t &user_context,
-        const namespace_id_t &table_id,
-        const table_config_t &table_config,
-        const read_t &r,
-        const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
-            config_version_exc_t) {
-    // TODO: This ignores r.read_mode (as it must).
-    // TODO: Read-only txn
-    try {
-        read_response_t ret;
-        // TODO: This ignores r.read_mode (as it must).
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-                [&](FDBTransaction *txn) {
-
-            // NNN: This is broken.  We can't perform subqueries in a loop like this.
-            read_response_t resp = apply_read(txn, ctx, prior_cv, user_context, table_id, table_config,
-                    r, interruptor);
-            ret = std::move(resp);
-        });
-        rcheck_fdb_datum(loop_err, "reading table");
-        return ret;
-    } catch (const provisional_assumption_exception &exc) {
-        throw config_version_exc_t();
-    }
-}
-
 write_response_t table_query_client_write(
         FDBTransaction *txn,
         cv_check_fut &&cvc,
@@ -283,7 +249,7 @@ ql::datum_t real_table_t::read_nearest(
     read_t read(geo_read, env->profile(), read_mode);
     read_response_t res;
     try {
-        res = table_query_client_read_loop(
+        res = apply_read(
             env->get_rdb_ctx()->fdb, env->get_rdb_ctx(), cv.assert_nonempty(),
             env->get_user_context(),
             uuid, *table_config,
@@ -466,7 +432,7 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
 
     /* Do the actual read. */
     try {
-        *response = table_query_client_read_loop(
+        *response = apply_read(
             env->get_rdb_ctx()->fdb,
             env->get_rdb_ctx(),
             cv.assert_nonempty(),
