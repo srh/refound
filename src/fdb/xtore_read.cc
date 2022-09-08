@@ -1063,6 +1063,53 @@ void rdb_fdb_get_intersecting_slice(
 }
 
 
+template <class Callable>
+read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
+        profile_bool_t profile,
+        Callable &&c) {
+    read_response_t ret;
+    try {
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+
+            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+            // we check_cv?), not after entire read op.
+            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
+
+
+            scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
+            read_response_t response;
+            {
+                PROFILE_STARTER_IF_ENABLED(
+                    profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
+
+                c(interruptor, txn, std::move(cva.cvc), trace.get_or_null(), &response);
+                // NNN: This is broken.  We can't perform subqueries in a loop like this.
+            }
+
+            if (trace.has()) {
+                response.event_log = std::move(*trace).extract_event_log();
+            }
+
+            // (Taken from store_t::protocol_read.)
+            // This is a tad hacky, this just adds a stop event to signal the end of the
+            // parallel task.
+
+            // TODO: Is this is the right thing to do if profiling's not enabled?
+            response.event_log.push_back(profile::stop_t());
+
+            cva.auth_fut.block_and_check(interruptor);
+
+            ret = std::move(response);
+        });
+        rcheck_fdb_datum(loop_err, "reading table");
+    } catch (const provisional_assumption_exception &exc) {
+        throw config_version_exc_t();
+    }
+    return ret;
+}
+
 struct fdb_read_visitor : public boost::static_visitor<void> {
 // TODO: Make sure there is no #if 0 left
 #if 0
@@ -1407,53 +1454,6 @@ private:
 
     DISABLE_COPYING(fdb_read_visitor);
 };
-
-template <class Callable>
-read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
-        const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
-        profile_bool_t profile,
-        Callable &&c) {
-    read_response_t ret;
-    try {
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-                [&](FDBTransaction *txn) {
-
-            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-            // we check_cv?), not after entire read op.
-            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
-
-
-            scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
-            read_response_t response;
-            {
-                PROFILE_STARTER_IF_ENABLED(
-                    profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-
-                c(interruptor, txn, std::move(cva.cvc), trace.get_or_null(), &response);
-                // NNN: This is broken.  We can't perform subqueries in a loop like this.
-            }
-
-            if (trace.has()) {
-                response.event_log = std::move(*trace).extract_event_log();
-            }
-
-            // (Taken from store_t::protocol_read.)
-            // This is a tad hacky, this just adds a stop event to signal the end of the
-            // parallel task.
-
-            // TODO: Is this is the right thing to do if profiling's not enabled?
-            response.event_log.push_back(profile::stop_t());
-
-            cva.auth_fut.block_and_check(interruptor);
-
-            ret = std::move(response);
-        });
-        rcheck_fdb_datum(loop_err, "reading table");
-    } catch (const provisional_assumption_exception &exc) {
-        throw config_version_exc_t();
-    }
-    return ret;
-}
 
 read_response_t apply_read(FDBDatabase *fdb,
         rdb_context_t *ctx,
