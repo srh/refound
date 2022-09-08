@@ -1257,10 +1257,19 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const point_read_t &get) {
-        do_point_read(txn_, &cvc_, table_id_, get.key, response, interruptor);
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *,
+                    read_response_t *response) {
+                do_point_read(txn, &cvc, table_id_, get.key, response, interruptor);
+            });
     }
 
     void operator()(const intersecting_geo_read_t &geo_read) {
+        // TODO: Indent this code.
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace,
+                    read_response_t *response) {
+
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
             ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
@@ -1306,7 +1315,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         guarantee(geo_read.sindex.region.has_value());
         rdb_fdb_get_intersecting_slice(
             interruptor,
-            txn_,
+            txn,
             table_id_,
             sindex_id,
             geo_read.query_geometry,
@@ -1324,10 +1333,17 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             res);
 
         // TODO: Check the cv after the first request.
-        cvc_.block_and_check(interruptor);
+        cvc.block_and_check(interruptor);
+
+        });
     }
 
     void operator()(const nearest_geo_read_t &geo_read) {
+        // TODO: Indent this code.
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace,
+                    read_response_t *response) {
+
         ql::env_t ql_env(
             ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
             ql::return_empty_normal_batches_t::NO,
@@ -1366,7 +1382,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
         rdb_fdb_get_nearest_slice(
             interruptor,
-            txn_,
+            txn,
             table_id_,
             sindex_id,
             geo_read.center,
@@ -1378,10 +1394,17 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             res);
 
         // TODO: Check the cv after the first request.
-        cvc_.block_and_check(interruptor);
+        cvc.block_and_check(interruptor);
+
+        });
     }
 
     void operator()(const rget_read_t &rget) {
+        // TODO: Indent this code.
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace,
+                    read_response_t *response) {
+
         response->response = rget_read_response_t();
         auto *res = boost::get<rget_read_response_t>(&response->response);
 
@@ -1406,14 +1429,22 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             interruptor,
             rget.serializable_env,
             trace);
-        do_fdb_snap_read(interruptor, txn_, table_id_, *table_config_, &ql_env, rget, res);
+        do_fdb_snap_read(interruptor, txn, table_id_, *table_config_, &ql_env, rget, res);
         // TODO: If do_fdb_snap_read performs multiple requests, check the cv after the
         // first one.
-        cvc_.block_and_check(interruptor);
+        cvc.block_and_check(interruptor);
+
+        });
     }
 
     void operator()(const dummy_read_t &) {
-        response->response = dummy_read_response_t();
+        // We do need to check user auth before doing a dummy_read_t (if only to be consistent with prior behavior).
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
+            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *,
+                    read_response_t *response) {
+                response->response = dummy_read_response_t();
+                cvc.block_and_check(interruptor);
+            });
     }
 
 #if RDB_CF
@@ -1424,33 +1455,35 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 #endif
 
-    fdb_read_visitor(FDBTransaction *_txn,
+    fdb_read_visitor(const signal_t *_interruptor,
+            FDBDatabase *fdb,
             rdb_context_t *ctx,
-            cv_check_fut &&cvc,
+            reqlfdb_config_version prior_cv,
+            const auth::user_context_t *user_context,
             const namespace_id_t &_table_id,
             const table_config_t *_table_config,
-            profile::trace_t *_trace_or_null,
-            read_response_t *_response,
-            const signal_t *_interruptor) :
-        txn_(_txn),
+            profile_bool_t profile,
+            read_response_t *_response) :
+        interruptor(_interruptor),
+        fdb_(fdb),
         ctx_(ctx),
-        cvc_(std::move(cvc)),
+        prior_cv_(prior_cv),
+        user_context_(user_context),
         table_id_(_table_id),
         table_config_(_table_config),
-        trace(_trace_or_null),
-        response(_response),
-        interruptor(_interruptor) {}
+        profile_(profile),
+        response_(_response) {}
 
 private:
-    FDBTransaction *const txn_;
-    rdb_context_t *const ctx_;
-    cv_check_fut cvc_;
-    const namespace_id_t table_id_;
-    const table_config_t *table_config_;
-    // TODO: Rename trace to trace_or_null?
-    profile::trace_t *const trace;
-    read_response_t *const response;
     const signal_t *const interruptor;
+    FDBDatabase *const fdb_;
+    rdb_context_t *const ctx_;
+    const reqlfdb_config_version prior_cv_;
+    const auth::user_context_t *const user_context_;
+    const namespace_id_t table_id_;
+    const table_config_t *const table_config_;
+    const profile_bool_t profile_;
+    read_response_t *const response_;
 
     DISABLE_COPYING(fdb_read_visitor);
 };
@@ -1464,13 +1497,10 @@ read_response_t apply_read(FDBDatabase *fdb,
         const read_t &_read,
         const signal_t *interruptor) {
 
-    return perform_read_operation(fdb, interruptor, prior_cv, user_context, table_id, table_config, _read.profile,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace_or_null, read_response_t *response) {
-
-                fdb_read_visitor v(txn, ctx, std::move(cvc), table_id, &table_config, trace_or_null,
-                    response, interruptor);
-                boost::apply_visitor(v, _read.read);
-            });
+    read_response_t ret;
+    fdb_read_visitor v(interruptor, fdb, ctx, prior_cv, &user_context, table_id, &table_config, _read.profile, &ret);
+    boost::apply_visitor(v, _read.read);
+    return ret;
 }
 
 read_response_t apply_point_read(FDBTransaction *txn,
