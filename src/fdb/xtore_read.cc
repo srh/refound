@@ -1408,21 +1408,13 @@ private:
     DISABLE_COPYING(fdb_read_visitor);
 };
 
-read_response_t apply_read(FDBDatabase *fdb,
-        rdb_context_t *ctx,
-        reqlfdb_config_version prior_cv,
-        const auth::user_context_t &user_context,
-        const namespace_id_t &table_id,
-        const table_config_t &table_config,
-        const read_t &_read,
-        const signal_t *interruptor) {
-
+template <class Callable>
+read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
+        profile_bool_t profile,
+        Callable &&c) {
     read_response_t ret;
-
-    // TODO: This ignores r.read_mode (as it must).
-    // TODO: Read-only txn
     try {
-        // TODO: This ignores r.read_mode (as it must).
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [&](FDBTransaction *txn) {
 
@@ -1431,16 +1423,14 @@ read_response_t apply_read(FDBDatabase *fdb,
             cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
 
 
-            scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
+            scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
             read_response_t response;
             {
                 PROFILE_STARTER_IF_ENABLED(
-                    _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
+                    profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
 
+                c(interruptor, txn, std::move(cva.cvc), trace.get_or_null(), &response);
                 // NNN: This is broken.  We can't perform subqueries in a loop like this.
-                fdb_read_visitor v(txn, ctx, std::move(cva.cvc), table_id, &table_config, trace.get_or_null(),
-                    &response, interruptor);
-                boost::apply_visitor(v, _read.read);
             }
 
             if (trace.has()) {
@@ -1462,8 +1452,25 @@ read_response_t apply_read(FDBDatabase *fdb,
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();
     }
-
     return ret;
+}
+
+read_response_t apply_read(FDBDatabase *fdb,
+        rdb_context_t *ctx,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
+        const read_t &_read,
+        const signal_t *interruptor) {
+
+    return perform_read_operation(fdb, interruptor, prior_cv, user_context, table_id, table_config, _read.profile,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace_or_null, read_response_t *response) {
+
+                fdb_read_visitor v(txn, ctx, std::move(cvc), table_id, &table_config, trace_or_null,
+                    response, interruptor);
+                boost::apply_visitor(v, _read.read);
+            });
 }
 
 read_response_t apply_point_read(FDBTransaction *txn,
