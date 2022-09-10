@@ -1247,10 +1247,18 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const intersecting_geo_read_t &geo_read) {
+        response_->response = rget_read_response_t();
+        rget_read_response_t *res_ =
+            boost::get<rget_read_response_t>(&response_->response);
+
+#if RDB_CF
+        guarantee(!geo_read.stamp.has_value());  // TODO: Changefeeds not supported.
+#endif
+
         // TODO: Indent this code.
-        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *res_ = perform_read_operation<rget_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
-                    read_response_t *response) {
+                    rget_read_response_t *res) {
 
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
@@ -1260,13 +1268,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             geo_read.serializable_env,
             trace_);
 
-        response->response = rget_read_response_t();
-        rget_read_response_t *res =
-            boost::get<rget_read_response_t>(&response->response);
-
-#if RDB_CF
-        guarantee(!geo_read.stamp.has_value());  // TODO: Changefeeds not supported.
-#endif
 
         sindex_disk_info_t sindex_info;
         sindex_id_t sindex_id;
@@ -1321,10 +1322,14 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const nearest_geo_read_t &geo_read) {
+        response_->response = nearest_geo_read_response_t();
+        nearest_geo_read_response_t *res_ =
+            boost::get<nearest_geo_read_response_t>(&response_->response);
+
         // TODO: Indent this code.
-        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *res_ = perform_read_operation<nearest_geo_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
-                    read_response_t *response) {
+                    nearest_geo_read_response_t *res) {
 
         ql::env_t ql_env(
             ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
@@ -1332,10 +1337,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             interruptor,
             geo_read.serializable_env,
             trace_);
-
-        response->response = nearest_geo_read_response_t();
-        nearest_geo_read_response_t *res =
-            boost::get<nearest_geo_read_response_t>(&response->response);
 
         sindex_disk_info_t sindex_info;
         sindex_id_t sindex_id;
@@ -1383,13 +1384,8 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const rget_read_t &rget) {
 
-        // TODO: Indent this code.
-        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
-                    read_response_t *response) {
-
-        response->response = rget_read_response_t();
-        auto *res = boost::get<rget_read_response_t>(&response->response);
+        response_->response = rget_read_response_t();
+        auto *res_ = boost::get<rget_read_response_t>(&response_->response);
 
 #if RDB_CF
         if (rget.stamp) {
@@ -1404,6 +1400,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             // rdb_r_unshard_visitor_t.
             rassert(rget.serializable_env.global_optargs.has_optarg("db"));
         }
+
+        // TODO: Indent this code.
+        *res_ = perform_read_operation<rget_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+                    rget_read_response_t *res) {
         // QQQ: When this is all done with we might not even construct a pristine env in read
         // and write code, except for sindex/write hook stuff.
         ql::env_t ql_env(
@@ -1421,11 +1422,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const dummy_read_t &) {
+        response_->response = dummy_read_response_t();
+        auto *res_ = boost::get<dummy_read_response_t>(&response_->response);
         // We do need to check user auth before doing a dummy_read_t (if only to be consistent with prior behavior).
-        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *res_ = perform_read_operation<dummy_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_check_fut&& cvc,
-                    read_response_t *response) {
-                response->response = dummy_read_response_t();
+                    dummy_read_response_t *) {
                 cvc.block_and_check(interruptor);
             });
     }
