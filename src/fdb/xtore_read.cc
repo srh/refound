@@ -392,8 +392,11 @@ continue_bool_t fdb_traversal_secondary(
 
 void rdb_fdb_rget_snapshot_slice(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const key_range_t &range,
         const optional<std::map<store_key_t, uint64_t> > &primary_keys,
         ql::env_t *ql_env,
@@ -401,7 +404,15 @@ void rdb_fdb_rget_snapshot_slice(
         const std::vector<transform_variant_t> &transforms,
         const optional<terminal_variant_t> &terminal,
         sorting_t sorting,
-        rget_read_response_t *response) {
+        rget_read_response_t *response_) {
+    // NNN: Make txn smaller.
+    // TODO: Indent this code.
+    *response_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+                    rget_read_response_t *response) {
+        // NNN: Don't check the cv here.
+        cvc.block_and_check(interruptor);
+
     r_sanity_check(boost::get<ql::exc_t>(&response->result) == nullptr);
     PROFILE_STARTER_IF_ENABLED(
         ql_env->profile() == profile_bool_t::PROFILE,
@@ -469,6 +480,8 @@ void rdb_fdb_rget_snapshot_slice(
             interruptor, txn, fdb_kv_prefix, range, direction, &wrapper);
     }
     callback.finish(cont);
+
+    });
 }
 
 // TODO: Rename this, because it doesn't "acquire" anything.
@@ -926,19 +939,15 @@ void do_fdb_snap_read(
         const rget_read_t &rget,
         rget_read_response_t *res_) {
 
-    // TODO: Indent this code.
-    *res_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
-                    rget_read_response_t *res) {
-        // NNN: Don't check the cv here.
-        cvc.block_and_check(interruptor);
-
     // TODO: Do the check_cv inside this function if it ever performs more than one round-trip.
     if (!rget.sindex.has_value()) {
         rdb_fdb_rget_snapshot_slice(
             interruptor,
-            txn,
+            fdb,
+            prior_cv,
+            user_context,
             table_id,
+            table_config,
             rget.region,
             rget.primary_keys,
             env,
@@ -946,8 +955,15 @@ void do_fdb_snap_read(
             rget.transforms,
             rget.terminal,
             rget.sorting,
-            res);
+            res_);
     } else {
+    // TODO: Indent this code.
+    *res_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+                    rget_read_response_t *res) {
+        // NNN: Don't check the cv here.
+        cvc.block_and_check(interruptor);
+
         // rget using a secondary index
         try {
             // TODO: What's rget.table_name?  The table's display_name?
@@ -999,8 +1015,8 @@ void do_fdb_snap_read(
             res->result = ql::exc_t(e, ql::backtrace_id_t::empty());
             return;
         }
-    }
     });
+    }
 }
 
 void rdb_fdb_get_nearest_slice(
