@@ -1111,8 +1111,7 @@ read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interru
 }
 
 struct fdb_read_visitor : public boost::static_visitor<void> {
-// TODO: Make sure there is no #if 0 left
-#if 0
+#if RDB_CF
     void operator()(const changefeed_subscribe_t &s) {
         auto cserver = store->get_or_make_changefeed_server();
         guarantee(cserver.first != nullptr);
@@ -1244,7 +1243,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             res->resp.reset();
         }
     }
-#endif  // 0
+#endif  // RDB_CF
 
     // Dedups code between our operator() and apply_point_read.
     static void do_point_read(FDBTransaction *txn, cv_check_fut *cvc, const namespace_id_t &table_id,
