@@ -31,6 +31,36 @@ struct cv_auth_check_fut_read {
     auth::fdb_user_fut<auth::read_permission> auth_fut;
 };
 
+template <class return_type, class Callable>
+return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
+        Callable &&c) {
+    return_type ret;
+    try {
+        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+                [&](FDBTransaction *txn) {
+
+            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+            // we check_cv?), not after entire read op.
+            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
+
+            return_type response;
+            {
+                c(interruptor, txn, std::move(cva.cvc), &response);
+                // NNN: This is broken.  We can't perform subqueries in a loop like this.
+            }
+
+            cva.auth_fut.block_and_check(interruptor);
+
+            ret = std::move(response);
+        });
+        rcheck_fdb_datum(loop_err, "reading table");
+    } catch (const provisional_assumption_exception &exc) {
+        throw config_version_exc_t();
+    }
+    return ret;
+}
+
 enum class direction_t {
     forward,
     backward,
@@ -887,12 +917,22 @@ void rdb_fdb_rget_secondary_snapshot_slice(
 
 void do_fdb_snap_read(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         ql::env_t *env,
         const rget_read_t &rget,
-        rget_read_response_t *res) {
+        rget_read_response_t *res_) {
+
+    // TODO: Indent this code.
+    *res_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+                    rget_read_response_t *res) {
+        // NNN: Don't check the cv here.
+        cvc.block_and_check(interruptor);
+
     // TODO: Do the check_cv inside this function if it ever performs more than one round-trip.
     if (!rget.sindex.has_value()) {
         rdb_fdb_rget_snapshot_slice(
@@ -960,6 +1000,7 @@ void do_fdb_snap_read(
             return;
         }
     }
+    });
 }
 
 void rdb_fdb_get_nearest_slice(
@@ -1062,36 +1103,6 @@ void rdb_fdb_get_intersecting_slice(
     callback.finish(cont);
 }
 
-
-template <class return_type, class Callable>
-return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
-        const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
-        Callable &&c) {
-    return_type ret;
-    try {
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-                [&](FDBTransaction *txn) {
-
-            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-            // we check_cv?), not after entire read op.
-            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
-
-            return_type response;
-            {
-                c(interruptor, txn, std::move(cva.cvc), &response);
-                // NNN: This is broken.  We can't perform subqueries in a loop like this.
-            }
-
-            cva.auth_fut.block_and_check(interruptor);
-
-            ret = std::move(response);
-        });
-        rcheck_fdb_datum(loop_err, "reading table");
-    } catch (const provisional_assumption_exception &exc) {
-        throw config_version_exc_t();
-    }
-    return ret;
-}
 
 struct fdb_read_visitor : public boost::static_visitor<void> {
 #if RDB_CF
@@ -1385,7 +1396,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     void operator()(const rget_read_t &rget) {
 
         response_->response = rget_read_response_t();
-        auto *res_ = boost::get<rget_read_response_t>(&response_->response);
+        auto *res = boost::get<rget_read_response_t>(&response_->response);
 
 #if RDB_CF
         if (rget.stamp) {
@@ -1401,10 +1412,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             rassert(rget.serializable_env.global_optargs.has_optarg("db"));
         }
 
-        // TODO: Indent this code.
-        *res_ = perform_read_operation<rget_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
-                    rget_read_response_t *res) {
         // QQQ: When this is all done with we might not even construct a pristine env in read
         // and write code, except for sindex/write hook stuff.
         ql::env_t ql_env(
@@ -1413,12 +1420,8 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             interruptor,
             rget.serializable_env,
             trace_);
-        do_fdb_snap_read(interruptor, txn, table_id_, *table_config_, &ql_env, rget, res);
-        // TODO: If do_fdb_snap_read performs multiple requests, check the cv after the
-        // first one.
-        cvc.block_and_check(interruptor);
 
-        });
+        do_fdb_snap_read(interruptor, fdb_, prior_cv_, *user_context_, table_id_, *table_config_, &ql_env, rget, res);
     }
 
     void operator()(const dummy_read_t &) {
