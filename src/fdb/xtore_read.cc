@@ -1063,11 +1063,11 @@ void rdb_fdb_get_intersecting_slice(
 }
 
 
-template <class Callable>
-read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
+template <class return_type, class Callable>
+return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
         const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
         Callable &&c) {
-    read_response_t ret;
+    return_type ret;
     try {
         fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
                 [&](FDBTransaction *txn) {
@@ -1076,7 +1076,7 @@ read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interru
             // we check_cv?), not after entire read op.
             cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
 
-            read_response_t response;
+            return_type response;
             {
                 c(interruptor, txn, std::move(cva.cvc), &response);
                 // NNN: This is broken.  We can't perform subqueries in a loop like this.
@@ -1239,7 +1239,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const point_read_t &get) {
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
                 do_point_read(txn, &cvc, table_id_, get.key, response, interruptor);
@@ -1248,7 +1248,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const intersecting_geo_read_t &geo_read) {
         // TODO: Indent this code.
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
 
@@ -1322,7 +1322,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const nearest_geo_read_t &geo_read) {
         // TODO: Indent this code.
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
 
@@ -1384,7 +1384,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     void operator()(const rget_read_t &rget) {
 
         // TODO: Indent this code.
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
 
@@ -1422,7 +1422,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const dummy_read_t &) {
         // We do need to check user auth before doing a dummy_read_t (if only to be consistent with prior behavior).
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
                 response->response = dummy_read_response_t();
