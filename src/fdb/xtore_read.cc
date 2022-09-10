@@ -1066,7 +1066,6 @@ void rdb_fdb_get_intersecting_slice(
 template <class Callable>
 read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
         const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
-        profile_bool_t profile,
         Callable &&c) {
     read_response_t ret;
     try {
@@ -1077,27 +1076,11 @@ read_response_t perform_read_operation(FDBDatabase *fdb, const signal_t *interru
             // we check_cv?), not after entire read op.
             cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
 
-
-            scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
             read_response_t response;
             {
-                PROFILE_STARTER_IF_ENABLED(
-                    profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
-
-                c(interruptor, txn, std::move(cva.cvc), trace.get_or_null(), &response);
+                c(interruptor, txn, std::move(cva.cvc), &response);
                 // NNN: This is broken.  We can't perform subqueries in a loop like this.
             }
-
-            if (trace.has()) {
-                response.event_log = std::move(*trace).extract_event_log();
-            }
-
-            // (Taken from store_t::protocol_read.)
-            // This is a tad hacky, this just adds a stop event to signal the end of the
-            // parallel task.
-
-            // TODO: Is this is the right thing to do if profiling's not enabled?
-            response.event_log.push_back(profile::stop_t());
 
             cva.auth_fut.block_and_check(interruptor);
 
@@ -1256,8 +1239,8 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const point_read_t &get) {
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *,
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
                 do_point_read(txn, &cvc, table_id_, get.key, response, interruptor);
             });
@@ -1265,8 +1248,8 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const intersecting_geo_read_t &geo_read) {
         // TODO: Indent this code.
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace,
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
 
         // TODO: We construct this kind of early.
@@ -1275,7 +1258,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             geo_read.serializable_env,
-            trace);
+            trace_);
 
         response->response = rget_read_response_t();
         rget_read_response_t *res =
@@ -1339,8 +1322,8 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const nearest_geo_read_t &geo_read) {
         // TODO: Indent this code.
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace,
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
 
         ql::env_t ql_env(
@@ -1348,7 +1331,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             geo_read.serializable_env,
-            trace);
+            trace_);
 
         response->response = nearest_geo_read_response_t();
         nearest_geo_read_response_t *res =
@@ -1399,9 +1382,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const rget_read_t &rget) {
+
         // TODO: Indent this code.
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *trace,
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
 
         response->response = rget_read_response_t();
@@ -1427,7 +1411,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             ql::return_empty_normal_batches_t::NO,
             interruptor,
             rget.serializable_env,
-            trace);
+            trace_);
         do_fdb_snap_read(interruptor, txn, table_id_, *table_config_, &ql_env, rget, res);
         // TODO: If do_fdb_snap_read performs multiple requests, check the cv after the
         // first one.
@@ -1438,8 +1422,8 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const dummy_read_t &) {
         // We do need to check user auth before doing a dummy_read_t (if only to be consistent with prior behavior).
-        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_, profile_,
-            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_check_fut&& cvc, profile::trace_t *,
+        *response_ = perform_read_operation(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_check_fut&& cvc,
                     read_response_t *response) {
                 response->response = dummy_read_response_t();
                 cvc.block_and_check(interruptor);
@@ -1461,7 +1445,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             const auth::user_context_t *user_context,
             const namespace_id_t &_table_id,
             const table_config_t *_table_config,
-            profile_bool_t profile,
+            profile::trace_t *trace_or_null,
             read_response_t *_response) :
         interruptor(_interruptor),
         fdb_(fdb),
@@ -1470,7 +1454,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         user_context_(user_context),
         table_id_(_table_id),
         table_config_(_table_config),
-        profile_(profile),
+        trace_(trace_or_null),
         response_(_response) {}
 
 private:
@@ -1481,7 +1465,7 @@ private:
     const auth::user_context_t *const user_context_;
     const namespace_id_t table_id_;
     const table_config_t *const table_config_;
-    const profile_bool_t profile_;
+    profile::trace_t *const trace_;  // can be null
     read_response_t *const response_;
 
     DISABLE_COPYING(fdb_read_visitor);
@@ -1496,9 +1480,30 @@ read_response_t apply_read(FDBDatabase *fdb,
         const read_t &_read,
         const signal_t *interruptor) {
 
+    // TODO: Move trace stuff out of this?  Back to caller?  Does apply_point_read ever even have profile turned on?
+    // Some code duplication with apply_point_read w.r.t. trace logic.
+    scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(_read.profile);
+
     read_response_t ret;
-    fdb_read_visitor v(interruptor, fdb, ctx, prior_cv, &user_context, table_id, &table_config, _read.profile, &ret);
-    boost::apply_visitor(v, _read.read);
+    {
+        PROFILE_STARTER_IF_ENABLED(
+                _read.profile == profile_bool_t::PROFILE, "Perform read on shard.", trace);
+
+        fdb_read_visitor v(interruptor, fdb, ctx, prior_cv, &user_context, table_id, &table_config, trace.get_or_null(), &ret);
+        boost::apply_visitor(v, _read.read);
+    }
+
+    if (trace.has()) {
+        ret.event_log = std::move(*trace).extract_event_log();
+    }
+
+    // (Taken from store_t::protocol_read.)
+    // This is a tad hacky, this just adds a stop event to signal the end of the
+    // parallel task.
+
+    // TODO: Is this is the right thing to do if profiling's not enabled?
+    ret.event_log.push_back(profile::stop_t());
+
     return ret;
 }
 
@@ -1508,6 +1513,7 @@ read_response_t apply_point_read(FDBTransaction *txn,
         const store_key_t &pkey,
         const profile_bool_t profile,
         const signal_t *interruptor) {
+    // Some code duplication with apply_read w.r.t. trace logic.
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
     read_response_t response;
     {
