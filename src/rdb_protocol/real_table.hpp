@@ -30,19 +30,6 @@ namespace ql {
 class reader_t;
 }
 
-read_response_t table_query_client_point_read(
-        FDBTransaction *txn,
-        cv_check_fut &&cvc,
-        const auth::user_context_t &user_context,
-        const namespace_id_t &table_id,
-        const table_config_t &table_config,
-        const store_key_t &pkey,
-        const profile_bool_t profile,
-        const signal_t *interruptor)
-        THROWS_ONLY(
-            interrupted_exc_t, cannot_perform_query_exc_t, auth::permission_error_t,
-            provisional_assumption_exception);
-
 read_response_t table_query_client_read(
     FDBTransaction *txn,
     rdb_context_t *ctx,

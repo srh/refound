@@ -1533,7 +1533,10 @@ read_response_t apply_point_read(FDBTransaction *txn,
         const namespace_id_t &table_id,
         const store_key_t &pkey,
         const profile_bool_t profile,
-        const signal_t *interruptor) {
+        const signal_t *interruptor) THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t,
+            provisional_assumption_exception)
+{
     // Some code duplication with apply_read w.r.t. trace logic.
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(profile);
     read_response_t response;

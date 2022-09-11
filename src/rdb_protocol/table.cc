@@ -2,9 +2,11 @@
 
 #include "clustering/admin_op_exc.hpp"
 #include "clustering/artificial_reql_cluster_interface.hpp"
+#include "clustering/auth/user_fut.hpp"
 #include "fdb/prov_retry_loop.hpp"
 #include "rdb_protocol/real_table.hpp"
 #include "rdb_protocol/val.hpp"
+#include "fdb/xtore.hpp"
 
 read_mode_t dummy_read_mode();
 
@@ -35,15 +37,13 @@ read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
     read_response_t ret;
 
     try {
-        ret = table_query_client_point_read(
-            txn,
-            std::move(cvc),
-            env->get_user_context(),
-            info.table_id,
-            *info.config,
-            pkey,
-            env->profile(),
-            env->interruptor);
+        // TODO: This ignores r.read_mode (as it must).
+        // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
+        // we check_cv?), not after entire read op.
+        auth::fdb_user_fut<auth::read_permission> auth_fut = env->get_user_context().transaction_require_read_permission(txn, info.config->basic.database, info.table_id);
+        ret = apply_point_read(txn, std::move(cvc), info.table_id,
+                pkey, env->profile(), env->interruptor);
+        auth_fut.block_and_check(env->interruptor);
     } catch (const cannot_perform_query_exc_t &e) {
         rfail_datum(ql::base_exc_t::OP_FAILED, "Cannot perform read: %s", e.what());
     } catch (auth::permission_error_t const &error) {

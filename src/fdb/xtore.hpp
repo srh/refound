@@ -28,7 +28,9 @@ read_response_t apply_point_read(FDBTransaction *txn,
         const namespace_id_t &table_id,
         const store_key_t &pkey,
         const profile_bool_t profile,
-        const signal_t *interruptor);
+        const signal_t *interruptor) THROWS_ONLY(
+            interrupted_exc_t, cannot_perform_query_exc_t,
+            provisional_assumption_exception);
 
 read_response_t apply_read(FDBDatabase *fdb,
     rdb_context_t *ctx,
