@@ -46,11 +46,9 @@ return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor
 
             return_type response;
             {
-                c(interruptor, txn, std::move(cva.cvc), &response);
+                c(interruptor, txn, std::move(cva), &response);
                 // NNN: This is broken.  We can't perform subqueries in a loop like this.
             }
-
-            cva.auth_fut.block_and_check(interruptor);
 
             ret = std::move(response);
         });
@@ -408,10 +406,11 @@ void rdb_fdb_rget_snapshot_slice(
     // NNN: Make txn smaller.
     // TODO: Indent this code.
     *response_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     rget_read_response_t *response) {
         // NNN: Don't check the cv here.
-        cvc.block_and_check(interruptor);
+        cva.cvc.block_and_check(interruptor);
+        cva.auth_fut.block_and_check(interruptor);
 
     r_sanity_check(boost::get<ql::exc_t>(&response->result) == nullptr);
     PROFILE_STARTER_IF_ENABLED(
@@ -959,10 +958,11 @@ void do_fdb_snap_read(
     } else {
     // TODO: Indent this code.
     *res_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     rget_read_response_t *res) {
         // NNN: Don't check the cv here.
-        cvc.block_and_check(interruptor);
+        cva.cvc.block_and_check(interruptor);
+        cva.auth_fut.block_and_check(interruptor);
 
         // rget using a secondary index
         try {
@@ -1267,9 +1267,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const point_read_t &get) {
         *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     read_response_t *response) {
-                do_point_read(txn, &cvc, table_id_, get.key, response, interruptor);
+                do_point_read(txn, &cva.cvc, table_id_, get.key, response, interruptor);
+                cva.auth_fut.block_and_check(interruptor);
             });
     }
 
@@ -1284,8 +1285,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
         // TODO: Indent this code.
         *res_ = perform_read_operation<rget_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     rget_read_response_t *res) {
+        // TODO: Check the cv after the first request.
+        cva.cvc.block_and_check(interruptor);
+        cva.auth_fut.block_and_check(interruptor);
+
 
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
@@ -1342,9 +1347,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 #endif
             res);
 
-        // TODO: Check the cv after the first request.
-        cvc.block_and_check(interruptor);
-
         });
     }
 
@@ -1355,8 +1357,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
         // TODO: Indent this code.
         *res_ = perform_read_operation<nearest_geo_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_check_fut&& cvc,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     nearest_geo_read_response_t *res) {
+                // NNN: Do this later... or something.
+                cva.cvc.block_and_check(interruptor);
+                cva.auth_fut.block_and_check(interruptor);
+
 
         ql::env_t ql_env(
             ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
@@ -1403,9 +1409,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             sindex_info,
             res);
 
-        // TODO: Check the cv after the first request.
-        cvc.block_and_check(interruptor);
-
         });
     }
 
@@ -1445,9 +1448,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         auto *res_ = boost::get<dummy_read_response_t>(&response_->response);
         // We do need to check user auth before doing a dummy_read_t (if only to be consistent with prior behavior).
         *res_ = perform_read_operation<dummy_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_check_fut&& cvc,
+            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     dummy_read_response_t *) {
-                cvc.block_and_check(interruptor);
+                cva.cvc.block_and_check(interruptor);
+                cva.auth_fut.block_and_check(interruptor);
             });
     }
 
