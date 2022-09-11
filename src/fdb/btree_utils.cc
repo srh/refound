@@ -227,7 +227,7 @@ datum_range_iterator primary_prefix_make_iterator(const std::string &pkey_prefix
         fdb_bool_t snapshot, fdb_bool_t reverse) {
     // Remember we might be iterating backwards, so take care with these bounds.
     std::string lower_bound = kv_prefix(index_key_concat(pkey_prefix, lower));
-    std::string upper_bound = upper_or_null
+    std::string upper_bound = upper_or_null != nullptr
         ? kv_prefix(index_key_concat(pkey_prefix, *upper_or_null))
         : prefix_end(pkey_prefix);
 

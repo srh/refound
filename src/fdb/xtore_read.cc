@@ -239,65 +239,6 @@ private:
 // QQQ: Make rocks_traversal_cb take a vector of results (to amortize overhead)
 // TODO: At some point... rename rocks_traversal_cb.
 
-// This is the interface the btree code expects, but our actual callback needs a
-// little bit more so we use this wrapper to hold the extra information.
-class fdb_rget_cb_wrapper : public rocks_traversal_cb {
-public:
-    fdb_rget_cb_wrapper(
-            fdb_rget_cb *_cb,
-            size_t _copies)
-        : cb(_cb), copies(_copies) { }
-    virtual continue_bool_t handle_pair(
-        std::pair<const char *, size_t> key, std::pair<const char *, size_t> value)
-        THROWS_ONLY(interrupted_exc_t) {
-        return cb->handle_pair(
-            key, value,
-            copies);
-    }
-private:
-    fdb_rget_cb *cb;
-    size_t copies;
-    DISABLE_COPYING(fdb_rget_cb_wrapper);
-};
-
-continue_bool_t fdb_traversal_primary(
-        const signal_t *interruptor,
-        FDBTransaction *txn,
-        const std::string &fdb_kv_prefix,
-        const key_range_t &range,
-        direction_t direction,
-        rocks_traversal_cb *cb) {
-    const fdb_bool_t reverse = direction != direction_t::forward;
-    const fdb_bool_t snapshot = false;
-
-    // OOO: We are now mixing rethinkdb batching and foundationdb batching.  Instead,
-    // use foundationdb batching (fixup old code commented below and make caller accept
-    // a return value which happens when foundationdb returned the end-of-batch.
-
-    rfdb::datum_range_iterator iter = rfdb::primary_prefix_make_iterator(fdb_kv_prefix,
-        range.left, range.right.unbounded ? nullptr : &range.right.internal_key,
-        snapshot, reverse);
-
-    for (;;) {
-        std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> result
-            = iter.query_and_step(txn, interruptor);
-
-        for (const auto &elem : result.first) {
-            // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
-            continue_bool_t contbool = cb->handle_pair(
-                std::make_pair(as_char(elem.first.data()), elem.first.size()),
-                std::make_pair(as_char(elem.second.data()), elem.second.size()));
-            if (contbool == continue_bool_t::ABORT) {
-                return continue_bool_t::ABORT;
-            }
-        }
-
-        if (!result.second) {
-            return continue_bool_t::CONTINUE;
-        }
-    }
-}
-
 continue_bool_t fdb_traversal_secondary(
         const signal_t *interruptor,
         FDBTransaction *txn,
@@ -403,84 +344,161 @@ void rdb_fdb_rget_snapshot_slice(
         const optional<terminal_variant_t> &terminal,
         sorting_t sorting,
         rget_read_response_t *response_) {
-    // NNN: Make txn smaller.
-    // TODO: Indent this code.
-    *response_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    rget_read_response_t *response) {
-        // NNN: Don't check the cv here.
-        cva.cvc.block_and_check(interruptor);
-        cva.auth_fut.block_and_check(interruptor);
 
-    r_sanity_check(boost::get<ql::exc_t>(&response->result) == nullptr);
+    r_sanity_check(boost::get<ql::exc_t>(&response_->result) == nullptr);
     PROFILE_STARTER_IF_ENABLED(
         ql_env->profile() == profile_bool_t::PROFILE,
         "Do range scan on primary index.",
         ql_env->trace);
 
-    fdb_rget_cb callback(
-        response,
-        job_fdb_data_t(ql_env,
-                   batchspec,
-                   transforms,
-                   terminal,
-                   !reversed(sorting)
-                       ? ql::limit_read_last_key(range.left)
-                       : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
-                   sorting,
-                   require_sindexes_t::NO));
-
-    direction_t direction = reversed(sorting) ? direction_t::backward : direction_t::forward;
-    continue_bool_t cont = continue_bool_t::CONTINUE;
     std::string fdb_kv_prefix = rfdb::table_pkey_prefix(table_id);
     if (primary_keys.has_value()) {
-        // QQQ: A few things. (a) We should launch all the key reads in
-        // parallel.  (b) is the sorting actually used when primary_keys.has_value()?  I
-        // guess so.
+        fdb_rget_cb callback(
+            response_,
+            job_fdb_data_t(ql_env,
+                       batchspec,
+                       transforms,
+                       terminal,
+                       !reversed(sorting)
+                           ? ql::limit_read_last_key(range.left)
+                           : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
+                       sorting,
+                       require_sindexes_t::NO));
 
-        // TODO: Instead of holding onto the superblock, we could make an iterator once,
-        // or hold a rocksdb snapshot once, out here.
-        auto cb = [&](const std::pair<store_key_t, uint64_t> &pair) {
-            // OOO: We need to deal with fdb batching.  If we go over the transaction
-            // time limit... we need to retry the read gracefully, or just accept
-            // partial results, as long as we managed to check_cv.
-            // OOO: Put check_cv code somewhere after the first round-trip.
-            fdb_rget_cb_wrapper wrapper(&callback, pair.second);
-            return fdb_traversal_primary(
-                interruptor,
-                txn,
-                fdb_kv_prefix,
-                key_range_t::one_key(pair.first),
-                direction,
-                &wrapper);
-        };
+        continue_bool_t cont = continue_bool_t::CONTINUE;
+        // QQQ: Is the sorting actually used when primary_keys.has_value()?  I guess so.
+
+        // Has length of primary_keys.
+        std::vector<optional<std::vector<uint8_t>>> unprocessed_values =
+            perform_read_operation<std::vector<optional<std::vector<uint8_t>>>>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+                        std::vector<optional<std::vector<uint8_t>>> *response) {
+
+            std::vector<rfdb::datum_fut> value_futs;
+            value_futs.reserve(primary_keys->size());
+            for (auto& pair : *primary_keys) {
+                value_futs.push_back(rfdb::kv_location_get(txn, fdb_kv_prefix + rfdb::table_pkey_keystr(pair.first)));
+            }
+
+            cva.cvc.block_and_check(interruptor);
+            cva.auth_fut.block_and_check(interruptor);
+
+            std::vector<optional<std::vector<uint8_t>>> resp;
+            resp.reserve(value_futs.size());
+            for (auto& fut : value_futs) {
+                resp.push_back(block_and_read_unserialized_datum(
+                                txn, std::move(fut), interruptor));
+            }
+
+            *response = std::move(resp);
+        });
+
         if (!reversed(sorting)) {
-            for (auto it = primary_keys->begin(); it != primary_keys->end();) {
-                auto this_it = it++;
-                if (cb(*this_it) == continue_bool_t::ABORT) {
-                    // If required the superblock will get released further up the stack.
-                    cont = continue_bool_t::ABORT;
-                    break;
+            size_t unprocessed_ix = 0;
+            for (auto it = primary_keys->begin(); it != primary_keys->end(); ++it) {
+                optional<std::vector<uint8_t>>& unprocessed = unprocessed_values[unprocessed_ix];
+                ++unprocessed_ix;
+
+                if (unprocessed.has_value()) {
+                    continue_bool_t c = callback.handle_pair(
+                            std::make_pair(as_char(it->first.data()), it->first.size()),
+                            std::make_pair(as_char(unprocessed->data()), unprocessed->size()),
+                            it->second);
+                    if (c == continue_bool_t::ABORT) {
+                        // If required the superblock will get released further up the stack.
+                        cont = continue_bool_t::ABORT;
+                        break;
+                    }
                 }
             }
         } else {
-            for (auto it = primary_keys->rbegin(); it != primary_keys->rend();) {
-                auto this_it = it++;
-                if (cb(*this_it) == continue_bool_t::ABORT) {
-                    // If required the superblock will get released further up the stack.
-                    cont = continue_bool_t::ABORT;
-                    break;
+            size_t unprocessed_ix = unprocessed_values.size();
+            for (auto it = primary_keys->rbegin(); it != primary_keys->rend(); ++it) {
+                --unprocessed_ix;
+                optional<std::vector<uint8_t>>& unprocessed = unprocessed_values[unprocessed_ix];
+
+                if (unprocessed.has_value()) {
+                    continue_bool_t c = callback.handle_pair(
+                            std::make_pair(as_char(it->first.data()), it->first.size()),
+                            std::make_pair(as_char(unprocessed->data()), unprocessed->size()),
+                            it->second);
+                    if (c == continue_bool_t::ABORT) {
+                        // If required the superblock will get released further up the stack.
+                        cont = continue_bool_t::ABORT;
+                        break;
+                    }
                 }
             }
         }
-    } else {
-        fdb_rget_cb_wrapper wrapper(&callback, 1);
-        cont = fdb_traversal_primary(
-            interruptor, txn, fdb_kv_prefix, range, direction, &wrapper);
-    }
-    callback.finish(cont);
+        callback.finish(cont);
 
-    });
+    } else {
+        direction_t direction = reversed(sorting) ? direction_t::backward : direction_t::forward;
+
+        const fdb_bool_t reverse = direction != direction_t::forward;
+        const fdb_bool_t snapshot = false;
+
+        // NNN: Make txn smaller.
+        // TODO: Indent this code.
+        *response_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+                        rget_read_response_t *response) {
+            // NNN: Don't check the cv here.
+            cva.cvc.block_and_check(interruptor);
+            cva.auth_fut.block_and_check(interruptor);
+
+            rget_read_response_t res;
+            fdb_rget_cb callback(
+                &res,
+                job_fdb_data_t(ql_env,
+                           batchspec,
+                           transforms,
+                           terminal,
+                           !reversed(sorting)
+                               ? ql::limit_read_last_key(range.left)
+                               : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
+                           sorting,
+                           require_sindexes_t::NO));
+
+            continue_bool_t cont = continue_bool_t::CONTINUE;
+            // OOO: We are now mixing rethinkdb batching and foundationdb batching.  Instead,
+            // use foundationdb batching (fixup old code commented below and make caller accept
+            // a return value which happens when foundationdb returned the end-of-batch.
+
+            rfdb::datum_range_iterator iter = rfdb::primary_prefix_make_iterator(fdb_kv_prefix,
+                range.left, range.right.unbounded ? nullptr : &range.right.internal_key,
+                snapshot, reverse);
+
+            for (;;) {
+                std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> result
+                    = iter.query_and_step(txn, interruptor);
+
+                for (const auto &elem : result.first) {
+                    // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
+                    const size_t copies = 1;
+                    continue_bool_t contbool = callback.handle_pair(
+                        std::make_pair(as_char(elem.first.data()), elem.first.size()),
+                        std::make_pair(as_char(elem.second.data()), elem.second.size()),
+                        copies);
+                    if (contbool == continue_bool_t::ABORT) {
+                        cont = continue_bool_t::ABORT;
+                        goto end_txn;
+                    }
+                }
+
+                if (!result.second) {
+                    // It's already CONTINUE, just adding clarity.
+                    cont = continue_bool_t::CONTINUE;
+                    // Could be break; but we want the same destination as the other goto.
+                    goto end_txn;
+                }
+            }
+        end_txn:
+            ;
+            callback.finish(cont);
+            *response = std::move(res);
+                });
+    }
 }
 
 // TODO: Rename this, because it doesn't "acquire" anything.

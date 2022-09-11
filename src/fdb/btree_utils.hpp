@@ -43,10 +43,14 @@ inline std::string table_pkey_prefix(
     return ret;
 }
 
+inline const std::string &table_pkey_keystr(const store_key_t &key) {
+    return key.str();
+}
+
 inline std::string table_primary_key(
         const namespace_id_t &table_id, const store_key_t &key) {
     std::string ret = table_pkey_prefix(table_id);
-    ret += key.str();
+    ret += table_pkey_keystr(key);
     return ret;
 }
 
