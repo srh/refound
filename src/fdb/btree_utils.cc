@@ -278,7 +278,6 @@ datum_range_iterator::query_and_step(
     // Initialized and used if kv_count > 0.  Is simply the last full_key.
     key_view last_key_view;
 
-    // Initialized and used if kv_count > 0.
     for (int i = 0; i < kv_count; ++i) {
         key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
         btubugf("qas '%s', key '%s'\n", debug_str(lower_).c_str(), debug_str(std::string(as_char(full_key.data), full_key.length)).c_str());
