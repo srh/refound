@@ -280,6 +280,11 @@ datum_range_iterator::query_and_step(
 
     btubugf("qas '%s'\n", debug_str(lower_).c_str());
 
+    // The retry label is for the case where a partially read document got misread.  We
+    // can only retry exactly once, because split_across_txns_ gets flipped to false.
+    // (Otherwise, we would return an empty read to the caller.)
+ retry:
+
     // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
     fdb_future fut{fdb_transaction_get_range(txn,
         FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower_.data()), int(lower_.size())),
@@ -333,7 +338,14 @@ datum_range_iterator::query_and_step(
                     // NNN: fdb, graceful
                     if (0 != last_seen_suffix_.compare(identifier)) {
                         if (split_across_txns_) {
-                            crash("Non-matching identifier suffix on pkey (split across txns)");  // NNN: Implement case
+                            guarantee(ret.first.empty());
+                            std::string tmp = upper_;
+                            guarantee(tmp.size() > LARGE_VALUE_SUFFIX_LENGTH);
+                            tmp.resize(tmp.size() - LARGE_VALUE_SUFFIX_LENGTH);
+                            upper_ = prefix_end(tmp);
+                            partial_document_.clear();
+                            split_across_txns_ = false;
+                            goto retry;
                         } else {
                             crash("Non-matching identifier suffix on pkey");  // TODO: fdb, graceful
                         }
@@ -373,7 +385,15 @@ datum_range_iterator::query_and_step(
                 partial_document_.push_back(std::move(buf));
                 if (0 != last_seen_suffix_.compare(identifier)) {
                     if (split_across_txns_) {
-                        crash("Non-matching identifier suffix on pkey (split across txns)");  // NNN: Implement case
+                        // We add 1 to the suffix length in this case (when chopping it
+                        // off lower_) because we have lower_.push_back('\0') and we just
+                        // want to set lower_ to the kv_prefix of our primary key.
+                        guarantee(lower_.size() > LARGE_VALUE_SUFFIX_LENGTH + 1);
+                        guarantee(lower_.back() == '\0');
+                        lower_.resize(lower_.size() - (LARGE_VALUE_SUFFIX_LENGTH + 1));
+                        partial_document_.clear();
+                        split_across_txns_ = false;
+                        goto retry;
                     } else {
                         crash("Non-matching identifier suffix on pkey");  // TODO: fdb, graceful
                     }
@@ -400,6 +420,33 @@ datum_range_iterator::query_and_step(
             lower_.assign(void_as_char(last_key_view.data), size_t(last_key_view.length));
             // Increment key.
             lower_.push_back('\0');
+        }
+    } else {
+        // It is possible that a partial document got rewritten as we tried to read it.
+        if (!more && !partial_document_.empty()) {
+            if (split_across_txns_) {
+                // These two braches have identical logic as the above retry branches.
+                if (reverse_) {
+                    std::string tmp = upper_;
+                    guarantee(tmp.size() > LARGE_VALUE_SUFFIX_LENGTH);
+                    tmp.resize(tmp.size() - LARGE_VALUE_SUFFIX_LENGTH);
+                    upper_ = prefix_end(tmp);
+                    partial_document_.clear();
+                    split_across_txns_ = false;
+                    goto retry;
+                } else {
+                    // We add 1 to the suffix length in this case (when chopping it
+                    // off lower_) because we have lower_.push_back('\0') and we just
+                    // want to set lower_ to the kv_prefix of our primary key.
+                    guarantee(lower_.size() > LARGE_VALUE_SUFFIX_LENGTH + 1);
+                    lower_.resize(lower_.size() - (LARGE_VALUE_SUFFIX_LENGTH + 1));
+                    partial_document_.clear();
+                    split_across_txns_ = false;
+                    goto retry;
+                }
+            } else {
+                crash("Read hit end-of-range mid-document");  // TODO: fdb, graceful
+            }
         }
     }
 
