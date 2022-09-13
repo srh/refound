@@ -308,12 +308,13 @@ datum_range_iterator::query_and_step(
                 guarantee(number == 1 + partial_document_.size());  // TODO: fdb, graceful
                 guarantee(number_ == (partial_document_.empty() ? 0 : 1));  // TODO: fdb, graceful
                 number_ = 0;
+                // TODO: Note we can deserialize datums from a buffer group.
                 for (size_t j = partial_document_.size(); j-- > 0;) {
                     buf.insert(buf.end(), partial_document_[j].begin(), partial_document_[j].end());
                 }
                 partial_document_.clear();
+                ret.first.emplace_back(std::move(the_key), std::move(buf));
             }
-            ret.first.emplace_back(std::move(the_key), std::move(buf));
         } else {
             if (b == LARGE_VALUE_FIRST_PREFIX) {
                 guarantee(number > 0);  // TODO: fdb, graceful
@@ -330,6 +331,7 @@ datum_range_iterator::query_and_step(
                 guarantee(number == partial_document_.size());  // TODO: fdb, graceful
                 partial_document_.push_back(std::move(buf));
                 if (number_ == partial_document_.size()) {
+                    // TODO: Note we can deserialize datums from a buffer group.
                     std::vector<uint8_t> builder = std::move(partial_document_[0]);
                     for (size_t j = 1; j < partial_document_.size(); ++j) {
                         builder.insert(builder.end(), partial_document_[j].begin(), partial_document_[j].end());
