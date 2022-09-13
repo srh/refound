@@ -23,8 +23,8 @@ public:
     bool is_unset() const;
     bool is_nil() const;
 
-    static const size_t kStaticSize = 16;
-    static const size_t kStringSize = 2 * kStaticSize + 4;  // hexadecimal, 4 hyphens
+    static constexpr size_t kStaticSize = 16;
+    static constexpr size_t kStringSize = 2 * kStaticSize + 4;  // hexadecimal, 4 hyphens
     static size_t static_size() {
         CT_ASSERT(sizeof(uuid_u) == kStaticSize);
         return kStaticSize;
@@ -39,6 +39,10 @@ private:
     uint8_t data_[kStaticSize];
 };
 
+struct randbuf128 {
+    uint8_t data[uuid_u::kStaticSize];
+};
+
 bool operator==(const uuid_u& x, const uuid_u& y);
 inline bool operator!=(const uuid_u& x, const uuid_u& y) { return !(x == y); }
 bool operator<(const uuid_u& x, const uuid_u& y);
@@ -46,6 +50,8 @@ bool operator<(const uuid_u& x, const uuid_u& y);
 /* This does the same thing as `boost::uuids::random_generator()()`, except that
 Valgrind won't complain about it. */
 uuid_u generate_uuid();
+
+randbuf128 generate_randbuf128();
 
 // Returns boost::uuids::nil_generator()().
 uuid_u nil_uuid();

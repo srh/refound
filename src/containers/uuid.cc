@@ -73,13 +73,10 @@ TLS_with_init(bool, next_uuid_initialized, false);
 typedef std::array<uint8_t, uuid_u::kStaticSize> next_uuid_t;
 TLS_with_init(next_uuid_t, next_uuid, next_uuid_t{{0}});
 
-uuid_u get_and_increment_uuid() {
-    uuid_u result;
-
+void get_and_increment_buf128(uint8_t result_buffer[uuid_u::kStaticSize]) {
     next_uuid_t next_uuid = TLS_get_next_uuid();
 
     // Copy over the next_uuid buffer
-    uint8_t *result_buffer = result.data();
     memcpy(result_buffer, next_uuid.data(), uuid_u::static_size());
 
     // Increment the next_uuid buffer
@@ -89,23 +86,17 @@ uuid_u get_and_increment_uuid() {
         carry = (next_uuid[i - 1] == 0);
     }
     TLS_set_next_uuid(next_uuid);
-
-    return result;
 }
 
 // TODO(sam):  Make sure this isn't messed up somehow.
-void hash_uuid(uuid_u *uuid) {
+void hash_buf128(uint8_t input[uuid_u::kStaticSize], uint8_t output[uuid_u::kStaticSize]) {
     CT_ASSERT(20 >= uuid_u::kStaticSize);
     uint8_t output_buffer[20];
 
-    sha1::calc(uuid->data(), uuid_u::static_size(), output_buffer);
-
-    // Set some bits to obey standard for version 4 UUIDs.
-    output_buffer[6] = ((output_buffer[6] & 0x0f) | 0x40);
-    output_buffer[8] = ((output_buffer[8] & 0x3f) | 0x80);
+    sha1::calc(input, uuid_u::kStaticSize, output_buffer);
 
     // Copy the beginning of the hash into our uuid
-    memcpy(uuid->data(), output_buffer, uuid_u::static_size());
+    memcpy(output, output_buffer, uuid_u::kStaticSize);
 }
 
 void initialize_dev_random_uuid() {
@@ -114,14 +105,31 @@ void initialize_dev_random_uuid() {
     TLS_set_next_uuid(next_uuid);
 }
 
-uuid_u generate_uuid() {
+void generate_rand128(uint8_t result[uuid_u::kStaticSize]) {
     if (!TLS_get_next_uuid_initialized()) {
         initialize_dev_random_uuid();
         TLS_set_next_uuid_initialized(true);
     }
-    uuid_u result = get_and_increment_uuid();
-    hash_uuid(&result);
-    return result;
+    uint8_t buf[uuid_u::kStaticSize];
+    get_and_increment_buf128(buf);
+    hash_buf128(buf, result);
+}
+
+randbuf128 generate_randbuf128() {
+    randbuf128 ret;
+    generate_rand128(ret.data);
+    return ret;
+}
+
+uuid_u generate_uuid() {
+    uuid_u ret;
+    uint8_t *data = ret.data();
+    generate_rand128(data);
+
+    // Set some bits to obey standard for version 4 UUIDs.
+    data[6] = ((data[6] & 0x0f) | 0x40);
+    data[8] = ((data[8] & 0x3f) | 0x80);
+    return ret;
 }
 
 uuid_u nil_uuid() {
