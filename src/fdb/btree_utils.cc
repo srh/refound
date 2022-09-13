@@ -240,7 +240,8 @@ datum_range_iterator primary_prefix_make_iterator(const std::string &pkey_prefix
         snapshot,
         reverse,
         number,
-        std::vector<std::vector<uint8_t>>() // partial_document_
+        std::vector<std::vector<uint8_t>>(), // partial_document_
+        false,
     };
 }
 
