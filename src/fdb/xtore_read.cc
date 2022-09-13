@@ -1344,6 +1344,7 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         *res_ = perform_read_operation<rget_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
             [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                     rget_read_response_t *res) {
+                // NNN: Smaller txns.
         // TODO: Check the cv after the first request.
         cva.cvc.block_and_check(interruptor);
         cva.auth_fut.block_and_check(interruptor);
