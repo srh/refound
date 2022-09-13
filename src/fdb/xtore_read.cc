@@ -257,12 +257,12 @@ continue_bool_t fdb_traversal_secondary(
 
     for (;;) {
 
-        // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
+        // TODO: We'll want roll-back/retry logic in place of "LARGE".
         rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range(
             txn, secondary_prefix, range.left,
             rfdb::lower_bound::closed,
             range.right.unbounded ? nullptr : &range.right.internal_key,
-            0, 0, FDB_STREAMING_MODE_MEDIUM,
+            0, 0, FDB_STREAMING_MODE_LARGE,
             0, false, reverse);
 
         fut.future.block_coro(interruptor);
@@ -275,6 +275,7 @@ continue_bool_t fdb_traversal_secondary(
 
         // The store_key_t is the sindex store key.  Do we actually use it?
         std::vector<std::pair<store_key_t, rfdb::datum_fut>> primary_futs;
+        primary_futs.reserve(kv_count);
 
         // Initialized and used if kv_count > 0.
         key_view last_key_view;
@@ -296,16 +297,25 @@ continue_bool_t fdb_traversal_secondary(
                 rfdb::kv_location_get(txn, kv_location));
         }
 
+        std::vector<std::vector<uint8_t>> primary_values;
+        primary_values.reserve(kv_count);
+
         for (auto &pair : primary_futs) {
             optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
                 txn, std::move(pair.second), interruptor);
             guarantee(value.has_value());  // TODO: fdb consistency, graceful, msg
+            primary_values.push_back(std::move(*value));
+        }
+
+        for (size_t i = 0, e = primary_futs.size(); i < e; ++i) {
+            const store_key_t &key = primary_futs[i].first;
+            const std::vector<uint8_t> &value = primary_values[i];
             // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
             continue_bool_t contbool = cb->handle_pair(
-                std::make_pair(pair.first.str().data(), pair.first.str().size()),
-                std::make_pair(as_char(value->data()), value->size()));
-
+                std::make_pair(key.str().data(), key.str().size()),
+                std::make_pair(as_char(value.data()), value.size()));
             // OOO: It's bad thinking to abandon the reads we've performed here.  We should consume everything we've read from fdb.
+            // OOO: ^^ huh?
             if (contbool == continue_bool_t::ABORT) {
                 return continue_bool_t::ABORT;
             }
