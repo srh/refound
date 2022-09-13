@@ -13,7 +13,7 @@ namespace rfdb {
 static const size_t LARGE_VALUE_SPLIT_SIZE = 16384;
 static const char LARGE_VALUE_FIRST_PREFIX = '\x30';
 static const char LARGE_VALUE_SECOND_PREFIX = '\x31';
-static const char LARGE_VALUE_SUFFIX_LENGTH = 5;  // prefix char followed by 4-digit hex value
+static const char LARGE_VALUE_SUFFIX_LENGTH_ = 9;  // prefix char followed by 8-digit hex value
 
 // TODO: Try making callers avoid string copy (by not taking a const string& themselves).
 std::string kv_prefix(const std::string &kv_location) {
@@ -41,7 +41,9 @@ std::string kv_prefix_end(std::string &&kv_location) {
 }
 
 
-void append_bigendian_hex16(std::string *str, uint16_t val) {
+void append_bigendian_hex32(std::string *str, uint32_t val) {
+    push_hex(str, val >> 24);
+    push_hex(str, val >> 16);
     push_hex(str, val >> 8);
     push_hex(str, val);
 }
@@ -62,10 +64,10 @@ uint8_t hexvalue(uint8_t x) {
     }
 }
 
-uint16_t decode_bigendian_hex16(const uint8_t *data, size_t length) {
-    guarantee(length == 4);
-    uint16_t builder = 0;
-    for (size_t i = 0; i < 4; ++i) {
+uint32_t decode_bigendian_hex32(const uint8_t *data, size_t length) {
+    guarantee(length == 8);
+    uint32_t builder = 0;
+    for (size_t i = 0; i < 8; ++i) {
         builder <<= 4;
         builder |= hexvalue(data[i]);
     }
@@ -98,17 +100,17 @@ kv_location_set(
     }
 
     // TODO: Declare this constant.  We have it because of the file format.
-    guarantee(num_parts < 16384);  // OOO: Fail more gracefully.
+    guarantee(num_parts < 1048576);  // OOO: Fail more gracefully.
 
     const size_t prefix_size = prefix.size();
 
     for (size_t i = 0; i < num_parts; ++i) {
         if (i == 0) {
             prefix.push_back(LARGE_VALUE_FIRST_PREFIX);
-            append_bigendian_hex16(&prefix, num_parts);
+            append_bigendian_hex32(&prefix, num_parts);
         } else {
             prefix.push_back(LARGE_VALUE_SECOND_PREFIX);
-            append_bigendian_hex16(&prefix, i);
+            append_bigendian_hex32(&prefix, i);
         }
         btubugf("kls '%s', writing key '%s'\n", debug_str(prefix).c_str(), debug_str(key).c_str());
         const size_t front = i * LARGE_VALUE_SPLIT_SIZE;
@@ -179,9 +181,9 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
             btubugf("barud '%s' see key '%s'\n", debug_str(prefix).c_str(),
                 debug_str(key_slice.to_string()).c_str());
             key_view post_prefix = key_slice.guarantee_without_prefix(prefix);
-            guarantee(post_prefix.length == LARGE_VALUE_SUFFIX_LENGTH);  // TODO: fdb, graceful, etc.
-            static_assert(LARGE_VALUE_SUFFIX_LENGTH == 5, "bad suffix logic");
-            uint32_t number = decode_bigendian_hex16(post_prefix.data + 1, 4);
+            guarantee(post_prefix.length == LARGE_VALUE_SUFFIX_LENGTH_);  // TODO: fdb, graceful, etc.
+            static_assert(LARGE_VALUE_SUFFIX_LENGTH_ == 9, "bad suffix logic");
+            uint32_t number = decode_bigendian_hex32(post_prefix.data + 1, 8);
             if (counter == 0) {
                 guarantee(post_prefix.data[0] == LARGE_VALUE_FIRST_PREFIX);  // TODO: fdb, graceful, etc.
                 num_parts = number;
@@ -284,17 +286,17 @@ datum_range_iterator::query_and_step(
         btubugf("qas '%s', key '%s'\n", debug_str(lower_).c_str(), debug_str(std::string(as_char(full_key.data), full_key.length)).c_str());
         key_view partial_key = full_key.guarantee_without_prefix(pkey_prefix_);
         last_key_view = full_key;
-        // Now, we've got a primary key, followed by '\0', followed by 5 bytes.
-        static_assert(LARGE_VALUE_SUFFIX_LENGTH == 5, "bad suffix logic");
-        guarantee(partial_key.length >= 6);  // TODO: fdb, graceful, etc.
-        guarantee(partial_key.data[partial_key.length - 6] == '\0');  // TODO: fdb, graceful
-        uint8_t b = partial_key.data[partial_key.length - 5];
+        // Now, we've got a primary key, followed by '\0', followed by 9 bytes.
+        static_assert(LARGE_VALUE_SUFFIX_LENGTH_ == 9, "bad suffix logic");
+        guarantee(partial_key.length >= 10);  // TODO: fdb, graceful, etc.
+        guarantee(partial_key.data[partial_key.length - 10] == '\0');  // TODO: fdb, graceful
+        uint8_t b = partial_key.data[partial_key.length - 9];
         guarantee(b == LARGE_VALUE_FIRST_PREFIX || b == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful
-        uint32_t number = decode_bigendian_hex16(partial_key.data + (partial_key.length - 4), 4);
+        uint32_t number = decode_bigendian_hex32(partial_key.data + (partial_key.length - 8), 8);
 
         // QQQ: We might sanity check that the key doesn't change.
 
-        store_key_t the_key(partial_key.length - 6, partial_key.data);
+        store_key_t the_key(partial_key.length - 10, partial_key.data);
 
         std::vector<uint8_t> buf{
             void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + size_t(kvs[i].value_length)};
