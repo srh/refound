@@ -144,11 +144,6 @@ struct datum_range_iterator {
     std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
     query_and_step(FDBTransaction *txn, const signal_t *interruptor, FDBStreamingMode mode);
 
-    std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
-    query_and_step(FDBTransaction *txn, const signal_t *interruptor) {
-        return query_and_step(txn, interruptor, FDB_STREAMING_MODE_MEDIUM);
-    }
-
     void mark_split_across_txns() {
         split_across_txns_ = true;
     }

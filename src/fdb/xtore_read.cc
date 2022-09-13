@@ -470,8 +470,10 @@ void rdb_fdb_rget_snapshot_slice(
                 snapshot, reverse);
 
             for (;;) {
+                // TODO: Use streaming mode iterator, or use streaming mode conditional on
+                // what kind of transforms/terminals it has.
                 std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> result
-                    = iter.query_and_step(txn, interruptor);
+                    = iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
 
                 for (const auto &elem : result.first) {
                     // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
