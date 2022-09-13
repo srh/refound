@@ -79,18 +79,6 @@ uint32_t decode_bigendian_hex32(const uint8_t *data, size_t length) {
     return builder;
 }
 
-struct unique_pkey_suffix {
-    static constexpr size_t size = 16;
-    char data[size];
-
-    static unique_pkey_suffix copy(const uint8_t *buf, size_t count) {
-        guarantee(count == size);
-        unique_pkey_suffix ret;
-        memcpy(ret.data, buf, size);
-        return ret;
-    }
-};
-
 // Generates 16-byte hex string as that is the pkey format
 unique_pkey_suffix generate_unique_pkey_suffix() {
     unique_pkey_suffix ret;
@@ -329,7 +317,7 @@ datum_range_iterator::query_and_step(
         uint8_t b = partial_key.data[partial_key.length - 25];
         guarantee(b == LARGE_VALUE_FIRST_PREFIX || b == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful
         uint32_t number = decode_bigendian_hex32(partial_key.data + (partial_key.length - 24), 8);
-        UNUSED unique_pkey_suffix identifier = unique_pkey_suffix::copy(partial_key.data + (partial_key.length - 16), 16);  // NNN: Make use.
+        unique_pkey_suffix identifier = unique_pkey_suffix::copy(partial_key.data + (partial_key.length - 16), 16);  // NNN: Make use.
 
         // QQQ: We might sanity check that the key doesn't change.
 
@@ -339,6 +327,19 @@ datum_range_iterator::query_and_step(
             void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + size_t(kvs[i].value_length)};
         if (reverse_) {
             if (b == LARGE_VALUE_SECOND_PREFIX) {
+                if (partial_document_.empty()) {
+                    last_seen_suffix_ = identifier;
+                } else {
+                    // NNN: fdb, graceful
+                    if (0 != last_seen_suffix_.compare(identifier)) {
+                        if (split_across_txns_) {
+                            crash("Non-matching identifier suffix on pkey (split across txns)");  // NNN: Implement case
+                        } else {
+                            crash("Non-matching identifier suffix on pkey");  // TODO: fdb, graceful
+                        }
+                    }
+                }
+
                 partial_document_.push_back(std::move(buf));
                 guarantee(number_ == 0 || number == number_ - 1);  // TODO: fdb, graceful
                 number_ = number;
@@ -365,10 +366,18 @@ datum_range_iterator::query_and_step(
                 } else {
                     partial_document_.push_back(std::move(buf));
                     number_ = number;
+                    last_seen_suffix_ = identifier;
                 }
             } else /* already checked b == '\x31' */ {
                 guarantee(number == partial_document_.size());  // TODO: fdb, graceful
                 partial_document_.push_back(std::move(buf));
+                if (0 != last_seen_suffix_.compare(identifier)) {
+                    if (split_across_txns_) {
+                        crash("Non-matching identifier suffix on pkey (split across txns)");  // NNN: Implement case
+                    } else {
+                        crash("Non-matching identifier suffix on pkey");  // TODO: fdb, graceful
+                    }
+                }
                 if (number_ == partial_document_.size()) {
                     // TODO: Note we can deserialize datums from a buffer group.
                     std::vector<uint8_t> builder = std::move(partial_document_[0]);
@@ -381,6 +390,7 @@ datum_range_iterator::query_and_step(
                 }
             }
         }
+        split_across_txns_ = false;
     }
 
     if (kv_count > 0) {

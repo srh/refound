@@ -103,6 +103,22 @@ enum class lower_bound {
     closed,
 };
 
+struct unique_pkey_suffix {
+    static constexpr size_t size = 16;
+    char data[size];
+
+    static unique_pkey_suffix copy(const uint8_t *buf, size_t count) {
+        guarantee(count == size);
+        unique_pkey_suffix ret;
+        memcpy(ret.data, buf, size);
+        return ret;
+    }
+
+    int compare(const unique_pkey_suffix& other) const {
+        return memcmp(data, other.data, size);
+    }
+};
+
 struct datum_range_iterator {
     std::string pkey_prefix_;
     // If forward-iterating, lower is either a large value prefix with its '\0' suffix
@@ -119,6 +135,8 @@ struct datum_range_iterator {
     // need to be reversed before concatenation.
     std::vector<std::vector<uint8_t>> partial_document_;
 
+    // Only valid when partial_document_ non-empty.
+    unique_pkey_suffix last_seen_suffix_;
     bool split_across_txns_ = false;
 
     // TODO: Maybe split into prep_for_step() and block_for_step().
