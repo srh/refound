@@ -75,7 +75,12 @@ struct database_id_t {
 };
 
 // Internal utility useful elsewhere.
+inline std::pair<char, char> convert_hex8(uint8_t byte) {
+    const char *const buf = "0123456789abcdef";
+    return std::make_pair(buf[byte >> 4], buf[byte & 0x0f]);
+}
 void push_hex(std::string *s, uint8_t byte);
+
 
 namespace std {
 template<> struct hash<uuid_u> {

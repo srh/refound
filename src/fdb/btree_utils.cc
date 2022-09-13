@@ -10,10 +10,15 @@
 
 namespace rfdb {
 
-static const size_t LARGE_VALUE_SPLIT_SIZE = 16384;
-static const char LARGE_VALUE_FIRST_PREFIX = '\x30';
-static const char LARGE_VALUE_SECOND_PREFIX = '\x31';
-static const char LARGE_VALUE_SUFFIX_LENGTH_ = 9;  // prefix char followed by 8-digit hex value
+static constexpr size_t LARGE_VALUE_SPLIT_SIZE = 16384;
+static constexpr char LARGE_VALUE_FIRST_PREFIX = '\x30';
+static constexpr char LARGE_VALUE_SECOND_PREFIX = '\x31';
+
+// large value suffix (which is preceded by the nul character terminating the primary key)
+// (a) (1-byte) prefix char, either LARGE_VALUE_FIRST_PREFIX or LARGE_VALUE_SECOND_PREFIX
+// (b) (8-bytes) 8-digit hex value (representing a 32-bit int) representing a size
+// (c) (16-bytes) 16-digit hex value (representing a unique 64-bit int)
+static constexpr size_t LARGE_VALUE_SUFFIX_LENGTH = 1 + 8 + 16;
 
 // TODO: Try making callers avoid string copy (by not taking a const string& themselves).
 std::string kv_prefix(const std::string &kv_location) {
@@ -74,6 +79,32 @@ uint32_t decode_bigendian_hex32(const uint8_t *data, size_t length) {
     return builder;
 }
 
+struct unique_pkey_suffix {
+    static constexpr size_t size = 16;
+    char data[size];
+
+    static unique_pkey_suffix copy(const uint8_t *buf, size_t count) {
+        guarantee(count == size);
+        unique_pkey_suffix ret;
+        memcpy(ret.data, buf, size);
+        return ret;
+    }
+};
+
+// Generates 16-byte hex string as that is the pkey format
+unique_pkey_suffix generate_unique_pkey_suffix() {
+    unique_pkey_suffix ret;
+    randbuf128 identifier = generate_randbuf128();
+    // 8 binary bytes -> 16 hex digits
+    static_assert(sizeof(ret.data) == 16, "Expecting 16 hex bytes");
+    for (size_t i = 0; i < 8; ++i) {
+        std::pair<char, char> p = convert_hex8(identifier.data[i]);
+        ret.data[i * 2] = p.first;
+        ret.data[i * 2 + 1] = p.second;
+    }
+    return ret;
+}
+
 // The signature will need to change with large values because we'll need to wipe out the old value (if it's larger and uses more keys).
 MUST_USE ql::serialization_result_t
 kv_location_set(
@@ -103,8 +134,10 @@ kv_location_set(
     guarantee(num_parts < 1048576);  // OOO: Fail more gracefully.
 
     const size_t prefix_size = prefix.size();
+    unique_pkey_suffix unique_suffix = generate_unique_pkey_suffix();
 
     for (size_t i = 0; i < num_parts; ++i) {
+        static_assert(25 == LARGE_VALUE_SUFFIX_LENGTH, "Expecting 1 + 8 + 16 pkey format");
         if (i == 0) {
             prefix.push_back(LARGE_VALUE_FIRST_PREFIX);
             append_bigendian_hex32(&prefix, num_parts);
@@ -112,6 +145,8 @@ kv_location_set(
             prefix.push_back(LARGE_VALUE_SECOND_PREFIX);
             append_bigendian_hex32(&prefix, i);
         }
+        prefix.append(unique_suffix.data, unique_suffix.size);
+
         btubugf("kls '%s', writing key '%s'\n", debug_str(prefix).c_str(), debug_str(key).c_str());
         const size_t front = i * LARGE_VALUE_SPLIT_SIZE;
         const size_t back = std::min(front + LARGE_VALUE_SPLIT_SIZE, str.size());
@@ -181,8 +216,8 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
             btubugf("barud '%s' see key '%s'\n", debug_str(prefix).c_str(),
                 debug_str(key_slice.to_string()).c_str());
             key_view post_prefix = key_slice.guarantee_without_prefix(prefix);
-            guarantee(post_prefix.length == LARGE_VALUE_SUFFIX_LENGTH_);  // TODO: fdb, graceful, etc.
-            static_assert(LARGE_VALUE_SUFFIX_LENGTH_ == 9, "bad suffix logic");
+            guarantee(post_prefix.length == LARGE_VALUE_SUFFIX_LENGTH);  // TODO: fdb, graceful, etc.
+            static_assert(LARGE_VALUE_SUFFIX_LENGTH == 25, "bad suffix logic");
             uint32_t number = decode_bigendian_hex32(post_prefix.data + 1, 8);
             if (counter == 0) {
                 guarantee(post_prefix.data[0] == LARGE_VALUE_FIRST_PREFIX);  // TODO: fdb, graceful, etc.
@@ -193,6 +228,7 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
                 guarantee(post_prefix.data[0] == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful, etc.
                 guarantee(number == counter);  // TODO: fdb, graceful, etc.
             }
+            UNUSED unique_pkey_suffix identifier = unique_pkey_suffix::copy(post_prefix.data + 9, 16);  // NNN: Make use
 
             ret->insert(ret->end(),
                 void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + kvs[i].value_length);
@@ -287,16 +323,17 @@ datum_range_iterator::query_and_step(
         key_view partial_key = full_key.guarantee_without_prefix(pkey_prefix_);
         last_key_view = full_key;
         // Now, we've got a primary key, followed by '\0', followed by 9 bytes.
-        static_assert(LARGE_VALUE_SUFFIX_LENGTH_ == 9, "bad suffix logic");
-        guarantee(partial_key.length >= 10);  // TODO: fdb, graceful, etc.
-        guarantee(partial_key.data[partial_key.length - 10] == '\0');  // TODO: fdb, graceful
-        uint8_t b = partial_key.data[partial_key.length - 9];
+        static_assert(LARGE_VALUE_SUFFIX_LENGTH == 25, "bad suffix logic");
+        guarantee(partial_key.length >= 26);  // TODO: fdb, graceful, etc.
+        guarantee(partial_key.data[partial_key.length - 26] == '\0');  // TODO: fdb, graceful
+        uint8_t b = partial_key.data[partial_key.length - 25];
         guarantee(b == LARGE_VALUE_FIRST_PREFIX || b == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful
-        uint32_t number = decode_bigendian_hex32(partial_key.data + (partial_key.length - 8), 8);
+        uint32_t number = decode_bigendian_hex32(partial_key.data + (partial_key.length - 24), 8);
+        UNUSED unique_pkey_suffix identifier = unique_pkey_suffix::copy(partial_key.data + (partial_key.length - 16), 16);  // NNN: Make use.
 
         // QQQ: We might sanity check that the key doesn't change.
 
-        store_key_t the_key(partial_key.length - 10, partial_key.data);
+        store_key_t the_key(partial_key.length - 26, partial_key.data);
 
         std::vector<uint8_t> buf{
             void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + size_t(kvs[i].value_length)};

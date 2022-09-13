@@ -143,9 +143,9 @@ void debug_print(printf_buffer_t *buf, const uuid_u& id) {
 }
 
 void push_hex(std::string *s, uint8_t byte) {
-    const char *buf = "0123456789abcdef";
-    s->push_back(buf[byte >> 4]);
-    s->push_back(buf[byte & 0x0f]);
+    std::pair<char, char> p = convert_hex8(byte);
+    s->push_back(p.first);
+    s->push_back(p.second);
 }
 
 void uuid_onto_str(uuid_u id, std::string *onto) {
