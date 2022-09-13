@@ -9,8 +9,12 @@
 #include "btree/types.hpp"
 #include "containers/counted.hpp"
 #include "fdb/fdb.hpp"
+#include "fdb/id_types.hpp"
 #include "rdb_protocol/geo/s2/s2cellid.h"
 
+namespace auth {
+class user_context_t;
+}
 namespace ql {
 class datum_t;
 }
@@ -19,6 +23,7 @@ struct namespace_id_t;
 class rockshard;
 class signal_t;
 struct sindex_id_t;
+class table_config_t;
 
 
 /* Polygons and lines are inserted into an index by computing a coverage of them
@@ -103,8 +108,11 @@ private:
 
 continue_bool_t geo_fdb_traversal(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const sindex_id_t &sindex_id,
         const key_range_t &sindex_range,
         geo_index_traversal_helper_t *helper);

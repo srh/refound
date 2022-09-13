@@ -1,4 +1,4 @@
-#include "fdb/xtore.hpp"
+#include "fdb/xtore_read.hpp"
 
 #include "errors.hpp"
 #include <boost/variant/static_visitor.hpp>
@@ -20,44 +20,6 @@
 
 // TODO: Decl in a header.
 read_mode_t dummy_read_mode();
-
-struct cv_auth_check_fut_read {
-    cv_auth_check_fut_read(FDBTransaction *txn, reqlfdb_config_version prior_cv, const auth::user_context_t &user_context,
-            const namespace_id_t &table_id, const table_config_t &table_config)
-        : cvc(txn, prior_cv),
-          auth_fut(user_context.transaction_require_read_permission(txn, table_config.basic.database, table_id)) {}
-
-    cv_check_fut cvc;
-    auth::fdb_user_fut<auth::read_permission> auth_fut;
-};
-
-template <class return_type, class Callable>
-return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor, reqlfdb_config_version prior_cv,
-        const auth::user_context_t &user_context, const namespace_id_t &table_id, const table_config_t &table_config,
-        Callable &&c) {
-    return_type ret;
-    try {
-        fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
-                [&](FDBTransaction *txn) {
-
-            // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
-            // we check_cv?), not after entire read op.
-            cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
-
-            return_type response;
-            {
-                c(interruptor, txn, std::move(cva), &response);
-                // NNN: This is broken.  We can't perform subqueries in a loop like this.
-            }
-
-            ret = std::move(response);
-        });
-        rcheck_fdb_datum(loop_err, "reading table");
-    } catch (const provisional_assumption_exception &exc) {
-        throw config_version_exc_t();
-    }
-    return ret;
-}
 
 enum class direction_t {
     forward,
@@ -279,7 +241,7 @@ continue_bool_t fdb_traversal_secondary(
                 txn, secondary_prefix, range.left,
                 rfdb::lower_bound::closed,
                 range.right.unbounded ? nullptr : &range.right.internal_key,
-                0, 0, FDB_STREAMING_MODE_LARGE,
+                0, 0, FDB_STREAMING_MODE_MEDIUM,
                 0, false, reverse);
 
             fut.future.block_coro(interruptor);
@@ -1078,8 +1040,11 @@ void do_fdb_snap_read(
 
 void rdb_fdb_get_nearest_slice(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const sindex_id_t &sindex_id,
         const lon_lat_point_t &center,
         double max_dist,
@@ -1112,7 +1077,7 @@ void rdb_fdb_get_nearest_slice(
                 ql_env,
                 &state);
             geo_fdb_traversal(
-                interruptor, txn, table_id, sindex_id, key_range_t::universe(), &callback);
+                interruptor, fdb, prior_cv, user_context, table_id, table_config, sindex_id, key_range_t::universe(), &callback);
             callback.finish(&partial_response);
         } catch (const geo_exception_t &e) {
             partial_response.results_or_error =
@@ -1136,8 +1101,11 @@ void rdb_fdb_get_nearest_slice(
 
 void rdb_fdb_get_intersecting_slice(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const sindex_id_t &sindex_id,
         const ql::datum_t &query_geometry,
         const key_range_t &sindex_range,
@@ -1171,8 +1139,10 @@ void rdb_fdb_get_intersecting_slice(
         query_geometry,
         response);
 
+
+
     continue_bool_t cont = geo_fdb_traversal(
-        interruptor, txn, table_id, sindex_id, sindex_range, &callback);
+            interruptor, fdb, prior_cv, user_context, table_id, table_config, sindex_id, sindex_range, &callback);
     callback.finish(cont);
 }
 
@@ -1333,22 +1303,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const intersecting_geo_read_t &geo_read) {
         response_->response = rget_read_response_t();
-        rget_read_response_t *res_ =
+        rget_read_response_t *res =
             boost::get<rget_read_response_t>(&response_->response);
 
 #if RDB_CF
         guarantee(!geo_read.stamp.has_value());  // TODO: Changefeeds not supported.
 #endif
-
-        // TODO: Indent this code.
-        *res_ = perform_read_operation<rget_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    rget_read_response_t *res) {
-                // NNN: Smaller txns.
-        // TODO: Check the cv after the first request.
-        cva.cvc.block_and_check(interruptor);
-        cva.auth_fut.block_and_check(interruptor);
-
 
         // TODO: We construct this kind of early.
         ql::env_t ql_env(
@@ -1388,8 +1348,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         guarantee(geo_read.sindex.region.has_value());
         rdb_fdb_get_intersecting_slice(
             interruptor,
-            txn,
+            fdb_,
+            prior_cv_,
+            *user_context_,
             table_id_,
+            *table_config_,
             sindex_id,
             geo_read.query_geometry,
             *geo_read.sindex.region,
@@ -1404,23 +1367,12 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             is_stamp_read_t::NO,
 #endif
             res);
-
-        });
     }
 
     void operator()(const nearest_geo_read_t &geo_read) {
         response_->response = nearest_geo_read_response_t();
-        nearest_geo_read_response_t *res_ =
+        nearest_geo_read_response_t *res =
             boost::get<nearest_geo_read_response_t>(&response_->response);
-
-        // TODO: Indent this code.
-        *res_ = perform_read_operation<nearest_geo_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    nearest_geo_read_response_t *res) {
-                // NNN: Do this later... or something.
-                cva.cvc.block_and_check(interruptor);
-                cva.auth_fut.block_and_check(interruptor);
-
 
         ql::env_t ql_env(
             ctx_,    // QQQ: Do the geo read's transforms/terminal code have to pass some non-deterministic test?  We might need a ctx.
@@ -1456,8 +1408,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
         rdb_fdb_get_nearest_slice(
             interruptor,
-            txn,
+            fdb_,
+            prior_cv_,
+            *user_context_,
             table_id_,
+            *table_config_,
             sindex_id,
             geo_read.center,
             geo_read.max_dist,
@@ -1466,8 +1421,6 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
             &ql_env,
             sindex_info,
             res);
-
-        });
     }
 
     void operator()(const rget_read_t &rget) {

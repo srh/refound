@@ -11,6 +11,7 @@
 #include "containers/scoped.hpp"
 #include "fdb/btree_utils.hpp"
 #include "fdb/id_types.hpp"
+#include "fdb/xtore_read.hpp"
 #include "rdb_protocol/geo/exceptions.hpp"
 #include "rdb_protocol/geo/geojson.hpp"
 #include "rdb_protocol/geo/geo_visitor.hpp"
@@ -33,6 +34,8 @@ using geo::S2Polyline;
 using geo::S2Region;
 using geo::S2RegionCoverer;
 using ql::datum_t;
+
+class table_config_t;
 
 // TODO (daniel): Consider making this configurable through an opt-arg
 //   (...at index creation?)
@@ -445,13 +448,18 @@ bool geo_index_traversal_helper_t::skip_forward_to_seek_key(store_key_t *pos) co
 
 continue_bool_t geo_fdb_traversal(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const sindex_id_t &sindex_id,
         const key_range_t &sindex_range,
         geo_index_traversal_helper_t *helper) {
     const std::string primary_prefix = rfdb::table_pkey_prefix(table_id);
     const std::string fdb_kv_prefix = rfdb::table_index_prefix(table_id, sindex_id);
+
+    // TODO: We could use larger transactions if the helper function is deterministic or non-recursive-querying.
 
     // TODO: Medium, streaming batch size backoff logic etc, is partial iteration even allowable at all?
 
@@ -472,121 +480,218 @@ continue_bool_t geo_fdb_traversal(
             return continue_bool_t::CONTINUE;
         }
 
-        // It's important that rfut be decl'd outside the while loop for kvs's lifetime
-        // to be correct.
-        rfdb::secondary_range_fut rfut;
+        struct values_slug {
+            std::vector<std::pair<std::string, std::vector<uint8_t>>> keyvalues;
+        };
 
-        const FDBKeyValue *kvs = valgrind_undefined(nullptr);
-        int kv_count = 0;
-        fdb_bool_t more = true;
-        // It's unclear if a zero-count read (except at end of stream) is even possible.
-        while (more && kv_count == 0) {
-            rfut = rfdb::secondary_prefix_get_range(txn, fdb_kv_prefix,
-                pos, rfdb::lower_bound::closed, sindex_range_right_ptr,
-                0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
-            rfut.future.block_coro(interruptor);
-            fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
-            check_for_fdb_transaction(err);
-        }
+        struct read_result_1 {
+            enum class outcome {
+                update_pos_and_continue,
+                return_contbool,
+                values,
+            };
+            outcome outcome;
+            // update_pos_and_continue
+            store_key_t skey;
+            // return_contbool
+            // NNN: This is always the same value.
+            continue_bool_t cont;
+            // values
+            std::string stop_line;
+            values_slug slug;
+            fdb_bool_t more;
+        };
 
-        if (kv_count == 0) {
-            // (We have !more here.)
-            return continue_bool_t::CONTINUE;
-        }
-
-        key_view key_slice{void_as_uint8(kvs[0].key), kvs[0].key_length};
-        key_slice = key_slice.guarantee_without_prefix(fdb_kv_prefix);
-        // Right now sindexes have no value.
-        rassert(kvs[0].value_length == 0);
-
-        store_key_t skey(key_slice.length, key_slice.data);
-        S2CellId cellid = btree_key_to_s2cellid(skey);
-
-        bool found_cell = false;
-        S2CellId max_cell;
-        // And now we want to see: Are we intersecting?  Or do we need to seek further?
-        for (S2CellId cell : helper->query_cells()) {
-            if (cell.contains(cellid)) {
-                // We're inside the cell.  Iterate through it entirely.
-                max_cell = cell.range_max();
-                found_cell = true;
-                break;
-            } else if (cellid.contains(cell)) {
-                // Iterate through all keys with the entire ancestor's _value_.
-                max_cell = cellid;
-                found_cell = true;
-                break;
-            } else {
-                // We're outside the cell.  Go to the next one.
-                continue;
+        auto read_kvs = [&primary_prefix, &fdb_kv_prefix](FDBTransaction *txn, const signal_t *interruptor, const FDBKeyValue *kvs, int kv_count) -> values_slug {
+            std::vector<rfdb::datum_fut> futs;
+            futs.reserve(kv_count);
+            values_slug slug;
+            slug.keyvalues.reserve(kv_count);
+            for (int i = 0; i < kv_count; ++i) {
+                key_view key_slice{void_as_uint8(kvs[0].key), kvs[0].key_length};
+                key_slice = key_slice.guarantee_without_prefix(fdb_kv_prefix);
+                store_key_t primary = ql::datum_t::extract_primary(
+                    as_char(key_slice.data), size_t(key_slice.length));
+                // TODO: We could avoid an allocation, whatever.
+                std::string kv_location = primary_prefix + primary.str();
+                slug.keyvalues.emplace_back(key_slice.to_string(), std::vector<uint8_t>());
+                futs.push_back(rfdb::kv_location_get(txn, kv_location));
             }
-        }
 
-        if (!found_cell) {
-            pos = skey;
+            // OOO: Only read key-values up to the stop line (which we'll respect later unconditionally)
+            for (int i = 0; i < kv_count; ++i) {
+                optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
+                        txn, std::move(futs[i]), interruptor);
+                guarantee(value.has_value());
+                slug.keyvalues[i].second = std::move(*value);
+            }
+            return slug;
+        };
+
+        read_result_1 res1 = perform_read_operation<read_result_1>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+                    read_result_1 *res) {
+            // TODO: Check the cv after the first request.
+            cva.cvc.block_and_check(interruptor);
+            cva.auth_fut.block_and_check(interruptor);
+
+            // It's important that rfut be decl'd outside the while loop for kvs's lifetime
+            // to be correct.
+            rfdb::secondary_range_fut rfut;
+
+            const FDBKeyValue *kvs = valgrind_undefined(nullptr);
+            int kv_count = 0;
+            fdb_bool_t more = true;
+            // It's unclear if a zero-count read (except at end of stream) is even possible.
+            while (more && kv_count == 0) {
+                rfut = rfdb::secondary_prefix_get_range(txn, fdb_kv_prefix,
+                    pos, rfdb::lower_bound::closed, sindex_range_right_ptr,
+                    0, 0, FDB_STREAMING_MODE_SMALL, 0, false, false);
+                rfut.future.block_coro(interruptor);
+                fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
+                check_for_fdb_transaction(err);
+            }
+
+            if (kv_count == 0) {
+                // (We have !more here.)
+                res->outcome = read_result_1::outcome::return_contbool;
+                res->cont = continue_bool_t::CONTINUE;
+                return;
+            }
+
+            key_view key_slice_v{void_as_uint8(kvs[0].key), kvs[0].key_length};
+            key_slice_v = key_slice_v.guarantee_without_prefix(fdb_kv_prefix);
+            // Right now sindexes have no value.
+            rassert(kvs[0].value_length == 0);
+
+            std::string key_slice = key_slice_v.to_string();
+
+            store_key_t skey(key_slice.size(), as_uint8(key_slice.data()));
+            S2CellId cellid = btree_key_to_s2cellid(skey);
+
+            bool found_cell = false;
+            S2CellId max_cell;
+            // And now we want to see: Are we intersecting?  Or do we need to seek further?
+            for (S2CellId cell : helper->query_cells()) {
+                if (cell.contains(cellid)) {
+                    // We're inside the cell.  Iterate through it entirely.
+                    max_cell = cell.range_max();
+                    found_cell = true;
+                    break;
+                } else if (cellid.contains(cell)) {
+                    // Iterate through all keys with the entire ancestor's _value_.
+                    max_cell = cellid;
+                    found_cell = true;
+                    break;
+                } else {
+                    // We're outside the cell.  Go to the next one.
+                    continue;
+                }
+            }
+
+            if (!found_cell) {
+                res->outcome = read_result_1::outcome::update_pos_and_continue;
+                res->skey = skey;
+                return;
+            }
+
+            // TODO: Use index key concat helper.
+            std::string stop_line
+                = rfdb::index_key_concat_str(fdb_kv_prefix,
+                    prefix_end(s2cellid_to_key(max_cell)));
+
+            values_slug slug = read_kvs(txn, interruptor, kvs, kv_count);
+
+            res->outcome = read_result_1::outcome::values;
+            res->stop_line = std::move(stop_line);
+            res->slug = std::move(slug);
+            res->more = more;
+            return;
+        });
+
+        if (res1.outcome == read_result_1::outcome::update_pos_and_continue) {
+            pos = std::move(res1.skey);
             continue;
+        } else if (res1.outcome == read_result_1::outcome::return_contbool) {
+            return res1.cont;
+        } else {
+            // flow through to code below...
         }
 
-        // TODO: Use index key concat helper.
-        std::string stop_line
-            = rfdb::index_key_concat_str(fdb_kv_prefix,
-                prefix_end(s2cellid_to_key(max_cell)));
+        fdb_bool_t more = res1.more;
+        values_slug slug = std::move(res1.slug);
+        std::string stop_line = std::move(res1.stop_line);
 
         // We iterate through the rest of kvs, refreshing it with more range queries as
         // necessary.
-        int kvs_index = 1;
+        size_t kvs_index = 1;
+
+        // OOO: Avoid copying.
+        std::string key_slice = slug.keyvalues[0].first;
+
         for (;;) {
-            // OOO: No no no, we need to batch these primary index gets (or refactor this entire function not to parallelize the whole traversal).
-            store_key_t primary = ql::datum_t::extract_primary(
-                as_char(key_slice.data), size_t(key_slice.length));
-            // TODO: We could avoid an allocation, whatever.
-            std::string kv_location = primary_prefix + primary.str();
-            rfdb::datum_fut value_fut = rfdb::kv_location_get(txn, kv_location);
-            optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
-                txn, std::move(value_fut), interruptor);
-            guarantee(value.has_value());  // TODO: fdb, graceful, msg
+            // OOO: We could clean up a lot here.
+
+            const std::vector<uint8_t> &value = slug.keyvalues[kvs_index - 1].second;
 
             // key_slice at this point has had the prefix truncated.
             continue_bool_t contbool = helper->handle_pair(
-                std::make_pair(as_char(key_slice.data), size_t(key_slice.length)),
-                std::make_pair(as_char(value->data()), value->size()));
+                std::make_pair(key_slice.data(), key_slice.size()),
+                std::make_pair(as_char(value.data()), value.size()));
             if (contbool == continue_bool_t::ABORT) {
                 return continue_bool_t::ABORT;
             }
 
-            if (kvs_index == kv_count) {
+            if (kvs_index == slug.keyvalues.size()) {
                 if (!more) {
                     break;
                 }
 
-                kv_count = 0;
-                while (more && kv_count == 0) {
-                    // It's important that we reassign to rfut for kvs lifetime to be correct.
-                    rfut = rfdb::secondary_prefix_get_range(
-                        txn, fdb_kv_prefix,
-                        store_key_t(key_slice.length, key_slice.data),
-                        rfdb::lower_bound::open,
-                        sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
-                    rfut.future.block_coro(interruptor);
-                    fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
-                    check_for_fdb_transaction(err);
-                }
+                struct read_result_2 {
+                    values_slug slug;
+                };
 
-                if (kv_count == 0) {
-                    rassert(!more);
+                read_result_2 res2 = perform_read_operation<read_result_2>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                    [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+                            read_result_2 *res) {
+                    // TODO: Check the cv after the first request.
+                    cva.cvc.block_and_check(interruptor);
+                    cva.auth_fut.block_and_check(interruptor);
+
+
+                    rfdb::secondary_range_fut rfut;
+                    const FDBKeyValue *kvs = valgrind_undefined(nullptr);
+                    int kv_count = 0;
+                    while (more && kv_count == 0) {
+                        rfut = rfdb::secondary_prefix_get_range(
+                            txn, fdb_kv_prefix,
+                            store_key_t(key_slice.size(), as_uint8(key_slice.data())),
+                            rfdb::lower_bound::open,
+                            sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+                        rfut.future.block_coro(interruptor);
+                        fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
+                        check_for_fdb_transaction(err);
+                    }
+
+                    values_slug slug = read_kvs(txn, interruptor, kvs, kv_count);
+                    res->slug = std::move(slug);
+                });
+
+                if (res2.slug.keyvalues.size() == 0) {
                     break;
                 }
 
                 kvs_index = 0;
+
+                slug = std::move(res2.slug);
             }
 
-            key_slice = key_view{void_as_uint8(kvs[kvs_index].key), kvs[kvs_index].key_length};
-            key_slice = key_slice.guarantee_without_prefix(fdb_kv_prefix);
-            skey = store_key_t(key_slice.length, key_slice.data);
+            key_slice = slug.keyvalues.at(kvs_index).first;
+            // NNN: Investigate unused skey assignment that was here.
 
             kvs_index++;
 
-            if (std::string(as_char(key_slice.data), size_t(key_slice.length)) >= stop_line) {  // TODO: Perf.
+            if (key_slice >= stop_line) {
                 break;
             }
         }
@@ -599,8 +704,6 @@ continue_bool_t geo_fdb_traversal(
             return continue_bool_t::CONTINUE;
         }
         // At this point key_slice has had the prefix truncated.
-        // TODO: The key_slice lifetime logic (relative to the fdb future) is a bit fragile.
-        pos = store_key_t(key_slice.length, key_slice.data);
+        pos = store_key_t(key_slice.size(), as_uint8(key_slice.data()));
     }
-
 }
