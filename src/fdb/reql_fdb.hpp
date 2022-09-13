@@ -237,7 +237,6 @@ struct key_view {
         return key_view{data + prefix.size(), length - int(prefix.size())};
     }
 
-    // For debugging purposes.
     std::string to_string() const {
         return std::string(reinterpret_cast<const char *>(data), size_t(length));
     }

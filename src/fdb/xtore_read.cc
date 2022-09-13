@@ -241,7 +241,11 @@ private:
 
 continue_bool_t fdb_traversal_secondary(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
+        const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const std::string &primary_prefix,
         const std::string &secondary_prefix,
         const key_range_t &rangeparam,
@@ -256,60 +260,76 @@ continue_bool_t fdb_traversal_secondary(
     key_range_t range = rangeparam;
 
     for (;;) {
+        struct read_op_slug {
+            std::vector<std::pair<store_key_t, std::vector<uint8_t>>> key_values;
+            int kv_count;
+            fdb_bool_t more;
+            std::string last_key_view;
+        };
 
-        // TODO: We'll want roll-back/retry logic in place of "LARGE".
-        rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range(
-            txn, secondary_prefix, range.left,
-            rfdb::lower_bound::closed,
-            range.right.unbounded ? nullptr : &range.right.internal_key,
-            0, 0, FDB_STREAMING_MODE_LARGE,
-            0, false, reverse);
+        read_op_slug slug = perform_read_operation<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+                        read_op_slug *res) {
+            // NNN: Don't check the cv here.
+            cva.cvc.block_and_check(interruptor);
+            cva.auth_fut.block_and_check(interruptor);
 
-        fut.future.block_coro(interruptor);
+            // TODO: We'll want roll-back/retry logic in place of "LARGE".
+            rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range(
+                txn, secondary_prefix, range.left,
+                rfdb::lower_bound::closed,
+                range.right.unbounded ? nullptr : &range.right.internal_key,
+                0, 0, FDB_STREAMING_MODE_LARGE,
+                0, false, reverse);
 
-        const FDBKeyValue *kvs;
-        int kv_count;
-        fdb_bool_t more;
-        fdb_error_t err = fdb_future_get_keyvalue_array(fut.future.fut, &kvs, &kv_count, &more);
-        check_for_fdb_transaction(err);
+            fut.future.block_coro(interruptor);
 
-        // The store_key_t is the sindex store key.  Do we actually use it?
-        std::vector<std::pair<store_key_t, rfdb::datum_fut>> primary_futs;
-        primary_futs.reserve(kv_count);
+            const FDBKeyValue *kvs;
+            int kv_count;
+            fdb_bool_t more;
+            fdb_error_t err = fdb_future_get_keyvalue_array(fut.future.fut, &kvs, &kv_count, &more);
+            check_for_fdb_transaction(err);
 
-        // Initialized and used if kv_count > 0.
-        key_view last_key_view;
+            // The store_key_t is the sindex store key.  Do we actually use it?
+            std::vector<std::pair<store_key_t, rfdb::datum_fut>> primary_futs;
+            primary_futs.reserve(kv_count);
 
-        for (int i = 0; i < kv_count; ++i) {
-            key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
-            key_view store_key = full_key.guarantee_without_prefix(secondary_prefix);
-            last_key_view = store_key;
-            // Right now sindexes have no value.
-            rassert(kvs[i].value_length == 0);
+            // Initialized and used if kv_count > 0.
+            key_view last_key_view;
 
-            store_key_t primary = ql::datum_t::extract_primary(
-                as_char(store_key.data), size_t(store_key.length));
+            for (int i = 0; i < kv_count; ++i) {
+                key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
+                key_view store_key = full_key.guarantee_without_prefix(secondary_prefix);
+                last_key_view = store_key;
+                // Right now sindexes have no value.
+                rassert(kvs[i].value_length == 0);
 
-            // OOO: We could avoid an allocation here by appending/resizing in the loop.
-            std::string kv_location = primary_prefix + primary.str();
-            primary_futs.emplace_back(
-                store_key_t(std::string(as_char(store_key.data), size_t(store_key.length))),
-                rfdb::kv_location_get(txn, kv_location));
-        }
+                store_key_t primary = ql::datum_t::extract_primary(
+                    as_char(store_key.data), size_t(store_key.length));
 
-        std::vector<std::vector<uint8_t>> primary_values;
-        primary_values.reserve(kv_count);
+                // OOO: We could avoid an allocation here by appending/resizing in the loop.
+                std::string kv_location = primary_prefix + primary.str();
+                primary_futs.emplace_back(
+                    store_key_t(std::string(as_char(store_key.data), size_t(store_key.length))),
+                    rfdb::kv_location_get(txn, kv_location));
+            }
 
-        for (auto &pair : primary_futs) {
-            optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
-                txn, std::move(pair.second), interruptor);
-            guarantee(value.has_value());  // TODO: fdb consistency, graceful, msg
-            primary_values.push_back(std::move(*value));
-        }
+            std::vector<std::pair<store_key_t, std::vector<uint8_t>>> key_values;
+            key_values.reserve(kv_count);
 
-        for (size_t i = 0, e = primary_futs.size(); i < e; ++i) {
-            const store_key_t &key = primary_futs[i].first;
-            const std::vector<uint8_t> &value = primary_values[i];
+            for (auto &pair : primary_futs) {
+                optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
+                    txn, std::move(pair.second), interruptor);
+                guarantee(value.has_value());  // TODO: fdb consistency, graceful, msg
+                key_values.emplace_back(std::move(pair.first), std::move(*value));
+            }
+
+            *res = read_op_slug{key_values, kv_count, more, last_key_view.to_string()};
+        });
+
+        for (size_t i = 0, e = slug.key_values.size(); i < e; ++i) {
+            const store_key_t &key = slug.key_values[i].first;
+            const std::vector<uint8_t> &value = slug.key_values[i].second;
             // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
             continue_bool_t contbool = cb->handle_pair(
                 std::make_pair(key.str().data(), key.str().size()),
@@ -321,17 +341,17 @@ continue_bool_t fdb_traversal_secondary(
             }
         }
 
-        if (!more) {
+        if (!slug.more) {
             return continue_bool_t::CONTINUE;
         }
-        if (kv_count > 0) {
+        if (slug.kv_count > 0) {
             if (reverse) {
                 // Key is excluded from next read, and right bound is open.
-                range.right.internal_key.assign(last_key_view.length, last_key_view.data);
+                range.right.internal_key.assign(slug.last_key_view.size(), as_uint8(slug.last_key_view.data()));
                 range.right.unbounded = false;
             } else {
                 // Key is excluded from next read, so we increment.
-                range.left.assign(last_key_view.length, last_key_view.data);
+                range.left.assign(slug.last_key_view.size(), as_uint8(slug.last_key_view.data()));
                 range.left.increment1();
             }
         }
@@ -897,8 +917,11 @@ private:
 
 void rdb_fdb_rget_secondary_snapshot_slice(
         const signal_t *interruptor,
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
+        const table_config_t &table_config,
         const sindex_id_t &sindex_id,
         const ql::datumspec_t &datumspec,
         const key_range_t &sindex_region_range,
@@ -956,7 +979,8 @@ void rdb_fdb_rget_secondary_snapshot_slice(
         if (active_range.is_empty()) {
             return continue_bool_t::CONTINUE;
         }
-        return fdb_traversal_secondary(interruptor, txn,
+        return fdb_traversal_secondary(interruptor, fdb,
+            prior_cv, user_context, table_id, table_config,
             pkey_prefix, kv_prefix,
             active_range, direction, &wrapper);
     };
@@ -975,7 +999,7 @@ void do_fdb_snap_read(
         const table_config_t &table_config,
         ql::env_t *env,
         const rget_read_t &rget,
-        rget_read_response_t *res_) {
+        rget_read_response_t *res) {
 
     // TODO: Do the check_cv inside this function if it ever performs more than one round-trip.
     if (!rget.sindex.has_value()) {
@@ -993,16 +1017,8 @@ void do_fdb_snap_read(
             rget.transforms,
             rget.terminal,
             rget.sorting,
-            res_);
+            res);
     } else {
-    // TODO: Indent this code.
-    *res_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    rget_read_response_t *res) {
-        // NNN: Don't check the cv here.
-        cva.cvc.block_and_check(interruptor);
-        cva.auth_fut.block_and_check(interruptor);
-
         // rget using a secondary index
         try {
             // TODO: What's rget.table_name?  The table's display_name?
@@ -1031,8 +1047,11 @@ void do_fdb_snap_read(
 
             rdb_fdb_rget_secondary_snapshot_slice(
                 interruptor,
-                txn,
+                fdb,
+                prior_cv,
+                user_context,
                 table_id,
+                table_config,
                 sindex_id,
                 rget.sindex->datumspec,
                 sindex_range,
@@ -1054,7 +1073,6 @@ void do_fdb_snap_read(
             res->result = ql::exc_t(e, ql::backtrace_id_t::empty());
             return;
         }
-    });
     }
 }
 
