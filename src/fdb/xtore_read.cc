@@ -438,68 +438,77 @@ void rdb_fdb_rget_snapshot_slice(
         const fdb_bool_t reverse = direction != direction_t::forward;
         const fdb_bool_t snapshot = false;
 
-        // NNN: Make txn smaller.
-        // TODO: Indent this code.
-        *response_ = perform_read_operation<rget_read_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                        rget_read_response_t *response) {
-            // NNN: Don't check the cv here.
-            cva.cvc.block_and_check(interruptor);
-            cva.auth_fut.block_and_check(interruptor);
+        fdb_rget_cb callback(
+            response_,
+            job_fdb_data_t(ql_env,
+                       batchspec,
+                       transforms,
+                       terminal,
+                       !reversed(sorting)
+                           ? ql::limit_read_last_key(range.left)
+                           : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
+                       sorting,
+                       require_sindexes_t::NO));
 
-            rget_read_response_t res;
-            fdb_rget_cb callback(
-                &res,
-                job_fdb_data_t(ql_env,
-                           batchspec,
-                           transforms,
-                           terminal,
-                           !reversed(sorting)
-                               ? ql::limit_read_last_key(range.left)
-                               : ql::limit_read_last_key(key_or_max::from_right_bound(range.right)),
-                           sorting,
-                           require_sindexes_t::NO));
+        continue_bool_t cont = continue_bool_t::CONTINUE;
+        // OOO: We are now mixing rethinkdb batching and foundationdb batching.  Instead,
+        // use foundationdb batching (fixup old code commented below and make caller accept
+        // a return value which happens when foundationdb returned the end-of-batch.
 
-            continue_bool_t cont = continue_bool_t::CONTINUE;
-            // OOO: We are now mixing rethinkdb batching and foundationdb batching.  Instead,
-            // use foundationdb batching (fixup old code commented below and make caller accept
-            // a return value which happens when foundationdb returned the end-of-batch.
+        rfdb::datum_range_iterator iter = rfdb::primary_prefix_make_iterator(fdb_kv_prefix,
+            range.left, range.right.unbounded ? nullptr : &range.right.internal_key,
+            snapshot, reverse);
 
-            rfdb::datum_range_iterator iter = rfdb::primary_prefix_make_iterator(fdb_kv_prefix,
-                range.left, range.right.unbounded ? nullptr : &range.right.internal_key,
-                snapshot, reverse);
+        for (;;) {
+            using raw_result = std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>;
 
-            for (;;) {
+            rfdb::datum_range_iterator next_iter;
+
+            raw_result result = perform_read_operation<raw_result>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+                    raw_result *res) {
+
+                // OOO: Avoid deep-copying the iterator (with its partial_document_ field)
+
+                rfdb::datum_range_iterator tmp_iter = iter;
                 // TODO: Use streaming mode iterator, or use streaming mode conditional on
                 // what kind of transforms/terminals it has.
-                std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> result
-                    = iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
+                raw_result result
+                    = tmp_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
 
-                for (const auto &elem : result.first) {
-                    // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
-                    const size_t copies = 1;
-                    continue_bool_t contbool = callback.handle_pair(
-                        std::make_pair(as_char(elem.first.data()), elem.first.size()),
-                        std::make_pair(as_char(elem.second.data()), elem.second.size()),
-                        copies);
-                    if (contbool == continue_bool_t::ABORT) {
-                        cont = continue_bool_t::ABORT;
-                        goto end_txn;
-                    }
-                }
+                cva.cvc.block_and_check(interruptor);
+                cva.auth_fut.block_and_check(interruptor);
 
-                if (!result.second) {
-                    // It's already CONTINUE, just adding clarity.
-                    cont = continue_bool_t::CONTINUE;
-                    // Could be break; but we want the same destination as the other goto.
+                *res = std::move(result);
+                next_iter = std::move(tmp_iter);
+            });
+            iter = std::move(next_iter);
+
+            iter.mark_split_across_txns();
+
+            for (const auto &elem : result.first) {
+                // TODO: Make handle_pair take a const uint8_t * -- since it casts the char * back to that.
+                const size_t copies = 1;
+                continue_bool_t contbool = callback.handle_pair(
+                    std::make_pair(as_char(elem.first.data()), elem.first.size()),
+                    std::make_pair(as_char(elem.second.data()), elem.second.size()),
+                    copies);
+                if (contbool == continue_bool_t::ABORT) {
+                    cont = continue_bool_t::ABORT;
                     goto end_txn;
                 }
             }
+
+            if (!result.second) {
+                // It's already CONTINUE, just adding clarity.
+                cont = continue_bool_t::CONTINUE;
+                // Could be break; but we want the same destination as the other goto.
+                goto end_txn;
+            }
+        }
         end_txn:
-            ;
-            callback.finish(cont);
-            *response = std::move(res);
-                });
+        ;
+        callback.finish(cont);
     }
 }
 
