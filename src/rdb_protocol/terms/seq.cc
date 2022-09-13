@@ -469,6 +469,7 @@ private:
     virtual const char *name() const { return "reduce"; }
 };
 
+#if RDB_CF
 struct rcheck_transform_visitor_t : public bt_rcheckable_t,
                                     public boost::static_visitor<void> {
     explicit rcheck_transform_visitor_t(backtrace_id_t bt)
@@ -513,7 +514,6 @@ struct rcheck_transform_visitor_t : public bt_rcheckable_t,
     }
 };
 
-#if RDB_CF
 struct rcheck_spec_visitor_t : public bt_rcheckable_t,
                                public boost::static_visitor<void> {
     explicit rcheck_spec_visitor_t(env_t *_env, backtrace_id_t bt)
