@@ -64,7 +64,8 @@ inline std::string index_key_concat_str(const std::string &kv_prefix, const std:
 }
 
 struct datum_fut {
-    explicit datum_fut(FDBFuture *range_fut, std::string _prefix, std::string _upper_key)
+    datum_fut() = default;
+    datum_fut(FDBFuture *range_fut, std::string _prefix, std::string _upper_key)
         : future{range_fut}, prefix{std::move(_prefix)}, upper_key{std::move(_upper_key)} {}
     fdb_future future;
     std::string prefix;

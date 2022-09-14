@@ -502,7 +502,7 @@ continue_bool_t geo_fdb_traversal(
             fdb_bool_t more;
         };
 
-        auto read_kvs = [&primary_prefix, &fdb_kv_prefix](FDBTransaction *txn, const signal_t *interruptor, const FDBKeyValue *kvs, int kv_count) -> values_slug {
+        auto read_kvs = [&primary_prefix, &fdb_kv_prefix](FDBTransaction *txn, const signal_t *interruptor, const FDBKeyValue *kvs, int kv_count, const std::string &stop_line) -> values_slug {
             std::vector<rfdb::datum_fut> futs;
             futs.reserve(kv_count);
             values_slug slug;
@@ -515,11 +515,23 @@ continue_bool_t geo_fdb_traversal(
                 // TODO: We could avoid an allocation, whatever.
                 std::string kv_location = primary_prefix + primary.str();
                 slug.keyvalues.emplace_back(key_slice.to_string(), std::vector<uint8_t>());
-                futs.push_back(rfdb::kv_location_get(txn, kv_location));
+                // Don't bother loading data past stop_line, but (for now) don't let
+                // that affect slug.keyvalues().size().
+                if (slug.keyvalues.back().first < stop_line) {
+                    futs.push_back(rfdb::kv_location_get(txn, kv_location));
+                } else {
+                    // Being very conservative here -- because keys are in order, this
+                    // should be a contiguous block of empty futs at the end of the
+                    // vector.
+                    futs.emplace_back();
+                }
             }
 
-            // OOO: Only read key-values up to the stop line (which we'll respect later unconditionally)
             for (int i = 0; i < kv_count; ++i) {
+                if (futs[i].future.empty()) {
+                    // break; would have same effect because keys are in order
+                    continue;
+                }
                 optional<std::vector<uint8_t>> value = block_and_read_unserialized_datum(
                         txn, std::move(futs[i]), interruptor);
                 guarantee(value.has_value());
@@ -598,7 +610,7 @@ continue_bool_t geo_fdb_traversal(
             std::string stop_line
                 = prefix_end(s2cellid_to_key(max_cell));
 
-            values_slug slug = read_kvs(txn, interruptor, kvs, kv_count);
+            values_slug slug = read_kvs(txn, interruptor, kvs, kv_count, stop_line);
 
             res->outcome = read_result_1::outcome::values;
             res->stop_line = std::move(stop_line);
@@ -671,7 +683,7 @@ continue_bool_t geo_fdb_traversal(
                         check_for_fdb_transaction(err);
                     }
 
-                    values_slug slug = read_kvs(txn, interruptor, kvs, kv_count);
+                    values_slug slug = read_kvs(txn, interruptor, kvs, kv_count, stop_line);
                     res->slug = std::move(slug);
                 });
 
