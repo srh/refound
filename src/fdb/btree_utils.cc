@@ -198,6 +198,7 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
         check_for_fdb_transaction(err);
         btubugf("barud '%s' get kv array, count=%d\n", debug_str(prefix).c_str(), kv_count);
 
+        unique_pkey_suffix expected_identifier;  // Initialized on 0th iteration.
         for (int i = 0; i < kv_count; ++i) {
             guarantee(counter < num_parts);
             key_view key_slice{void_as_uint8(kvs[i].key), kvs[i].key_length};
@@ -216,7 +217,12 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
                 guarantee(post_prefix.data[0] == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful, etc.
                 guarantee(number == counter);  // TODO: fdb, graceful, etc.
             }
-            UNUSED unique_pkey_suffix identifier = unique_pkey_suffix::copy(post_prefix.data + 9, 16);  // NNN: Make use
+            unique_pkey_suffix identifier = unique_pkey_suffix::copy(post_prefix.data + 9, 16);
+            if (i == 0) {
+                expected_identifier = identifier;
+            } else {
+                guarantee(0 == expected_identifier.compare(identifier));
+            }
 
             ret->insert(ret->end(),
                 void_as_uint8(kvs[i].value), void_as_uint8(kvs[i].value) + kvs[i].value_length);
@@ -322,7 +328,7 @@ datum_range_iterator::query_and_step(
         uint8_t b = partial_key.data[partial_key.length - 25];
         guarantee(b == LARGE_VALUE_FIRST_PREFIX || b == LARGE_VALUE_SECOND_PREFIX);  // TODO: fdb, graceful
         uint32_t number = decode_bigendian_hex32(partial_key.data + (partial_key.length - 24), 8);
-        unique_pkey_suffix identifier = unique_pkey_suffix::copy(partial_key.data + (partial_key.length - 16), 16);  // NNN: Make use.
+        unique_pkey_suffix identifier = unique_pkey_suffix::copy(partial_key.data + (partial_key.length - 16), 16);
 
         // QQQ: We might sanity check that the key doesn't change.
 
@@ -335,7 +341,6 @@ datum_range_iterator::query_and_step(
                 if (partial_document_.empty()) {
                     last_seen_suffix_ = identifier;
                 } else {
-                    // NNN: fdb, graceful
                     if (0 != last_seen_suffix_.compare(identifier)) {
                         if (split_across_txns_) {
                             guarantee(ret.first.empty());
