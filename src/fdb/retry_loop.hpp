@@ -3,8 +3,6 @@
 
 #include "fdb/reql_fdb.hpp"
 
-// NNN: We need to commit read-only transactions!
-
 // You'll want to use txn_retry_loop_coro.
 template <class C>
 MUST_USE fdb_error_t txn_retry_loop_pthread(
