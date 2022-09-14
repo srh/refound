@@ -595,10 +595,8 @@ continue_bool_t geo_fdb_traversal(
                 return;
             }
 
-            // TODO: Use index key concat helper.
             std::string stop_line
-                = rfdb::index_key_concat_str(fdb_kv_prefix,
-                    prefix_end(s2cellid_to_key(max_cell)));
+                = prefix_end(s2cellid_to_key(max_cell));
 
             values_slug slug = read_kvs(txn, interruptor, kvs, kv_count);
 
