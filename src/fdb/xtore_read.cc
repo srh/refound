@@ -232,11 +232,8 @@ continue_bool_t fdb_traversal_secondary(
         read_op_slug slug = perform_read_operation<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
                 [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
                         read_op_slug *res) {
-            // NNN: Don't check the cv here.
-            cva.cvc.block_and_check(interruptor);
-            cva.auth_fut.block_and_check(interruptor);
 
-            // TODO: We'll want roll-back/retry logic in place of "LARGE".
+            // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
             rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range(
                 txn, secondary_prefix, range.left,
                 rfdb::lower_bound::closed,
@@ -244,7 +241,11 @@ continue_bool_t fdb_traversal_secondary(
                 0, 0, FDB_STREAMING_MODE_MEDIUM,
                 0, false, reverse);
 
+            cva.cvc.block_and_check(interruptor);
+            cva.auth_fut.block_and_check(interruptor);
+
             fut.future.block_coro(interruptor);
+
 
             const FDBKeyValue *kvs;
             int kv_count;
