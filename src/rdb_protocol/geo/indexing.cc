@@ -487,15 +487,13 @@ continue_bool_t geo_fdb_traversal(
         struct read_result_1 {
             enum class outcome {
                 update_pos_and_continue,
-                return_contbool,
+                return_contbool_CONTINUE,
                 values,
             };
             outcome outcome;
             // update_pos_and_continue
             store_key_t skey;
-            // return_contbool
-            // NNN: This is always the same value.
-            continue_bool_t cont;
+            // return_contbool_CONTINUE has no data
             // values
             std::string stop_line;
             values_slug slug;
@@ -566,8 +564,7 @@ continue_bool_t geo_fdb_traversal(
 
             if (kv_count == 0) {
                 // (We have !more here.)
-                res->outcome = read_result_1::outcome::return_contbool;
-                res->cont = continue_bool_t::CONTINUE;
+                res->outcome = read_result_1::outcome::return_contbool_CONTINUE;
                 return;
             }
 
@@ -622,8 +619,8 @@ continue_bool_t geo_fdb_traversal(
         if (res1.outcome == read_result_1::outcome::update_pos_and_continue) {
             pos = std::move(res1.skey);
             continue;
-        } else if (res1.outcome == read_result_1::outcome::return_contbool) {
-            return res1.cont;
+        } else if (res1.outcome == read_result_1::outcome::return_contbool_CONTINUE) {
+            return continue_bool_t::CONTINUE;
         } else {
             // flow through to code below...
         }
@@ -697,7 +694,6 @@ continue_bool_t geo_fdb_traversal(
             }
 
             key_slice = slug.keyvalues.at(kvs_index).first;
-            // NNN: Investigate unused skey assignment that was here.
 
             kvs_index++;
 
