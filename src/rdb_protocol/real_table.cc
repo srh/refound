@@ -79,7 +79,9 @@ write_response_t table_query_client_write_loop(
 
             ret = std::move(resp);
         });
+
         // NNN: No.  Put the exception into the write response.
+        // NNN: Actually, split up the fdb transaction for batched replace.
         rcheck_fdb_datum(loop_err, "table_query_client_write_loop");
         return ret;
     } catch (const provisional_assumption_exception &exc) {
