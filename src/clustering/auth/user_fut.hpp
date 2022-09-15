@@ -16,6 +16,9 @@ namespace auth {
 template <class T>
 class fdb_user_fut {
 public:
+    bool empty() const {
+        return user_fut.empty();
+    }
     void block_and_check(const signal_t *interruptor)
             THROWS_ONLY(permission_error_t, interrupted_exc_t) {
         if (user_fut.empty()) {

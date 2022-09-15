@@ -7,6 +7,7 @@
 #include "clustering/auth/user_fut.hpp"
 #include "clustering/tables/table_metadata.hpp"
 #include "fdb/retry_loop.hpp"
+#include "rdb_protocol/reqlfdb_config_cache.hpp"
 
 
 struct cv_auth_check_fut_read {

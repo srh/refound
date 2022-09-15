@@ -1,7 +1,7 @@
 #ifndef RETHINKDB_FDB_XTORE_HPP_
 #define RETHINKDB_FDB_XTORE_HPP_
 
-// TODO: Rename this file to store.hpp once the other store.hpp's are gone.n
+// TODO: Rename this file to store.hpp once the other store.hpp's are gone.
 
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
@@ -9,6 +9,7 @@
 namespace auth {
 class user_context_t;
 }
+class cv_auth_check_fut_write;  // NNN: Remove once unneeded.
 class cv_check_fut;
 struct reqlfdb_config_version;
 class interrupted_exc_t;
@@ -41,11 +42,13 @@ read_response_t apply_read(FDBDatabase *fdb,
     const read_t &read,
     const signal_t *interruptor);
 
-write_response_t apply_write(FDBTransaction *txn,
-    cv_check_fut &&cvc,
+write_response_t apply_write(
+    FDBDatabase *fdb,
+    reqlfdb_config_version prior_cv,
+    const auth::user_context_t &user_context,
     const namespace_id_t &table_id,
     const table_config_t &table_config,
-    const write_t &write,
+    const write_t &w,
     const signal_t *interruptor);
 
 bool needs_config_permission(const write_t &write);

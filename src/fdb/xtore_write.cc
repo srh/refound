@@ -1,4 +1,4 @@
-#include "fdb/xtore.hpp"
+#include "fdb/xtore_write.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -647,19 +647,28 @@ private:
 
 // QQQ: Think twice about passing in an FDBTransaction here.  We might want to break up
 // batched writes into separate transactions per key.
-write_response_t apply_write(FDBTransaction *txn,
-        cv_check_fut &&cvc,
+write_response_t apply_write(FDBDatabase *fdb,
+        reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
         const write_t &write,
         const signal_t *interruptor) {
+    const bool needed_config_permission = needs_config_permission(write);
+
+    // NNN: Indent code
+    write_response_t ret = perform_write_operation<write_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            needed_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+        // NNN: Not here.
+        cva.block_and_check_auths(interruptor);
+
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(write.profile);
     write_response_t response;
     {
         // TODO: The read version has some PROFILER_STARER_IF_ENABLED macro.
         profile::sampler_t start_write("Perform write on shard.", trace);  // TODO: Change message.
         // TODO: Pass &response.response, actually.
-        fdb_write_visitor v(txn, std::move(cvc), table_id, &table_config, &start_write,
+        fdb_write_visitor v(txn, std::move(cva.cvc), table_id, &table_config, &start_write,
             trace.get_or_null(), &response, interruptor);
         boost::apply_visitor(v, write.write);
     }
@@ -674,7 +683,14 @@ write_response_t apply_write(FDBTransaction *txn,
 
     // TODO: Is this the right thing to do if profiling's not enabled?
     response.event_log.push_back(profile::stop_t());
+
+    // OOO: Return a crystal clear response code from the visitor about whether we
+    // should commit the write.
+        commit(txn, interruptor);
     return response;
+
+    });
+    return ret;
 }
 
 struct needs_config_permission_visitor : public boost::static_visitor<bool> {
