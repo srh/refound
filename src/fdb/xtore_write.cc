@@ -232,20 +232,6 @@ void rdb_fdb_delete(
     response->result = (old_value.has_value() ? point_delete_result_t::DELETED : point_delete_result_t::MISSING);
 }
 
-class one_fdb_replace_t {
-public:
-    one_fdb_replace_t(const btree_batched_replacer_t *_replacer, size_t _index)
-        : replacer(_replacer), index(_index) { }
-
-    ql::datum_t replace(const ql::datum_t &d) const {
-        return replacer->replace(d, index);
-    }
-    return_changes_t should_return_changes() const { return replacer->should_return_changes(); }
-private:
-    const btree_batched_replacer_t *const replacer;
-    const size_t index;
-};
-
 // TODO: Consider making each replace in a separate fdb transaction.
 
 // Note that "and_return_superblock" in the name is just to explain how the code evolved
@@ -255,7 +241,8 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         const table_config_t &table_config,
         const store_key_t &key,
         const std::string &precomputed_kv_location,
-        const one_fdb_replace_t *replacer,
+        const btree_batched_replacer_t *replacer,
+        const size_t index,
         rfdb::datum_fut &&old_value_fut,
         rdb_modification_info_t *mod_info_out,
         const signal_t *interruptor) {
@@ -286,7 +273,7 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         ql::datum_t new_val;
         try {
             /* Compute the replacement value for the row */
-            new_val = replacer->replace(old_val);
+            new_val = replacer->replace(old_val, index);
 
             /* Validate the replacement value and generate a stats object to return to
             the user, but don't return it yet if we need to make changes. The reason for
@@ -369,8 +356,6 @@ batched_replace_response_t rdb_fdb_batched_replace(
     for (size_t i = 0; i < keys.size(); ++i) {
         mod_reports_out->emplace_back(keys[i]);
         rdb_modification_report_t &mod_report = mod_reports_out->back();
-        // TODO: Is one_replace_t fluff?
-        one_fdb_replace_t one_replace(replacer, i);
 
         // QQQ: This is awful -- send them to FDB in parallel.
         ql::datum_t res = rdb_fdb_replace_and_return_superblock(
@@ -378,7 +363,8 @@ batched_replace_response_t rdb_fdb_batched_replace(
             table_config,
             keys[i],
             kv_locations[i],
-            &one_replace,
+            replacer,
+            i,
             std::move(old_value_futs[i]),
             &mod_report.info,
             interruptor);
