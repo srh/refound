@@ -488,8 +488,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            // NNN: Not here.
-            cva.block_and_check_auths(interruptor);
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
 
@@ -521,8 +519,11 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 interruptor,
                 &mod_reports);
 
-        // We need to call check_cv before using jobstate_futs_.
+        // OOO: Couldn't we check cvc earlier?
+        // We need to check the cvc before using jobstate_futs_.
         cva.cvc.block_and_check(interruptor);
+        // Might as well check auths here too.
+        cva.block_and_check_auths(interruptor);
 
         handle_mod_reports(txn, table_id_, *table_config_, std::move(mod_reports),
             &jobstate_futs, interruptor);
@@ -539,8 +540,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            // NNN: Not here.
-            cva.block_and_check_auths(interruptor);
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
         ql::env_t ql_env(
@@ -568,8 +567,11 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 interruptor,
                 &mod_reports);
 
-        // We call check_cv before using jobstate_futs.
+        // We need to check the cvc before using jobstate_futs.
         cva.cvc.block_and_check(interruptor);
+        // Might as well check auths here too.
+        // OOO: Couldn't we check these earlier?
+        cva.block_and_check_auths(interruptor);
 
         handle_mod_reports(txn, table_id_, *table_config_, std::move(mod_reports),
             &jobstate_futs, interruptor);
@@ -585,8 +587,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            // NNN: Not here.
-            cva.block_and_check_auths(interruptor);
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
         // TODO: Understand this line vvv
@@ -598,7 +598,12 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         rdb_modification_report_t mod_report(w.key);
         rdb_fdb_set(txn, table_id_, w.key, w.data, w.overwrite, res,
             &mod_report.info, interruptor);
+
+        // We need to check the cvc before jobstates.
         cva.cvc.block_and_check(interruptor);
+        // Might as well check auths here too.
+        // OOO: Couldn't we check these earlier?
+        cva.block_and_check_auths(interruptor);
 
         update_fdb_sindexes(txn, table_id_, *table_config_, std::move(mod_report),
             &jobstate_futs, interruptor);
@@ -614,8 +619,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            // NNN: Not here.
-            cva.block_and_check_auths(interruptor);
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
 
@@ -628,7 +631,9 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         rdb_modification_report_t mod_report(d.key);
         rdb_fdb_delete(txn, table_id_, d.key, res,
             &mod_report.info, interruptor);
+
         cva.cvc.block_and_check(interruptor);
+        cva.block_and_check_auths(interruptor);
 
         update_fdb_sindexes(txn, table_id_, *table_config_, std::move(mod_report),
             &jobstate_futs, interruptor);
@@ -644,8 +649,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            // NNN: Not here.
-            cva.block_and_check_auths(interruptor);
         write_response_t response;
 
         // TODO: Understand what this does.
@@ -654,6 +657,8 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // We have to check cv, for the usual reasons: to make sure table name->id
         // mapping we used was legit.
         cva.cvc.block_and_check(interruptor);
+        cva.block_and_check_auths(interruptor);
+
         response.response = sync_response_t();
 
         // OOO: Return a crystal clear response code from the visitor about whether we
@@ -667,13 +672,12 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            // NNN: Not here.
-            cva.block_and_check_auths(interruptor);
         write_response_t response;
 
         // We have to check cv, for the usual reasons: to make sure table name->id
         // mapping we used was legit.
         cva.cvc.block_and_check(interruptor);
+        cva.block_and_check_auths(interruptor);
         response.response = dummy_write_response_t();
 
         // OOO: Return a crystal clear response code from the visitor about whether we
