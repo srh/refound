@@ -485,9 +485,10 @@ void handle_mod_reports(FDBTransaction *txn,
 
 struct fdb_write_visitor : public boost::static_visitor<void> {
     void operator()(const batched_replace_t &br) {
+        const bool needs_config_permission = br.ignore_write_hook == ignore_write_hook_t::YES;
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
 
@@ -537,9 +538,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 
     // QQQ: Is batched_insert_t::pkey merely the table's pkey?  Seems weird to have.
     void operator()(const batched_insert_t &bi) {
+        const bool needs_config_permission = bi.ignore_write_hook == ignore_write_hook_t::YES;
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
         ql::env_t ql_env(
@@ -584,9 +586,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const point_write_t &w) {
+        const bool needs_config_permission = false;
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
         // TODO: Understand this line vvv
@@ -616,9 +619,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 
     // TODO: This is only used in unit tests.  We could use regular writes instead.
     void operator()(const point_delete_t &d) {
+        const bool needs_config_permission = false;
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
 
@@ -646,9 +650,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const sync_t &) {
+        const bool needs_config_permission = false;
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
         write_response_t response;
 
         // TODO: Understand what this does.
@@ -669,9 +674,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     }
 
     void operator()(const dummy_write_t &) {
+        const bool needs_config_permission = false;
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needed_config_permission_, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
         write_response_t response;
 
         // We have to check cv, for the usual reasons: to make sure table name->id
@@ -696,7 +702,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             const auth::user_context_t *user_context,
             const namespace_id_t &_table_id,
             const table_config_t *_table_config,
-            bool needed_config_permission,
             profile::sampler_t *_sampler,
             profile::trace_t *_trace_or_null,
             write_response_t *_response,
@@ -706,7 +711,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         user_context_(user_context),
         table_id_(_table_id),
         table_config_(_table_config),
-        needed_config_permission_(needed_config_permission),
         sampler(_sampler),
         trace(_trace_or_null),
         response_(_response),
@@ -718,7 +722,6 @@ private:
     const auth::user_context_t *const user_context_;
     const namespace_id_t table_id_;
     const table_config_t *table_config_;
-    const bool needed_config_permission_;
     profile::sampler_t *const sampler;
     profile::trace_t *const trace;
     write_response_t *const response_;
@@ -735,16 +738,13 @@ write_response_t apply_write(FDBDatabase *fdb,
         const table_config_t &table_config,
         const write_t &write,
         const signal_t *interruptor) {
-    // OOO: Maybe we don't need this as a separate function (since we're split out by write now).
-    const bool needed_config_permission = needs_config_permission(write);
-
     scoped_ptr_t<profile::trace_t> trace = ql::maybe_make_profile_trace(write.profile);
     write_response_t response;
     {
         // TODO: The read version has some PROFILER_STARER_IF_ENABLED macro.
         profile::sampler_t start_write("Perform write on shard.", trace);  // TODO: Change message.
         // TODO: Pass &response.response, actually.
-        fdb_write_visitor v(fdb, prior_cv, &user_context, table_id, &table_config, needed_config_permission, &start_write,
+        fdb_write_visitor v(fdb, prior_cv, &user_context, table_id, &table_config, &start_write,
             trace.get_or_null(), &response, interruptor);
         boost::apply_visitor(v, write.write);
     }
@@ -761,22 +761,4 @@ write_response_t apply_write(FDBDatabase *fdb,
     response.event_log.push_back(profile::stop_t());
 
     return response;
-}
-
-struct needs_config_permission_visitor : public boost::static_visitor<bool> {
-    bool operator()(const batched_replace_t &br) {
-        return br.ignore_write_hook == ignore_write_hook_t::YES;
-    }
-    bool operator()(const batched_insert_t &br) {
-        return br.ignore_write_hook == ignore_write_hook_t::YES;
-    }
-    bool operator()(const point_write_t &) { return false; }
-    bool operator()(const point_delete_t &) { return false; }
-    bool operator()(const sync_t &) { return false; }
-    bool operator()(const dummy_write_t &) { return false; }
-};
-
-bool needs_config_permission(const write_t &write) {
-    needs_config_permission_visitor v;
-    return boost::apply_visitor(v, write.write);
 }
