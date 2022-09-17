@@ -19,8 +19,6 @@
 #include "rdb_protocol/math_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 
-read_mode_t dummy_read_mode();
-
 namespace_id_t real_table_t::get_id() const {
     return uuid;
 }

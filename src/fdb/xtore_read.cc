@@ -18,9 +18,6 @@
 #include "rdb_protocol/val.hpp"
 #include "utils.hpp"
 
-// TODO: Decl in a header.
-read_mode_t dummy_read_mode();
-
 enum class direction_t {
     forward,
     backward,

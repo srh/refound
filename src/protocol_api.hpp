@@ -101,6 +101,9 @@ ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(read_mode_t,
                                       read_mode_t::MAJORITY,
                                       read_mode_t::DEBUG_DIRECT);
 
+// We don't have read mode with FDB, and sometimes we pass this.
+static constexpr read_mode_t dummy_read_mode = read_mode_t::SINGLE;
+
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
         importable_reql_version_t, int8_t,
         importable_reql_version_t::EARLIEST, importable_reql_version_t::LATEST);

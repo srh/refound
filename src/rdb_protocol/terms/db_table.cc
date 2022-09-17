@@ -32,9 +32,6 @@
 #include "rdb_protocol/table_common.hpp"
 #include "rdb_protocol/terms/writes.hpp"
 
-// NNN: Remove
-read_mode_t dummy_read_mode() { return read_mode_t::SINGLE; }
-
 namespace ql {
 
 name_string_t get_name(backtrace_id_t src, const datum_string_t &raw_name,
@@ -1081,7 +1078,7 @@ scoped<table_t> make_artificial_table(
         rfail_prov_table_dne(prov_table);
     }
     return make_scoped<table_t>(
-        std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode(),
+        std::move(table), make_artificial_db(), prov_table.table_name, dummy_read_mode,
         prov_table.bt);
 }
 
@@ -1163,7 +1160,7 @@ scoped<table_t> provisional_to_table(
 
     return make_scoped<table_t>(
         std::move(table), std::move(out_db), prov_table.table_name,
-        dummy_read_mode(), prov_table.bt);
+        dummy_read_mode, prov_table.bt);
 }
 
 class table_term_t : public op_term_t {

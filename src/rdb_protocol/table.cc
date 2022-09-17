@@ -8,8 +8,6 @@
 #include "rdb_protocol/val.hpp"
 #include "fdb/xtore.hpp"
 
-read_mode_t dummy_read_mode();
-
 namespace ql {
 
 // TODO: Move to db_table.hpp or something.
@@ -19,7 +17,7 @@ scoped<table_t> make_artificial_table(
 
 read_response_t prov_read_with_profile(ql::env_t *env, FDBTransaction *txn,
         const store_key_t &pkey, const table_info &info, cv_check_fut &&cvc) {
-    read_mode_t read_mode = dummy_read_mode();
+    const read_mode_t read_mode = dummy_read_mode;
 
     PROFILE_STARTER_IF_ENABLED(
         env->profile() == profile_bool_t::PROFILE,
@@ -116,7 +114,7 @@ std::pair<datum_t, scoped<table_t>> prov_read_row(
             std::move(res.info.config)),
         std::move(db),
         prov_table.table_name,
-        dummy_read_mode(),
+        dummy_read_mode,
         prov_table.bt);
 
     return ret;
