@@ -475,6 +475,9 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             write_hook = table_config_->write_hook->func.det_func.compile_wire_func();
         }
 
+        const func_fdb_replacer_t replacer(&ql_env, br.pkey, br.f,
+            write_hook, br.return_changes);
+
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
@@ -487,8 +490,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // Might as well check auths here too.
         cva.block_and_check_auths(interruptor);
 
-        func_fdb_replacer_t replacer(&ql_env, br.pkey, br.f,
-            write_hook, br.return_changes);
         response.response =
             rdb_fdb_batched_replace(
                 txn,
@@ -518,12 +519,14 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             bi.serializable_env,
             trace);
         // TODO: Does the type datum_replacer_t or datum_fdb_replacer_t really need to exist?
-        datum_fdb_replacer_t replacer(&ql_env, bi, *table_config_);
+        const datum_fdb_replacer_t replacer(&ql_env, bi, *table_config_);
+
         std::vector<store_key_t> keys;
         keys.reserve(bi.inserts.size());
         for (auto it = bi.inserts.begin(); it != bi.inserts.end(); ++it) {
             keys.emplace_back(it->get_field(datum_string_t(bi.pkey)).print_primary());
         }
+
         // NNN: Indent code
         *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
