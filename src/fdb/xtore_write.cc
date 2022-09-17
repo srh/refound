@@ -100,7 +100,6 @@ void update_fdb_sindexes(
 
         if (info.deleted.has()) {
             try {
-                // TODO: datum copy performance?
                 ql::datum_t deleted = info.deleted;
 
                 // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
@@ -120,7 +119,6 @@ void update_fdb_sindexes(
 
         if (info.added.has()) {
             try {
-                // TODO: datum copy performance?
                 ql::datum_t added = info.added;
 
                 std::vector<std::pair<store_key_t, ql::datum_t> > keys;
@@ -187,7 +185,6 @@ void rdb_fdb_set(
         mod_info->deleted = datum_deserialize_from_uint8(old_value->data(), old_value->size());
     }
 
-    // TODO: Review datum_t copy performance.
     mod_info->added = data;
 
     if (overwrite || !old_value.has_value()) {
