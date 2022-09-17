@@ -565,57 +565,55 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 
     void operator()(const point_write_t &w) {
         const bool needs_config_permission = false;
-        // NNN: Indent code
         response_->response = perform_write_operation<point_write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        // TODO: Understand this line vvv
-        sampler->new_sample();
-        point_write_response_t res;
+            // TODO: Understand this line vvv
+            sampler->new_sample();
+            point_write_response_t res;
 
-        rdb_modification_info_t mod_info;
-        rdb_fdb_set(txn, table_id_, w.key, w.data, w.overwrite, &res,
-            &mod_info, interruptor);
+            rdb_modification_info_t mod_info;
+            rdb_fdb_set(txn, table_id_, w.key, w.data, w.overwrite, &res,
+                &mod_info, interruptor);
 
-        // We need to check the cvc before jobstates.
-        cva.cvc.block_and_check(interruptor);
-        // Might as well check auths here too.
-        // OOO: Couldn't we check these earlier?
-        cva.block_and_check_auths(interruptor);
+            // We need to check the cvc before jobstates.
+            cva.cvc.block_and_check(interruptor);
+            // Might as well check auths here too.
+            // OOO: Couldn't we check these earlier?
+            cva.block_and_check_auths(interruptor);
 
-        update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
-            &jobstate_futs, interruptor);
-        commit(txn, interruptor);
-        return res;
+            update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
+                &jobstate_futs, interruptor);
+            commit(txn, interruptor);
+            return res;
         });
     }
 
     // TODO: This is only used in unit tests.  We could use regular writes instead.
     void operator()(const point_delete_t &d) {
         const bool needs_config_permission = false;
-        // NNN: Indent code
         response_->response = perform_write_operation<point_delete_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        write_response_t response;
+            write_response_t response;
 
-        // TODO: Understand this line vvv
-        sampler->new_sample();
-        response.response = point_delete_response_t();
-        point_delete_response_t res;
+            // TODO: Understand this line vvv
+            sampler->new_sample();
+            response.response = point_delete_response_t();
+            point_delete_response_t res;
 
-        rdb_modification_info_t mod_info;
-        rdb_fdb_delete(txn, table_id_, d.key, &res,
-            &mod_info, interruptor);
+            rdb_modification_info_t mod_info;
+            rdb_fdb_delete(txn, table_id_, d.key, &res,
+                &mod_info, interruptor);
 
-        cva.cvc.block_and_check(interruptor);
-        cva.block_and_check_auths(interruptor);
+            cva.cvc.block_and_check(interruptor);
+            cva.block_and_check_auths(interruptor);
 
-        update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
-            &jobstate_futs, interruptor);
+            update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
+                &jobstate_futs, interruptor);
 
-        commit(txn, interruptor);
-        return res;
+            commit(txn, interruptor);
+            return res;
         });
     }
 
