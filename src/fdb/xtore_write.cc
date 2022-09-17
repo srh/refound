@@ -326,14 +326,23 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
 
 
 batched_replace_response_t rdb_fdb_batched_replace(
-        FDBTransaction *txn,
+        FDBDatabase *fdb,
+        const reqlfdb_config_version prior_cv,
+        const auth::user_context_t &user_context,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
+        const bool needs_config_permission,
         const std::vector<store_key_t> &keys,
         const btree_batched_replacer_t *replacer,
-        jobstate_futs *jobstate_futs,
         ql::configured_limits_t limits,
         const signal_t *interruptor) {
+
+    // NNN: Indent code
+    return perform_write_operation<batched_replace_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+            needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+        jobstate_futs jobstate_futs = get_jobstates(txn, table_config);
+    batched_replace_response_t response;
+
     std::vector<std::string> kv_locations;
     kv_locations.reserve(keys.size());
     std::vector<rfdb::datum_fut> old_value_futs;
@@ -345,6 +354,11 @@ batched_replace_response_t rdb_fdb_batched_replace(
         kv_locations.push_back(rfdb::table_primary_key(table_id, keys[i]));
         old_value_futs.push_back(rfdb::kv_location_get(txn, kv_locations.back()));
     }
+
+    // We need to check the cvc before using jobstate_futs_.
+    cva.cvc.block_and_check(interruptor);
+    // Might as well check auths here too.
+    cva.block_and_check_auths(interruptor);
 
     ql::datum_t stats = ql::datum_t::empty_object();
 
@@ -369,16 +383,21 @@ batched_replace_response_t rdb_fdb_batched_replace(
             interruptor);
 
         if (mod_info.has_any()) {
-            update_fdb_sindexes(txn, table_id, table_config, keys[i], std::move(mod_info), jobstate_futs, interruptor);
+            update_fdb_sindexes(txn, table_id, table_config, keys[i], std::move(mod_info), &jobstate_futs, interruptor);
         }
 
         // TODO: This is just going to be shitty performance.
         stats = stats.merge(res, ql::stats_merge, limits, &conditions);
     }
 
+    // OOO: Return a crystal clear response code from the visitor about whether we
+    // should commit the write.
+    commit(txn, interruptor);
+
     ql::datum_object_builder_t out(stats);
     out.add_warnings(conditions, limits);
     return std::move(out).to_datum();
+    });
 }
 
 class func_fdb_replacer_t : public btree_batched_replacer_t {
@@ -478,34 +497,18 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         const func_fdb_replacer_t replacer(&ql_env, br.pkey, br.f,
             write_hook, br.return_changes);
 
-        // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        write_response_t response;
-
-        // OOO: Check cvc and auth after first read (but before sindex modification/jobstate reading)
-        // We need to check the cvc before using jobstate_futs_.
-        cva.cvc.block_and_check(interruptor);
-        // Might as well check auths here too.
-        cva.block_and_check_auths(interruptor);
-
-        response.response =
+        response_->response =
             rdb_fdb_batched_replace(
-                txn,
+                fdb_,
+                prior_cv_,
+                *user_context_,
                 table_id_,
                 *table_config_,
+                needs_config_permission,
                 br.keys,
                 &replacer,
-                &jobstate_futs,
                 ql_env.limits(),
                 interruptor);
-
-        // OOO: Return a crystal clear response code from the visitor about whether we
-        // should commit the write.
-        commit(txn, interruptor);
-        return response;
-        });
     }
 
     // QQQ: Is batched_insert_t::pkey merely the table's pkey?  Seems weird to have.
@@ -527,35 +530,18 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             keys.emplace_back(it->get_field(datum_string_t(bi.pkey)).print_primary());
         }
 
-        // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        write_response_t response;
-
-        // NNN: Do this after the first read/update.
-        // We need to check the cvc before using jobstate_futs.
-        cva.cvc.block_and_check(interruptor);
-        // Might as well check auths here too.
-        // OOO: Couldn't we check these earlier?
-        cva.block_and_check_auths(interruptor);
-
-        response.response =
+        response_->response =
             rdb_fdb_batched_replace(
-                txn,
+                fdb_,
+                prior_cv_,
+                *user_context_,
                 table_id_,
                 *table_config_,
+                needs_config_permission,
                 keys,
                 &replacer,
-                &jobstate_futs,
                 bi.limits,
                 interruptor);
-
-        // OOO: Return a crystal clear response code from the visitor about whether we
-        // should commit the write.
-        commit(txn, interruptor);
-        return response;
-        });
     }
 
     void operator()(const point_write_t &w) {
