@@ -4,25 +4,39 @@
 #include <math.h>
 #include <stdint.h>
 
+#include <limits>
+#include <type_traits>
+
 template <class T1, class T2>
 T1 ceil_aligned(T1 value, T2 alignment) {
+    static_assert(std::is_unsigned<T1>::value, "ceil_aligned expects unsigned type in first position");
     return value + alignment - (((value + alignment - 1) % alignment) + 1);
 }
 
 template <class T1, class T2>
 T1 ceil_divide(T1 dividend, T2 alignment) {
+    static_assert(std::is_unsigned<T1>::value, "ceil_divide expects unsigned type in first position");
     return (dividend + alignment - 1) / alignment;
 }
 
 template <class T1, class T2>
 T1 floor_aligned(T1 value, T2 alignment) {
+    static_assert(std::is_unsigned<T1>::value, "floor_aligned expects unsigned type in first position");
     return value - (value % alignment);
 }
 
 template <class T1, class T2>
 T1 ceil_modulo(T1 value, T2 alignment) {
+    // We have "x < 0" logic where which gets unused.
+    static_assert(std::is_unsigned<T1>::value, "asserting ceil_modulo is currently only called with unsigned types");
     T1 x = (value + alignment - 1) % alignment;
     return value + alignment - ((x < 0 ? x + alignment : x) + 1);
+}
+
+template <class T>
+T add_rangeclamped(T x, T y) {
+    static_assert(std::is_unsigned<T>::value, "add_rangeclamped expects unsigned type");
+    return x <= std::numeric_limits<T>::max() - y ? x + y : std::numeric_limits<T>::max();
 }
 
 template <class T>

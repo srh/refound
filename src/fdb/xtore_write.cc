@@ -12,6 +12,7 @@
 #include "fdb/btree_utils.hpp"
 #include "fdb/jobs/index_create.hpp"
 #include "fdb/typed.hpp"
+#include "math.hpp"
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/env.hpp"  // TODO: Remove include
 #include "rdb_protocol/protocol.hpp"
@@ -323,6 +324,26 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
     }
 }
 
+struct batch_size_calc {
+    explicit batch_size_calc(size_t initial_recommendation)
+        : next_recommended_batch(initial_recommendation), last_batch(initial_recommendation) {}
+    size_t next_recommended_batch;
+    size_t last_batch;
+
+    void note_completed_batch(size_t size) {
+        last_batch = size;
+        size_t x = std::max<size_t>(1, std::max<size_t>(next_recommended_batch / 2, last_batch));
+        // Grotesque hackish nonsense to avoid some perpetual small-batch scenario.  But
+        // this will needlessly sawtooth batch sizes.
+        next_recommended_batch = add_rangeclamped<size_t>(x, ceil_divide(x, 32));
+    }
+
+    // Caller might need to clamp this by the number of keys.
+    size_t recommended_batch() const {
+        return next_recommended_batch;
+    }
+};
+
 
 batched_replace_response_t rdb_fdb_batched_replace(
         FDBDatabase *fdb,
@@ -340,13 +361,13 @@ batched_replace_response_t rdb_fdb_batched_replace(
         batched_replace_response_t stats = ql::datum_t::empty_object();
         std::set<std::string> conditions;
         size_t keys_complete = 0;
+        batch_size_calc calc(keys.size() - keys_complete);
         while (keys_complete < keys.size()) {
+            const size_t recommended_batch = std::min<size_t>(keys.size() - keys_complete, calc.recommended_batch());
+
             std::tuple<batched_replace_response_t, std::set<std::string>, size_t> p =  perform_write_operation_with_counter<std::tuple<batched_replace_response_t, std::set<std::string>, size_t>>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
                     needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, size_t count, cv_auth_check_fut_write &&cva) {
-
-                const size_t keys_remaining = keys.size() - keys_complete;
-                // Just divide by 2 as the scale-back (very simple, naive, sure).
-                const size_t keys_to_process = std::max<size_t>(1, keys_remaining >> count);
+                const size_t keys_to_process = std::max<size_t>(1, recommended_batch >> count);
                 // So, we're going to process keys in [keys_complete, keys_complete + keys_to_process).
 
                 jobstate_futs jobstate_futs = get_jobstates(txn, table_config);
@@ -409,7 +430,9 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
             conditions.insert(std::get<1>(p).begin(), std::get<1>(p).end());
             stats = stats.merge(std::get<0>(p), ql::stats_merge, limits, &conditions);
-            keys_complete += std::get<2>(p);
+            const size_t latest_batch = std::get<2>(p);
+            keys_complete += latest_batch;
+            calc.note_completed_batch(latest_batch);
         }
         ql::datum_object_builder_t tmp(std::move(stats));
         tmp.add_warnings(conditions, limits);
