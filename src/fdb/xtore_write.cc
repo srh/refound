@@ -71,7 +71,8 @@ void update_fdb_sindexes(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
-        rdb_modification_report_t &&modification,
+        const store_key_t &primary_key,
+        rdb_modification_info_t &&info,
         jobstate_futs *jobstate_futs,
         const signal_t *interruptor) {
     // The thing is, we know the sindex has to be in good shape.
@@ -86,8 +87,8 @@ void update_fdb_sindexes(
         auto jobstates_it = jobstates.find(pair.first);
         if (jobstates_it != jobstates.end()) {
             const fdb_index_jobstate &js = jobstates_it->second;
-            if (js.unindexed_lower_bound.ukey <= modification.primary_key.str() &&
-                    js.unindexed_upper_bound.ukey > modification.primary_key.str()) {
+            if (js.unindexed_lower_bound.ukey <= primary_key.str() &&
+                    js.unindexed_upper_bound.ukey > primary_key.str()) {
                 continue;
             }
         }
@@ -97,15 +98,15 @@ void update_fdb_sindexes(
 
         std::unordered_set<store_key_t, store_key_hash> deletion_keys;
 
-        if (modification.info.deleted.has()) {
+        if (info.deleted.has()) {
             try {
                 // TODO: datum copy performance?
-                ql::datum_t deleted = modification.info.deleted;
+                ql::datum_t deleted = info.deleted;
 
                 // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
                 std::vector<std::pair<store_key_t, ql::datum_t> > keys;
                 compute_keys(
-                    modification.primary_key, deleted, sindex_info,
+                    primary_key, deleted, sindex_info,
                     &keys, nullptr);
                 for (auto &p : keys) {
                     deletion_keys.emplace(std::move(p.first));
@@ -117,14 +118,14 @@ void update_fdb_sindexes(
 
         std::unordered_set<store_key_t, store_key_hash> addition_keys;
 
-        if (modification.info.added.has()) {
+        if (info.added.has()) {
             try {
                 // TODO: datum copy performance?
-                ql::datum_t added = modification.info.added;
+                ql::datum_t added = info.added;
 
                 std::vector<std::pair<store_key_t, ql::datum_t> > keys;
                 compute_keys(
-                    modification.primary_key, added, sindex_info,
+                    primary_key, added, sindex_info,
                     &keys, nullptr);
                 for (auto &p : keys) {
                     addition_keys.emplace(std::move(p.first));
@@ -332,9 +333,9 @@ batched_replace_response_t rdb_fdb_batched_replace(
         const table_config_t &table_config,
         const std::vector<store_key_t> &keys,
         const btree_batched_replacer_t *replacer,
+        jobstate_futs *jobstate_futs,
         ql::configured_limits_t limits,
-        const signal_t *interruptor,
-        std::vector<rdb_modification_report_t> *mod_reports_out) {
+        const signal_t *interruptor) {
     std::vector<std::string> kv_locations;
     kv_locations.reserve(keys.size());
     std::vector<rfdb::datum_fut> old_value_futs;
@@ -354,8 +355,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
     // TODO: Might we perform too many concurrent reads from fdb?  We had
     // MAX_CONCURRENT_REPLACES=8 before.
     for (size_t i = 0; i < keys.size(); ++i) {
-        mod_reports_out->emplace_back(keys[i]);
-        rdb_modification_report_t &mod_report = mod_reports_out->back();
+        rdb_modification_info_t mod_info;
 
         // QQQ: This is awful -- send them to FDB in parallel.
         ql::datum_t res = rdb_fdb_replace_and_return_superblock(
@@ -366,8 +366,12 @@ batched_replace_response_t rdb_fdb_batched_replace(
             replacer,
             i,
             std::move(old_value_futs[i]),
-            &mod_report.info,
+            &mod_info,
             interruptor);
+
+        if (mod_info.has_any()) {
+            update_fdb_sindexes(txn, table_id, table_config, keys[i], std::move(mod_info), jobstate_futs, interruptor);
+        }
 
         // TODO: This is just going to be shitty performance.
         stats = stats.merge(res, ql::stats_merge, limits, &conditions);
@@ -454,29 +458,9 @@ private:
     optional<ql::deterministic_func> conflict_func;
 };
 
-void handle_mod_reports(FDBTransaction *txn,
-        const namespace_id_t &table_id, const table_config_t &table_config,
-        std::vector<rdb_modification_report_t> &&reports,
-        jobstate_futs *futs, const signal_t *interruptor) {
-    for (rdb_modification_report_t &report : reports) {
-        if (report.info.deleted.has() || report.info.added.has()) {
-            update_fdb_sindexes(txn, table_id, table_config,
-                std::move(report),
-                futs,
-                interruptor);
-        }
-    }
-}
-
-
 struct fdb_write_visitor : public boost::static_visitor<void> {
     void operator()(const batched_replace_t &br) {
         const bool needs_config_permission = br.ignore_write_hook == ignore_write_hook_t::YES;
-        // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        write_response_t response;
 
         // TODO: Does trace really get used after we put it in ql_env?
         ql::env_t ql_env(
@@ -492,9 +476,20 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             write_hook = table_config_->write_hook->func.det_func.compile_wire_func();
         }
 
+        // NNN: Indent code
+        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+            jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
+        write_response_t response;
+
+        // OOO: Check cvc and auth after first read (but before sindex modification/jobstate reading)
+        // We need to check the cvc before using jobstate_futs_.
+        cva.cvc.block_and_check(interruptor);
+        // Might as well check auths here too.
+        cva.block_and_check_auths(interruptor);
+
         func_fdb_replacer_t replacer(&ql_env, br.pkey, br.f,
             write_hook, br.return_changes);
-        std::vector<rdb_modification_report_t> mod_reports;
         response.response =
             rdb_fdb_batched_replace(
                 txn,
@@ -502,18 +497,9 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 *table_config_,
                 br.keys,
                 &replacer,
+                &jobstate_futs,
                 ql_env.limits(),
-                interruptor,
-                &mod_reports);
-
-        // OOO: Couldn't we check cvc earlier?
-        // We need to check the cvc before using jobstate_futs_.
-        cva.cvc.block_and_check(interruptor);
-        // Might as well check auths here too.
-        cva.block_and_check_auths(interruptor);
-
-        handle_mod_reports(txn, table_id_, *table_config_, std::move(mod_reports),
-            &jobstate_futs, interruptor);
+                interruptor);
 
         // OOO: Return a crystal clear response code from the visitor about whether we
         // should commit the write.
@@ -525,11 +511,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     // QQQ: Is batched_insert_t::pkey merely the table's pkey?  Seems weird to have.
     void operator()(const batched_insert_t &bi) {
         const bool needs_config_permission = bi.ignore_write_hook == ignore_write_hook_t::YES;
-        // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-            jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        write_response_t response;
+
         ql::env_t ql_env(
             nullptr,  // QQQ: Include global optargs in op_term_t::is_deterministic impl.
             ql::return_empty_normal_batches_t::NO,
@@ -543,7 +525,19 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         for (auto it = bi.inserts.begin(); it != bi.inserts.end(); ++it) {
             keys.emplace_back(it->get_field(datum_string_t(bi.pkey)).print_primary());
         }
-        std::vector<rdb_modification_report_t> mod_reports;
+        // NNN: Indent code
+        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
+            jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
+        write_response_t response;
+
+        // NNN: Do this after the first read/update.
+        // We need to check the cvc before using jobstate_futs.
+        cva.cvc.block_and_check(interruptor);
+        // Might as well check auths here too.
+        // OOO: Couldn't we check these earlier?
+        cva.block_and_check_auths(interruptor);
+
         response.response =
             rdb_fdb_batched_replace(
                 txn,
@@ -551,18 +545,9 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
                 *table_config_,
                 keys,
                 &replacer,
+                &jobstate_futs,
                 bi.limits,
-                interruptor,
-                &mod_reports);
-
-        // We need to check the cvc before using jobstate_futs.
-        cva.cvc.block_and_check(interruptor);
-        // Might as well check auths here too.
-        // OOO: Couldn't we check these earlier?
-        cva.block_and_check_auths(interruptor);
-
-        handle_mod_reports(txn, table_id_, *table_config_, std::move(mod_reports),
-            &jobstate_futs, interruptor);
+                interruptor);
 
         // OOO: Return a crystal clear response code from the visitor about whether we
         // should commit the write.
@@ -584,9 +569,9 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         point_write_response_t *res =
             boost::get<point_write_response_t>(&response.response);
 
-        rdb_modification_report_t mod_report(w.key);
+        rdb_modification_info_t mod_info;
         rdb_fdb_set(txn, table_id_, w.key, w.data, w.overwrite, res,
-            &mod_report.info, interruptor);
+            &mod_info, interruptor);
 
         // We need to check the cvc before jobstates.
         cva.cvc.block_and_check(interruptor);
@@ -594,7 +579,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // OOO: Couldn't we check these earlier?
         cva.block_and_check_auths(interruptor);
 
-        update_fdb_sindexes(txn, table_id_, *table_config_, std::move(mod_report),
+        update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
             &jobstate_futs, interruptor);
         // OOO: Return a crystal clear response code from the visitor about whether we
         // should commit the write.
@@ -618,14 +603,14 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         point_delete_response_t *res =
             boost::get<point_delete_response_t>(&response.response);
 
-        rdb_modification_report_t mod_report(d.key);
+        rdb_modification_info_t mod_info;
         rdb_fdb_delete(txn, table_id_, d.key, res,
-            &mod_report.info, interruptor);
+            &mod_info, interruptor);
 
         cva.cvc.block_and_check(interruptor);
         cva.block_and_check_auths(interruptor);
 
-        update_fdb_sindexes(txn, table_id_, *table_config_, std::move(mod_report),
+        update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
             &jobstate_futs, interruptor);
 
         // OOO: Return a crystal clear response code from the visitor about whether we

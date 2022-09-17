@@ -17,8 +17,6 @@
 struct sindex_disk_info_t;
 
 struct rdb_modification_info_t;
-struct rdb_modification_report_t;
-class rdb_modification_report_cb_t;
 
 struct btree_batched_replacer_t {
     virtual ~btree_batched_replacer_t() { }
@@ -39,15 +37,8 @@ struct btree_batched_replacer_t {
 struct rdb_modification_info_t {
     ql::datum_t deleted;
     ql::datum_t added;
-};
 
-struct rdb_modification_report_t {
-    rdb_modification_report_t() { }
-    explicit rdb_modification_report_t(const store_key_t &_primary_key)
-        : primary_key(_primary_key) { }
-
-    store_key_t primary_key;
-    rdb_modification_info_t info;
+    bool has_any() const { return deleted.has() || added.has(); }
 };
 
 // Exposed now for fdb.
