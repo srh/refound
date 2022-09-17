@@ -239,7 +239,7 @@ void rdb_fdb_delete(
 // from pre-fdb functions.  There is no superblock.
 batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         FDBTransaction *txn,
-        const table_config_t &table_config,
+        const datum_string_t &primary_key,
         const store_key_t &key,
         const std::string &precomputed_kv_location,
         const btree_batched_replacer_t *replacer,
@@ -249,8 +249,6 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         const signal_t *interruptor) {
     const return_changes_t return_changes = replacer->should_return_changes();
     // TODO: Remove these lines or supply them somehow.
-    // TODO: Pass in primary_key instead of recomputing it every time.
-    const datum_string_t primary_key(table_config.basic.primary_key);
 
     {
         // TODO: Add these pm's.
@@ -352,15 +350,16 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
     std::set<std::string> conditions;
 
+    const datum_string_t primary_key_column(table_config.basic.primary_key);
+
     // TODO: Might we perform too many concurrent reads from fdb?  We had
     // MAX_CONCURRENT_REPLACES=8 before.
     for (size_t i = 0; i < keys.size(); ++i) {
         rdb_modification_info_t mod_info;
 
-        // QQQ: This is awful -- send them to FDB in parallel.
         ql::datum_t res = rdb_fdb_replace_and_return_superblock(
             txn,
-            table_config,
+            primary_key_column,
             keys[i],
             kv_locations[i],
             replacer,
