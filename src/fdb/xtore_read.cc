@@ -59,11 +59,9 @@ void rdb_fdb_get(FDBTransaction *txn, const namespace_id_t &table_id,
     }
 }
 
-// TODO: This might remain identical to job_data_t, so rename this type to job_data_t if
-// that happens (when the old gets removed).
-class job_fdb_data_t {
+class job_data_t {
 public:
-    job_fdb_data_t(ql::env_t *_env,
+    job_data_t(ql::env_t *_env,
                const ql::batchspec_t &batchspec,
                const std::vector<transform_variant_t> &_transforms,
                const optional<terminal_variant_t> &_terminal,
@@ -84,7 +82,7 @@ public:
         }
         guarantee(transformers.size() == _transforms.size());
     }
-    job_fdb_data_t(job_fdb_data_t &&) = default;
+    job_data_t(job_data_t &&) = default;
 
     bool should_send_batch() const {
         return accumulator->should_send_batch();
@@ -104,7 +102,7 @@ class fdb_rget_cb {
 public:
     fdb_rget_cb(
             rget_read_response_t *_response,
-            job_fdb_data_t &&_job)
+            job_data_t &&_job)
             : response(_response), job(std::move(_job)), bad_init(false) {
         // TODO: This comment is now probably false...
         // We must disable profiler events for subtasks, because multiple instances
@@ -189,7 +187,7 @@ public:
     }
 private:
     rget_read_response_t *const response;
-    job_fdb_data_t job; // What to do next (stateful).
+    job_data_t job; // What to do next (stateful).
 
     // State for internal bookkeeping.
     bool bad_init;
@@ -348,7 +346,7 @@ void rdb_fdb_rget_snapshot_slice(
     if (primary_keys.has_value()) {
         fdb_rget_cb callback(
             response_,
-            job_fdb_data_t(ql_env,
+            job_data_t(ql_env,
                        batchspec,
                        transforms,
                        terminal,
@@ -433,7 +431,7 @@ void rdb_fdb_rget_snapshot_slice(
 
         fdb_rget_cb callback(
             response_,
-            job_fdb_data_t(ql_env,
+            job_data_t(ql_env,
                        batchspec,
                        transforms,
                        terminal,
@@ -573,7 +571,7 @@ class fdb_rget_secondary_cb {
 public:
     fdb_rget_secondary_cb(
             rget_read_response_t *_response,
-            job_fdb_data_t &&_job,
+            job_data_t &&_job,
             rget_fdb_sindex_data_t &&_sindex_data)
         : response(_response),
           job(std::move(_job)),
@@ -843,7 +841,7 @@ public:
 
 private:
     rget_read_response_t *response;
-    job_fdb_data_t job; // What to do next (stateful).
+    job_data_t job; // What to do next (stateful).
     const rget_fdb_sindex_data_t sindex_data; // Optional sindex information.
 
     scoped_ptr_t<ql::env_t> sindex_env;
@@ -910,7 +908,7 @@ void rdb_fdb_rget_secondary_snapshot_slice(
     key_range_t active_region_range = sindex_region_range;
     fdb_rget_secondary_cb callback(
         response,
-        job_fdb_data_t(ql_env,
+        job_data_t(ql_env,
                    batchspec,
                    transforms,
                    terminal,
