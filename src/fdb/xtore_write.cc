@@ -390,8 +390,6 @@ batched_replace_response_t rdb_fdb_batched_replace(
         stats = stats.merge(res, ql::stats_merge, limits, &conditions);
     }
 
-    // OOO: Return a crystal clear response code from the visitor about whether we
-    // should commit the write.
     commit(txn, interruptor);
 
     ql::datum_object_builder_t out(stats);
@@ -547,18 +545,15 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     void operator()(const point_write_t &w) {
         const bool needs_config_permission = false;
         // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        response_->response = perform_write_operation<point_write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
-        write_response_t response;
         // TODO: Understand this line vvv
         sampler->new_sample();
-        response.response = point_write_response_t();
-        point_write_response_t *res =
-            boost::get<point_write_response_t>(&response.response);
+        point_write_response_t res;
 
         rdb_modification_info_t mod_info;
-        rdb_fdb_set(txn, table_id_, w.key, w.data, w.overwrite, res,
+        rdb_fdb_set(txn, table_id_, w.key, w.data, w.overwrite, &res,
             &mod_info, interruptor);
 
         // We need to check the cvc before jobstates.
@@ -569,10 +564,8 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
 
         update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
             &jobstate_futs, interruptor);
-        // OOO: Return a crystal clear response code from the visitor about whether we
-        // should commit the write.
         commit(txn, interruptor);
-        return response;
+        return res;
         });
     }
 
@@ -580,7 +573,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
     void operator()(const point_delete_t &d) {
         const bool needs_config_permission = false;
         // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+        response_->response = perform_write_operation<point_delete_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
                 needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
             jobstate_futs jobstate_futs = get_jobstates(txn, *table_config_);
         write_response_t response;
@@ -588,11 +581,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         // TODO: Understand this line vvv
         sampler->new_sample();
         response.response = point_delete_response_t();
-        point_delete_response_t *res =
-            boost::get<point_delete_response_t>(&response.response);
+        point_delete_response_t res;
 
         rdb_modification_info_t mod_info;
-        rdb_fdb_delete(txn, table_id_, d.key, res,
+        rdb_fdb_delete(txn, table_id_, d.key, &res,
             &mod_info, interruptor);
 
         cva.cvc.block_and_check(interruptor);
@@ -601,54 +593,42 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
         update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
             &jobstate_futs, interruptor);
 
-        // OOO: Return a crystal clear response code from the visitor about whether we
-        // should commit the write.
         commit(txn, interruptor);
-        return response;
+        return res;
         });
     }
 
     void operator()(const sync_t &) {
         const bool needs_config_permission = false;
-        // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-        write_response_t response;
+        response_->response = perform_write_operation<sync_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *, cv_auth_check_fut_write &&cva) {
+            // TODO: Understand what this does.
+            sampler->new_sample();
 
-        // TODO: Understand what this does.
-        sampler->new_sample();
+            // We have to check cv, for the usual reasons: to make sure table name->id
+            // mapping we used was legit.
+            cva.cvc.block_and_check(interruptor);
+            // And we have to check permissions.
+            cva.block_and_check_auths(interruptor);
 
-        // We have to check cv, for the usual reasons: to make sure table name->id
-        // mapping we used was legit.
-        cva.cvc.block_and_check(interruptor);
-        cva.block_and_check_auths(interruptor);
+            // Nothing to commit.  Writes already sync.
 
-        response.response = sync_response_t();
-
-        // OOO: Return a crystal clear response code from the visitor about whether we
-        // should commit the write.
-        commit(txn, interruptor);
-        return response;
+            return sync_response_t();
         });
     }
 
     void operator()(const dummy_write_t &) {
         const bool needs_config_permission = false;
-        // NNN: Indent code
-        *response_ = perform_write_operation<write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-        write_response_t response;
+        response_->response = perform_write_operation<dummy_write_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+                needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *, cv_auth_check_fut_write &&cva) {
+            // We have to check cv, for the usual reasons: to make sure table name->id
+            // mapping we used was legit.
+            cva.cvc.block_and_check(interruptor);
+            cva.block_and_check_auths(interruptor);
 
-        // We have to check cv, for the usual reasons: to make sure table name->id
-        // mapping we used was legit.
-        cva.cvc.block_and_check(interruptor);
-        cva.block_and_check_auths(interruptor);
-        response.response = dummy_write_response_t();
+            // Nothing to commit.
 
-        // OOO: Return a crystal clear response code from the visitor about whether we
-        // should commit the write.
-        commit(txn, interruptor);
-        return response;
+            return dummy_write_response_t();
         });
     }
 
