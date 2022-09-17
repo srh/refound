@@ -43,7 +43,6 @@ return_type perform_write_operation(FDBDatabase *fdb, const signal_t *interrupto
 
             ret = c(interruptor, txn, std::move(cva));
         });
-        // NNN: Make sure this exception ends up in the write response.
         rcheck_fdb_datum(loop_err, "writing table");
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();
@@ -67,7 +66,6 @@ return_type perform_write_operation_with_counter(FDBDatabase *fdb, const signal_
 
             ret = c(interruptor, txn, count, std::move(cva));
         });
-        // NNN: Make sure this exception ends up in the write response.
         rcheck_fdb_datum(loop_err, "writing table");
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();
