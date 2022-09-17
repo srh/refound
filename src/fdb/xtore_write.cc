@@ -324,6 +324,7 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
     }
 }
 
+// See also "struct secondary_batch_size_calc".
 struct batch_size_calc {
     explicit batch_size_calc(size_t initial_recommendation)
         : next_recommended_batch(initial_recommendation), last_batch(initial_recommendation) {}

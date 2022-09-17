@@ -9,6 +9,7 @@
 #include "fdb/btree_utils.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/typed.hpp"
+#include "math.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/func.hpp"
 #include "rdb_protocol/geo_traversal.hpp"
@@ -193,6 +194,34 @@ private:
 };
 
 
+// See also "struct batch_size_calc".
+struct secondary_batch_size_calc {
+    explicit secondary_batch_size_calc()
+        : first_batch(true), next_recommended_batch(0), last_batch(0) {}
+    bool first_batch;
+    size_t next_recommended_batch;
+    size_t last_batch;
+
+    void note_completed_batch(size_t size) {
+        if (first_batch) {
+            first_batch = false;
+            next_recommended_batch = size;
+            last_batch = size;
+        } else {
+            last_batch = size;
+            size_t x = std::max<size_t>(1, std::max<size_t>(next_recommended_batch / 2, last_batch));
+            // Grotesque hackish nonsense to avoid some perpetual small-batch scenario.  But
+            // this will needlessly sawtooth batch sizes.
+            next_recommended_batch = add_rangeclamped<size_t>(x, ceil_divide(x, 32));
+        }
+    }
+
+    // Caller might need to clamp this by the number of keys.
+    optional<size_t> recommended_batch() const {
+        return first_batch ? r_nullopt : make_optional(next_recommended_batch);
+    }
+};
+
 // QQQ: Make rocks_traversal_cb take a vector of results (to amortize overhead)
 // TODO: At some point... rename rocks_traversal_cb.
 
@@ -216,24 +245,30 @@ continue_bool_t fdb_traversal_secondary(
 
     key_range_t range = rangeparam;
 
+    secondary_batch_size_calc batch_calc;
     for (;;) {
         struct read_op_slug {
             std::vector<std::pair<store_key_t, std::vector<uint8_t>>> key_values;
             int kv_count;
             fdb_bool_t more;
             std::string last_key_view;
+            size_t last_batch_size;
         };
 
-        read_op_slug slug = perform_read_operation<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
+        optional<size_t> recommended_batch = batch_calc.recommended_batch();
+
+        read_op_slug slug = perform_read_operation_with_counter<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                [&](const signal_t *interruptor, FDBTransaction *txn, size_t count, cv_auth_check_fut_read&& cva,
                         read_op_slug *res) {
 
-            // TODO: We'll want roll-back/retry logic in place of "MEDIUM".
+            const int limit_param = std::min<size_t>(INT_MAX, std::max<size_t>(1, recommended_batch.value_or(0) >> count));
+
+            // We use MEDIUM on the first run (before we supply a key limit)
             rfdb::secondary_range_fut fut = rfdb::secondary_prefix_get_range(
                 txn, secondary_prefix, range.left,
                 rfdb::lower_bound::closed,
                 range.right.unbounded ? nullptr : &range.right.internal_key,
-                0, 0, FDB_STREAMING_MODE_MEDIUM,
+                limit_param, 0, recommended_batch.has_value() ? FDB_STREAMING_MODE_LARGE : FDB_STREAMING_MODE_MEDIUM,
                 0, false, reverse);
 
             cva.cvc.block_and_check(interruptor);
@@ -282,8 +317,9 @@ continue_bool_t fdb_traversal_secondary(
                 key_values.emplace_back(std::move(pair.first), std::move(*value));
             }
 
-            *res = read_op_slug{key_values, kv_count, more, last_key_view.to_string()};
+            *res = read_op_slug{key_values, kv_count, more, last_key_view.to_string(), static_cast<size_t>(kv_count)};
         });
+        batch_calc.note_completed_batch(slug.last_batch_size);
 
         for (size_t i = 0, e = slug.key_values.size(); i < e; ++i) {
             const store_key_t &key = slug.key_values[i].first;
