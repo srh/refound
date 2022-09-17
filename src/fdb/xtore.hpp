@@ -9,7 +9,6 @@
 namespace auth {
 class user_context_t;
 }
-class cv_auth_check_fut_write;  // NNN: Remove once unneeded.
 class cv_check_fut;
 struct reqlfdb_config_version;
 class interrupted_exc_t;

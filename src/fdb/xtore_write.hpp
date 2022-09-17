@@ -46,7 +46,6 @@ return_type perform_write_operation(FDBDatabase *fdb, const signal_t *interrupto
             ret = std::move(response);
         });
         // NNN: Make sure this exception ends up in the write response.
-        // NNN: Actually, split up the fdb transaction for batched replace.
         rcheck_fdb_datum(loop_err, "writing table");
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();
@@ -73,7 +72,6 @@ return_type perform_write_operation_with_counter(FDBDatabase *fdb, const signal_
             ret = std::move(response);
         });
         // NNN: Make sure this exception ends up in the write response.
-        // NNN: Actually, split up the fdb transaction for batched replace.
         rcheck_fdb_datum(loop_err, "writing table");
     } catch (const provisional_assumption_exception &exc) {
         throw config_version_exc_t();

@@ -6,7 +6,6 @@
 #include "clustering/auth/user_fut.hpp"
 #include "clustering/tables/table_metadata.hpp"
 #include "fdb/xtore.hpp"
-#include "fdb/xtore_write.hpp"  // NNN: Remove
 #include "fdb/retry_loop.hpp"
 #include "math.hpp"
 #include "rdb_protocol/geo/ellipsoid.hpp"
