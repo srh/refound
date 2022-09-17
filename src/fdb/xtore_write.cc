@@ -1,5 +1,7 @@
 #include "fdb/xtore_write.hpp"
 
+#include <set>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -334,65 +336,87 @@ batched_replace_response_t rdb_fdb_batched_replace(
         ql::configured_limits_t limits,
         const signal_t *interruptor) {
 
-    // NNN: Indent code
-    return perform_write_operation<batched_replace_response_t>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_write &&cva) {
-        jobstate_futs jobstate_futs = get_jobstates(txn, table_config);
-    batched_replace_response_t response;
+    try {
+        batched_replace_response_t stats = ql::datum_t::empty_object();
+        std::set<std::string> conditions;
+        size_t keys_complete = 0;
+        while (keys_complete < keys.size()) {
+            std::tuple<batched_replace_response_t, std::set<std::string>, size_t> p =  perform_write_operation_with_counter<std::tuple<batched_replace_response_t, std::set<std::string>, size_t>>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                    needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, size_t count, cv_auth_check_fut_write &&cva) {
 
-    std::vector<std::string> kv_locations;
-    kv_locations.reserve(keys.size());
-    std::vector<rfdb::datum_fut> old_value_futs;
-    old_value_futs.reserve(keys.size());
+                const size_t keys_remaining = keys.size() - keys_complete;
+                // Just divide by 2 as the scale-back (very simple, naive, sure).
+                const size_t keys_to_process = std::max<size_t>(1, keys_remaining >> count);
+                // So, we're going to process keys in [keys_complete, keys_complete + keys_to_process).
 
-    // TODO: Might we perform too many concurrent reads from fdb?  We had
-    // MAX_CONCURRENT_REPLACES=8 before.
-    for (size_t i = 0; i < keys.size(); ++i) {
-        kv_locations.push_back(rfdb::table_primary_key(table_id, keys[i]));
-        old_value_futs.push_back(rfdb::kv_location_get(txn, kv_locations.back()));
-    }
+                jobstate_futs jobstate_futs = get_jobstates(txn, table_config);
+                batched_replace_response_t response;
 
-    // We need to check the cvc before using jobstate_futs_.
-    cva.cvc.block_and_check(interruptor);
-    // Might as well check auths here too.
-    cva.block_and_check_auths(interruptor);
+                // Parallel arrays (with the subslice keys[keys_complete...keys_complete + keys_to_process]).
+                std::vector<std::string> kv_locations;
+                kv_locations.reserve(keys_to_process);
+                std::vector<rfdb::datum_fut> old_value_futs;
+                old_value_futs.reserve(keys_to_process);
 
-    ql::datum_t stats = ql::datum_t::empty_object();
+                // TODO: Might we perform too many concurrent reads from fdb?  We had
+                // MAX_CONCURRENT_REPLACES=8 before.
+                for (size_t i = keys_complete; i < keys_complete + keys_to_process; ++i) {
+                    kv_locations.push_back(rfdb::table_primary_key(table_id, keys[i]));
+                    old_value_futs.push_back(rfdb::kv_location_get(txn, kv_locations.back()));
+                }
 
-    std::set<std::string> conditions;
+                // We need to check the cvc before using jobstate_futs_.
+                cva.cvc.block_and_check(interruptor);
+                // Might as well check auths here too.
+                cva.block_and_check_auths(interruptor);
 
-    const datum_string_t primary_key_column(table_config.basic.primary_key);
+                ql::datum_t stats = ql::datum_t::empty_object();
 
-    // TODO: Might we perform too many concurrent reads from fdb?  We had
-    // MAX_CONCURRENT_REPLACES=8 before.
-    for (size_t i = 0; i < keys.size(); ++i) {
-        rdb_modification_info_t mod_info;
+                std::set<std::string> conditions;
 
-        ql::datum_t res = rdb_fdb_replace_and_return_superblock(
-            txn,
-            primary_key_column,
-            keys[i],
-            kv_locations[i],
-            replacer,
-            i,
-            std::move(old_value_futs[i]),
-            &mod_info,
-            interruptor);
+                const datum_string_t primary_key_column(table_config.basic.primary_key);
 
-        if (mod_info.has_any()) {
-            update_fdb_sindexes(txn, table_id, table_config, keys[i], std::move(mod_info), &jobstate_futs, interruptor);
+                // TODO: Might we perform too many concurrent reads from fdb?  We had
+                // MAX_CONCURRENT_REPLACES=8 before.
+                for (size_t i = keys_complete; i < keys_complete + keys_to_process; ++i) {
+                    rdb_modification_info_t mod_info;
+
+                    ql::datum_t res = rdb_fdb_replace_and_return_superblock(
+                        txn,
+                        primary_key_column,
+                        keys[i],
+                        kv_locations[i],
+                        replacer,
+                        i,
+                        std::move(old_value_futs[i]),
+                        &mod_info,
+                        interruptor);
+
+                    if (mod_info.has_any()) {
+                        update_fdb_sindexes(txn, table_id, table_config, keys[i], std::move(mod_info), &jobstate_futs, interruptor);
+                    }
+
+                    // TODO: This is just going to be shitty performance.
+                    stats = stats.merge(res, ql::stats_merge, limits, &conditions);
+                }
+
+                commit(txn, interruptor);
+
+                ql::datum_object_builder_t out(stats);
+                out.add_warnings(conditions, limits);
+                return std::make_tuple(std::move(out).to_datum(), std::move(conditions), keys_to_process);
+            });
+
+            conditions.insert(std::get<1>(p).begin(), std::get<1>(p).end());
+            stats = stats.merge(std::get<0>(p), ql::stats_merge, limits, &conditions);
+            keys_complete += std::get<2>(p);
         }
-
-        // TODO: This is just going to be shitty performance.
-        stats = stats.merge(res, ql::stats_merge, limits, &conditions);
+        ql::datum_object_builder_t tmp(std::move(stats));
+        tmp.add_warnings(conditions, limits);
+        return std::move(tmp).to_datum();
+    } catch (const provisional_assumption_exception &exc) {
+        throw config_version_exc_t();
     }
-
-    commit(txn, interruptor);
-
-    ql::datum_object_builder_t out(stats);
-    out.add_warnings(conditions, limits);
-    return std::move(out).to_datum();
-    });
 }
 
 class func_fdb_replacer_t : public btree_batched_replacer_t {
