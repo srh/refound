@@ -45,7 +45,7 @@ ql::datum_t btree_batched_replacer_t::apply_write_hook(
     const ql::datum_t &d,
     const ql::datum_t &res_,
     const ql::datum_t &write_timestamp,
-    const counted_t<const ql::func_t> &write_hook) const {
+    const counted_t<const ql::func_t> &write_hook) {
     ql::datum_t res = res_;
     if (write_hook.has()) {
         ql::datum_t primary_key;
