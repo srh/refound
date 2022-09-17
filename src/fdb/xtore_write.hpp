@@ -41,9 +41,7 @@ return_type perform_write_operation(FDBDatabase *fdb, const signal_t *interrupto
             // we check_cv?), not after entire write op.
             cv_auth_check_fut_write cva(txn, prior_cv, user_context, table_id, table_config, needed_config_permission);
 
-            return_type response = c(interruptor, txn, std::move(cva));
-
-            ret = std::move(response);
+            ret = c(interruptor, txn, std::move(cva));
         });
         // NNN: Make sure this exception ends up in the write response.
         rcheck_fdb_datum(loop_err, "writing table");
@@ -67,9 +65,7 @@ return_type perform_write_operation_with_counter(FDBDatabase *fdb, const signal_
             // we check_cv?), not after entire write op.
             cv_auth_check_fut_write cva(txn, prior_cv, user_context, table_id, table_config, needed_config_permission);
 
-            return_type response = c(interruptor, txn, count, std::move(cva));
-
-            ret = std::move(response);
+            ret = c(interruptor, txn, count, std::move(cva));
         });
         // NNN: Make sure this exception ends up in the write response.
         rcheck_fdb_datum(loop_err, "writing table");

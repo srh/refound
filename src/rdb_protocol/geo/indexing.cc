@@ -539,8 +539,7 @@ continue_bool_t geo_fdb_traversal(
         };
 
         read_result_1 res1 = perform_read_operation<read_result_1>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    read_result_1 *res) {
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
             // TODO: Check the cv after the first request.
             cva.cvc.block_and_check(interruptor);
             cva.auth_fut.block_and_check(interruptor);
@@ -564,8 +563,9 @@ continue_bool_t geo_fdb_traversal(
 
             if (kv_count == 0) {
                 // (We have !more here.)
-                res->outcome = read_result_1::outcome::return_contbool_CONTINUE;
-                return;
+                read_result_1 res;
+                res.outcome = read_result_1::outcome::return_contbool_CONTINUE;
+                return res;
             }
 
             key_view key_slice_v{void_as_uint8(kvs[0].key), kvs[0].key_length};
@@ -599,9 +599,10 @@ continue_bool_t geo_fdb_traversal(
             }
 
             if (!found_cell) {
-                res->outcome = read_result_1::outcome::update_pos_and_continue;
-                res->skey = skey;
-                return;
+                read_result_1 res;
+                res.outcome = read_result_1::outcome::update_pos_and_continue;
+                res.skey = skey;
+                return res;
             }
 
             std::string stop_line
@@ -609,11 +610,12 @@ continue_bool_t geo_fdb_traversal(
 
             values_slug slug = read_kvs(txn, interruptor, kvs, kv_count, stop_line);
 
-            res->outcome = read_result_1::outcome::values;
-            res->stop_line = std::move(stop_line);
-            res->slug = std::move(slug);
-            res->more = more;
-            return;
+            read_result_1 res;
+            res.outcome = read_result_1::outcome::values;
+            res.stop_line = std::move(stop_line);
+            res.slug = std::move(slug);
+            res.more = more;
+            return res;
         });
 
         if (res1.outcome == read_result_1::outcome::update_pos_and_continue) {
@@ -659,8 +661,7 @@ continue_bool_t geo_fdb_traversal(
                 };
 
                 read_result_2 res2 = perform_read_operation<read_result_2>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                    [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                            read_result_2 *res) {
+                    [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
                     // TODO: Check the cv after the first request.
                     cva.cvc.block_and_check(interruptor);
                     cva.auth_fut.block_and_check(interruptor);
@@ -680,8 +681,7 @@ continue_bool_t geo_fdb_traversal(
                         check_for_fdb_transaction(err);
                     }
 
-                    values_slug slug = read_kvs(txn, interruptor, kvs, kv_count, stop_line);
-                    res->slug = std::move(slug);
+                    return read_result_2{read_kvs(txn, interruptor, kvs, kv_count, stop_line)};
                 });
 
                 if (res2.slug.keyvalues.size() == 0) {

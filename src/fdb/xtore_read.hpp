@@ -33,10 +33,7 @@ return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor
             // we check_cv?), not after entire read op.  In each callee, now, of course.
             cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
 
-            return_type response;
-            c(interruptor, txn, std::move(cva), &response);
-
-            ret = std::move(response);
+            ret = c(interruptor, txn, std::move(cva));
         });
         rcheck_fdb_datum(loop_err, "reading table");
     } catch (const provisional_assumption_exception &exc) {
@@ -58,10 +55,7 @@ return_type perform_read_operation_with_counter(FDBDatabase *fdb, const signal_t
             // we check_cv?), not after entire read op.  In each callee, now, of course.
             cv_auth_check_fut_read cva(txn, prior_cv, user_context, table_id, table_config);
 
-            return_type response;
-            c(interruptor, txn, count, std::move(cva), &response);
-
-            ret = std::move(response);
+            ret = c(interruptor, txn, count, std::move(cva));
         });
         rcheck_fdb_datum(loop_err, "reading table");
     } catch (const provisional_assumption_exception &exc) {

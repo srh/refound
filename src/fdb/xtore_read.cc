@@ -258,8 +258,7 @@ continue_bool_t fdb_traversal_secondary(
         optional<size_t> recommended_batch = batch_calc.recommended_batch();
 
         read_op_slug slug = perform_read_operation_with_counter<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                [&](const signal_t *interruptor, FDBTransaction *txn, size_t count, cv_auth_check_fut_read&& cva,
-                        read_op_slug *res) {
+                [&](const signal_t *interruptor, FDBTransaction *txn, size_t count, cv_auth_check_fut_read&& cva) {
 
             const int limit_param = std::min<size_t>(INT_MAX, std::max<size_t>(1, recommended_batch.value_or(0) >> count));
 
@@ -317,7 +316,7 @@ continue_bool_t fdb_traversal_secondary(
                 key_values.emplace_back(std::move(pair.first), std::move(*value));
             }
 
-            *res = read_op_slug{key_values, kv_count, more, last_key_view.to_string(), static_cast<size_t>(kv_count)};
+            return read_op_slug{key_values, kv_count, more, last_key_view.to_string(), static_cast<size_t>(kv_count)};
         });
         batch_calc.note_completed_batch(slug.last_batch_size);
 
@@ -395,8 +394,7 @@ void rdb_fdb_rget_snapshot_slice(
         // Has length of primary_keys.
         std::vector<optional<std::vector<uint8_t>>> unprocessed_values =
             perform_read_operation<std::vector<optional<std::vector<uint8_t>>>>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                        std::vector<optional<std::vector<uint8_t>>> *response) {
+                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
 
             std::vector<rfdb::datum_fut> value_futs;
             value_futs.reserve(primary_keys->size());
@@ -414,7 +412,7 @@ void rdb_fdb_rget_snapshot_slice(
                                 txn, std::move(fut), interruptor));
             }
 
-            *response = std::move(resp);
+            return resp;
         });
 
         if (!reversed(sorting)) {
@@ -489,8 +487,7 @@ void rdb_fdb_rget_snapshot_slice(
             rfdb::datum_range_iterator next_iter;
 
             raw_result result = perform_read_operation<raw_result>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    raw_result *res) {
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
 
                 // OOO: Avoid deep-copying the iterator (with its partial_document_ field)
 
@@ -503,8 +500,8 @@ void rdb_fdb_rget_snapshot_slice(
                 cva.cvc.block_and_check(interruptor);
                 cva.auth_fut.block_and_check(interruptor);
 
-                *res = std::move(result);
                 next_iter = std::move(tmp_iter);
+                return result;
             });
             iter = std::move(next_iter);
 
@@ -1326,10 +1323,11 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
 
     void operator()(const point_read_t &get) {
         *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    read_response_t *response) {
-                do_point_read(txn, &cva.cvc, table_id_, get.key, response, interruptor);
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
+                read_response_t ret;
+                do_point_read(txn, &cva.cvc, table_id_, get.key, &ret, interruptor);
                 cva.auth_fut.block_and_check(interruptor);
+                return ret;
             });
     }
 
@@ -1491,10 +1489,10 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         auto *res_ = boost::get<dummy_read_response_t>(&response_->response);
         // We do need to check user auth before doing a dummy_read_t (if only to be consistent with prior behavior).
         *res_ = perform_read_operation<dummy_read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
-            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_auth_check_fut_read&& cva,
-                    dummy_read_response_t *) {
+            [&](UNUSED const signal_t *interruptor, UNUSED FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
                 cva.cvc.block_and_check(interruptor);
                 cva.auth_fut.block_and_check(interruptor);
+                return dummy_read_response_t();
             });
     }
 
