@@ -582,7 +582,6 @@ public:
         : meta_op_term_t(env, term, argspec_t(1, 1), optargspec_t({})) { }
 private:
     virtual scoped_ptr_t<val_t> eval_impl(scope_env_t *env, args_t *args, eval_flags_t) const {
-        // OOO: Fdb-ize this function.
         scoped_ptr_t<val_t> target = args->arg(env, 0);
         scoped_ptr_t<val_t> selection;
         try {
@@ -1097,7 +1096,7 @@ scoped<table_t> provisional_to_table(
     counted_t<const db_t> out_db;
 
 
-    // OOO: Use the config cache to optimistically perform the table lookup.
+    // QQQ: Use the config cache to optimistically perform the table lookup.
 
 #if 0
     // TODO: ASSERT_NO_CORO_WAITING on these two cache lookups, as mutex assertion.
@@ -1227,8 +1226,6 @@ private:
     deterministic_t is_deterministic() const override { return deterministic_t::no(); }
     const char *name() const override { return "table"; }
 };
-
-// OOO: Fdb-ize the terms below.
 
 class get_term_t : public op_term_t {
 public:

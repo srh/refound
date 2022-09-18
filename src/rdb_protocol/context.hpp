@@ -139,7 +139,7 @@ public:
     fdb_node_holder *node_holder = nullptr;
     one_per_thread_t<reqlfdb_config_cache> config_caches;
     extproc_pool_t *extproc_pool;
-    // OOO: Just replace artificial_interface_or_null with the backends field it contains.
+    // QQQ: Just replace artificial_interface_or_null with the backends field it contains.
     // This is null in unit tests.
     artificial_reql_cluster_interface_t *artificial_interface_or_null = nullptr;
 

@@ -920,7 +920,7 @@ scoped<const func_t> val_t::as_func(env_t *env, function_shortcut_t shortcut) &&
     }
 }
 
-// OOO: Move decl up to header, or something, or move code out of db_table.cc, however this shakes out.
+// QQQ: Move decl up to header, or something, or move code out of db_table.cc, however this shakes out.
 counted_t<const db_t> provisional_to_db(
         FDBDatabase *fdb,
         reqlfdb_config_cache *cc,
