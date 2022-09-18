@@ -46,7 +46,6 @@ lookup_db_state start_lookup_db(
     if (cached != db_name_cache->end()) {
         ret.cached_result = cached->second;
     } else {
-        // OOO(1): We ought to do this as a second batched request in read_all_rows_as_vector.
         ret.fut = transaction_lookup_uq_index<db_config_by_id>(txn, database_id);
     }
     return ret;
