@@ -603,7 +603,6 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             // We need to check the cvc before jobstates.
             cva.cvc.block_and_check(interruptor);
             // Might as well check auths here too.
-            // OOO: Couldn't we check these earlier?
             cva.block_and_check_auths(interruptor);
 
             update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
