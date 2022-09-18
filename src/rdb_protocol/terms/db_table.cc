@@ -200,7 +200,6 @@ counted_t<const db_t> provisional_to_db(
 
 // TODO: QQQ comments -- must be done later (much later, see how stuff plays out)
 // TODO: OOO comments -- must be done later (soon)
-// TODO: NNN comments -- must be done later (now-ish, immediate cleanup)
 
 class db_term_t final : public meta_op_term_t {
 public:

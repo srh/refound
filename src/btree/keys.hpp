@@ -82,7 +82,7 @@ public:
     const std::string &str() const { return str_; }
 
     bool increment();
-    // NNN: This is a gross test-hack.
+    // OOO: This is a gross test-hack.
     bool increment1();
 
     int compare(const store_key_t& k) const {
