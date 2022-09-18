@@ -289,6 +289,8 @@ continue_bool_t fdb_traversal_secondary(
             // Initialized and used if kv_count > 0.
             key_view last_key_view;
 
+            // Overoptimization: We append/resize to avoid allocations.
+            std::string kv_location = primary_prefix;
             for (int i = 0; i < kv_count; ++i) {
                 key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
                 key_view store_key = full_key.guarantee_without_prefix(secondary_prefix);
@@ -296,14 +298,15 @@ continue_bool_t fdb_traversal_secondary(
                 // Right now sindexes have no value.
                 rassert(kvs[i].value_length == 0);
 
+                // TODO: We -could- make extract_primary append to a string.
                 store_key_t primary = ql::datum_t::extract_primary(
                     as_char(store_key.data), size_t(store_key.length));
 
-                // OOO: We could avoid an allocation here by appending/resizing in the loop.
-                std::string kv_location = primary_prefix + primary.str();
+                kv_location += primary.str();
                 primary_futs.emplace_back(
                     store_key_t(std::string(as_char(store_key.data), size_t(store_key.length))),
                     rfdb::kv_location_get(txn, kv_location));
+                kv_location.resize(primary_prefix.size());
             }
 
             std::vector<std::pair<store_key_t, std::vector<uint8_t>>> key_values;
