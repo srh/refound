@@ -34,7 +34,7 @@ ql::datum_t convert_name_to_datum(
         const name_string_t &value);
 bool convert_name_from_datum(
         ql::datum_t datum,
-        const std::string &what,   /* e.g. "server name" or "table name" */
+        const char *what,   /* e.g. "server name" or "table name" */
         name_string_t *value_out,
         admin_err_t *error_out);
 

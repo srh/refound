@@ -29,15 +29,14 @@ ql::datum_t convert_name_to_datum(
     return ql::datum_t(value.str());
 }
 
-// OOO: what's the deal with this "what" string?  Make a const char *?
 bool convert_name_from_datum(
         ql::datum_t datum,
-        const std::string &what,
+        const char *what,
         name_string_t *value_out,
         admin_err_t *error_out) {
     if (datum.get_type() != ql::datum_t::R_STR) {
         *error_out = admin_err_t{
-            "Expected a " + what + "; got " + datum.print(),
+            std::string("Expected a ") + what + "; got " + datum.print(),
             query_state_t::FAILED};
         return false;
     }
