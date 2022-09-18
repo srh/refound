@@ -76,11 +76,9 @@ private:
         ql::datum_t *datum_out);
 
     bool table_to_datum(
-        FDBTransaction *txn,
-        const signal_t *interruptor,
-        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
         username_t const &username,
         database_id_t const &database_id,
+        optional<name_string_t> const &database_name,
         namespace_id_t const &table_id,
         table_basic_config_t const &table_basic_config,
         permissions_t const &permissions,

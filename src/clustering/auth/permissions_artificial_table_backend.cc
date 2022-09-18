@@ -29,6 +29,66 @@ make_db_name_cache() {
     return ret;
 }
 
+struct lookup_db_state {
+    database_id_t database_id;
+    fdb_value_fut<name_string_t> fut;
+    // Valid only if fut is empty.
+    optional<name_string_t> cached_result;
+};
+
+lookup_db_state start_lookup_db(
+        FDBTransaction *txn,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
+        const database_id_t &database_id) {
+    lookup_db_state ret;
+    ret.database_id = database_id;
+    auto cached = db_name_cache->find(database_id);
+    if (cached != db_name_cache->end()) {
+        ret.cached_result = cached->second;
+    } else {
+        // OOO(1): We ought to do this as a second batched request in read_all_rows_as_vector.
+        ret.fut = transaction_lookup_uq_index<db_config_by_id>(txn, database_id);
+    }
+    return ret;
+}
+
+optional<name_string_t> finish_lookup_db(
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
+        lookup_db_state &&state) {
+    if (state.fut.has()) {
+        optional<name_string_t> optname;
+        name_string_t name;
+        if (state.fut.block_and_deserialize(interruptor, &name)) {
+            optname.set(std::move(name));
+        }
+        db_name_cache->emplace(state.database_id, optname);
+        return optname;
+    } else {
+        return std::move(state.cached_result);
+    }
+}
+
+optional<name_string_t> lookup_db(
+        FDBTransaction *txn,
+        const signal_t *interruptor,
+        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
+        const database_id_t &database_id) {
+    optional<name_string_t> database_name;
+    auto cached = db_name_cache->find(database_id);
+    if (cached != db_name_cache->end()) {
+        database_name = cached->second;
+    } else {
+        // OOO(1): We ought to do this as a second batched request in read_all_rows_as_vector.
+        fdb_value_fut<name_string_t> fut = transaction_lookup_uq_index<db_config_by_id>(txn, database_id);
+        name_string_t name;
+        if (fut.block_and_deserialize(interruptor, &name)) {
+            database_name.set(std::move(name));
+        }
+        db_name_cache->emplace(database_id, database_name);
+    }
+    return database_name;
+}
 
 
 bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
@@ -99,17 +159,33 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
                 configs.emplace_back(std::move(config));
             }
 
+            std::unordered_map<database_id_t, lookup_db_state> db_lookup_states;
+            for (const auto& config : configs) {
+                if (!config.has_value()) {
+                    continue;
+                }
+                if (db_lookup_states.find(config->basic.database) != db_lookup_states.end()) {
+                    continue;
+                }
+                db_lookup_states.emplace(config->basic.database, start_lookup_db(txn, &db_name_cache, config->basic.database));
+            }
+
+            std::unordered_map<database_id_t, optional<name_string_t>> db_lookup_results;
+            for (auto& lookup_state : db_lookup_states) {
+                optional<name_string_t> res = finish_lookup_db(interruptor, &db_name_cache, std::move(lookup_state.second));
+                db_lookup_results.emplace(lookup_state.first, std::move(res));
+            }
+
+
             for (size_t i = 0; i < count; ++i) {
                 if (!configs[i].has_value()) {
                     continue;
                 }
                 ql::datum_t row;
                 if (table_to_datum(
-                        txn,
-                        interruptor,
-                        &db_name_cache,
                         username,
                         configs[i]->basic.database,
+                        db_lookup_results.at(configs[i]->basic.database),
                         perm_vec[i].first,
                         configs[i]->basic,
                         perm_vec[i].second,
@@ -258,12 +334,11 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
         case 3: {
             std::unordered_map<database_id_t, optional<name_string_t>> db_name_cache
                 = make_db_name_cache();
+            optional<name_string_t> db_name = lookup_db(txn, interruptor, &db_name_cache, database_id);
             table_to_datum(
-                txn,
-                interruptor,
-                &db_name_cache,
                 username,
                 database_id,
+                db_name,
                 table_id,
                 table_config.basic,
                 user.get_table_permissions(table_id),
@@ -688,27 +763,6 @@ bool permissions_artificial_table_fdb_backend_t::global_to_datum(
     return false;
 }
 
-optional<name_string_t> lookup_db(
-        FDBTransaction *txn,
-        const signal_t *interruptor,
-        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
-        const database_id_t &database_id) {
-    optional<name_string_t> database_name;
-    auto cached = db_name_cache->find(database_id);
-    if (cached != db_name_cache->end()) {
-        database_name = cached->second;
-    } else {
-        // OOO(1): We ought to do this as a second batched request in read_all_rows_as_vector.
-        fdb_value_fut<name_string_t> fut = transaction_lookup_uq_index<db_config_by_id>(txn, database_id);
-        name_string_t name;
-        if (fut.block_and_deserialize(interruptor, &name)) {
-            database_name.set(std::move(name));
-        }
-        db_name_cache->emplace(database_id, database_name);
-    }
-    return database_name;
-}
-
 bool permissions_artificial_table_fdb_backend_t::database_to_datum(
         FDBTransaction *txn,
         const signal_t *interruptor,
@@ -752,23 +806,26 @@ bool permissions_artificial_table_fdb_backend_t::database_to_datum(
 }
 
 bool permissions_artificial_table_fdb_backend_t::table_to_datum(
-        FDBTransaction *txn,
-        const signal_t *interruptor,
-        std::unordered_map<database_id_t, optional<name_string_t>> *db_name_cache,
         username_t const &username,
         database_id_t const &database_id,
+        optional<name_string_t> const &database_name,
         namespace_id_t const &table_id,
         table_basic_config_t const &table_basic_config,
         permissions_t const &permissions,
         ql::datum_t *datum_out) {
-    // NNN: Here we bailed out early if the table didn't exist, according to the name
+    // Here we bailed out early if the table didn't exist, according to the name
     // resolver.  Every user permission should check if the table exists -- or user
     // permissions by construction should not reference tables or databases that don't
     // exist.
     //
     // Note that right now, tables of deleted db's will sit around in user permissions,
-    // and I think we'll list them in this table.  In any case we need to check if the
-    // db exists.
+    // until they're incrementally removed by the db drop job.  We filter them from this
+    // system table.
+
+    if (!database_name.has_value()) {
+        // This is how we filter them.
+        return false;
+    }
 
     ql::datum_t permissions_datum = permissions.to_datum();
     if (permissions_datum.get_type() != ql::datum_t::R_NULL) {
@@ -783,11 +840,8 @@ bool permissions_artificial_table_fdb_backend_t::table_to_datum(
         ql::datum_t table_name_or_uuid;
         switch (m_identifier_format) {
             case admin_identifier_format_t::name: {
-                optional<name_string_t> database_name = lookup_db(txn, interruptor,
-                    db_name_cache, database_id);
-                // TODO: Missing db case is impossible, since it came from a table_config_t from this txn, right?
-                database_name_or_uuid = ql::datum_t(database_name.value_or(
-                        name_string_t::guarantee_valid("__deleted_database__")).str());
+                guarantee(database_name.has_value());  // True because we bail out at the top of this function.
+                database_name_or_uuid = ql::datum_t(database_name->str());
                 table_name_or_uuid = ql::datum_t(table_basic_config.name.str());
             } break;
             case admin_identifier_format_t::uuid:
