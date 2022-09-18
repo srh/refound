@@ -236,7 +236,6 @@ public:
     provisional_db_id as_prov_db(env_t *env) &&;
     provisional_table_id as_prov_table(env_t *env) &&;
     scoped<table_t> as_table(env_t *env) &&;
-    name_string_t get_underlying_table_name(env_t *env) const;
     scoped<table_slice_t> as_table_slice(env_t *env) &&;
     scoped<selection_t> as_selection(env_t *env) &&;
     bool is_grouped_seq() const;
@@ -304,8 +303,8 @@ public:
         return as_str(env->env);
     }
 
-    std::string print(env_t *env) const;
-    std::string trunc_print(env_t *env) const;
+    std::string fdb_print(env_t *env) const;
+    std::string fdb_trunc_print(env_t *env) const;
 
 private:
     friend int val_type(env_t *env, const scoped_ptr_t<val_t> &v); // type_manip version
@@ -324,6 +323,10 @@ private:
                    scoped<table_slice_t>,
                    scoped<single_selection_t>,
                    scoped<selection_t> > u;
+
+    // May access fdb.  Essentially this forces r.db terms and r.table terms to be
+    // truly evaluated before computing certain error messages.
+    name_string_t fdb_get_underlying_table_name(env_t *env) const;
 
     const provisional_db_id &db() const {
         return boost::get<provisional_db_id>(u);

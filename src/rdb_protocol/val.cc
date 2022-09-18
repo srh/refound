@@ -844,10 +844,8 @@ counted_t<grouped_data_t> val_t::maybe_as_promiscuous_grouped_data(env_t *env) {
         : maybe_as_grouped_data();
 }
 
-name_string_t val_t::get_underlying_table_name(env_t *env) const {
+name_string_t val_t::fdb_get_underlying_table_name(env_t *env) const {
     if (type.raw_type == type_t::TABLE) {
-        // OOO: The performance expectations of get_underlying_table have been altered!  Look at callers.
-
         // Forces r.table() term error message to take precedence.
         scoped<table_t> tab = provisional_to_table(env, table());
         return tab->name;
@@ -995,40 +993,42 @@ datum_string_t val_t::as_str(env_t *env) const {
 
 
 void val_t::rcheck_literal_type(env_t *env, type_t::raw_type_t expected_raw_type) const {
-    // God, it is insane that this uses env_t.
-    // TODO: Change the query language so that this doesn't take env_t.
+    // God, it is insane that this uses env_t in exc_type.
+    // TODO: Change the query language so that this doesn't take env_t and use it in exc_tyep.  (We do use it for fdb_print now, which is less insane.)
     rcheck(
         type.raw_type == expected_raw_type,
         exc_type(env, this),
         strprintf("Expected type %s but found %s:\n%s",
-                  type_t(expected_raw_type).name(), type.name(), print(env).c_str()));
+                  type_t(expected_raw_type).name(), type.name(), fdb_print(env).c_str()));
 }
 
-std::string val_t::print(env_t *env) const {
+std::string val_t::fdb_print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
         return as_datum(env).print();
     } else if (get_type().raw_type == type_t::DB) {
         // Forces consumptive side effect that we want so we fail on db not found error
-        // first.  (TODO: Do we want this?)
+        // first.  (Forcing eval of the preceding r.db term to be computed (and
+        // potentially fail) before the error message using this fdb_print call gets
+        // returned.)
         counted_t<const db_t> d = provisional_to_db(env, db());
 
         return strprintf("db(\"%s\")", d->name.c_str());
     } else if (get_type().is_convertible(type_t::TABLE)) {
-        return strprintf("table(\"%s\")", get_underlying_table_name(env).c_str());
+        return strprintf("table(\"%s\")", fdb_get_underlying_table_name(env).c_str());
     } else if (get_type().is_convertible(type_t::SELECTION)) {
         return strprintf("SELECTION ON table(%s)",
-                         get_underlying_table_name(env).c_str());
+                         fdb_get_underlying_table_name(env).c_str());
     } else {
         // TODO: Do something smarter here?
         return strprintf("VALUE %s", get_type().name());
     }
 }
 
-std::string val_t::trunc_print(env_t *env) const {
+std::string val_t::fdb_trunc_print(env_t *env) const {
     if (get_type().is_convertible(type_t::DATUM)) {
         return as_datum(env).trunc_print();
     } else {
-        std::string s = print(env);
+        std::string s = fdb_print(env);
         if (s.size() > datum_t::trunc_len) {
             s.erase(s.begin() + (datum_t::trunc_len - 3), s.end());
             s += "...";

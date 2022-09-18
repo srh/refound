@@ -125,7 +125,7 @@ scoped_ptr_t<val_t> obj_or_seq_op_impl_t::eval_impl_dereferenced(
        we use that. */
     rfail_target(v0, d.has() ? exc_type(&d) : base_exc_t::LOGIC,
         "Cannot perform %s on a non-object non-sequence `%s`.",
-            target->name(), v0->trunc_print(env->env).c_str());
+            target->name(), v0->fdb_trunc_print(env->env).c_str());
 }
 
 obj_or_seq_op_term_t::obj_or_seq_op_term_t(

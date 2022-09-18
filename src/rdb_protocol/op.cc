@@ -348,7 +348,7 @@ bool bounded_op_term_t::open_bool(
     } else {
         rfail(base_exc_t::LOGIC,
               "Expected `open` or `closed` for optarg `%s` (got `%s`).",
-              key.c_str(), v->trunc_print(env->env).c_str());
+              key.c_str(), v->fdb_trunc_print(env->env).c_str());
     }
 }
 
