@@ -79,7 +79,6 @@ optional<name_string_t> lookup_db(
     if (cached != db_name_cache->end()) {
         database_name = cached->second;
     } else {
-        // OOO(1): We ought to do this as a second batched request in read_all_rows_as_vector.
         fdb_value_fut<name_string_t> fut = transaction_lookup_uq_index<db_config_by_id>(txn, database_id);
         name_string_t name;
         if (fut.block_and_deserialize(interruptor, &name)) {
@@ -251,8 +250,7 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
         const signal_t *interruptor,
         ql::datum_t *row_out,
         UNUSED admin_err_t *error_out) {
-    // NNN: We should filter out outdated user perms referencing tables of db's that
-    // d.n.e. (but the user permissions still references tables in them).
+    *row_out = ql::datum_t();
 
     username_t username;
     database_id_t database_id;
@@ -269,13 +267,10 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
         &table_id,
         &table_config);
     if (array_size == 0) {
-        *row_out = ql::datum_t::null();
         return true;
     }
 
     if (username.is_admin()) {
-        *row_out = ql::datum_t::null();
-
         switch (array_size) {
             case 1:
                 global_to_datum(
@@ -307,7 +302,6 @@ bool permissions_artificial_table_fdb_backend_t::read_row(
     fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, username);
     user_t user;
     if (!user_fut.block_and_deserialize(interruptor, &user)) {
-        *row_out = ql::datum_t::null();
         return true;
     }
 
