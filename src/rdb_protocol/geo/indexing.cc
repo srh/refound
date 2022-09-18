@@ -675,7 +675,7 @@ continue_bool_t geo_fdb_traversal(
                             txn, fdb_kv_prefix,
                             store_key_t(key_slice.size(), as_uint8(key_slice.data())),
                             rfdb::lower_bound::open,
-                            sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_MEDIUM, 0, false, false);
+                            sindex_range_right_ptr, 0, 0, FDB_STREAMING_MODE_LARGE, 0, false, false);
                         rfut.future.block_coro(interruptor);
                         fdb_error_t err = fdb_future_get_keyvalue_array(rfut.future.fut, &kvs, &kv_count, &more);
                         check_for_fdb_transaction(err);
