@@ -8,8 +8,11 @@
 #include "clustering/auth/user_fut.hpp"
 #include "clustering/admin_op_exc.hpp"
 #include "clustering/datum_adapter.hpp"
+#include "clustering/tables/table_metadata.hpp"
+#include "fdb/index.hpp"
 #include "fdb/jobs.hpp"
 #include "fdb/retry_loop.hpp"
+#include "fdb/system_tables.hpp"
 
 jobs_artificial_table_fdb_backend_t::jobs_artificial_table_fdb_backend_t(
         admin_identifier_format_t _identifier_format)
@@ -25,8 +28,10 @@ ql::datum_t clock_datum(reqlfdb_clock clk) {
     return ql::datum_t(double(clk.value));
 }
 
-ql::datum_t job_info_to_datum(const fdb_job_info &info,
-        admin_identifier_format_t identifier_format) {
+ql::datum_t job_info_to_datum(
+        const fdb_job_info &info,
+        admin_identifier_format_t identifier_format,
+        const std::unordered_map<namespace_id_t, name_string_t> &table_names) {
     // "info" is the old pre-fdb name for fdb_job_description data.
     ql::datum_t info_datum;
     std::string type_str;
@@ -46,11 +51,14 @@ ql::datum_t job_info_to_datum(const fdb_job_info &info,
         info_datum = std::move(info_builder).to_datum();
     } break;
     case fdb_job_type::index_create_job: {
-        // OOO: Make use of identifier_format.
         const fdb_job_index_create &index_create = boost::get<fdb_job_index_create>(info.job_description.v);
         type_str = "index_construction";
         ql::datum_object_builder_t info_builder;
-        info_builder.overwrite("table", ql::datum_t(uuid_to_str(index_create.table_id.value)));
+        if (identifier_format == admin_identifier_format_t::name) {
+            info_builder.overwrite("table", convert_name_to_datum(table_names.at(index_create.table_id)));
+        } else {
+            info_builder.overwrite("table", convert_uuid_to_datum(index_create.table_id.value));
+        }
         info_builder.overwrite("sindex", ql::datum_t(uuid_to_str(index_create.sindex_id.value)));
         info_datum = std::move(info_builder).to_datum();
         // TODO: Formulate additional fdb query to get progress info.
@@ -82,6 +90,33 @@ MUST_USE bool filter_jobs_by_permissions(const auth::user_context_t &user_contex
     return user_context.is_admin_user();
 }
 
+std::unordered_map<namespace_id_t, name_string_t> lookup_all_table_names(FDBTransaction *txn, const signal_t *interruptor,
+        const std::vector<fdb_job_info> &job_infos) {
+    std::unordered_map<namespace_id_t, fdb_value_fut<table_config_t>> futs;
+    for (auto &info : job_infos) {
+        switch (info.job_description.type) {
+        case fdb_job_type::db_drop_job: {
+            // Do nothing.
+        } break;
+        case fdb_job_type::index_create_job: {
+            const fdb_job_index_create &index_create = boost::get<fdb_job_index_create>(info.job_description.v);
+            if (futs.find(index_create.table_id) == futs.end()) {
+                futs.emplace(index_create.table_id, transaction_lookup_uq_index<table_config_by_id>(txn, index_create.table_id));
+            }
+        } break;
+        default:
+            unreachable();
+        }
+    }
+
+    std::unordered_map<namespace_id_t, name_string_t> ret;
+    for (auto &pair : futs) {
+        table_config_t config = pair.second.block_and_deserialize(interruptor);
+        ret.emplace(pair.first, std::move(config.basic.name));
+    }
+    return ret;
+}
+
 bool jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector(
         FDBDatabase *fdb,
         auth::user_context_t const &user_context,
@@ -100,9 +135,15 @@ bool jobs_artificial_table_fdb_backend_t::read_all_rows_as_vector(
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor, [&](FDBTransaction *txn) {
         auth::fdb_user_fut<auth::read_permission> auth_fut = get_read_permission(txn, user_context);
         std::vector<fdb_job_info> job_infos = lookup_all_fdb_jobs(txn, interruptor);
+
+        std::unordered_map<namespace_id_t, name_string_t> table_names;
+        if (identifier_format == admin_identifier_format_t::name) {
+            table_names = lookup_all_table_names(txn, interruptor, job_infos);
+        }
+
         std::vector<ql::datum_t> job_reports;
         for (fdb_job_info &info : job_infos) {
-            job_reports.push_back(job_info_to_datum(info, identifier_format));
+            job_reports.push_back(job_info_to_datum(info, identifier_format, table_names));
         }
         auth_fut.block_and_check(interruptor);
         rows = std::move(job_reports);
@@ -141,7 +182,13 @@ bool jobs_artificial_table_fdb_backend_t::read_row(
         return true;
     }
 
-    *row_out = job_info_to_datum(*info, identifier_format);
+    std::unordered_map<namespace_id_t, name_string_t> table_names;
+    if (identifier_format == admin_identifier_format_t::name) {
+        table_names = lookup_all_table_names(txn, interruptor, {*info});
+    }
+
+
+    *row_out = job_info_to_datum(*info, identifier_format, table_names);
     return true;
 }
 

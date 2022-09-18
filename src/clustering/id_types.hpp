@@ -29,6 +29,12 @@ template<> struct hash<database_id_t> {
         return std::hash<uuid_u>()(x.value);
     }
 };
+
+template<> struct hash<namespace_id_t> {
+    size_t operator()(const namespace_id_t& x) const {
+        return std::hash<uuid_u>()(x.value);
+    }
+};
 }  // namespace std
 
 inline std::string uuid_to_str(const namespace_id_t &x) {
