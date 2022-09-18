@@ -88,10 +88,19 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
                 config_futs.push_back(transaction_lookup_uq_index<table_config_by_id>(txn, table_perm.first));
             }
 
+            std::vector<optional<table_config_t>> configs;
             for (size_t i = 0; i < count; ++i) {
                 table_config_t config;
                 if (!config_futs[i].block_and_deserialize(interruptor, &config)) {
+                    configs.push_back(r_nullopt);
                     // Table not found... skip.
+                    continue;
+                }
+                configs.emplace_back(std::move(config));
+            }
+
+            for (size_t i = 0; i < count; ++i) {
+                if (!configs[i].has_value()) {
                     continue;
                 }
                 ql::datum_t row;
@@ -100,9 +109,9 @@ bool permissions_artificial_table_fdb_backend_t::read_all_rows_as_vector(
                         interruptor,
                         &db_name_cache,
                         username,
-                        config.basic.database,
+                        configs[i]->basic.database,
                         perm_vec[i].first,
-                        config.basic,
+                        configs[i]->basic,
                         perm_vec[i].second,
                         &row)) {
                     rows.push_back(std::move(row));
