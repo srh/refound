@@ -1,5 +1,5 @@
-ReQL-on-FDB (pre-alpha)
-=======================
+ReQL-on-FDB
+===========
 
 This is a port of RethinkDB that uses FoundationDB as the clustering
 layer.  To build, install FoundationDB client libraries onto your
