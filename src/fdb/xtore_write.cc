@@ -14,7 +14,7 @@
 #include "fdb/typed.hpp"
 #include "math.hpp"
 #include "rdb_protocol/btree.hpp"
-#include "rdb_protocol/env.hpp"  // TODO: Remove include
+#include "rdb_protocol/env.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/serialize_datum_onto_blob.hpp"

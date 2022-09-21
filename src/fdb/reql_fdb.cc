@@ -30,7 +30,7 @@ Node presence and clock configuration:
 
 Jobs:
 
-    rethinkdb/jobs/ => table of fdb_job_info_t by job uuid
+    rethinkdb/jobs/ => table of fdb_job_info by job uuid
       indexed by lease expiration timestamp (see rethinkdb/clock)
       indexed by node?
 

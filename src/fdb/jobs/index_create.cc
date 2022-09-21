@@ -171,7 +171,6 @@ job_execution_result execute_index_create_job(
         index_create_info.sindex_id);
     const size_t index_prefix_size = fdb_key.size();
 
-    // See rdb_update_sindexes    <- TODO: Remove this comment.
     for (const auto &elem : kvs.first) {
         icdbf("eicj '%s', lb '%s' loop, elem '%s'\n", debug_str(pkey_prefix).c_str(),
             debug_str(js_lower_bound.str()).c_str(),
@@ -180,7 +179,7 @@ job_execution_result execute_index_create_job(
 
         ql::datum_t doc = parse_table_value(as_char(elem.second.data()), elem.second.size());
 
-        // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
+        // OOO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
         try {
             std::vector<std::pair<store_key_t, ql::datum_t>> keys;
             compute_keys(elem.first, std::move(doc), index_info, &keys, nullptr);
