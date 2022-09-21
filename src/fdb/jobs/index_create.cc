@@ -181,12 +181,12 @@ job_execution_result execute_index_create_job(
 
         // OOO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
         try {
-            std::vector<std::pair<store_key_t, ql::datum_t>> keys;
+            std::vector<store_key_t> keys;
             compute_keys(elem.first, std::move(doc), index_info, &keys, nullptr);
 
-            for (auto &sindex_key_pair : keys) {
+            for (auto &sindex_key : keys) {
                 // TODO: Make sure fdb key limits are followed.
-                rdbtable_sindex_fdb_key_onto(&fdb_key, sindex_key_pair.first);
+                rdbtable_sindex_fdb_key_onto(&fdb_key, sindex_key);
                 uint8_t value[1];
                 fdb_transaction_set(txn,
                     as_uint8(fdb_key.data()), int(fdb_key.size()),

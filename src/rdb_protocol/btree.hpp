@@ -45,7 +45,7 @@ struct rdb_modification_info_t {
 void compute_keys(const store_key_t &primary_key,
                   ql::datum_t doc,
                   const sindex_disk_info_t &index_info,
-                  std::vector<std::pair<store_key_t, ql::datum_t> > *keys_out,
+                  std::vector<store_key_t> *keys_out,
                   std::vector<index_pair_t> *cfeed_keys_out);
 
 ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, std::string *out);

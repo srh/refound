@@ -141,7 +141,7 @@ std::vector<std::string> expand_geo_key(
 void compute_keys(const store_key_t &primary_key,
                   ql::datum_t doc,
                   const sindex_disk_info_t &index_info,
-                  std::vector<std::pair<store_key_t, ql::datum_t> > *keys_out,
+                  std::vector<store_key_t> *keys_out,
                   std::vector<index_pair_t> *cfeed_keys_out) {
 
     guarantee(keys_out->empty());
@@ -168,7 +168,7 @@ void compute_keys(const store_key_t &primary_key,
                                                                    primary_key,
                                                                    make_optional(i));
                 for (auto it = geo_keys.begin(); it != geo_keys.end(); ++it) {
-                    keys_out->push_back(std::make_pair(store_key_t(*it), skey));
+                    keys_out->emplace_back(*it);
                 }
                 if (cfeed_keys_out != nullptr) {
                     // For geospatial indexes, we generate multiple keys for the same
@@ -185,8 +185,7 @@ void compute_keys(const store_key_t &primary_key,
                     std::string store_key =
                         skey.print_secondary(primary_key,
                                              make_optional(i));
-                    keys_out->push_back(
-                        std::make_pair(store_key_t(store_key), skey));
+                    keys_out->emplace_back(store_key);
                     if (cfeed_keys_out != nullptr) {
                         cfeed_keys_out->push_back(
                             std::make_pair(skey, std::move(store_key)));
@@ -203,7 +202,7 @@ void compute_keys(const store_key_t &primary_key,
                                                                primary_key,
                                                                r_nullopt);
             for (auto it = geo_keys.begin(); it != geo_keys.end(); ++it) {
-                keys_out->push_back(std::make_pair(store_key_t(*it), index));
+                keys_out->emplace_back(*it);
             }
             if (cfeed_keys_out != nullptr) {
                 // For geospatial indexes, we generate multiple keys for the same
@@ -218,8 +217,7 @@ void compute_keys(const store_key_t &primary_key,
         } else {
             std::string store_key =
                 index.print_secondary(primary_key, r_nullopt);
-            keys_out->push_back(
-                std::make_pair(store_key_t(store_key), index));
+            keys_out->emplace_back(store_key);
             if (cfeed_keys_out != nullptr) {
                 cfeed_keys_out->push_back(
                     std::make_pair(index, std::move(store_key)));

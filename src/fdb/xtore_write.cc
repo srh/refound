@@ -106,12 +106,12 @@ void update_fdb_sindexes(
                 ql::datum_t deleted = info.deleted;
 
                 // TODO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
-                std::vector<std::pair<store_key_t, ql::datum_t> > keys;
+                std::vector<store_key_t> keys;
                 compute_keys(
                     primary_key, deleted, sindex_info,
                     &keys, nullptr);
-                for (auto &p : keys) {
-                    deletion_keys.emplace(std::move(p.first));
+                for (auto &k : keys) {
+                    deletion_keys.emplace(std::move(k));
                 }
             } catch (const ql::base_exc_t &) {
                 // Do nothing (it wasn't actually in the index).
@@ -124,12 +124,12 @@ void update_fdb_sindexes(
             try {
                 ql::datum_t added = info.added;
 
-                std::vector<std::pair<store_key_t, ql::datum_t> > keys;
+                std::vector<store_key_t> keys;
                 compute_keys(
                     primary_key, added, sindex_info,
                     &keys, nullptr);
-                for (auto &p : keys) {
-                    addition_keys.emplace(std::move(p.first));
+                for (auto &k : keys) {
+                    addition_keys.emplace(std::move(k));
                 }
             } catch (const ql::base_exc_t &) {
                 // Do nothing (we just drop the row from the index).
