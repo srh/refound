@@ -27,6 +27,33 @@ struct node_info_by_id {
     }
 };
 
+// TODO: These are implemented in jobs.cc.
+skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock);
+std::pair<reqlfdb_clock, key_view> split_clock_key_pair(key_view key);
+
+struct node_info_by_lease_expiration {
+    using skey_type = reqlfdb_clock;
+    using pkey_type = fdb_node_id;
+    static constexpr const char *prefix = REQLFDB_NODES_BY_LEASE_EXPIRATION;
+
+    // NNN: Use same parsing function of key format as jobs table.
+    static skey_string skey_str(const skey_type &k) {
+        return reqlfdb_clock_sindex_key(k);
+    }
+
+    static ukey_string pkey_str(const pkey_type &k) {
+        return node_info_by_id::ukey_str(k);
+    }
+
+    static std::pair<skey_type, pkey_type> parse_skey(key_view k) {
+        std::pair<reqlfdb_clock, key_view> pair = split_clock_key_pair(k);
+        std::pair<skey_type, pkey_type> ret;
+        ret.first = pair.first;
+        ret.second = node_info_by_id::parse_ukey(pair.second);
+        return ret;
+    }
+};
+
 struct table_config_by_id {
     using ukey_type = namespace_id_t;
     using value_type = table_config_t;

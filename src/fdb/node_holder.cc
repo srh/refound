@@ -35,15 +35,26 @@ void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interr
     fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
 
     reqlfdb_clock clock = clock_fut.block_and_deserialize(interruptor);
-    fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
+    node_info old_node_value;
+    bool old_node_present = old_node_fut.block_and_deserialize(interruptor, &old_node_value);
 
-    {
-        node_info info;
-        info.lease_expiration = reqlfdb_clock{clock.value + REQLFDB_NODE_LEASE_DURATION};
-        transaction_set_uq_index<node_info_by_id>(txn, node_id, info);
+    node_info info;
+    info.lease_expiration = reqlfdb_clock{clock.value + REQLFDB_NODE_LEASE_DURATION};
+
+    if (old_node_present && info.lease_expiration == old_node_value.lease_expiration) {
+        // No change.
+        return;
     }
 
-    if (!old_node.present) {
+    transaction_set_uq_index<node_info_by_id>(txn, node_id, info);
+
+    if (old_node_present) {
+        transaction_erase_plain_index<node_info_by_lease_expiration>(txn, old_node_value.lease_expiration, node_id);
+    }
+
+    transaction_set_plain_index<node_info_by_lease_expiration>(txn, info.lease_expiration, node_id, "");
+
+    if (!old_node_present) {
         uint8_t value[REQLFDB_NODES_COUNT_SIZE] = { 1, 0 };
         fdb_transaction_atomic_op(txn,
             as_uint8(REQLFDB_NODES_COUNT_KEY),
@@ -84,27 +95,34 @@ MUST_USE fdb_error_t write_node_entry(
     }
 }
 
+void help_erase_node_entry(FDBTransaction *txn, const signal_t *interruptor, const fdb_node_id &node_id) {
+    fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
+    node_info old_node_value;
+    bool old_node_present = old_node_fut.block_and_deserialize(interruptor, &old_node_value);
+
+    transaction_erase_uq_index<node_info_by_id>(txn, node_id);
+    if (old_node_present) {
+        static_assert(8 == REQLFDB_NODES_COUNT_SIZE, "array initializer must match array size");
+        uint8_t value[REQLFDB_NODES_COUNT_SIZE] = {
+            0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0xFF,
+        };
+        fdb_transaction_atomic_op(txn,
+            as_uint8(REQLFDB_NODES_COUNT_KEY),
+            strlen(REQLFDB_NODES_COUNT_KEY),
+            value,
+            sizeof(value),
+            FDB_MUTATION_TYPE_ADD);
+
+        transaction_erase_plain_index<node_info_by_lease_expiration>(txn, old_node_value.lease_expiration, node_id);
+    }
+}
+
 MUST_USE fdb_error_t erase_node_entry(
-        FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
+        FDBDatabase *fdb, const fdb_node_id &node_id, const signal_t *interruptor) {
  top:
     fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [&node_id, interruptor](FDBTransaction *txn) {
-        fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
-        fdb_value old_node = future_block_on_value(old_node_fut.fut, interruptor);
-
-        transaction_erase_uq_index<node_info_by_id>(txn, node_id);
-        if (old_node.present) {
-            static_assert(8 == REQLFDB_NODES_COUNT_SIZE, "array initializer must match array size");
-            uint8_t value[REQLFDB_NODES_COUNT_SIZE] = {
-                0xFF, 0xFF, 0xFF, 0xFF,
-                0xFF, 0xFF, 0xFF, 0xFF,
-            };
-            fdb_transaction_atomic_op(txn,
-                as_uint8(REQLFDB_NODES_COUNT_KEY),
-                strlen(REQLFDB_NODES_COUNT_KEY),
-                value,
-                sizeof(value),
-                FDB_MUTATION_TYPE_ADD);
-        }
+        help_erase_node_entry(txn, interruptor, node_id);
 
         commit(txn, interruptor);
     });
@@ -114,6 +132,52 @@ MUST_USE fdb_error_t erase_node_entry(
     }
     return err;
 }
+
+MUST_USE fdb_error_t incrementally_gc_node_info(FDBDatabase *fdb, const signal_t *interruptor) {
+    const std::string lower = REQLFDB_NODES_BY_LEASE_EXPIRATION;
+    const std::string upper = prefix_end(lower);
+    fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [&lower, &upper, interruptor](FDBTransaction *txn) {
+        fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
+        fdb_future fut{fdb_transaction_get_range(
+                txn,
+                FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(lower.data()), lower.size()),
+                FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(as_uint8(upper.data()), upper.size()),
+                0,
+                0,
+                FDB_STREAMING_MODE_SMALL,
+                0,
+                0,
+                0)};
+
+        fut.block_coro(interruptor);
+        const FDBKeyValue *kvs;
+        int kv_count;
+        fdb_bool_t more;
+        fdb_error_t err = fdb_future_get_keyvalue_array(fut.fut, &kvs, &kv_count, &more);
+        check_for_fdb_transaction(err);
+
+        reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
+
+        for (int i = 0; i < kv_count; ++i) {
+            key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
+            key_view key = full_key.guarantee_without_prefix(lower);
+            std::pair<reqlfdb_clock, fdb_node_id> parsed = node_info_by_lease_expiration::parse_skey(key);
+            if (is_node_expired(current_clock, parsed.first)) {
+                help_erase_node_entry(txn, interruptor, parsed.second);
+            } else {
+                break;
+            }
+        }
+
+        commit(txn, interruptor);
+    });
+    if (op_indeterminate(err)) {
+        // Don't even retry, return success.
+        return 0;
+    }
+    return err;
+}
+
 
 void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
     // This doesn't exponentially backoff -- the retry loops are supposed to do actual
@@ -196,9 +260,15 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
             continue;
         }
 
-        // TODO: Maybe we should monitor the node count as we loop ^^.
+        fdb_error_t gc_err = incrementally_gc_node_info(fdb_, interruptor);
+        if (gc_err != 0) {
+            logERR("Node garbage collection operation encountered FoundationDB error: %s", fdb_get_error(gc_err));
+            nap(error_nap_value, interruptor);
+            continue;
 
-        // TODO: We need to participate in garbage collection of expired nodes, too.
+        }
+
+        // TODO: Maybe we should monitor the node count as we loop ^^.
     }
 }
 

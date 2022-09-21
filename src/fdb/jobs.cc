@@ -97,6 +97,7 @@ RDB_IMPL_EQUALITY_COMPARABLE_7(fdb_job_info,
     job_id, shared_task_id, claiming_node_or_nil, counter, lease_expiration,
     failed, job_description);
 
+// TODO: These are declared in system_tables.hpp
 // TODO: Think about reusing datum sindex key format.
 skey_string reqlfdb_clock_sindex_key(reqlfdb_clock clock) {
     // Just an easy fixed-width big-endian key.

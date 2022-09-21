@@ -275,6 +275,7 @@ constexpr const char *REQLFDB_VERSION_VALUE_PREFIX = "reqlfdb 0.1.0 ";
 constexpr const char *REQLFDB_CLOCK_KEY = "rethinkdb/clock";
 
 constexpr const char *REQLFDB_NODES_BY_ID = "rethinkdb/nodes//";
+constexpr const char *REQLFDB_NODES_BY_LEASE_EXPIRATION = "rethinkdb/nodes/by_lease_expiration/";
 constexpr const char *REQLFDB_NODES_COUNT_KEY = "rethinkdb/nodes_count";
 
 constexpr const char *REQLFDB_DB_CONFIG_TABLE = "rethinkdb/db_config/";
@@ -317,6 +318,7 @@ struct node_info {
 };
 RDB_DECLARE_SERIALIZABLE(node_info);
 
+bool is_node_expired(reqlfdb_clock current_clock, reqlfdb_clock node_lease_expiration);
 bool is_node_expired(reqlfdb_clock current_clock, const node_info& info);
 
 // TODO: Calculate this rationally using constants like TIMESTEP_MS and how fdb
