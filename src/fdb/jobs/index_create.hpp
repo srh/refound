@@ -10,9 +10,9 @@ struct fdb_index_jobstate {
     // [unindexed_lower_bound, unindexed_upper_bound) describes the content
     // of the pkey store that has not been indexed.
 
-    // Either the empty string or a last-seen pkey with '\0' on the end.
+    // Either the empty string or a last-seen pkey with '\0' on the end.  TODO: Might be '\1' now, see increment1.
     ukey_string unindexed_lower_bound;
-    // This is the last pkey in the store, with '\0' added on the end.
+    // This is the last pkey in the store, with '\0' added on the end.  TODO: Might be '\1' now, see increment1.
     ukey_string unindexed_upper_bound;
 
     // TODO: unindexed_upper_bound never changes as long as the jobstate exists, so we
