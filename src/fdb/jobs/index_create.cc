@@ -287,7 +287,7 @@ job_execution_result execute_index_create_job(
 
             // (This could use std::move instead of std::string, but I don't want to risk
             // bugs.)
-            std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.front().first.str()));
+            std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.back().first.str()));
             icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
                 debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
             fdb_index_jobstate new_jobstate{
