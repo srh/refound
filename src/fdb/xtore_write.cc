@@ -63,8 +63,10 @@ jobstate_futs get_jobstates(
         const sindex_metaconfig_t &second = el.second;
         if (!second.creation_task_or_nil.value.is_nil()) {
             ret.futs_by_sindex.emplace_back(el.first,
-                transaction_lookup_uq_index<index_jobstate_by_task>(txn,
-                    second.creation_task_or_nil));
+                transaction_lookup_uq_index<index_jobstate_by_task>(
+                    txn,
+                    second.creation_task_or_nil,
+                    false));
         }
     }
     return ret;

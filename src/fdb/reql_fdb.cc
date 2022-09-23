@@ -122,14 +122,18 @@ TODO: (For impling large values.)
 
 */
 
-fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key) {
+fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key, bool snapshot) {
     // TODO: Look at all callers and make an rassert.
     guarantee(key.size() <= INT_MAX);
     return fdb_future{fdb_transaction_get(
         txn,
         as_uint8(key.data()),
         int(key.size()),
-        false)};
+        snapshot)};
+}
+
+fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key) {
+    return transaction_get_std_str(txn, key, false);
 }
 
 void transaction_clear_std_str(FDBTransaction *txn, const std::string &key) {

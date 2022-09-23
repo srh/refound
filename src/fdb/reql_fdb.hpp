@@ -200,6 +200,7 @@ inline fdb_future transaction_get_c_str(FDBTransaction *txn, const char *key) {
         false)};
 }
 
+fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key, bool snapshot);
 fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_clear_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_set_std_str(FDBTransaction *txn, const std::string &key, const std::string &vaue);

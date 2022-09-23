@@ -226,16 +226,19 @@ job_execution_result execute_index_create_job(
     // TODO: You know, it is kind of sad that we do key/handling fluff redundantly here.
 
     std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> kvs;
+    bool more;
+
     // We have a loop to ensure we slurp at least one document.
     do {
         icdbf("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
             debug_str(js_lower_bound.str()).c_str());
         kvs = data_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
-    } while (kvs.first.empty() && kvs.second);
+        more = kvs.second;
+    } while (kvs.first.empty() && more);
 
     icdbf("eicj '%s', lb '%s' exited loop, kvs count = %zu, more = %d\n", debug_str(pkey_prefix).c_str(),
         debug_str(js_lower_bound.str()).c_str(),
-        kvs.first.size(), kvs.second);
+        kvs.first.size(), more);
 
     // TODO: Maybe FDB should store sindex_disk_info_t, using
     // sindex_reql_version_info_t.
@@ -277,26 +280,43 @@ job_execution_result execute_index_create_job(
         }
     }
 
-    if (kvs.second) {
+    // Maybe the datum range iterator could have methods to compute these values for us.
+    // Here is where we add the conflict range.
+    {
+        std::string lower_bound = rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound);
+        // We compute this again below, which is kind of wasteful.
+        std::string upper_bound = !more ? prefix_end(pkey_prefix) :
+            rfdb::kv_prefix_end(rfdb::index_key_concat(pkey_prefix, kvs.first.back().first));
+
+        fdb_error_t err = fdb_transaction_add_conflict_range(
+                txn,
+                as_uint8(lower_bound.data()), int(lower_bound.size()),
+                as_uint8(upper_bound.data()), int(upper_bound.size()),
+                FDB_CONFLICT_RANGE_TYPE_WRITE);
+        guarantee_fdb(err, "Adding conflict range in sindex build failed");  // TODO: fdb, graceful
+    }
+
+    if (more) {
         icdbf("eicj '%s', lb '%s', we have more\n",
             debug_str(pkey_prefix).c_str(),
                 debug_str(js_lower_bound.str()).c_str());
-        if (!kvs.first.empty()) {
-            // Increment the pkey lower bound (with kv_prefix_end) since it's inclusive
-            // and we need to do that.
 
-            // (This could use std::move instead of std::string, but I don't want to risk
-            // bugs.)
-            std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.back().first.str()));
-            icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
-                debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
-            fdb_index_jobstate new_jobstate{
-                ukey_string{std::move(pkey_str)},
-                std::move(jobstate.unindexed_upper_bound)};
+        guarantee(!kvs.first.empty());
 
-            transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
-                new_jobstate);
-        }
+        // Increment the pkey lower bound (with kv_prefix_end) since it's inclusive
+        // and we need to do that.
+
+        // (This could use std::move instead of std::string, but I don't want to risk
+        // bugs.)
+        std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.back().first.str()));
+        icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
+            debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
+        fdb_index_jobstate new_jobstate{
+            ukey_string{std::move(pkey_str)},
+            std::move(jobstate.unindexed_upper_bound)};
+
+        transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
+            new_jobstate);
 
         reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
         fdb_job_info new_info = update_job_counter(txn, current_clock, info);

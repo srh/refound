@@ -120,6 +120,8 @@ struct unique_pkey_suffix {
     }
 };
 
+std::string datum_range_lower_bound(const std::string &pkey_prefix, const store_key_t &lower);
+
 struct datum_range_iterator {
     std::string pkey_prefix_;
     // If forward-iterating, lower is either a large value prefix with its '\0' suffix

@@ -38,6 +38,9 @@ inline void rdbtable_sindex_fdb_key_onto(std::string *prefix, const store_key_t 
 fdb_future transaction_lookup_unique_index(
     FDBTransaction *txn, const char *prefix, const ukey_string &index_key);
 
+fdb_future transaction_lookup_unique_index(
+    FDBTransaction *txn, const char *prefix, const ukey_string &index_key, bool snapshot);
+
 void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
     const ukey_string &index_key,
     const std::string &value);
@@ -101,6 +104,18 @@ transaction_lookup_uq_index(
     fdb_value_fut<typename index_traits::value_type> ret{
         transaction_lookup_unique_index(txn, index_traits::prefix,
             index_traits::ukey_str(index_key))};
+    return ret;
+}
+
+template <class index_traits>
+fdb_value_fut<typename index_traits::value_type>
+transaction_lookup_uq_index(
+        FDBTransaction *txn,
+        const typename index_traits::ukey_type &index_key,
+        bool snapshot) {
+    fdb_value_fut<typename index_traits::value_type> ret{
+        transaction_lookup_unique_index(txn, index_traits::prefix,
+            index_traits::ukey_str(index_key), snapshot)};
     return ret;
 }
 

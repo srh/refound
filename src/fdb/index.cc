@@ -52,6 +52,11 @@ fdb_future transaction_lookup_unique_index(FDBTransaction *txn, const char *pref
     return transaction_get_std_str(txn, key);
 }
 
+fdb_future transaction_lookup_unique_index(FDBTransaction *txn, const char *prefix, const ukey_string &index_key, bool snapshot) {
+    std::string key = unique_index_fdb_key(prefix, index_key);
+    return transaction_get_std_str(txn, key, snapshot);
+}
+
 void transaction_set_unique_index(FDBTransaction *txn, const char *prefix,
         const ukey_string &index_key,
         const std::string &value) {

@@ -254,11 +254,15 @@ optional<std::vector<uint8_t>> block_and_read_unserialized_datum(
     }
 }
 
+std::string datum_range_lower_bound(const std::string &pkey_prefix, const store_key_t &lower) {
+    return kv_prefix(index_key_concat(pkey_prefix, lower));
+}
+
 datum_range_iterator primary_prefix_make_iterator(const std::string &pkey_prefix,
         const store_key_t &lower, const store_key_t *upper_or_null,
         fdb_bool_t snapshot, fdb_bool_t reverse) {
     // Remember we might be iterating backwards, so take care with these bounds.
-    std::string lower_bound = kv_prefix(index_key_concat(pkey_prefix, lower));
+    std::string lower_bound = datum_range_lower_bound(pkey_prefix, lower);
     std::string upper_bound = upper_or_null != nullptr
         ? kv_prefix(index_key_concat(pkey_prefix, *upper_or_null))
         : prefix_end(pkey_prefix);
