@@ -121,6 +121,7 @@ struct unique_pkey_suffix {
 };
 
 std::string datum_range_lower_bound(const std::string &pkey_prefix, const store_key_t &lower);
+std::string datum_range_upper_bound(const std::string &pkey_prefix, const store_key_t *upper_or_null);
 
 struct datum_range_iterator {
     std::string pkey_prefix_;

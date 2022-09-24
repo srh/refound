@@ -258,14 +258,18 @@ std::string datum_range_lower_bound(const std::string &pkey_prefix, const store_
     return kv_prefix(index_key_concat(pkey_prefix, lower));
 }
 
+std::string datum_range_upper_bound(const std::string &pkey_prefix, const store_key_t *upper_or_null) {
+    return upper_or_null != nullptr
+        ? kv_prefix(index_key_concat(pkey_prefix, *upper_or_null))
+        : prefix_end(pkey_prefix);
+}
+
 datum_range_iterator primary_prefix_make_iterator(const std::string &pkey_prefix,
         const store_key_t &lower, const store_key_t *upper_or_null,
         fdb_bool_t snapshot, fdb_bool_t reverse) {
     // Remember we might be iterating backwards, so take care with these bounds.
     std::string lower_bound = datum_range_lower_bound(pkey_prefix, lower);
-    std::string upper_bound = upper_or_null != nullptr
-        ? kv_prefix(index_key_concat(pkey_prefix, *upper_or_null))
-        : prefix_end(pkey_prefix);
+    std::string upper_bound = datum_range_upper_bound(pkey_prefix, upper_or_null);
 
     const uint32_t number = 0;
 

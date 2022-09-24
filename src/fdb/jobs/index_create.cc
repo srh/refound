@@ -162,9 +162,10 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
 job_execution_result execute_index_create_job(
         const signal_t *interruptor,
         FDBTransaction *txn,
-        uint64_t retry_count,
+        UNUSED uint64_t retry_count,
         const fdb_job_info &info,
         const fdb_job_index_create &index_create_info) {
+    const bool reverse = false;
     icdbf("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
     // TODO: Maybe caller can pass clock (as in all jobs).
 
@@ -201,7 +202,7 @@ job_execution_result execute_index_create_job(
         : r_nullopt;
 
     rfdb::datum_range_iterator data_iter = rfdb::primary_prefix_make_iterator(pkey_prefix,
-            js_lower_bound, js_upper_bound.ptr_or_null(), false, false);  // snapshot=false, reverse=false
+            js_lower_bound, js_upper_bound.ptr_or_null(), false, reverse);  // snapshot=false, reverse=reverse
     // QQQ: create data_iter fut here, block later.
     icdbf("eicj '%s', lb '%s'\n", debug_str(pkey_prefix).c_str(),
         debug_str(js_lower_bound.str()).c_str());
@@ -234,9 +235,9 @@ job_execution_result execute_index_create_job(
         more = kvs.second;
     } while (kvs.first.empty() && more);
 
-    icdbf("eicj '%s', lb '%s' exited loop, kvs count = %zu, more = %d\n", debug_str(pkey_prefix).c_str(),
-        debug_str(js_lower_bound.str()).c_str(),
-        kvs.first.size(), more);
+    icdbf("eicj '%s', first key '%s', reverse=%d exited loop, kvs count = %zu, more = %d\n",
+        debug_str(pkey_prefix).c_str(), debug_str(js_lower_bound.str()).c_str(),
+        kvs.first.size(), reverse, more);
 
     // TODO: Maybe FDB should store sindex_disk_info_t, using
     // sindex_reql_version_info_t.
@@ -259,7 +260,6 @@ job_execution_result execute_index_create_job(
 
         ql::datum_t doc = parse_table_value(as_char(elem.second.data()), elem.second.size());
 
-        // OOO: The ql::datum_t value is unused.  Remove it once FDB-ized fully.
         try {
             std::vector<store_key_t> keys;
             compute_keys(elem.first, std::move(doc), index_info, &keys, nullptr);
@@ -281,10 +281,20 @@ job_execution_result execute_index_create_job(
     // Maybe the datum range iterator could have methods to compute these values for us.
     // Here is where we add the conflict range.
     {
-        std::string lower_bound = rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound);
-        // We compute this again below, which is kind of wasteful.
-        std::string upper_bound = !more ? prefix_end(pkey_prefix) :
-            rfdb::kv_prefix_end(rfdb::index_key_concat(pkey_prefix, kvs.first.back().first));
+        std::string lower_bound;
+        std::string upper_bound;
+        if (!reverse) {
+            lower_bound = rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound);
+            // We compute this again below, which is kind of wasteful.
+            upper_bound = !more ? rfdb::datum_range_upper_bound(pkey_prefix, js_upper_bound.ptr_or_null()) :
+                rfdb::kv_prefix_end(rfdb::index_key_concat(pkey_prefix, kvs.first.back().first));
+        } else {
+            // Keys are in reverse order, so back() is the smallest key.
+            lower_bound = !more ? rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound) :
+                rfdb::datum_range_lower_bound(pkey_prefix, kvs.first.back().first);
+            upper_bound = rfdb::datum_range_upper_bound(pkey_prefix, js_upper_bound.ptr_or_null());
+        }
+
 
         fdb_error_t err = fdb_transaction_add_conflict_range(
                 txn,
@@ -301,17 +311,26 @@ job_execution_result execute_index_create_job(
 
         guarantee(!kvs.first.empty());
 
-        // Increment the pkey lower bound (with kv_prefix_end) since it's inclusive
-        // and we need to do that.
+        fdb_index_jobstate new_jobstate;
+        if (!reverse) {
+            // Increment the pkey lower bound (with kv_prefix_end) since it's inclusive
+            // and we need to do that.
 
-        // (This could use std::move instead of std::string, but I don't want to risk
-        // bugs.)
-        std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.back().first.str()));
-        icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
-            debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
-        fdb_index_jobstate new_jobstate{
-            ukey_string{std::move(pkey_str)},
-            std::move(jobstate.unindexed_upper_bound)};
+            // (This could use std::move instead of std::string, but I don't want to risk
+            // bugs.)
+            std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.back().first.str()));
+            icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
+                debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
+            new_jobstate = fdb_index_jobstate{
+                ukey_string{std::move(pkey_str)},
+                std::move(jobstate.unindexed_upper_bound)};
+        } else {
+            // Increment the pkey upper bound (with kv_prefix appending '\0') because... why?
+            std::string pkey_str = rfdb::kv_prefix(std::string(kvs.first.back().first.str()));
+            new_jobstate = fdb_index_jobstate{
+                std::move(jobstate.unindexed_lower_bound),
+                make_optional(ukey_string{std::move(pkey_str)})};
+        }
 
         transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
             new_jobstate);
