@@ -49,7 +49,7 @@ return_type perform_read_operation_with_counter(FDBDatabase *fdb, const signal_t
     return_type ret;
     try {
         fdb_error_t loop_err = txn_retry_loop_coro_with_counter(fdb, interruptor,
-                [&](FDBTransaction *txn, size_t count) {
+                [&](FDBTransaction *txn, uint64_t count) {
 
             // QQQ: Make auth check happen (and abort) as soon as future is ready (but after
             // we check_cv?), not after entire read op.  In each callee, now, of course.

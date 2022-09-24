@@ -367,7 +367,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
             const size_t recommended_batch = std::min<size_t>(keys.size() - keys_complete, calc.recommended_batch());
 
             std::tuple<batched_replace_response_t, std::set<std::string>, size_t> p =  perform_write_operation_with_counter<std::tuple<batched_replace_response_t, std::set<std::string>, size_t>>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                    needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, size_t count, cv_auth_check_fut_write &&cva) {
+                    needs_config_permission, [&](const signal_t *interruptor, FDBTransaction *txn, uint64_t count, cv_auth_check_fut_write &&cva) {
                 const size_t keys_to_process = std::max<size_t>(1, recommended_batch >> count);
                 // So, we're going to process keys in [keys_complete, keys_complete + keys_to_process).
 

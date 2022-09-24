@@ -80,7 +80,7 @@ MUST_USE fdb_error_t txn_retry_loop_coro_with_counter(
         FDBDatabase *fdb, const signal_t *interruptor,
         C &&fn) {
     fdb_transaction txn{fdb};
-    size_t count = 0;
+    uint64_t count = 0;
     for (;; ++count) {
         fdb_error_t orig_err;
         try {
