@@ -168,6 +168,9 @@ public:
         return has_value();
     }
 
+    T *ptr_or_null() noexcept { return has_value_ ? &value_ : nullptr; }
+    const T *ptr_or_null() const noexcept { return has_value_ ? &value_ : nullptr; }
+
 private:
     bool has_value_;
     union { T value_; };
