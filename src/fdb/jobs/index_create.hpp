@@ -32,8 +32,11 @@ struct index_jobstate_by_task {
 };
 
 MUST_USE job_execution_result execute_index_create_job(
-        FDBTransaction *txn, const fdb_job_info &info,
-        const fdb_job_index_create &index_create_info, const signal_t *interruptor);
+        const signal_t *interruptor,
+        FDBTransaction *txn,
+        uint64_t retry_count,
+        const fdb_job_info &info,
+        const fdb_job_index_create &index_create_info);
 
 
 #endif  // RETHINKDB_FDB_JOBS_INDEX_CREATE_HPP_

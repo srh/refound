@@ -205,11 +205,10 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
             });
         } break;
         case fdb_job_type::index_create_job: {
-            loop_err = txn_retry_loop_coro(fdb, interruptor,
-            [interruptor, &reclaimed, &result](FDBTransaction *txn) {
-                result = execute_index_create_job(txn, reclaimed,
-                    boost::get<fdb_job_index_create>(reclaimed.job_description.v),
-                    interruptor);
+            loop_err = txn_retry_loop_coro_with_counter(fdb, interruptor,
+            [interruptor, &reclaimed, &result](FDBTransaction *txn, uint64_t counter) {
+                result = execute_index_create_job(interruptor, txn, counter, reclaimed,
+                    boost::get<fdb_job_index_create>(reclaimed.job_description.v));
             });
         } break;
         default:
