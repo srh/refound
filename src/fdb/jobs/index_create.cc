@@ -165,7 +165,7 @@ job_execution_result execute_index_create_job(
         UNUSED uint64_t retry_count,
         const fdb_job_info &info,
         const fdb_job_index_create &index_create_info) {
-    const bool reverse = false;
+    const bool reverse = true;
     icdbf("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
     // TODO: Maybe caller can pass clock (as in all jobs).
 
