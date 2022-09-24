@@ -185,16 +185,11 @@ job_execution_result execute_index_create_job(
         return ret;
     }
 
-    // TODO: Obviously, index creation needs to initialize the jobstate when it
-    // initialize the job.
     fdb_index_jobstate jobstate;
     if (!jobstate_fut.block_and_deserialize(interruptor, &jobstate)) {
         ret.failed.set("jobstate in invalid state");
         return ret;
     }
-
-    // So we've got the key from which to start scanning.  Now what?  Scan in a big
-    // block?  Small block?  Medium?  Going with medium.
 
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
     icdbf("eicj '%s'\n", debug_str(pkey_prefix).c_str());
