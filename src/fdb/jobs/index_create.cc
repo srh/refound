@@ -200,10 +200,13 @@ job_execution_result execute_index_create_job(
     icdbf("eicj '%s'\n", debug_str(pkey_prefix).c_str());
 
     store_key_t js_lower_bound(jobstate.unindexed_lower_bound.ukey);
-    store_key_t js_upper_bound(jobstate.unindexed_upper_bound.ukey);
+    optional<store_key_t> js_upper_bound
+        = jobstate.unindexed_upper_bound.has_value()
+        ? make_optional(store_key_t(jobstate.unindexed_upper_bound->ukey))
+        : r_nullopt;
 
     rfdb::datum_range_iterator data_iter = rfdb::primary_prefix_make_iterator(pkey_prefix,
-        js_lower_bound, &js_upper_bound, false, false);  // snapshot=false, reverse=false
+            js_lower_bound, js_upper_bound.ptr_or_null(), false, false);  // snapshot=false, reverse=false
     // QQQ: create data_iter fut here, block later.
     icdbf("eicj '%s', lb '%s'\n", debug_str(pkey_prefix).c_str(),
         debug_str(js_lower_bound.str()).c_str());

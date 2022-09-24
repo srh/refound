@@ -93,7 +93,8 @@ void update_fdb_sindexes(
         if (jobstates_it != jobstates.end()) {
             const fdb_index_jobstate &js = jobstates_it->second;
             if (js.unindexed_lower_bound.ukey <= primary_key.str() &&
-                    js.unindexed_upper_bound.ukey > primary_key.str()) {
+                    (!js.unindexed_upper_bound.has_value() ||
+                            js.unindexed_upper_bound->ukey > primary_key.str())) {
                 continue;
             }
         }

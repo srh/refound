@@ -788,7 +788,7 @@ MUST_USE optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> con
         key_view pkey_only = last_key_view.without_prefix(int(pkey_prefix.size()));
         std::string upper_bound_str(as_char(pkey_only.data), size_t(pkey_only.length));
         upper_bound_str.push_back('\0');
-        fdb_index_jobstate jobstate{ukey_string{""}, ukey_string{upper_bound_str}};
+        fdb_index_jobstate jobstate{ukey_string{""}, make_optional(ukey_string{upper_bound_str})};
         transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
     }
 
