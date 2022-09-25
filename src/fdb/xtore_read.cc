@@ -257,8 +257,10 @@ continue_bool_t fdb_traversal_secondary(
 
         optional<size_t> recommended_batch = batch_calc.recommended_batch();
 
-        read_op_slug slug = perform_read_operation_with_counter<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
-                [&](const signal_t *interruptor, FDBTransaction *txn, uint64_t count, cv_auth_check_fut_read&& cva) {
+        uint64_t retry_count = 0;
+        read_op_slug slug = perform_read_operation<read_op_slug>(fdb, interruptor, prior_cv, user_context, table_id, table_config,
+                [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
+            const uint64_t count = retry_count++;
 
             const int limit_param = std::min<size_t>(INT_MAX, std::max<size_t>(1, recommended_batch.value_or(0) >> count));
 
