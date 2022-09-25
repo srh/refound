@@ -159,12 +159,28 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
     return it;  // Returns sindexes->end().
 }
 
+// 0 if first read thus value unspecified -- this is the value we feed into FDB api
+int recommended_target_bytes(const index_create_retry_state &state) {
+    if (!state.last_bytes_read.has_value() || !state.last_key_count.has_value()) {
+        return 0;
+    }
+    size_t val;
+    if (*state.last_key_count <= 1) {
+        val = (1 + *state.last_bytes_read) * 1.5;
+    } else {
+        val = std::max<size_t>(1, *state.last_bytes_read / 2);
+    }
+    return static_cast<int>(std::min<size_t>(INT_MAX, val));
+}
+
 job_execution_result execute_index_create_job(
         const signal_t *interruptor,
         FDBTransaction *txn,
-        UNUSED uint64_t retry_count,
         const fdb_job_info &info,
-        const fdb_job_index_create &index_create_info) {
+        const fdb_job_index_create &index_create_info,
+        index_create_retry_state *retry_state) {
+    UNUSED const uint64_t retry_count = retry_state->retry_count++;
+
     const bool reverse = true;
     icdbf("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
     // TODO: Maybe caller can pass clock (as in all jobs).
@@ -226,13 +242,22 @@ job_execution_result execute_index_create_job(
     std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool> kvs;
     bool more;
 
+    size_t total_bytes_read = 0;
+
     // We have a loop to ensure we slurp at least one document.
     do {
         icdbf("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
             debug_str(js_lower_bound.str()).c_str());
-        kvs = data_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE);
+        size_t bytes_read = 0;
+        const int target_bytes = recommended_target_bytes(*retry_state);
+        kvs = data_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE, target_bytes, &bytes_read);
+        total_bytes_read += bytes_read;
         more = kvs.second;
     } while (kvs.first.empty() && more);
+
+    // TODO: Weakly gross that we update parts of retry_state in miscellaneous places in this function.
+    retry_state->last_bytes_read = make_optional(total_bytes_read);
+    retry_state->last_key_count = make_optional(kvs.first.size());
 
     icdbf("eicj '%s', first key '%s', reverse=%d exited loop, kvs count = %zu, more = %d\n",
         debug_str(pkey_prefix).c_str(), debug_str(js_lower_bound.str()).c_str(),

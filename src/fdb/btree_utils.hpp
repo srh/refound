@@ -146,7 +146,9 @@ struct datum_range_iterator {
     // TODO: Maybe split into prep_for_step() and block_for_step().
     // It is possible to have no results and bool = true.
     std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
-    query_and_step(FDBTransaction *txn, const signal_t *interruptor, FDBStreamingMode mode);
+    query_and_step(FDBTransaction *txn, const signal_t *interruptor, FDBStreamingMode mode,
+            int target_bytes = 0,
+            size_t *bytes_read_out = nullptr);
 
     void mark_split_across_txns() {
         split_across_txns_ = true;

@@ -287,9 +287,10 @@ datum_range_iterator primary_prefix_make_iterator(const std::string &pkey_prefix
 
 std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
 datum_range_iterator::query_and_step(
-        FDBTransaction *txn, const signal_t *interruptor, FDBStreamingMode mode) {
+        FDBTransaction *txn, const signal_t *interruptor, FDBStreamingMode mode,
+        const int target_bytes,
+        size_t *const bytes_read_out) {
     const int limit = 0;
-    const int target_bytes = 0;
     const int iteration = 0;
 
     btubugf("qas '%s'\n", debug_str(lower_).c_str());
@@ -324,7 +325,12 @@ datum_range_iterator::query_and_step(
     // Initialized and used if kv_count > 0.  Is simply the last full_key.
     key_view last_key_view;
 
+    size_t bytes_read_count = 0;
+
     for (int i = 0; i < kv_count; ++i) {
+        bytes_read_count += kvs[i].key_length;
+        bytes_read_count += kvs[i].value_length;
+
         key_view full_key{void_as_uint8(kvs[i].key), kvs[i].key_length};
         btubugf("qas '%s', key '%s'\n", debug_str(lower_).c_str(), debug_str(std::string(as_char(full_key.data), full_key.length)).c_str());
         key_view partial_key = full_key.guarantee_without_prefix(pkey_prefix_);
@@ -463,6 +469,9 @@ datum_range_iterator::query_and_step(
         }
     }
 
+    if (bytes_read_out != nullptr) {
+        *bytes_read_out = bytes_read_count;
+    }
     return ret;
 }
 
