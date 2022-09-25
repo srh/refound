@@ -177,7 +177,6 @@ job_execution_result execute_index_create_job(
     fdb_value_fut<reqlfdb_config_version> cv_fut
         = transaction_get_config_version(txn);
 
-    // OOO: This should be a snapshot read.  Or wait, that's the write that needs a snapshot read?
     fdb_value_fut<fdb_index_jobstate> jobstate_fut
         = transaction_lookup_uq_index<index_jobstate_by_task>(txn, info.shared_task_id);
 
