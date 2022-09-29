@@ -72,6 +72,11 @@ jobstate_futs get_jobstates(
     return ret;
 }
 
+bool upper_bound_exceeds_pkey(const optional<ukey_string> &upper_bound, const store_key_t &key) {
+    // r_nullopt represents +infinity
+    return !upper_bound.has_value() || key.str() < upper_bound->ukey;
+}
+
 void update_fdb_sindexes(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
@@ -92,8 +97,7 @@ void update_fdb_sindexes(
         auto jobstates_it = jobstates.find(pair.first);
         if (jobstates_it != jobstates.end()) {
             const fdb_index_jobstate &js = jobstates_it->second;
-            if (!js.unindexed_upper_bound.has_value() ||
-                js.unindexed_upper_bound->ukey > primary_key.str()) {
+            if (upper_bound_exceeds_pkey(js.unindexed_upper_bound, primary_key)) {
                 continue;
             }
         }
