@@ -325,7 +325,9 @@ job_execution_result execute_index_create_job(
                 as_uint8(lower_bound.data()), int(lower_bound.size()),
                 as_uint8(upper_bound.data()), int(upper_bound.size()),
                 FDB_CONFLICT_RANGE_TYPE_WRITE);
-        guarantee_fdb(err, "Adding conflict range in sindex build failed");  // TODO: fdb, graceful
+        if (err != 0) {
+            throw fdb_transaction_exception(err);
+        }
     }
 
     if (more) {
