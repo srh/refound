@@ -747,30 +747,15 @@ MUST_USE optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> con
         = user_context.transaction_require_db_and_table_config_permission(
             txn, db_id, table_id);
 
-    const std::string pkey_prefix = rfdb::table_pkey_prefix(table_id);
-    const std::string pkey_prefix_end = prefix_end(pkey_prefix);
-    fdb_future last_key_fut{fdb_transaction_get_key(txn,
-        FDB_KEYSEL_LAST_LESS_THAN(
-            as_uint8(pkey_prefix_end.data()),
-            int(pkey_prefix_end.size())),
-        false)};
-
     auth_fut.block_and_check(interruptor);
 
-    // Two common situations:  (1) the table is empty, (2) the table is not empty.
-    const key_view last_key_view = future_block_on_key(last_key_fut.fut, interruptor);
-    const bool table_has_data = last_key_view.has_prefix(pkey_prefix);
-
-    const fdb_shared_task_id task_id_or_nil
-        = table_has_data ? new_index_create_task_id : fdb_shared_task_id{nil_uuid()};
-
     if (!table_config.sindexes.emplace(index_name,
-            sindex_metaconfig_t{sindex_config, new_sindex_id, task_id_or_nil}).second) {
+            sindex_metaconfig_t{sindex_config, new_sindex_id, new_index_create_task_id}).second) {
         return r_nullopt;
     }
 
     optional<fdb_job_info> job_info_ret;
-    if (table_has_data) {
+    {
         // TODO: This node should claim the job.
         fdb_node_id claiming_node_id{nil_uuid()};
 
@@ -785,10 +770,7 @@ MUST_USE optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> con
         job_info_ret.set(add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
             std::move(desc), interruptor));
 
-        key_view pkey_only = last_key_view.without_prefix(int(pkey_prefix.size()));
-        std::string upper_bound_str(as_char(pkey_only.data), size_t(pkey_only.length));
-        upper_bound_str.push_back('\0');
-        fdb_index_jobstate jobstate{ukey_string{""}, make_optional(ukey_string{upper_bound_str})};
+        fdb_index_jobstate jobstate{r_nullopt};
         transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
     }
 

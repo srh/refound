@@ -8,19 +8,16 @@
 #include "rpc/serialize_macros.hpp"
 
 struct fdb_index_jobstate {
-    // [unindexed_lower_bound, unindexed_upper_bound) describes the content
-    // of the pkey store that has not been indexed.
+    // ["", unindexed_upper_bound) describes the content of the pkey store that has not
+    // been indexed.
 
-    // Either the empty string or a last-seen pkey with '\0' on the end.  TODO: Might be '\1' now, see increment1.
-    ukey_string unindexed_lower_bound;
-
-    // This is the last pkey in the store, with '\0' added on the end.  TODO: Might be '\1' now, see increment1.
-    // If r_nullopt, is +infinity.
+    // This is the open upper bound of the range of unindexed pkeys.  r_nullopt means
+    // +infinity.
     optional<ukey_string> unindexed_upper_bound;
 
     // TODO: Verify FDB limits on value length are at least twice that of key length.
 };
-RDB_MAKE_SERIALIZABLE_2(fdb_index_jobstate, unindexed_lower_bound, unindexed_upper_bound);
+RDB_MAKE_SERIALIZABLE_1(fdb_index_jobstate, unindexed_upper_bound);
 
 struct index_jobstate_by_task {
     using ukey_type = fdb_shared_task_id;

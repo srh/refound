@@ -12,8 +12,11 @@
 // #define icdbf(...) debugf(__VA_ARGS__)
 #define icdbf(...)
 
-/* We encounter a question of conflict resolution when building a secondary index.  The
-   problem is, with a naive implementation:
+/* Please note that we build secondary indexes in reverse order now, but this discussion
+talks as if we build it in forward order.
+
+We encounter a question of conflict resolution when building a secondary index.  The
+problem is, with a naive implementation:
 
 1. When performing a table write (key W), we must read the jobstate info for
 unindexed_lower_bound (called min_pkey here) and unindexed_upper_bound (called end_pkey
@@ -120,7 +123,6 @@ bound.  One way to reduce (but not theoretically eliminate) this problem is to j
 our index building logic to build the index in reverse order -- because usually, keys
 increase.
 
-Maybe we should do that.
 
 */
 
@@ -181,7 +183,6 @@ job_execution_result execute_index_create_job(
         index_create_retry_state *retry_state) {
     UNUSED const uint64_t retry_count = retry_state->retry_count++;
 
-    const bool reverse = true;
     icdbf("eicj %s\n", uuid_to_str(info.shared_task_id.value).c_str());
     // TODO: Maybe caller can pass clock (as in all jobs).
 
@@ -210,17 +211,18 @@ job_execution_result execute_index_create_job(
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
     icdbf("eicj '%s'\n", debug_str(pkey_prefix).c_str());
 
-    store_key_t js_lower_bound(jobstate.unindexed_lower_bound.ukey);
+    // Lower bound is the min key, "".
+    const store_key_t js_lower_bound("");
     optional<store_key_t> js_upper_bound
         = jobstate.unindexed_upper_bound.has_value()
         ? make_optional(store_key_t(jobstate.unindexed_upper_bound->ukey))
         : r_nullopt;
 
     rfdb::datum_range_iterator data_iter = rfdb::primary_prefix_make_iterator(pkey_prefix,
-            js_lower_bound, js_upper_bound.ptr_or_null(), false, reverse);  // snapshot=false, reverse=reverse
+        js_lower_bound, js_upper_bound.ptr_or_null(), false, true);  // snapshot=false, reverse=true
     // QQQ: create data_iter fut here, block later.
-    icdbf("eicj '%s', lb '%s'\n", debug_str(pkey_prefix).c_str(),
-        debug_str(js_lower_bound.str()).c_str());
+    icdbf("eicj '%s', ub '%s'\n", debug_str(pkey_prefix).c_str(),
+        js_upper_bound.has_value() ? debug_str(js_upper_bound->str()).c_str() : "(+infinity)");
 
     // TODO: Apply a workaround for write contention problems mentioned above.
     table_config_t table_config;
@@ -246,8 +248,9 @@ job_execution_result execute_index_create_job(
 
     // We have a loop to ensure we slurp at least one document.
     do {
-        icdbf("eicj '%s', lb '%s' loop\n", debug_str(pkey_prefix).c_str(),
-            debug_str(js_lower_bound.str()).c_str());
+        icdbf("eicj '%s', ub '%s' loop\n", debug_str(pkey_prefix).c_str(),
+            js_upper_bound.has_value() ? debug_str(js_upper_bound->str()).c_str() : "(+infinity)");
+
         size_t bytes_read = 0;
         const int target_bytes = recommended_target_bytes(*retry_state);
         kvs = data_iter.query_and_step(txn, interruptor, FDB_STREAMING_MODE_LARGE, target_bytes, &bytes_read);
@@ -259,9 +262,10 @@ job_execution_result execute_index_create_job(
     retry_state->last_bytes_read = make_optional(total_bytes_read);
     retry_state->last_key_count = make_optional(kvs.first.size());
 
-    icdbf("eicj '%s', first key '%s', reverse=%d exited loop, kvs count = %zu, more = %d\n",
-        debug_str(pkey_prefix).c_str(), debug_str(js_lower_bound.str()).c_str(),
-        kvs.first.size(), reverse, more);
+    icdbf("eicj '%s', first key '%s', exited loop, kvs count = %zu, more = %d\n",
+        debug_str(pkey_prefix).c_str(),
+        js_upper_bound.has_value() ? debug_str(js_upper_bound->str()).c_str() : "(+infinity)",
+        kvs.first.size(), more);
 
     // TODO: Maybe FDB should store sindex_disk_info_t, using
     // sindex_reql_version_info_t.
@@ -277,8 +281,8 @@ job_execution_result execute_index_create_job(
     const size_t index_prefix_size = fdb_key.size();
 
     for (const auto &elem : kvs.first) {
-        icdbf("eicj '%s', lb '%s' loop, elem '%s'\n", debug_str(pkey_prefix).c_str(),
-            debug_str(js_lower_bound.str()).c_str(),
+        icdbf("eicj '%s', ub '%s' loop, elem '%s'\n", debug_str(pkey_prefix).c_str(),
+            js_upper_bound.has_value() ? debug_str(js_upper_bound->str()).c_str() : "(+infinity)",
             debug_str(elem.first.str()).c_str());
         // TODO: Increase MAX_KEY_SIZE at some point.
 
@@ -302,22 +306,17 @@ job_execution_result execute_index_create_job(
         }
     }
 
-    // Maybe the datum range iterator could have methods to compute these values for us.
     // Here is where we add the conflict range.
     {
-        std::string lower_bound;
-        std::string upper_bound;
-        if (!reverse) {
-            lower_bound = rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound);
-            // We compute this again below, which is kind of wasteful.
-            upper_bound = !more ? rfdb::datum_range_upper_bound(pkey_prefix, js_upper_bound.ptr_or_null()) :
-                rfdb::kv_prefix_end(rfdb::index_key_concat(pkey_prefix, kvs.first.back().first));
-        } else {
-            // Keys are in reverse order, so back() is the smallest key.
-            lower_bound = !more ? rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound) :
-                rfdb::datum_range_lower_bound(pkey_prefix, kvs.first.back().first);
-            upper_bound = rfdb::datum_range_upper_bound(pkey_prefix, js_upper_bound.ptr_or_null());
-        }
+        // Keys are in reverse order, so back() is the smallest key.  It looks silly to
+        // use datum_range_lower_bound with js_lower_bound instead of pkey_prefix, but
+        // that's precisely what the datum_range_iterator computes, so we might as well
+        // reproduce the exact interval (and be less fragile w.r.t. future indexing code
+        // changes).
+        std::string lower_bound = !more ?
+            rfdb::datum_range_lower_bound(pkey_prefix, js_lower_bound) :
+            rfdb::datum_range_lower_bound(pkey_prefix, kvs.first.back().first);
+        std::string upper_bound = rfdb::datum_range_upper_bound(pkey_prefix, js_upper_bound.ptr_or_null());
 
 
         fdb_error_t err = fdb_transaction_add_conflict_range(
@@ -331,31 +330,15 @@ job_execution_result execute_index_create_job(
     }
 
     if (more) {
-        icdbf("eicj '%s', lb '%s', we have more\n",
+        icdbf("eicj '%s', ub '%s', we have more\n",
             debug_str(pkey_prefix).c_str(),
-                debug_str(js_lower_bound.str()).c_str());
+            js_upper_bound.has_value() ? debug_str(js_upper_bound->str()).c_str() : "(+infinity)");
 
         guarantee(!kvs.first.empty());
 
-        fdb_index_jobstate new_jobstate;
-        if (!reverse) {
-            // Increment the pkey lower bound (with kv_prefix_end) since it's inclusive
-            // and we need to do that.
-
-            // (This could use std::move instead of std::string, but I don't want to risk
-            // bugs.)
-            std::string pkey_str = rfdb::kv_prefix_end(std::string(kvs.first.back().first.str()));
-            icdbf("eicj '%s', lb '%s' new pkey_str '%s'\n", debug_str(pkey_prefix).c_str(),
-                debug_str(js_lower_bound.str()).c_str(), debug_str(pkey_str).c_str());
-            new_jobstate = fdb_index_jobstate{
-                ukey_string{std::move(pkey_str)},
-                std::move(jobstate.unindexed_upper_bound)};
-        } else {
-            std::string pkey_str = kvs.first.back().first.str();
-            new_jobstate = fdb_index_jobstate{
-                std::move(jobstate.unindexed_lower_bound),
-                make_optional(ukey_string{std::move(pkey_str)})};
-        }
+        std::string pkey_str = kvs.first.back().first.str();
+        fdb_index_jobstate new_jobstate = fdb_index_jobstate{
+            make_optional(ukey_string{std::move(pkey_str)})};
 
         transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
             new_jobstate);
