@@ -348,10 +348,12 @@ job_execution_result execute_index_create_job(
 
         guarantee(!kvs.first.empty());
 
-        std::string pkey_str = kvs.first.back().first.str();
+        const std::string &pkey_str = kvs.first.back().first.str();
         fdb_index_jobstate new_jobstate = fdb_index_jobstate{
-            r_nullopt,
-            make_optional(ukey_string{std::move(pkey_str)})};
+            jobstate.claimed_bound.has_value() && jobstate.claimed_bound->ukey < pkey_str
+            ? jobstate.claimed_bound
+            : r_nullopt,
+            make_optional(ukey_string{pkey_str})};
 
         transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,
             new_jobstate);
