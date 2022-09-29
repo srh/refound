@@ -219,8 +219,9 @@ void execute_job(FDBDatabase *fdb, const fdb_job_info &info,
 
         if (loop_err != 0) {
             if (op_indeterminate(loop_err)) {
-                // Just put job info into reclaimed -- we'll always reload the "real" job
-                // info in the next transaction, as it's idempotent.  But log the anomaly.
+                // We'll log the anomaly and retry the loop.  The job is persnickety about
+                // `reclaimed` being what it expects, so, because we don't know whether
+                // the commit succeeded, it might silently fail next time through the loop.
                 logERR("Retrying job execution for job %s: FoundationDB operation indeterminate: %s",
                        uuid_to_str(reclaimed.job_id.value).c_str(), fdb_get_error(loop_err));
 
