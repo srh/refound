@@ -349,8 +349,7 @@ job_execution_result execute_index_create_job(
                 ukey_string{std::move(pkey_str)},
                 std::move(jobstate.unindexed_upper_bound)};
         } else {
-            // Increment the pkey upper bound (with kv_prefix appending '\0') because... why?
-            std::string pkey_str = rfdb::kv_prefix(std::string(kvs.first.back().first.str()));
+            std::string pkey_str = kvs.first.back().first.str();
             new_jobstate = fdb_index_jobstate{
                 std::move(jobstate.unindexed_lower_bound),
                 make_optional(ukey_string{std::move(pkey_str)})};
