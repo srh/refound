@@ -217,7 +217,6 @@ job_execution_result execute_index_create_job(
         ret.failed.set("jobstate in invalid state");
         return ret;
     }
-    
 
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
     icdbf("eicj '%s'\n", debug_str(pkey_prefix).c_str());
@@ -380,16 +379,62 @@ job_execution_result execute_index_create_job(
     commit(txn, interruptor);
     return ret;
 }
+
 MUST_USE fdb_error_t execute_index_create_job(
         const signal_t *interruptor,
         FDBDatabase *fdb,
-        const fdb_job_info &info,
+        const fdb_job_info &info_param,
         const fdb_job_index_create &index_create_info,
         job_execution_result *result_out) {
     index_create_retry_state retry_state;
+    bool made_claim = false;
+    fdb_job_info new_info;
+    const fdb_job_info *info_to_pass = &info_param;
     fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
     [&](FDBTransaction *txn) {
-        *result_out = execute_index_create_job(interruptor, txn, info,
+        if (!made_claim && retry_state.retry_count >= 3 && retry_state.last_key_spanned.has_value()) {
+            fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
+            fdb_value_fut<fdb_job_info> real_info_fut
+                = transaction_get_real_job_info(txn, *info_to_pass);
+            fdb_value_fut<fdb_index_jobstate> jobstate_fut
+                = transaction_lookup_uq_index<index_jobstate_by_task>(txn, info_to_pass->shared_task_id);
+
+            if (!block_and_check_info(*info_to_pass, std::move(real_info_fut), interruptor)) {
+                *result_out = job_execution_result{};
+                return;
+            }
+
+            fdb_index_jobstate jobstate;
+            if (!jobstate_fut.block_and_deserialize(interruptor, &jobstate)) {
+                result_out->failed.set("jobstate in invalid state");
+                return;
+            }
+
+            if (!jobstate.claimed_bound.has_value() ||
+                retry_state.last_key_spanned->str() < jobstate.claimed_bound->ukey) {
+
+                // Compute a new jobstate and write it.
+                fdb_index_jobstate new_jobstate = fdb_index_jobstate{
+                    make_optional(ukey_string{retry_state.last_key_spanned->str()}),
+                    jobstate.unindexed_upper_bound};
+                transaction_set_uq_index<index_jobstate_by_task>(txn, info_to_pass->shared_task_id,
+                    new_jobstate);
+            }
+
+            reqlfdb_clock current_clock = clock_fut.block_and_deserialize(interruptor);
+            new_info = update_job_counter(txn, current_clock, *info_to_pass);
+
+            // Now commit the txn... and reset it so that we roll into
+            // execute_index_create_job again.
+            commit(txn, interruptor);
+            fdb_transaction_reset(txn);
+            // Success.
+            made_claim = true;
+            info_to_pass = &new_info;
+        }
+
+
+        *result_out = execute_index_create_job(interruptor, txn, *info_to_pass,
             index_create_info,
             &retry_state);
     });
