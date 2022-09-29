@@ -165,8 +165,10 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
 
 struct index_create_retry_state {
     uint64_t retry_count = 0;
+    optional<bool> jobstate_claim_mutable;
     optional<size_t> last_bytes_read;
     optional<size_t> last_key_count;
+    optional<store_key_t> last_key_spanned;
 };
 
 // 0 if first read thus value unspecified -- this is the value we feed into FDB api
@@ -215,6 +217,7 @@ job_execution_result execute_index_create_job(
         ret.failed.set("jobstate in invalid state");
         return ret;
     }
+    
 
     std::string pkey_prefix = rfdb::table_pkey_prefix(index_create_info.table_id);
     icdbf("eicj '%s'\n", debug_str(pkey_prefix).c_str());
@@ -269,6 +272,7 @@ job_execution_result execute_index_create_job(
     // TODO: Weakly gross that we update parts of retry_state in miscellaneous places in this function.
     retry_state->last_bytes_read = make_optional(total_bytes_read);
     retry_state->last_key_count = make_optional(kvs.first.size());
+    retry_state->last_key_spanned = make_optional(kvs.first.empty() ? store_key_t() : kvs.first.back().first);
 
     icdbf("eicj '%s', first key '%s', exited loop, kvs count = %zu, more = %d\n",
         debug_str(pkey_prefix).c_str(),
@@ -346,6 +350,7 @@ job_execution_result execute_index_create_job(
 
         std::string pkey_str = kvs.first.back().first.str();
         fdb_index_jobstate new_jobstate = fdb_index_jobstate{
+            r_nullopt,
             make_optional(ukey_string{std::move(pkey_str)})};
 
         transaction_set_uq_index<index_jobstate_by_task>(txn, info.shared_task_id,

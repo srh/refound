@@ -770,7 +770,7 @@ MUST_USE optional<std::pair<reqlfdb_config_version, optional<fdb_job_info>>> con
         job_info_ret.set(add_fdb_job(txn, new_index_create_task_id, claiming_node_id,
             std::move(desc), interruptor));
 
-        fdb_index_jobstate jobstate{r_nullopt};
+        fdb_index_jobstate jobstate{r_nullopt, r_nullopt};
         transaction_set_uq_index<index_jobstate_by_task>(txn, new_index_create_task_id, jobstate);
     }
 

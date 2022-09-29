@@ -8,8 +8,37 @@
 #include "rpc/serialize_macros.hpp"
 
 struct fdb_index_jobstate {
-    // ["", unindexed_upper_bound) describes the content of the pkey store that has not
-    // been indexed.
+    /* ["", unindexed_upper_bound) describes the content of the pkey store that has not
+       been indexed.
+
+       claimed_bound, if it has a value, means that the interval [*claimed_bound,
+       unindexed_upper_bound) is "prohibited" to writes.
+
+       There is a loophole -- the write transaction may proceed if it includes in its
+       transaction change to move sindex building forward such that sindex building
+       completion is guaranteed.
+
+       If a write includes keys k1, ..., kN that intersect the prohibited interval, let
+       `k` be the maximum such key.  Then the write may proceed if in the same
+       transaction, it either
+
+         (a) updates the sindex for at least all keys in [k, unindexed_upper_bound), or
+
+         (b) updates the sindex for at least twice as many keys as it writes in the
+         [*claimed_bound, unindexed_upper_bound) interval.
+
+       In updating the sindex, it would also update the jobstate value's
+       unindexed_upper_bound field, while leaving claimed_bound untouched as long as
+       *claimed_bound is less than unindexed_upper_bound.
+
+       The following invariant is maintained:
+
+           !claimed_bound.has_value() ||
+           !unindexed_upper_bound.has_value() ||
+           *claimed_bound < *unindexed_upper_bound
+    */
+
+    optional<ukey_string> claimed_bound;
 
     // This is the open upper bound of the range of unindexed pkeys.  r_nullopt means
     // +infinity.
@@ -17,7 +46,8 @@ struct fdb_index_jobstate {
 
     // TODO: Verify FDB limits on value length are at least twice that of key length.
 };
-RDB_MAKE_SERIALIZABLE_1(fdb_index_jobstate, unindexed_upper_bound);
+RDB_MAKE_SERIALIZABLE_2(fdb_index_jobstate,
+    claimed_bound, unindexed_upper_bound);
 
 struct index_jobstate_by_task {
     using ukey_type = fdb_shared_task_id;
