@@ -84,6 +84,7 @@ void update_fdb_sindexes(
         const store_key_t &primary_key,
         rdb_modification_info_t &&info,
         jobstate_futs *jobstate_futs,
+        std::unordered_map<std::string, store_key_t> *sindex_max_claimkeys,
         const signal_t *interruptor) {
     // The thing is, we know the sindex has to be in good shape.
 
@@ -98,6 +99,16 @@ void update_fdb_sindexes(
         if (jobstates_it != jobstates.end()) {
             const fdb_index_jobstate &js = jobstates_it->second;
             if (upper_bound_exceeds_pkey(js.unindexed_upper_bound, primary_key)) {
+                if (!upper_bound_exceeds_pkey(js.claimed_bound, primary_key)) {
+                    // Update claimkeys (for pushing along index build jobs that have a
+                    // claim interval).
+                    auto claimkey_it = sindex_max_claimkeys->find(pair.first);
+                    if (claimkey_it == sindex_max_claimkeys->end()) {
+                        sindex_max_claimkeys->emplace(pair.first, primary_key);
+                    } else if (claimkey_it->second < primary_key) {
+                        claimkey_it->second = primary_key;
+                    }
+                }
                 continue;
             }
         }
@@ -407,6 +418,8 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                 const datum_string_t primary_key_column(table_config.basic.primary_key);
 
+                std::unordered_map<std::string, store_key_t> sindex_max_claimkeys;
+
                 // TODO: Might we perform too many concurrent reads from fdb?  We had
                 // MAX_CONCURRENT_REPLACES=8 before.
                 for (size_t i = keys_complete; i < keys_complete + keys_to_process; ++i) {
@@ -424,7 +437,9 @@ batched_replace_response_t rdb_fdb_batched_replace(
                         interruptor);
 
                     if (mod_info.has_any()) {
-                        update_fdb_sindexes(txn, table_id, table_config, keys[i], std::move(mod_info), &jobstate_futs, interruptor);
+                        update_fdb_sindexes(txn, table_id, table_config, keys[i],
+                            std::move(mod_info), &jobstate_futs, &sindex_max_claimkeys,
+                            interruptor);
                     }
 
                     // TODO: This is just going to be shitty performance.
@@ -614,8 +629,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             // Might as well check auths here too.
             cva.block_and_check_auths(interruptor);
 
+            // TODO: Force sindex update?  This is only used in unit tests though.
+            std::unordered_map<std::string, store_key_t> sindex_max_claimkeys;
             update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
-                &jobstate_futs, interruptor);
+                &jobstate_futs, &sindex_max_claimkeys, interruptor);
             commit(txn, interruptor);
             return res;
         });
@@ -641,8 +658,10 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             cva.cvc.block_and_check(interruptor);
             cva.block_and_check_auths(interruptor);
 
+            // TODO: Force sindex update?  This is only used in unit tests though.
+            std::unordered_map<std::string, store_key_t> sindex_max_claimkeys;
             update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
-                &jobstate_futs, interruptor);
+                &jobstate_futs, &sindex_max_claimkeys, interruptor);
 
             commit(txn, interruptor);
             return res;
