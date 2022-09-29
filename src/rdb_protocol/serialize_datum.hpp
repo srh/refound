@@ -78,6 +78,8 @@ archive_result_t deserialize(read_stream_t *s, datum_t *datum) {
     return datum_deserialize(s, datum);
 }
 
+datum_t parse_table_value(const char *value, size_t data_length);
+
 }  // namespace ql
 
 // Q. Why do we have datum_serialize/datum_deserialize?

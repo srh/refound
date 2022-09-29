@@ -9,6 +9,7 @@
 #include "fdb/system_tables.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/btree.hpp"  // For compute_keys
+#include "rdb_protocol/serialize_datum.hpp"
 
 // #define icdbf(...) debugf(__VA_ARGS__)
 #define icdbf(...)
@@ -139,16 +140,6 @@ the index is done being built.
 The information about the in-progress construction of the index changes frequently, so
 it needs to be stored elsewhere.  It gets stored in index_jobstate_by_task.
 */
-
-ql::datum_t parse_table_value(const char *value, size_t data_length) {
-    buffer_read_stream_t stream(value, data_length);
-
-    ql::datum_t ret;
-    archive_result_t res = ql::datum_deserialize(&stream, &ret);
-    guarantee(!bad(res), "table value misparsed");  // TODO: msg, graceful, etc.
-    guarantee(size_t(stream.tell()) == data_length);  // TODO: msg, graceful, etc.
-    return ret;
-}
 
 std::unordered_map<std::string, sindex_metaconfig_t>::iterator
 find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
@@ -297,7 +288,7 @@ job_execution_result execute_index_create_job(
             debug_str(elem.first.str()).c_str());
         // TODO: Increase MAX_KEY_SIZE at some point.
 
-        ql::datum_t doc = parse_table_value(as_char(elem.second.data()), elem.second.size());
+        ql::datum_t doc = ql::parse_table_value(as_char(elem.second.data()), elem.second.size());
 
         try {
             std::vector<store_key_t> keys;

@@ -97,6 +97,11 @@ inline uuid_u parse_uuid_primary_key(key_view k) {
 // concatenation/allocation by serializing onto instead of serialize-then-concat.
 
 template <class index_traits>
+std::string uq_index_fdb_key(const typename index_traits::ukey_type &index_key) {
+    return unique_index_fdb_key(index_traits::prefix, index_traits::ukey_str(index_key));
+}
+
+template <class index_traits>
 fdb_value_fut<typename index_traits::value_type>
 transaction_lookup_uq_index(
         FDBTransaction *txn,

@@ -1006,4 +1006,14 @@ MUST_USE archive_result_t datum_deserialize(
     return archive_result_t::SUCCESS;
 }
 
+datum_t parse_table_value(const char *value, size_t data_length) {
+    buffer_read_stream_t stream(value, data_length);
+
+    ql::datum_t ret;
+    archive_result_t res = ql::datum_deserialize(&stream, &ret);
+    guarantee(!bad(res), "table value misparsed");  // TODO: msg, graceful, etc.
+    guarantee(size_t(stream.tell()) == data_length);  // TODO: msg, graceful, etc.
+    return ret;
+}
+
 }  // namespace ql

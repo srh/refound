@@ -77,6 +77,16 @@ bool upper_bound_exceeds_pkey(const optional<ukey_string> &upper_bound, const st
     return !upper_bound.has_value() || key.str() < upper_bound->ukey;
 }
 
+bool upper_bound_lt(const optional<ukey_string> &a, const optional<ukey_string> &b) {
+    return !b.has_value() || (a.has_value() && a->ukey < b->ukey);
+}
+
+struct forced_index_lower_bound {
+    store_key_t key;
+    // value.has() is always true -- we ignore deletions.
+    ql::datum_t value;
+};
+
 void update_fdb_sindexes(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
@@ -84,7 +94,7 @@ void update_fdb_sindexes(
         const store_key_t &primary_key,
         rdb_modification_info_t &&info,
         jobstate_futs *jobstate_futs,
-        std::unordered_map<std::string, store_key_t> *sindex_max_claimkeys,
+        std::unordered_map<std::string, forced_index_lower_bound> *sindex_max_claimkeys,
         const signal_t *interruptor) {
     // The thing is, we know the sindex has to be in good shape.
 
@@ -100,13 +110,17 @@ void update_fdb_sindexes(
             const fdb_index_jobstate &js = jobstates_it->second;
             if (upper_bound_exceeds_pkey(js.unindexed_upper_bound, primary_key)) {
                 if (!upper_bound_exceeds_pkey(js.claimed_bound, primary_key)) {
-                    // Update claimkeys (for pushing along index build jobs that have a
-                    // claim interval).
-                    auto claimkey_it = sindex_max_claimkeys->find(pair.first);
-                    if (claimkey_it == sindex_max_claimkeys->end()) {
-                        sindex_max_claimkeys->emplace(pair.first, primary_key);
-                    } else if (claimkey_it->second < primary_key) {
-                        claimkey_it->second = primary_key;
+                    if (info.added.has()) {
+                        // Update claimkeys (for pushing along index build jobs that have a
+                        // claim interval).
+                        auto claimkey_it = sindex_max_claimkeys->find(pair.first);
+                        if (claimkey_it == sindex_max_claimkeys->end()) {
+                            sindex_max_claimkeys->emplace(
+                                    pair.first,
+                                    forced_index_lower_bound{primary_key, info.added});
+                        } else if (claimkey_it->second.key < primary_key) {
+                            claimkey_it->second = forced_index_lower_bound{primary_key, info.added};
+                        }
                     }
                 }
                 continue;
@@ -179,6 +193,176 @@ void update_fdb_sindexes(
             fdb_key.resize(index_prefix_size);
         }
     }  // for each sindex
+}
+
+optional<store_key_t> convert_upper_bound_to_store_key(const optional<ukey_string> &k) {
+    optional<store_key_t> ret;
+    if (k.has_value()) {
+        ret.set(store_key_t(k->ukey));
+    }
+    return ret;
+}
+
+void push_along_sindex_creation(
+        const signal_t *interruptor, FDBTransaction *txn,
+        const namespace_id_t &table_id, const table_config_t &table_config,
+        const std::unordered_map<std::string, forced_index_lower_bound> &sindex_max_claimkeys,
+        const std::unordered_map<std::string, fdb_index_jobstate> &jobstates) {
+
+    // To avoid duplicate reads, we combine overlapping intervals.  Because each
+    // store_key_t in sindex_max_claimkeys is the _maximum_ key less than its jobstate's
+    // unindexed_upper_bound, it follows that all overlapping intervals have the same left
+    // edge.  (Otherwise, with overlapping intervals, the lesser left edge key wouldn't be
+    // the maximum key less than its jobstate's unindexed_upper_bound.)  So we combine
+    // them with this hash map, instead of some kind of ordered map.
+    //
+    // Carries the store_key_t's datum from forced_index_lower_bound.
+    // Also carries a list of sindexes we conflict with (so that we can map back from interval to sindex later).
+    std::unordered_map<store_key_t, std::tuple<ql::datum_t, optional<ukey_string>, std::vector<std::string>>, store_key_hash> intervals_to_read;
+
+
+    for (const auto &pair : sindex_max_claimkeys) {
+        // TODO: remove commented lines
+        // const sindex_metaconfig_t &metaconfig = sindexes.at(pair.first);
+        // const sindex_config_t &sindex_config = metaconfig.config;
+
+        const fdb_index_jobstate &js = jobstates.at(pair.first);
+
+        auto it = intervals_to_read.find(pair.second.key);
+
+        if (it == intervals_to_read.end()) {
+            intervals_to_read.emplace(pair.second.key,
+                std::make_tuple(pair.second.value, js.unindexed_upper_bound, std::vector<std::string>{pair.first}));
+        } else {
+            if (upper_bound_lt(std::get<1>(it->second), js.unindexed_upper_bound)) {
+                std::get<1>(it->second) = js.unindexed_upper_bound;
+                std::get<2>(it->second).push_back(pair.first);
+            }
+        }
+    }
+
+    std::string kv_prefix = rfdb::table_pkey_prefix(table_id);
+    // TODO: Break datum iterator usage into prep_for_step() and block_for_step().
+
+    std::vector<std::pair<store_key_t, rfdb::datum_range_iterator>> iters;
+    for (const auto &interval : intervals_to_read) {
+        store_key_t lowerbound = interval.first;
+        optional<store_key_t> upperbound;
+        if (!lowerbound.increment1()) {
+            // We had the max key, so (interval.first, +infinity) is the empty interval.
+            // We'll just (wastefully) construct an iterator in this rare edge case.
+            lowerbound = store_key_t::min();
+            upperbound.set(store_key_t::min());
+        } else {
+            upperbound = convert_upper_bound_to_store_key(std::get<1>(interval.second));
+        }
+        // TODO: Figure out why we use ukeys instead of store_key_t's.
+        iters.emplace_back(interval.first,
+            rfdb::primary_prefix_make_iterator(
+                    kv_prefix, lowerbound, upperbound.ptr_or_null(),
+                    false, false));
+    }
+
+    for (auto &iterpair : iters) {
+        // TODO: We'd really want to do these operations in parallel, if we have multiple
+        // outstanding index builds.  But this is an edge case where slowing down writes
+        // if that allows index operations to pass by is actually okay.
+        size_t bytes_read_discard;
+        bool more = false;
+        std::vector<std::pair<store_key_t, ql::datum_t>> kvs;
+        kvs.emplace_back(iterpair.first, std::get<0>(intervals_to_read.at(iterpair.first)));
+        do {
+            std::pair<std::vector<std::pair<store_key_t, std::vector<uint8_t>>>, bool>
+                results = iterpair.second.query_and_step(txn, interruptor, FDB_STREAMING_MODE_WANT_ALL,
+                    0, &bytes_read_discard);
+            more = results.second;
+
+            for (auto &elem : results.first) {
+                kvs.emplace_back(elem.first,
+                    ql::parse_table_value(as_char(elem.second.data()), elem.second.size()));
+            }
+        } while (more);
+
+        for (const std::string &sindex : std::get<2>(intervals_to_read.at(iterpair.first))) {
+            const sindex_metaconfig_t &metaconfig = table_config.sindexes.at(sindex);
+            const sindex_config_t &sindex_config = metaconfig.config;
+
+            // TODO: Making this copy is gross -- would be better if compute_keys took sindex_config.
+            sindex_disk_info_t index_info = rfdb::sindex_config_to_disk_info(sindex_config);
+            std::string fdb_key = rfdb::table_index_prefix(table_id, metaconfig.sindex_id);
+            const size_t index_prefix_size = fdb_key.size();
+
+            for (const auto &elem : kvs) {
+                // TODO: This is basically copy/pasted from index_create.cc, except for the
+                // parse_table_value call being earlier.
+                try {
+                    // OOO: Sanity-check that compute_keys doesn't do any deranged truncation, and
+                    // secondary index keys in FDB are not incremented.  (They probably are.)
+                    // Maybe make a separate type for secondary index keys, amidst general key
+                    // type cleanup.
+                    std::vector<store_key_t> keys;
+                    compute_keys(elem.first, elem.second, index_info, &keys, nullptr);
+
+                    for (auto &sindex_key : keys) {
+                        // TODO: Make sure fdb key limits are followed.
+                        rdbtable_sindex_fdb_key_onto(&fdb_key, sindex_key);
+                        uint8_t value[1];
+                        fdb_transaction_set(txn,
+                            as_uint8(fdb_key.data()), int(fdb_key.size()),
+                            value, 0);
+                        fdb_key.resize(index_prefix_size);
+                    }
+                } catch (const ql::base_exc_t &) {
+                    // Do nothing (the row doesn't get put into the index)
+                }
+            }
+
+            // Now make a single-key conflict range for the jobstate key, which we'd
+            // previously read with a snapshot read.
+            guarantee(!metaconfig.creation_task_or_nil.value.is_nil());
+            std::string jobstate_key = uq_index_fdb_key<index_jobstate_by_task>(metaconfig.creation_task_or_nil);
+            // This is "clever" but we pass an incremented jobstate key simply by exposing
+            // the c_str() with its '\0' terminator.
+            fdb_error_t err = fdb_transaction_add_conflict_range(
+                txn,
+                as_uint8(jobstate_key.data()), int(jobstate_key.size()),
+                as_uint8(jobstate_key.c_str()), int(jobstate_key.size() + 1),
+                FDB_CONFLICT_RANGE_TYPE_READ);
+            if (err != 0) {
+                throw fdb_transaction_exception(err);
+            }
+
+            const fdb_index_jobstate &js = jobstates.at(sindex);
+
+            // And here we update the sindex's jobstate.  It's never removed here -- this
+            // can never finish the index build transaction, as always traverse to a known
+            // key -- never off the front of the index.
+            fdb_index_jobstate new_jobstate = fdb_index_jobstate{
+                r_nullopt,  // filled in the next statement
+                make_optional(ukey_string{iterpair.first.str()})};
+            if (upper_bound_lt(js.claimed_bound, new_jobstate.unindexed_upper_bound)) {
+                new_jobstate.claimed_bound = js.claimed_bound;
+            }
+            transaction_set_uq_index<index_jobstate_by_task>(txn, metaconfig.creation_task_or_nil,
+                new_jobstate);
+        }
+
+        // Now set the conflict range on the key range.  (This is very duplicative of
+        // index_create code.)
+        {
+            std::string lower_bound = rfdb::datum_range_lower_bound(kv_prefix, iterpair.first);
+            optional<store_key_t> skey_upper_bound = convert_upper_bound_to_store_key(std::get<1>(intervals_to_read.at(iterpair.first)));
+            std::string upper_bound = rfdb::datum_range_upper_bound(kv_prefix, skey_upper_bound.ptr_or_null());
+            fdb_error_t err = fdb_transaction_add_conflict_range(
+                    txn,
+                    as_uint8(lower_bound.data()), int(lower_bound.size()),
+                    as_uint8(upper_bound.data()), int(upper_bound.size()),
+                    FDB_CONFLICT_RANGE_TYPE_WRITE);
+            if (err != 0) {
+                throw fdb_transaction_exception(err);
+            }
+        }
+    }
 }
 
 void rdb_fdb_set(
@@ -418,7 +602,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                 const datum_string_t primary_key_column(table_config.basic.primary_key);
 
-                std::unordered_map<std::string, store_key_t> sindex_max_claimkeys;
+                std::unordered_map<std::string, forced_index_lower_bound> sindex_max_claimkeys;
 
                 // TODO: Might we perform too many concurrent reads from fdb?  We had
                 // MAX_CONCURRENT_REPLACES=8 before.
@@ -444,6 +628,12 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                     // TODO: This is just going to be shitty performance.
                     stats = stats.merge(res, ql::stats_merge, limits, &conditions);
+                }
+
+                if (!sindex_max_claimkeys.empty()) {
+                    push_along_sindex_creation(interruptor, txn,
+                        table_id, table_config, sindex_max_claimkeys,
+                        jobstate_futs.block_on_jobstates(interruptor));
                 }
 
                 commit(txn, interruptor);
@@ -630,7 +820,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             cva.block_and_check_auths(interruptor);
 
             // TODO: Force sindex update?  This is only used in unit tests though.
-            std::unordered_map<std::string, store_key_t> sindex_max_claimkeys;
+            std::unordered_map<std::string, forced_index_lower_bound> sindex_max_claimkeys;
             update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
                 &jobstate_futs, &sindex_max_claimkeys, interruptor);
             commit(txn, interruptor);
@@ -659,7 +849,7 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             cva.block_and_check_auths(interruptor);
 
             // TODO: Force sindex update?  This is only used in unit tests though.
-            std::unordered_map<std::string, store_key_t> sindex_max_claimkeys;
+            std::unordered_map<std::string, forced_index_lower_bound> sindex_max_claimkeys;
             update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
                 &jobstate_futs, &sindex_max_claimkeys, interruptor);
 

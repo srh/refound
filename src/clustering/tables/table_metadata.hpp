@@ -51,7 +51,7 @@ user_data_t default_user_data();
 /* `table_config_t` describes the complete contents of the `rethinkdb.table_config`
 artificial table. */
 
-// This is currently not par of sindex_config_t, because that value gets serialized
+// This is currently not part of sindex_config_t, because that value gets serialized
 // externally in some ways, and we don't want to touch that.  TODO: Maybe just put this
 // with sindex_config_t.  Or move func_version out to this.
 class sindex_metaconfig_t {
