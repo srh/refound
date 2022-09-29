@@ -5,6 +5,7 @@
 #include "fdb/btree_utils.hpp"
 #include "fdb/index.hpp"
 #include "fdb/jobs/job_utils.hpp"
+#include "fdb/retry_loop.hpp"  // TODO: Remove include when it becomes unused
 #include "fdb/system_tables.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/btree.hpp"  // For compute_keys
@@ -160,6 +161,13 @@ find_sindex(std::unordered_map<std::string, sindex_metaconfig_t> *sindexes,
     }
     return it;  // Returns sindexes->end().
 }
+
+
+struct index_create_retry_state {
+    uint64_t retry_count = 0;
+    optional<size_t> last_bytes_read;
+    optional<size_t> last_key_count;
+};
 
 // 0 if first read thus value unspecified -- this is the value we feed into FDB api
 int recommended_target_bytes(const index_create_retry_state &state) {
@@ -364,6 +372,21 @@ job_execution_result execute_index_create_job(
     }
     commit(txn, interruptor);
     return ret;
+}
+MUST_USE fdb_error_t execute_index_create_job(
+        const signal_t *interruptor,
+        FDBDatabase *fdb,
+        const fdb_job_info &info,
+        const fdb_job_index_create &index_create_info,
+        job_execution_result *result_out) {
+    index_create_retry_state retry_state;
+    fdb_error_t loop_err = txn_retry_loop_coro(fdb, interruptor,
+    [&](FDBTransaction *txn) {
+        *result_out = execute_index_create_job(interruptor, txn, info,
+            index_create_info,
+            &retry_state);
+    });
+    return loop_err;
 }
 
 // QQQ: Improve index create behavior (make it serial, deal with contention, and such).
