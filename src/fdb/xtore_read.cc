@@ -87,7 +87,7 @@ public:
     }
 private:
     friend class fdb_rget_cb;
-    friend class fdb_rget_secondary_cb;  // TODO: Does this exist?
+    friend class fdb_rget_secondary_cb;
     ql::env_t *const env;
     scoped_ptr_t<ql::batcher_t> batcher;
     std::vector<scoped_ptr_t<ql::op_t> > transformers;
@@ -96,12 +96,11 @@ private:
 };
 
 class fdb_rget_cb {
-// TODO: Can bad_init actually get true?
 public:
     fdb_rget_cb(
             rget_read_response_t *_response,
             job_data_t &&_job)
-            : response(_response), job(std::move(_job)), bad_init(false) {
+            : response(_response), job(std::move(_job)) {
         // TODO: This comment is now probably false...
         // We must disable profiler events for subtasks, because multiple instances
         // of `handle_pair`are going to run in parallel which  would otherwise corrupt
@@ -119,7 +118,7 @@ public:
         // STUFF THAT CAN HAPPEN OUT OF ORDER GOES HERE //
         //////////////////////////////////////////////////
         sampler->new_sample();
-        if (bad_init || boost::get<ql::exc_t>(&response->result) != nullptr) {
+        if (boost::get<ql::exc_t>(&response->result) != nullptr) {
             return continue_bool_t::ABORT;
         }
         // Load the key and value.
@@ -188,7 +187,6 @@ private:
     job_data_t job; // What to do next (stateful).
 
     // State for internal bookkeeping.
-    bool bad_init;
     scoped_ptr_t<profile::disabler_t> disabler;
     scoped_ptr_t<profile::sampler_t> sampler;
 };
@@ -997,7 +995,6 @@ void do_fdb_snap_read(
         const rget_read_t &rget,
         rget_read_response_t *res) {
 
-    // TODO: Do the check_cv inside this function if it ever performs more than one round-trip.
     if (!rget.sindex.has_value()) {
         rdb_fdb_rget_snapshot_slice(
             interruptor,
