@@ -95,7 +95,6 @@ struct point_read_response_t {
     explicit point_read_response_t(ql::datum_t _data)
         : data(_data) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_read_response_t);
 
 struct rget_read_response_t {
     ql::result_t result;
@@ -104,7 +103,6 @@ struct rget_read_response_t {
     explicit rget_read_response_t(const ql::exc_t &ex)
         : result(ex) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(rget_read_response_t);
 
 struct nearest_geo_read_response_t {
     typedef std::pair<double, ql::datum_t> dist_pair_t;
@@ -121,13 +119,11 @@ struct nearest_geo_read_response_t {
     explicit nearest_geo_read_response_t(const ql::exc_t &_error)
         : results_or_error(_error) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_response_t);
 
 struct dummy_read_response_t {
     // dummy read always succeeds
 };
 
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(dummy_read_response_t);
 
 struct serializable_env_t {
     // The global optargs values passed to .run(...) in the Python, Ruby, and JS
@@ -143,7 +139,6 @@ struct serializable_env_t {
     ql::datum_t deterministic_time;
 };
 
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(serializable_env_t);
 
 struct read_response_t {
     typedef boost::variant<point_read_response_t,
@@ -157,7 +152,6 @@ struct read_response_t {
     explicit read_response_t(const variant_t &r)
         : response(r) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(read_response_t);
 
 class point_read_t {
 public:
@@ -166,7 +160,6 @@ public:
 
     store_key_t key;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_read_t);
 
 // `dummy_read_t` can be used to poll for table readiness - it will go through all
 // the clustering layers, but is a no-op in the protocol layer.
@@ -176,7 +169,6 @@ public:
     region_t region;
 };
 
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(dummy_read_t);
 
 struct sindex_rangespec_t {
     sindex_rangespec_t() { }
@@ -201,7 +193,6 @@ struct sindex_rangespec_t {
     require_sindexes_t require_sindex_val;
 };
 
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(sindex_rangespec_t);
 
 class rget_read_t {
 public:
@@ -248,7 +239,6 @@ public:
 
     sorting_t sorting; // Optional sorting info (UNORDERED means no sorting).
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(rget_read_t);
 
 class intersecting_geo_read_t {
 public:
@@ -282,7 +272,6 @@ public:
 
     ql::datum_t query_geometry; // Tested for intersection
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(intersecting_geo_read_t);
 
 class nearest_geo_read_t {
 public:
@@ -315,7 +304,6 @@ public:
 
     std::string sindex_id;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(nearest_geo_read_t);
 
 struct read_t {
     typedef boost::variant<point_read_t,
@@ -333,7 +321,6 @@ struct read_t {
     read_t(T &&_read, profile_bool_t _profile, read_mode_t _read_mode)
         : read(std::forward<T>(_read)), profile(_profile), read_mode(_read_mode) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(read_t);
 
 struct point_write_response_t {
     point_write_result_t result;
@@ -343,7 +330,6 @@ struct point_write_response_t {
         : result(_result)
     { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_write_response_t);
 
 struct point_delete_response_t {
     point_delete_result_t result;
@@ -352,18 +338,15 @@ struct point_delete_response_t {
         : result(_result)
     { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_delete_response_t);
 
 struct sync_response_t {
     // sync always succeeds
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(sync_response_t);
 
 struct dummy_write_response_t {
     // dummy write always succeeds
 };
 
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(dummy_write_response_t);
 
 typedef ql::datum_t batched_replace_response_t;
 
@@ -381,7 +364,6 @@ struct write_response_t {
     template<class T>
     explicit write_response_t(const T &t) : response(t) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(write_response_t);
 
 struct batched_replace_t {
     batched_replace_t() { }
@@ -407,7 +389,6 @@ struct batched_replace_t {
     serializable_env_t serializable_env;
     return_changes_t return_changes;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(batched_replace_t);
 
 struct batched_insert_t {
     batched_insert_t() { }
@@ -431,7 +412,6 @@ struct batched_insert_t {
     serializable_env_t serializable_env;
     return_changes_t return_changes;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(batched_insert_t);
 
 class point_write_t {
 public:
@@ -444,7 +424,6 @@ public:
     ql::datum_t data;
     bool overwrite;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_write_t);
 
 class point_delete_t {
 public:
@@ -454,7 +433,6 @@ public:
 
     store_key_t key;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(point_delete_t);
 
 class sync_t {
 public:
@@ -464,7 +442,6 @@ public:
 
     region_t region;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(sync_t);
 
 // `dummy_write_t` can be used to poll for table readiness - it will go through all
 // the clustering layers, but is a no-op in the protocol layer.
@@ -473,7 +450,6 @@ public:
     dummy_write_t() : region(region_t::universe()) { }
     region_t region;
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(dummy_write_t);
 
 struct write_t {
     typedef boost::variant<batched_replace_t,
@@ -530,7 +506,6 @@ struct write_t {
           profile(_profile),
           limits(_limits) { }
 };
-RDB_DECLARE_SERIALIZABLE_FOR_CLUSTER(write_t);
 
 class store_t;
 

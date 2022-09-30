@@ -437,9 +437,7 @@ struct limit_read_t {
     sorting_t sorting;
     std::vector<scoped_ptr_t<op_t> > *ops;
 };
-// Note that this is serializable because it goes in a serializable variant, but
-// it is a runtime error to serialize it.
-RDB_DECLARE_SERIALIZABLE(limit_read_t);
+
 
 typedef boost::variant<count_wire_func_t,
                        sum_wire_func_t,
