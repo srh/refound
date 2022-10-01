@@ -135,9 +135,6 @@ public:
         key_le(sorting),
         batcher(_batcher),
         require_sindex_val(_require_sindex_val) { }
-    append_t() // Only use this for unsharding.
-        : grouped_acc_t<stream_t>(stream_t()),
-          sorting(sorting_t::UNORDERED), key_le(sorting), batcher(nullptr) { }
 protected:
     virtual bool should_send_batch() {
         return batcher != NULL && batcher->should_send_batch();
@@ -210,10 +207,6 @@ scoped_ptr_t<accumulator_t> make_append(limit_read_last_key last_key,
     // TODO: region universe shard region
     return make_scoped<append_t>(
         region_t::universe(), std::move(last_key), sorting, require_sindex_val, batcher);
-}
-
-scoped_ptr_t<accumulator_t> make_unsharding_append() {
-    return make_scoped<append_t>();
 }
 
 // This has to inherit from `eager_acc_t` so it can be produced in the terminal

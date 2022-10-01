@@ -485,7 +485,6 @@ scoped_ptr_t<accumulator_t> make_append(limit_read_last_key last_key,
                                         sorting_t sorting,
                                         batcher_t *batcher,
                                         require_sindexes_t require_sindex_val);
-scoped_ptr_t<accumulator_t> make_unsharding_append();
 scoped_ptr_t<accumulator_t> make_terminal(const terminal_variant_t &t);
 scoped_ptr_t<eager_acc_t> make_to_array();
 scoped_ptr_t<eager_acc_t> make_eager_terminal(const terminal_variant_t &t);
