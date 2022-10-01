@@ -157,14 +157,12 @@ struct limit_read_last_key {
         return raw_key.greater_than_key(tmp);
     }
 };
-RDB_DECLARE_SERIALIZABLE(limit_read_last_key);
 
 typedef std::vector<rget_item_t> raw_stream_t;
 struct keyed_stream_t {
     raw_stream_t stream;
     limit_read_last_key last_key;
 };
-RDB_DECLARE_SERIALIZABLE(keyed_stream_t);
 struct stream_t {
     // When we first construct a `stream_t`, it's always for a single shard.
     stream_t(region_t region, limit_read_last_key last_key)
@@ -174,7 +172,6 @@ struct stream_t {
     stream_t() { }
     std::map<region_t, keyed_stream_t> substreams;
 };
-RDB_DECLARE_SERIALIZABLE(stream_t);
 
 class optimizer_t {
 public:

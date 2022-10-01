@@ -1094,22 +1094,8 @@ scoped_ptr_t<op_t> make_op(const transform_variant_t &tv) {
     return scoped_ptr_t<op_t>(boost::apply_visitor(transform_visitor_t(), tv));
 }
 
-RDB_IMPL_SERIALIZABLE_3_FOR_CLUSTER(rget_item_t, key, sindex_key, data);
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(limit_read_last_key, is_decremented, raw_key);
-RDB_IMPL_SERIALIZABLE_2_FOR_CLUSTER(keyed_stream_t, stream, last_key);
-RDB_IMPL_SERIALIZABLE_1_FOR_CLUSTER(stream_t, substreams);
-
 ARCHIVE_PRIM_MAKE_RANGED_SERIALIZABLE(
         sorting_t, int8_t,
         sorting_t::UNORDERED, sorting_t::DESCENDING);
-template<cluster_version_t W>
-void serialize(write_message_t *, const limit_read_t &) {
-    crash("Cannot serialize a `limit_read_t`.");
-}
-template<cluster_version_t W>
-archive_result_t deserialize(read_stream_t *, limit_read_t *) {
-    crash("Cannot deserialize a `limit_read_t`.");
-}
-INSTANTIATE_SERIALIZABLE_FOR_CLUSTER(limit_read_t);
 
 } // namespace ql
