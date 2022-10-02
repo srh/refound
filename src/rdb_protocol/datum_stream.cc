@@ -52,30 +52,14 @@ read_mode_t up_to_date_read_mode(read_mode_t in) {
     }
 }
 
-void debug_print(printf_buffer_t *buf, const range_state_t &rs) {
-    const char *s;
-    switch (rs) {
-    case range_state_t::ACTIVE:    s = "ACTIVE"; break;
-    case range_state_t::EXHAUSTED: s = "EXHAUSTED"; break;
-    default: unreachable();
-    }
-    buf->appendf("%s", s);
-}
-
 void debug_print(printf_buffer_t *buf, const active_range_with_cache &hrwc) {
     buf->appendf("active_range_with_cache{");
     debug_print(buf, hrwc.key_range);
-    buf->appendf(", ");
-    debug_print(buf, hrwc.state);
     buf->appendf("}\n");
 }
 
 void debug_print(printf_buffer_t *buf, const active_ranges_t &ar) {
     debug_print(buf, ar.ranges);
-}
-
-bool active_range_with_cache::totally_exhausted() const {
-    return state == range_state_t::EXHAUSTED;
 }
 
 bool active_ranges_t::totally_exhausted() const {
@@ -91,17 +75,10 @@ lower_key_bound_range active_ranges_to_range(const active_ranges_t &ranges) {
     lower_key_bound end = lower_key_bound::min();
     bool seen_active = false;
     if (ranges.ranges.has_value()) {
-        auto &pair = *ranges.ranges;
-        switch (pair.second.state) {
-        case range_state_t::ACTIVE:
-            start = std::min(start, pair.second.key_range.left);
-            end = std::max(end, pair.second.key_range.right);
+        if (!ranges.ranges->second.totally_exhausted()) {
+            start = std::min(start, ranges.ranges->second.key_range.left);
+            end = std::max(end, ranges.ranges->second.key_range.right);
             seen_active = true;
-            break;
-        case range_state_t::EXHAUSTED:
-            // If there's no more data in a range then don't bother reading from it.
-            break;
-        default: unreachable();
         }
     }
 
@@ -145,8 +122,7 @@ active_ranges_t new_active_ranges(
             active_range_with_cache{
                 lower_key_bound_range::from_key_range(is_secondary == is_secondary_t::YES
                     ? original_range
-                    : pair.first.intersection(original_range)),
-                range_state_t::ACTIVE}));
+                    : pair.first.intersection(original_range))}));
     }
 
     return ret;
@@ -186,16 +162,9 @@ public:
 private:
     void finish() {
         r_sanity_check(!finished);
-        switch (cached->state) {
-        case range_state_t::ACTIVE:
-            if (fresh != nullptr && fresh->stream.size() != 0) {
-            } else {
-                // No fresh values and no cached values means we should be exhausted.
-                r_sanity_check(false);
-            }
-            break;
-        case range_state_t::EXHAUSTED: break;
-        default: unreachable();
+        if (!cached->totally_exhausted()) {
+            // No fresh values and no cached values means we should be exhausted.
+            r_sanity_check(fresh != nullptr && fresh->stream.size() != 0);
         }
         finished = true;
     }
@@ -267,7 +236,7 @@ raw_stream_t rget_response_reader_t::unshard(
     optional<pseudoshard_t> pseudoshards;
     if (active_ranges->ranges.has_value()) {
         std::pair<key_range_t, ql::active_range_with_cache> &pair = *active_ranges->ranges;
-        bool range_active = pair.second.state == range_state_t::ACTIVE;
+        bool range_active = !pair.second.totally_exhausted();
         if (pair.second.totally_exhausted()) {
             goto exit_loop;
         }
@@ -298,17 +267,6 @@ raw_stream_t rget_response_reader_t::unshard(
                     pair.second.key_range.right = pair.second.key_range.left;
                 }
             }
-            if (new_bound) {
-                // If there's nothing left to read, it's exhausted.
-                if (pair.second.key_range.is_empty()) {
-                    pair.second.state = range_state_t::EXHAUSTED;
-                }
-            } else {
-                // If we got no data back, the logic above should have set
-                // the range to something empty.
-                r_sanity_check(pair.second.key_range.is_empty());
-                pair.second.state = range_state_t::EXHAUSTED;
-            }
         }
         // If there's any data for a hash shard, we need to consider it
         // while unsharding.  Note that the shard may have *already been
@@ -333,14 +291,10 @@ raw_stream_t rget_response_reader_t::unshard(
     // are marked saturated.
     r_sanity_check(ret.size() != 0);
 
+    // NNN: This assertion at the end (shards_exhausted()) is all just locally provable.
     bool seen_active = false;
     if (active_ranges->ranges.has_value()) {
-        auto &pair = *active_ranges->ranges;
-        switch (pair.second.state) {
-        case range_state_t::ACTIVE: seen_active = true; break;
-        case range_state_t::EXHAUSTED: break;
-        default: unreachable();
-        }
+        seen_active = !active_ranges->ranges->second.totally_exhausted();
     }
     if (!seen_active) {
         // We should always have marked a saturated shard as active if the last
@@ -889,9 +843,6 @@ void primary_readgen_t::restrict_active_ranges(
                 pair.second.key_range.right = new_end;
                 guarantee(!pair.second.key_range.is_empty()
                             || new_start == new_end);
-            }
-            if (pair.second.key_range.is_empty()) {
-                pair.second.state = range_state_t::EXHAUSTED;
             }
         }
     }
