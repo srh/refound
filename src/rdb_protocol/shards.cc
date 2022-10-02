@@ -153,7 +153,8 @@ protected:
 
     void stop_at_boundary(const limit_read_last_key &key) final {
         for (auto &&pair : *get_acc()) {
-            for (auto &&stream_pair : pair.second.substreams) {
+            if (pair.second.substreams.has_value()) {
+                auto &stream_pair = *pair.second.substreams;
                 // We have to do it this way rather than using the end of
                 // the range in `stream_pair.first` because we might be
                 // sorting by an sindex.
@@ -176,8 +177,8 @@ protected:
             (sorting == sorting_t::UNORDERED)
             ? datum_t()
             : lazy_sindex_val();
-        guarantee(stream->substreams.size() == 1);
-        auto *keyed_stream = &stream->substreams.begin()->second;
+        guarantee(stream->substreams.has_value());
+        auto *keyed_stream = &stream->substreams->second;
         keyed_stream->stream.push_back(
             rget_item_t(store_key_t(key), rget_sindex_val, el));
         // Update the last considered key.
@@ -258,17 +259,17 @@ private:
         size_t seen_this_time = 0;
         {
             stream_t substream;
-            guarantee(stream->substreams.size() == 1);
-            substream.substreams.insert(
-                std::make_pair(stream->substreams.begin()->first, keyed_stream_t()));
+            guarantee(stream->substreams.has_value());
+            substream.substreams.set(
+                std::make_pair(stream->substreams->first, keyed_stream_t()));
             ret = append_t::accumulate(env, el, &substream, key, lazy_sindex_val);
             // OOO: Is apply_ops actually not changefeed logic?  ops is now unused...
-            for (auto &&item : substream.substreams.begin()->second.stream) {
+            for (auto &&item : substream.substreams->second.stream) {
                 if (optional<datum_t> d
                     = ql::changefeed::apply_ops(item.data, *ops, env, item.sindex_key)) {
                     item.data = *d;
-                    guarantee(stream->substreams.size() == 1);
-                    stream->substreams.begin()->second.stream.push_back(
+                    guarantee(stream->substreams.has_value());
+                    stream->substreams->second.stream.push_back(
                         std::move(item));
                     seen_this_time += 1;
                 }
@@ -281,8 +282,8 @@ private:
                     seen_distinct = true;
                 }
             } else {
-                guarantee(stream->substreams.size() == 1);
-                raw_stream_t *raw_stream = &stream->substreams.begin()->second.stream;
+                guarantee(stream->substreams.has_value());
+                raw_stream_t *raw_stream = &stream->substreams->second.stream;
                 guarantee(raw_stream->size() > 0);
                 rget_item_t *last = &raw_stream->back();
                 if (start_sindex.has_value()) {
@@ -368,7 +369,8 @@ private:
         for (auto kv = streams->begin(); kv != streams->end(); ++kv) {
             datums_t *lst = &groups[kv->first];
             stream_t *stream = &kv->second;
-            for (auto &&pair : stream->substreams) {
+            if (stream->substreams.has_value()) {
+                auto &pair = *stream->substreams;
                 size += pair.second.stream.size();
             }
             if (is_grouped_data(streams, kv->first)) {
@@ -396,8 +398,9 @@ private:
                 is_sindex_sort = r_nullopt;
                 std::vector<std::pair<raw_stream_t::iterator,
                                       raw_stream_t::iterator> > v;
-                v.reserve(stream->substreams.size());
-                for (auto &&pair : stream->substreams) {
+                v.reserve(1);
+                if (stream->substreams.has_value()) {
+                    auto &pair = *stream->substreams;
                     if (pair.second.stream.size() > 0) {
                         bool is_sindex = pair.second.stream[0].sindex_key.get_type()
                             != datum_t::UNINITIALIZED;
@@ -438,7 +441,8 @@ private:
                     lst->push_back(std::move(((*best)++)->data));
                 }
             } else {
-                for (auto &&pair : stream->substreams) {
+                if (stream->substreams.has_value()) {
+                    auto &pair = *stream->substreams;
                     r_sanity_check(pair.second.last_key.is_max_key()
                                    || pair.second.last_key.is_min_key());
                     for (auto &&val : pair.second.stream) {

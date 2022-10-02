@@ -147,7 +147,8 @@ active_ranges_t new_active_ranges(
     is_secondary_t is_secondary) {
     active_ranges_t ret;
     std::set<uuid_u> covered_shards;
-    for (auto &&pair : stream.substreams) {
+    if (stream.substreams.has_value()) {
+        auto &pair = *stream.substreams;
         uuid_u cfeed_shard_id = nil_uuid();
         if (shard_ids.has_value()) {
             auto shard_id_it = shard_ids->find(pair.first);
@@ -356,11 +357,9 @@ raw_stream_t rget_response_reader_t::unshard(
         // Active shards need their bounds updated.
         if (range_active) {
             const limit_read_last_key *new_bound = nullptr;
-            auto it = stream.substreams.find(
-                region_t(pair.first));
-            if (it != stream.substreams.end()) {
-                fresh = &it->second;
-                new_bound = &it->second.last_key;
+            if (stream.substreams.has_value()) {
+                fresh = &stream.substreams->second;
+                new_bound = &stream.substreams->second.last_key;
             }
             if (!reversed(sorting)) {
                 if (new_bound != nullptr && !new_bound->is_max_key()) {
@@ -663,7 +662,8 @@ void rget_reader_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     auto *stream = boost::get<grouped_t<stream_t> >(&resp.result);
     r_sanity_check(stream != nullptr);
     for (auto &&pair : *stream) {
-        for (auto &&stream_pair : pair.second.substreams) {
+        if (pair.second.substreams.has_value()) {
+            auto &stream_pair = *pair.second.substreams;
             r_sanity_check(!reversed(rr->sorting)
                 ? stream_pair.second.last_key.is_max_key()
                 : stream_pair.second.last_key.is_min_key());
@@ -729,7 +729,8 @@ void intersecting_reader_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     auto *stream = boost::get<grouped_t<stream_t> >(&resp.result);
     r_sanity_check(stream != nullptr);
     for (auto &&pair : *stream) {
-        for (auto &&stream_pair : pair.second.substreams) {
+        if (pair.second.substreams.has_value()) {
+            auto &stream_pair = *pair.second.substreams;
             r_sanity_check(stream_pair.second.last_key.is_max_key());
         }
     }

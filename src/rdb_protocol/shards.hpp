@@ -170,7 +170,7 @@ struct stream_t {
             std::move(region),
                 keyed_stream_t{raw_stream_t(), std::move(last_key)}}} { }
     stream_t() { }
-    std::map<region_t, keyed_stream_t> substreams;
+    optional<std::pair<region_t, keyed_stream_t>> substreams;
 };
 
 class optimizer_t {
