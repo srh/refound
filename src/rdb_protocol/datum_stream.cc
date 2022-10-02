@@ -82,7 +82,8 @@ bool active_range_with_cache::totally_exhausted() const {
 }
 
 bool active_ranges_t::totally_exhausted() const {
-    for (auto &&pair : ranges) {
+    if (ranges.has_value()) {
+        auto &pair = *ranges;
         if (!pair.second.totally_exhausted()) return false;
     }
     return true;
@@ -92,7 +93,8 @@ lower_key_bound_range active_ranges_to_range(const active_ranges_t &ranges) {
     lower_key_bound start = lower_key_bound::infinity();
     lower_key_bound end = lower_key_bound::min();
     bool seen_active = false;
-    for (auto &&pair : ranges.ranges) {
+    if (ranges.ranges.has_value()) {
+        auto &pair = *ranges.ranges;
         switch (pair.second.state) {
         case range_state_t::ACTIVE:
             start = std::min(start, pair.second.key_range.left);
@@ -146,13 +148,13 @@ active_ranges_t new_active_ranges(
     if (stream.substreams.has_value()) {
         auto &pair = *stream.substreams;
 
-        ret.ranges[pair.first]
-            = active_range_with_cache{
+        ret.ranges.set(std::make_pair(pair.first,
+            active_range_with_cache{
                 lower_key_bound_range::from_key_range(is_secondary == is_secondary_t::YES
                     ? original_range
                     : pair.first.intersection(original_range)),
                 raw_stream_t(),
-                range_state_t::ACTIVE};
+                range_state_t::ACTIVE}));
     }
 
     return ret;
@@ -316,11 +318,12 @@ raw_stream_t rget_response_reader_t::unshard(
     // hypothetical `rget_item_t`s from the shards.  We also mark shards
     // exhausted in this step.
     std::vector<pseudoshard_t> pseudoshards;
-    pseudoshards.reserve(active_ranges->ranges.size());
-    for (std::pair<const key_range_t, ql::active_range_with_cache> &pair : active_ranges->ranges) {
+    pseudoshards.reserve(1);
+    if (active_ranges->ranges.has_value()) {
+        std::pair<key_range_t, ql::active_range_with_cache> &pair = *active_ranges->ranges;
         bool range_active = pair.second.state == range_state_t::ACTIVE;
         if (pair.second.totally_exhausted()) {
-            continue;
+            goto exit_loop;
         }
         keyed_stream_t *fresh = nullptr;
         // Active shards need their bounds updated.
@@ -368,6 +371,8 @@ raw_stream_t rget_response_reader_t::unshard(
             pseudoshards.emplace_back(sorting, &pair.second, fresh);
         }
     }
+    // ^ the above used to be a loop, with a continue statement.
+ exit_loop:
     if (pseudoshards.size() == 0) {
         r_sanity_check(shards_exhausted());
         return ret;
@@ -427,7 +432,8 @@ raw_stream_t rget_response_reader_t::unshard(
     }
     bool seen_active = false;
     bool seen_saturated = false;
-    for (auto &&pair : active_ranges->ranges) {
+    if (active_ranges->ranges.has_value()) {
+        auto &pair = *active_ranges->ranges;
         switch (pair.second.state) {
         case range_state_t::ACTIVE: seen_active = true; break;
         case range_state_t::SATURATED: seen_saturated = true; break;
@@ -937,10 +943,11 @@ primary_readgen_t::primary_readgen_t(
 void primary_readgen_t::restrict_active_ranges(
     sorting_t _sorting,
     active_ranges_t *ranges_inout) const {
-    if (store_keys.has_value() && ranges_inout->ranges.size() != 0) {
+    if (store_keys.has_value() && ranges_inout->ranges.has_value()) {
         std::map<key_range_t,
                  std::pair<lower_key_bound, lower_key_bound> > limits;
-        for (auto &&pair : ranges_inout->ranges) {
+        {
+            auto &pair = *ranges_inout->ranges;
             limits[pair.first] =
                 std::make_pair(lower_key_bound::infinity(), lower_key_bound::min());
         }
@@ -961,7 +968,8 @@ void primary_readgen_t::restrict_active_ranges(
                 }
             }
         }
-        for (auto &&pair : ranges_inout->ranges) {
+        {
+            auto &pair = *ranges_inout->ranges;
             const auto &keypair = limits[pair.first];
             lower_key_bound new_start =
                 std::max(keypair.first, pair.second.key_range.left);

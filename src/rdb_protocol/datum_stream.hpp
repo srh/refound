@@ -199,7 +199,7 @@ struct active_range_with_cache {
 void debug_print(printf_buffer_t *buf, const active_range_with_cache &hrwc);
 
 struct active_ranges_t {
-    std::map<key_range_t, active_range_with_cache> ranges;
+    optional<std::pair<key_range_t, active_range_with_cache>> ranges;
     bool totally_exhausted() const;
 };
 void debug_print(printf_buffer_t *buf, const active_ranges_t &ar);
