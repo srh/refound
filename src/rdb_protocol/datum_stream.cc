@@ -237,26 +237,6 @@ public:
         finished = true;
     }
 
-    indirect_key_or_max best_unpopped_key() const {
-        r_sanity_check(!finished);
-        if (cached_index < cached->cache.size()) {
-            return indirect_key_or_max{&cached->cache[cached_index].key, false};
-        } else if (fresh != nullptr && fresh_index < fresh->stream.size()) {
-            return indirect_key_or_max{&fresh->stream[fresh_index].key, false};
-        } else {
-            if (!reversed(sorting)) {
-                // Thus left is not infinite.
-                return cached->key_range.is_empty()
-                    ? indirect_key_or_max{nullptr /* unused */, true}
-                    : to_indirect(&cached->key_range.left);
-            } else {
-                return cached->key_range.is_empty()
-                    ? indirect_key_or_max{&store_key_min, false}
-                    : to_indirect(&cached->key_range.right);
-            }
-        }
-    }
-
     optional<rget_item_t> pop() {
         r_sanity_check(!finished);
         if (cached_index < cached->cache.size()) {
@@ -317,8 +297,7 @@ raw_stream_t rget_response_reader_t::unshard(
     // Create the pseudoshards, which represent the cached, fresh, and
     // hypothetical `rget_item_t`s from the shards.  We also mark shards
     // exhausted in this step.
-    std::vector<pseudoshard_t> pseudoshards;
-    pseudoshards.reserve(1);
+    optional<pseudoshard_t> pseudoshards;
     if (active_ranges->ranges.has_value()) {
         std::pair<key_range_t, ql::active_range_with_cache> &pair = *active_ranges->ranges;
         bool range_active = pair.second.state == range_state_t::ACTIVE;
@@ -368,56 +347,24 @@ raw_stream_t rget_response_reader_t::unshard(
         // while unsharding.  Note that the shard may have *already been
         // marked exhausted* in the step above.
         if (fresh != nullptr || pair.second.cache.size() > 0) {
-            pseudoshards.emplace_back(sorting, &pair.second, fresh);
+            pseudoshards.emplace(sorting, &pair.second, fresh);
         }
     }
     // ^ the above used to be a loop, with a continue statement.
  exit_loop:
-    if (pseudoshards.size() == 0) {
+    if (!pseudoshards.has_value()) {
         r_sanity_check(shards_exhausted());
         return ret;
     }
 
-    // Do the unsharding.
-    if (sorting != sorting_t::UNORDERED) {
+    // Do the "unsharding" but there is one shard.
+    {
         size_t num_iters = 0;
-        for (;;) {
+        while (optional<ql::rget_item_t> maybe_item = pseudoshards->pop()) {
+            ret.push_back(std::move(*maybe_item));
             const size_t YIELD_INTERVAL = 2000;
             if (++num_iters % YIELD_INTERVAL == 0) {
                 coro_t::yield();
-            }
-            pseudoshard_t *best_shard = &pseudoshards[0];
-            indirect_key_or_max best_key = best_shard->best_unpopped_key();
-            for (size_t i = 1; i < pseudoshards.size(); ++i) {
-                pseudoshard_t *cur_shard = &pseudoshards[i];
-                indirect_key_or_max cur_key = cur_shard->best_unpopped_key();
-                if (is_better(cur_key, best_key, sorting)) {
-                    best_shard = cur_shard;
-                    best_key = cur_key;
-                }
-            }
-            if (optional<ql::rget_item_t> maybe_item = best_shard->pop()) {
-                ret.push_back(std::move(*maybe_item));
-            } else {
-                break;
-            }
-        }
-    } else {
-        std::vector<size_t> active;
-        active.reserve(pseudoshards.size());
-        for (size_t i = 0; i < pseudoshards.size(); ++i) {
-            active.push_back(i);
-        }
-        while (active.size() > 0) {
-            // We try to interleave data from different shards so that batched
-            // updates distribute load over all servers.
-            for (size_t i = 0; i < active.size(); ++i) {
-                if (auto maybe_item = pseudoshards[active[i]].pop()) {
-                    ret.push_back(std::move(*maybe_item));
-                } else {
-                    std::swap(active[i], active[active.size() - 1]);
-                    active.pop_back();
-                }
             }
         }
     }
@@ -427,9 +374,8 @@ raw_stream_t rget_response_reader_t::unshard(
     r_sanity_check(ret.size() != 0);
 
     // Make sure `active_ranges` is in a clean state.
-    for (auto &&ps : pseudoshards) {
-        ps.finish();
-    }
+    pseudoshards->finish();
+
     bool seen_active = false;
     bool seen_saturated = false;
     if (active_ranges->ranges.has_value()) {
