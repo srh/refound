@@ -145,44 +145,6 @@ indirect_key_or_max to_indirect(const key_or_max *kb) {
 
 static const store_key_t store_key_min = store_key_t::min();
 
-class pseudoshard_t {
-public:
-    pseudoshard_t(sorting_t _sorting,
-                  active_range_with_cache *_cached,
-                  keyed_stream_t *_fresh)
-        : sorting(_sorting),
-          cached(_cached),
-          fresh(_fresh),
-          finished(false) {
-        r_sanity_check(_cached != nullptr);
-    }
-    pseudoshard_t(pseudoshard_t &&) = default;
-    pseudoshard_t &operator=(pseudoshard_t &&) = default;
-
-    std::vector<ql::rget_item_t> pop_all_and_finish() {
-        r_sanity_check(!finished);
-        r_sanity_check(fresh->stream.size() != 0);
-
-        std::vector<ql::rget_item_t> ret;
-        ret.reserve(fresh->stream.size());
-
-        // NNN: Maybe fresh->stream can be std::moved as a vector.
-        std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
-
-        finished = true;
-        return ret;
-    }
-
-private:
-    // We move out of `cached` and `fresh`, so we need to act like we have ownership.
-    DISABLE_COPYING(pseudoshard_t);
-    sorting_t sorting;
-    active_range_with_cache *cached;
-    keyed_stream_t *fresh;
-    bool finished;
-};
-
-
 #if RDB_CF
 changefeed::keyspec_t empty_reader_t::get_changespec() const {
     return changefeed::keyspec_t(
@@ -217,60 +179,59 @@ raw_stream_t rget_response_reader_t::unshard(
         readgen->restrict_active_ranges(sorting, &*active_ranges);
     }
 
+    std::vector<ql::rget_item_t> ret;
     // Create the pseudoshards, which represent the cached, fresh, and
     // hypothetical `rget_item_t`s from the shards.  We also mark shards
     // exhausted in this step.
-    optional<pseudoshard_t> pseudoshards;
-    if (active_ranges->ranges.has_value()) {
-        std::pair<key_range_t, ql::active_range_with_cache> &pair = *active_ranges->ranges;
-        if (pair.second.totally_exhausted()) {
-            goto exit_loop;
-        }
-        keyed_stream_t *fresh = nullptr;
-        // Active shards need their bounds updated.
+    if (!active_ranges->ranges.has_value()) {
+        r_sanity_check(shards_exhausted());
+        return ret;
+    }
+    std::pair<key_range_t, ql::active_range_with_cache> &pair = *active_ranges->ranges;
+    if (pair.second.totally_exhausted()) {
+        r_sanity_check(shards_exhausted());
+        return ret;
+    }
+    keyed_stream_t *fresh = nullptr;
+    // Active shards need their bounds updated.
 
-        const limit_read_last_key *new_bound = nullptr;
-        if (stream.substreams.has_value()) {
-            fresh = &stream.substreams->second;
-            new_bound = &stream.substreams->second.last_key;
-        }
-        if (!reversed(sorting)) {
-            if (new_bound != nullptr && !new_bound->is_max_key()) {
-                pair.second.key_range.left = lower_key_bound(new_bound->successor_key());
-            } else {
-                pair.second.key_range.left =
-                    pair.second.key_range.right;
-            }
+    const limit_read_last_key *new_bound = nullptr;
+    if (stream.substreams.has_value()) {
+        fresh = &stream.substreams->second;
+        new_bound = &stream.substreams->second.last_key;
+    }
+    if (!reversed(sorting)) {
+        if (new_bound != nullptr && !new_bound->is_max_key()) {
+            pair.second.key_range.left = lower_key_bound(new_bound->successor_key());
         } else {
-            // The right bound is open so we don't need to decrement.
-            if (new_bound != nullptr && !new_bound->is_min_key()) {
-                // Even if the key was decremented, the right bound is open, and the
-                // decremented key is outside the truncated secondary keyspace (since
-                // it is 250 bytes long and the secondary keyspace is 125 or so),
-                // which means we can get away with using raw_key.
-                pair.second.key_range.right = new_bound->raw_key;
-            } else {
-                pair.second.key_range.right = pair.second.key_range.left;
-            }
+            pair.second.key_range.left =
+                pair.second.key_range.right;
         }
-
-        // If there's any data for a hash shard, we need to consider it
-        // while unsharding.  Note that the shard may have *already been
-        // marked exhausted* in the step above.
-        if (fresh != nullptr) {
-            pseudoshards.emplace(sorting, &pair.second, fresh);
+    } else {
+        // The right bound is open so we don't need to decrement.
+        if (new_bound != nullptr && !new_bound->is_min_key()) {
+            // Even if the key was decremented, the right bound is open, and the
+            // decremented key is outside the truncated secondary keyspace (since
+            // it is 250 bytes long and the secondary keyspace is 125 or so),
+            // which means we can get away with using raw_key.
+            pair.second.key_range.right = new_bound->raw_key;
+        } else {
+            pair.second.key_range.right = pair.second.key_range.left;
         }
     }
-    // ^ the above used to be a loop, with a continue statement.
- exit_loop:
-    std::vector<ql::rget_item_t> ret;
-    if (!pseudoshards.has_value()) {
+
+    // If there's any data for a hash shard, we need to consider it
+    // while unsharding.  Note that the shard may have *already been
+    // marked exhausted* in the step above.
+    if (fresh == nullptr) {
         r_sanity_check(shards_exhausted());
         return ret;
     }
 
-    // Do the "unsharding" but there is one shard.
-    ret = pseudoshards->pop_all_and_finish();
+    // Do the "unsharding" here but there is only one shard.
+    ret.reserve(fresh->stream.size());
+    // NNN: Maybe fresh->stream can be std::moved as a vector.
+    std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
 
     // We should have aborted earlier if there was no data.  If this assert ever
     // becomes false, make sure that we can't get into a state where all shards
