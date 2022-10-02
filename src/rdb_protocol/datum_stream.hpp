@@ -173,6 +173,8 @@ protected:
     const scoped<datum_stream_t> source;
 };
 
+// SATURATED can't happen anymore (because we don't actually shard).
+//
 // Every shard is in a particular state.  ACTIVE means we should read more data
 // from it, SATURATED means that there's more data to read but we didn't
 // actually use any of the data we read last time so don't bother issuing
@@ -183,7 +185,7 @@ protected:
 //
 // We track these on a per-hash-shard basis because it's easier, but we decide
 // whether or not to issue reads on a per-range-shard basis.
-enum class range_state_t { ACTIVE, SATURATED, EXHAUSTED };
+enum class range_state_t { ACTIVE, EXHAUSTED };
 
 void debug_print(printf_buffer_t *buf, const range_state_t &rs);
 struct active_range_with_cache {

@@ -56,7 +56,6 @@ void debug_print(printf_buffer_t *buf, const range_state_t &rs) {
     const char *s;
     switch (rs) {
     case range_state_t::ACTIVE:    s = "ACTIVE"; break;
-    case range_state_t::SATURATED: s = "SATURATED"; break;
     case range_state_t::EXHAUSTED: s = "EXHAUSTED"; break;
     default: unreachable();
     }
@@ -100,10 +99,6 @@ lower_key_bound_range active_ranges_to_range(const active_ranges_t &ranges) {
             start = std::min(start, pair.second.key_range.left);
             end = std::max(end, pair.second.key_range.right);
             seen_active = true;
-            break;
-        case range_state_t::SATURATED:
-            // If we didn't use any of the values we read last time, don't read
-            // any more this time.
             break;
         case range_state_t::EXHAUSTED:
             // If there's no more data in a range then don't bother reading from it.
@@ -202,11 +197,6 @@ private:
                 // No fresh values and no cached values means we should be exhausted.
                 r_sanity_check(false);
             }
-            break;
-        case range_state_t::SATURATED:
-            // A shard should never be saturated unless it has cached values.
-            r_sanity_check(cached->cache.size() != 0);
-            cached->state = range_state_t::ACTIVE;
             break;
         case range_state_t::EXHAUSTED: break;
         default: unreachable();
@@ -349,12 +339,10 @@ raw_stream_t rget_response_reader_t::unshard(
     r_sanity_check(ret.size() != 0);
 
     bool seen_active = false;
-    bool seen_saturated = false;
     if (active_ranges->ranges.has_value()) {
         auto &pair = *active_ranges->ranges;
         switch (pair.second.state) {
         case range_state_t::ACTIVE: seen_active = true; break;
-        case range_state_t::SATURATED: seen_saturated = true; break;
         case range_state_t::EXHAUSTED: break;
         default: unreachable();
         }
@@ -362,7 +350,6 @@ raw_stream_t rget_response_reader_t::unshard(
     if (!seen_active) {
         // We should always have marked a saturated shard as active if the last
         // active shard was exhausted.
-        r_sanity_check(!seen_saturated);
         r_sanity_check(shards_exhausted());
     }
 
