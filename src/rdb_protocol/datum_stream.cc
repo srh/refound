@@ -184,17 +184,18 @@ public:
                   keyed_stream_t *_fresh)
         : sorting(_sorting),
           cached(_cached),
-          cached_index(0),
           fresh(_fresh),
-          fresh_index(0),
           finished(false) {
         r_sanity_check(_cached != nullptr);
     }
     pseudoshard_t(pseudoshard_t &&) = default;
     pseudoshard_t &operator=(pseudoshard_t &&) = default;
 
+private:
     void finish() {
         r_sanity_check(!finished);
+        size_t cached_index = cached->cache.size();
+        size_t fresh_index = fresh == nullptr ? 0 : fresh->stream.size();
         switch (cached->state) {
         case range_state_t::ACTIVE:
             if (cached->cache.size() != 0) {
@@ -237,21 +238,21 @@ public:
         finished = true;
     }
 
-    std::vector<ql::rget_item_t> pop_all() {
+public:
+    std::vector<ql::rget_item_t> pop_all_and_finish() {
         r_sanity_check(!finished);
 
         std::vector<ql::rget_item_t> ret;
-        ret.reserve((cached->cache.size() - cached_index) +
-            (fresh == nullptr ? 0 : fresh->stream.size() - fresh_index));
+        ret.reserve(cached->cache.size() +
+            (fresh == nullptr ? 0 : fresh->stream.size()));
 
-        while (cached_index < cached->cache.size()) {
-            ret.push_back(std::move(cached->cache[cached_index++]));
-        }
+        // NNN: Maybe active_ranges and cached->cache can be std::moved as a vector.  Maybe only one of cached and fresh is non-empty now that we have no real unsharding to do.
+        std::move(cached->cache.begin(), cached->cache.end(), std::back_inserter(ret));
         if (fresh != nullptr) {
-            while (fresh_index < fresh->stream.size()) {
-                ret.push_back(std::move(fresh->stream[fresh_index++]));
-            }
+            std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
         }
+
+        finish();
         return ret;
     }
 
@@ -260,9 +261,7 @@ private:
     DISABLE_COPYING(pseudoshard_t);
     sorting_t sorting;
     active_range_with_cache *cached;
-    size_t cached_index;
     keyed_stream_t *fresh;
-    size_t fresh_index;
     bool finished;
 };
 
@@ -366,15 +365,12 @@ raw_stream_t rget_response_reader_t::unshard(
     }
 
     // Do the "unsharding" but there is one shard.
-    ret = pseudoshards->pop_all();
+    ret = pseudoshards->pop_all_and_finish();
 
     // We should have aborted earlier if there was no data.  If this assert ever
     // becomes false, make sure that we can't get into a state where all shards
     // are marked saturated.
     r_sanity_check(ret.size() != 0);
-
-    // Make sure `active_ranges` is in a clean state.
-    pseudoshards->finish();
 
     bool seen_active = false;
     bool seen_saturated = false;
