@@ -188,12 +188,15 @@ protected:
 enum class range_state_t { ACTIVE, EXHAUSTED };
 
 void debug_print(printf_buffer_t *buf, const range_state_t &rs);
+// This type no longer even has a cache (because we consume everything "fresh" because we
+// don't unshard anymore).
 struct active_range_with_cache {
     // This is the range of values that we have yet to read from the shard.  We
     // store a range instead of just a `store_key_t` because this range is only
     // a restriction of the indexed range for primary key reads.
     lower_key_bound_range key_range;
-    raw_stream_t cache; // Entries we weren't able to unshard.
+    // This no longer has a "cache".  Is this type getting obsolete?
+
     range_state_t state;
     // No data in the cache and nothing to read from the shards.
     bool totally_exhausted() const;

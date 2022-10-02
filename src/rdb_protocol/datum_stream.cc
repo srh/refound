@@ -66,8 +66,6 @@ void debug_print(printf_buffer_t *buf, const active_range_with_cache &hrwc) {
     buf->appendf("active_range_with_cache{");
     debug_print(buf, hrwc.key_range);
     buf->appendf(", ");
-    debug_print(buf, hrwc.cache);
-    buf->appendf(", ");
     debug_print(buf, hrwc.state);
     buf->appendf("}\n");
 }
@@ -77,7 +75,7 @@ void debug_print(printf_buffer_t *buf, const active_ranges_t &ar) {
 }
 
 bool active_range_with_cache::totally_exhausted() const {
-    return state == range_state_t::EXHAUSTED && cache.size() == 0;
+    return state == range_state_t::EXHAUSTED;
 }
 
 bool active_ranges_t::totally_exhausted() const {
@@ -148,7 +146,6 @@ active_ranges_t new_active_ranges(
                 lower_key_bound_range::from_key_range(is_secondary == is_secondary_t::YES
                     ? original_range
                     : pair.first.intersection(original_range)),
-                raw_stream_t(),
                 range_state_t::ACTIVE}));
     }
 
@@ -191,8 +188,7 @@ private:
         r_sanity_check(!finished);
         switch (cached->state) {
         case range_state_t::ACTIVE:
-            if (cached->cache.size() != 0) {
-            } else if (fresh != nullptr && fresh->stream.size() != 0) {
+            if (fresh != nullptr && fresh->stream.size() != 0) {
             } else {
                 // No fresh values and no cached values means we should be exhausted.
                 r_sanity_check(false);
@@ -209,11 +205,10 @@ public:
         r_sanity_check(!finished);
 
         std::vector<ql::rget_item_t> ret;
-        ret.reserve(cached->cache.size() +
-            (fresh == nullptr ? 0 : fresh->stream.size()));
+        ret.reserve(fresh == nullptr ? 0 : fresh->stream.size());
 
-        // NNN: Maybe active_ranges and cached->cache can be std::moved as a vector.  Maybe only one of cached and fresh is non-empty now that we have no real unsharding to do.
-        std::move(cached->cache.begin(), cached->cache.end(), std::back_inserter(ret));
+        // NNN: Maybe fresh->stream can be std::moved as a vector.  Maybe only one of cached and fresh is non-empty now that we have no real unsharding to do.
+        // NNN: Do we need cached at all still?
         if (fresh != nullptr) {
             std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
         }
@@ -318,7 +313,7 @@ raw_stream_t rget_response_reader_t::unshard(
         // If there's any data for a hash shard, we need to consider it
         // while unsharding.  Note that the shard may have *already been
         // marked exhausted* in the step above.
-        if (fresh != nullptr || pair.second.cache.size() > 0) {
+        if (fresh != nullptr) {
             pseudoshards.emplace(sorting, &pair.second, fresh);
         }
     }
