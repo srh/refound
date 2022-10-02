@@ -229,9 +229,7 @@ raw_stream_t rget_response_reader_t::unshard(
     }
 
     // Do the "unsharding" here but there is only one shard.
-    ret.reserve(fresh->stream.size());
-    // NNN: Maybe fresh->stream can be std::moved as a vector.
-    std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
+    ret = std::move(fresh->stream);
 
     // We should have aborted earlier if there was no data.  If this assert ever
     // becomes false, make sure that we can't get into a state where all shards
