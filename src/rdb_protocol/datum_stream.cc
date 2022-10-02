@@ -296,7 +296,7 @@ raw_stream_t rget_response_reader_t::unshard(
 
     grouped_t<stream_t> *gs = boost::get<grouped_t<stream_t> >(&res.result);
     r_sanity_check(gs != nullptr);
-    auto stream = groups_to_batch(gs->get_underlying_map());
+    stream_t stream = groups_to_batch(gs->get_underlying_map());
     if (!active_ranges.has_value()) {
 #if RDB_CF
         if (res.stamp_response.has_value()) {
