@@ -159,30 +159,17 @@ public:
     pseudoshard_t(pseudoshard_t &&) = default;
     pseudoshard_t &operator=(pseudoshard_t &&) = default;
 
-private:
-    void finish() {
-        r_sanity_check(!finished);
-        if (!cached->totally_exhausted()) {
-            // No fresh values and no cached values means we should be exhausted.
-            r_sanity_check(fresh != nullptr && fresh->stream.size() != 0);
-        }
-        finished = true;
-    }
-
-public:
     std::vector<ql::rget_item_t> pop_all_and_finish() {
         r_sanity_check(!finished);
+        r_sanity_check(fresh->stream.size() != 0);
 
         std::vector<ql::rget_item_t> ret;
-        ret.reserve(fresh == nullptr ? 0 : fresh->stream.size());
+        ret.reserve(fresh->stream.size());
 
-        // NNN: Maybe fresh->stream can be std::moved as a vector.  Maybe only one of cached and fresh is non-empty now that we have no real unsharding to do.
-        // NNN: Do we need cached at all still?
-        if (fresh != nullptr) {
-            std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
-        }
+        // NNN: Maybe fresh->stream can be std::moved as a vector.
+        std::move(fresh->stream.begin(), fresh->stream.end(), std::back_inserter(ret));
 
-        finish();
+        finished = true;
         return ret;
     }
 
