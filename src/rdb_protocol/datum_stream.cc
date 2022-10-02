@@ -236,38 +236,37 @@ raw_stream_t rget_response_reader_t::unshard(
     optional<pseudoshard_t> pseudoshards;
     if (active_ranges->ranges.has_value()) {
         std::pair<key_range_t, ql::active_range_with_cache> &pair = *active_ranges->ranges;
-        bool range_active = !pair.second.totally_exhausted();
         if (pair.second.totally_exhausted()) {
             goto exit_loop;
         }
         keyed_stream_t *fresh = nullptr;
         // Active shards need their bounds updated.
-        if (range_active) {
-            const limit_read_last_key *new_bound = nullptr;
-            if (stream.substreams.has_value()) {
-                fresh = &stream.substreams->second;
-                new_bound = &stream.substreams->second.last_key;
-            }
-            if (!reversed(sorting)) {
-                if (new_bound != nullptr && !new_bound->is_max_key()) {
-                    pair.second.key_range.left = lower_key_bound(new_bound->successor_key());
-                } else {
-                    pair.second.key_range.left =
-                        pair.second.key_range.right;
-                }
+
+        const limit_read_last_key *new_bound = nullptr;
+        if (stream.substreams.has_value()) {
+            fresh = &stream.substreams->second;
+            new_bound = &stream.substreams->second.last_key;
+        }
+        if (!reversed(sorting)) {
+            if (new_bound != nullptr && !new_bound->is_max_key()) {
+                pair.second.key_range.left = lower_key_bound(new_bound->successor_key());
             } else {
-                // The right bound is open so we don't need to decrement.
-                if (new_bound != nullptr && !new_bound->is_min_key()) {
-                    // Even if the key was decremented, the right bound is open, and the
-                    // decremented key is outside the truncated secondary keyspace (since
-                    // it is 250 bytes long and the secondary keyspace is 125 or so),
-                    // which means we can get away with using raw_key.
-                    pair.second.key_range.right = new_bound->raw_key;
-                } else {
-                    pair.second.key_range.right = pair.second.key_range.left;
-                }
+                pair.second.key_range.left =
+                    pair.second.key_range.right;
+            }
+        } else {
+            // The right bound is open so we don't need to decrement.
+            if (new_bound != nullptr && !new_bound->is_min_key()) {
+                // Even if the key was decremented, the right bound is open, and the
+                // decremented key is outside the truncated secondary keyspace (since
+                // it is 250 bytes long and the secondary keyspace is 125 or so),
+                // which means we can get away with using raw_key.
+                pair.second.key_range.right = new_bound->raw_key;
+            } else {
+                pair.second.key_range.right = pair.second.key_range.left;
             }
         }
+
         // If there's any data for a hash shard, we need to consider it
         // while unsharding.  Note that the shard may have *already been
         // marked exhausted* in the step above.
