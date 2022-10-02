@@ -420,7 +420,7 @@ class op_t {
 public:
     op_t() { }
     virtual ~op_t() { }
-    virtual void operator()(env_t *env,
+    virtual void apply_op(env_t *env,
                             groups_t *groups,
                             // Returns a datum that might be null
                             const std::function<datum_t()> &lazy_sindex_val) = 0;
@@ -453,7 +453,7 @@ public:
     virtual bool uses_val() { return true; }
     virtual void stop_at_boundary(const limit_read_last_key &) { }
     virtual bool should_send_batch() = 0;
-    virtual continue_bool_t operator()(
+    virtual continue_bool_t apply_accumulator(
             env_t *env,
             groups_t *groups,
             const store_key_t &key,
@@ -471,7 +471,7 @@ class eager_acc_t {
 public:
     eager_acc_t() { }
     virtual ~eager_acc_t() { }
-    virtual void operator()(env_t *env, groups_t *groups) = 0;
+    virtual void apply_eager(env_t *env, groups_t *groups) = 0;
     virtual void add_res(env_t *env, result_t *res, sorting_t sorting) = 0;
     virtual scoped_ptr_t<val_t> finish_eager(
         backtrace_id_t bt, bool is_grouped,

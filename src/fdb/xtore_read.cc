@@ -159,11 +159,11 @@ public:
             ql::groups_t data = {{ql::datum_t(), ql::datums_t(copies, val)}};
 
             for (auto it = job.transformers.begin(); it != job.transformers.end(); ++it) {
-                (**it)(job.env, &data, lazy_sindex_val);
+                (*it)->apply_op(job.env, &data, lazy_sindex_val);
             }
             // We need lots of extra data for the accumulation because we might be
             // accumulating `rget_item_t`s for a batch.
-            continue_bool_t cont = (*job.accumulator)(job.env, &data, key, lazy_sindex_val);
+            continue_bool_t cont = job.accumulator->apply_accumulator(job.env, &data, key, lazy_sindex_val);
             return cont;
         } catch (const ql::exc_t &e) {
             response->result = e;
@@ -840,11 +840,11 @@ public:
             ql::groups_t data = {{ql::datum_t(), ql::datums_t(copies, val)}};
 
             for (auto it = job.transformers.begin(); it != job.transformers.end(); ++it) {
-                (**it)(job.env, &data, lazy_sindex_val);
+                (*it)->apply_op(job.env, &data, lazy_sindex_val);
             }
             // We need lots of extra data for the accumulation because we might be
             // accumulating `rget_item_t`s for a batch.
-            continue_bool_t cont = (*job.accumulator)(job.env, &data, key, lazy_sindex_val);
+            continue_bool_t cont = job.accumulator->apply_accumulator(job.env, &data, key, lazy_sindex_val);
             if (remember_key_for_sindex_batching) {
                 if (cont == continue_bool_t::ABORT) {
                     last_truncated_secondary_for_abort.set(

@@ -1431,7 +1431,7 @@ eager_datum_stream_t::done_t eager_datum_stream_t::next_grouped_batch(
         }
         (*out)[datum_t()] = std::move(v);
         for (auto it = ops.begin(); it != ops.end(); ++it) {
-            (**it)(env, out, []() { return datum_t(); });
+            (*it)->apply_op(env, out, []() { return datum_t(); });
         }
     }
     return done_t::NO;
@@ -1442,14 +1442,14 @@ void eager_datum_stream_t::accumulate(
     batchspec_t bs = batchspec_t::user(batch_type_t::TERMINAL, env);
     groups_t data;
     while (next_grouped_batch(env, bs, &data) == done_t::NO) {
-        (*acc)(env, &data);
+        acc->apply_eager(env, &data);
     }
 }
 
 void eager_datum_stream_t::accumulate_all(env_t *env, eager_acc_t *acc) {
     groups_t data;
     done_t done = next_grouped_batch(env, batchspec_t::all(), &data);
-    (*acc)(env, &data);
+    acc->apply_eager(env, &data);
     if (done == done_t::NO) {
         done_t must_be_yes = next_grouped_batch(env, batchspec_t::all(), &data);
         r_sanity_check(data.size() == 0);

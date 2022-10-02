@@ -236,9 +236,9 @@ continue_bool_t collect_all_geo_intersecting_cb_t::emit_result(
     data = {{ql::datum_t(), ql::datums_t{std::move(val)}}};
 
     for (auto it = job.transformers.begin(); it != job.transformers.end(); ++it) {
-        (**it)(job.env, &data, [&]() { return sindex_val; });
+        (*it)->apply_op(job.env, &data, [&]() { return sindex_val; });
     }
-    return (*job.accumulator)(job.env,
+    return job.accumulator->apply_accumulator(job.env,
                               &data,
                               std::move(key),
                               [&]() { return sindex_val; });

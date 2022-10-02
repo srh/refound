@@ -90,7 +90,7 @@ protected:
         guarantee(acc.size() == 0);
     }
 private:
-    continue_bool_t operator()(
+    continue_bool_t apply_accumulator(
             env_t *env,
             groups_t *groups,
             const store_key_t &key,
@@ -234,7 +234,7 @@ public:
           ops(_ops),
           batcher(batchspec_t::all().to_batcher()) { }
 private:
-    virtual void operator()(env_t *, groups_t *) {
+    virtual void apply_eager(env_t *, groups_t *) {
         guarantee(false); // Don't use this as an eager accumulator.
     }
     virtual void add_res(env_t *, result_t *, sorting_t) {
@@ -337,7 +337,7 @@ class to_array_t : public eager_acc_t {
 public:
     to_array_t() : size(0) { }
 private:
-    virtual void operator()(env_t *env, groups_t *gs) {
+    virtual void apply_eager(env_t *env, groups_t *gs) {
         for (auto kv = gs->begin(); kv != gs->end(); ++kv) {
             datums_t *lst1 = &groups[kv->first];
             datums_t *lst2 = &kv->second;
@@ -485,7 +485,7 @@ class terminal_t : public grouped_acc_t<T>, public eager_acc_t {
 protected:
     explicit terminal_t(T &&t) : grouped_acc_t<T>(std::move(t)) { }
 private:
-    virtual void operator()(env_t *env, groups_t *groups) {
+    virtual void apply_eager(env_t *env, groups_t *groups) {
         grouped_t<T> *_acc = grouped_acc_t<T>::get_acc();
         const T *_default_val = grouped_acc_t<T>::get_default_val();
         for (auto it = groups->begin(); it != groups->end(); ++it) {
@@ -819,7 +819,7 @@ scoped_ptr_t<eager_acc_t> make_eager_terminal(const terminal_variant_t &t) {
 class ungrouped_op_t : public op_t {
 protected:
 private:
-    virtual void operator()(
+    virtual void apply_op(
         env_t *env, groups_t *groups, const std::function<datum_t()> &lazy_sindex_val) {
         for (auto it = groups->begin(); it != groups->end();) {
             lst_transform(env, &it->second, lazy_sindex_val);
@@ -845,7 +845,7 @@ public:
         r_sanity_check((funcs.size() + append_index) != 0);
     }
 private:
-    virtual void operator()(env_t *env,
+    virtual void apply_op(env_t *env,
                             groups_t *groups,
                             const std::function<datum_t()> &lazy_sindex_val) {
         if (groups->size() == 0) return;
