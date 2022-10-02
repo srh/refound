@@ -65,8 +65,6 @@ void debug_print(printf_buffer_t *buf, const range_state_t &rs) {
 
 void debug_print(printf_buffer_t *buf, const active_range_with_cache &hrwc) {
     buf->appendf("active_range_with_cache{");
-    debug_print(buf, hrwc.cfeed_shard_id);
-    buf->appendf(", ");
     debug_print(buf, hrwc.key_range);
     buf->appendf(", ");
     debug_print(buf, hrwc.cache);
@@ -143,46 +141,18 @@ enum class is_secondary_t { NO, YES };
 active_ranges_t new_active_ranges(
     const stream_t &stream,
     const key_range_t &original_range,
-    const optional<std::map<region_t, uuid_u> > &shard_ids,
     is_secondary_t is_secondary) {
     active_ranges_t ret;
-    std::set<uuid_u> covered_shards;
     if (stream.substreams.has_value()) {
         auto &pair = *stream.substreams;
-        uuid_u cfeed_shard_id = nil_uuid();
-        if (shard_ids.has_value()) {
-            auto shard_id_it = shard_ids->find(pair.first);
-            r_sanity_check(shard_id_it != shard_ids->end());
-            cfeed_shard_id = shard_id_it->second;
-            covered_shards.insert(cfeed_shard_id);
-        }
 
         ret.ranges[pair.first]
             = active_range_with_cache{
-                cfeed_shard_id,
                 lower_key_bound_range::from_key_range(is_secondary == is_secondary_t::YES
                     ? original_range
                     : pair.first.intersection(original_range)),
                 raw_stream_t(),
                 range_state_t::ACTIVE};
-    }
-
-    // Add ranges for missing shards (we get this if some shards didn't return any data)
-    if (shard_ids.has_value()) {
-        for (const auto &shard_pair : *shard_ids) {
-            if (covered_shards.count(shard_pair.second) > 0) {
-                continue;
-            }
-
-            ret.ranges[shard_pair.first]
-                 = active_range_with_cache{
-                     shard_pair.second,
-                     lower_key_bound_range::from_key_range(is_secondary == is_secondary_t::YES
-                         ? original_range
-                         : shard_pair.first.intersection(original_range)),
-                     raw_stream_t(),
-                     range_state_t::ACTIVE};
-        }
     }
 
     return ret;
@@ -326,7 +296,6 @@ raw_stream_t rget_response_reader_t::unshard(
     r_sanity_check(gs != nullptr);
     auto stream = groups_to_batch(gs->get_underlying_map());
     if (!active_ranges.has_value()) {
-        optional<std::map<region_t, uuid_u> > opt_shard_ids;
 #if RDB_CF
         if (res.stamp_response.has_value()) {
             opt_shard_ids.set(std::map<region_t, uuid_u>());
@@ -337,7 +306,7 @@ raw_stream_t rget_response_reader_t::unshard(
         }
 #endif  // RDB_CF
         active_ranges.set(new_active_ranges(
-            stream, readgen->original_keyrange(), opt_shard_ids,
+            stream, readgen->original_keyrange(),
             readgen->sindex_name().has_value() ? is_secondary_t::YES : is_secondary_t::NO));
         readgen->restrict_active_ranges(sorting, &*active_ranges);
     }

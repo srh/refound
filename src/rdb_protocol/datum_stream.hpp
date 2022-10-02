@@ -187,7 +187,6 @@ enum class range_state_t { ACTIVE, SATURATED, EXHAUSTED };
 
 void debug_print(printf_buffer_t *buf, const range_state_t &rs);
 struct active_range_with_cache {
-    uuid_u cfeed_shard_id;
     // This is the range of values that we have yet to read from the shard.  We
     // store a range instead of just a `store_key_t` because this range is only
     // a restriction of the indexed range for primary key reads.
