@@ -277,17 +277,6 @@ raw_stream_t rget_response_reader_t::unshard(
     // are marked saturated.
     r_sanity_check(ret.size() != 0);
 
-    // NNN: This assertion at the end (shards_exhausted()) is all just locally provable.
-    bool seen_active = false;
-    if (active_ranges->ranges.has_value()) {
-        seen_active = !active_ranges->ranges->second.totally_exhausted();
-    }
-    if (!seen_active) {
-        // We should always have marked a saturated shard as active if the last
-        // active shard was exhausted.
-        r_sanity_check(shards_exhausted());
-    }
-
     return ret;
 }
 
