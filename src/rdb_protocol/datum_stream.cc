@@ -194,18 +194,10 @@ public:
 private:
     void finish() {
         r_sanity_check(!finished);
-        size_t cached_index = cached->cache.size();
-        size_t fresh_index = fresh == nullptr ? 0 : fresh->stream.size();
         switch (cached->state) {
         case range_state_t::ACTIVE:
             if (cached->cache.size() != 0) {
-                if (cached_index == 0) {
-                    cached->state = range_state_t::SATURATED;
-                }
             } else if (fresh != nullptr && fresh->stream.size() != 0) {
-                if (fresh_index == 0) {
-                    cached->state = range_state_t::SATURATED;
-                }
             } else {
                 // No fresh values and no cached values means we should be exhausted.
                 r_sanity_check(false);
@@ -214,26 +206,10 @@ private:
         case range_state_t::SATURATED:
             // A shard should never be saturated unless it has cached values.
             r_sanity_check(cached->cache.size() != 0);
-            if (cached_index != 0) {
-                cached->state = range_state_t::ACTIVE;
-            }
+            cached->state = range_state_t::ACTIVE;
             break;
         case range_state_t::EXHAUSTED: break;
         default: unreachable();
-        }
-        if (fresh != nullptr || cached_index > 0) {
-            raw_stream_t new_cache;
-            new_cache.reserve((cached->cache.size() - cached_index)
-                              + (fresh ? (fresh->stream.size() - fresh_index) : 0));
-            std::move(cached->cache.begin() + cached_index,
-                      cached->cache.end(),
-                      std::back_inserter(new_cache));
-            if (fresh != nullptr) {
-                std::move(fresh->stream.begin() + fresh_index,
-                          fresh->stream.end(),
-                          std::back_inserter(new_cache));
-            }
-            cached->cache = std::move(new_cache);
         }
         finished = true;
     }
