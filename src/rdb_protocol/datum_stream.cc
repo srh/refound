@@ -237,16 +237,24 @@ public:
         finished = true;
     }
 
-    optional<rget_item_t> pop() {
+    std::vector<ql::rget_item_t> pop_all() {
         r_sanity_check(!finished);
-        if (cached_index < cached->cache.size()) {
-            return make_optional(std::move(cached->cache[cached_index++]));
-        } else if (fresh != nullptr && fresh_index < fresh->stream.size()) {
-            return make_optional(std::move(fresh->stream[fresh_index++]));
-        } else {
-            return r_nullopt;
+
+        std::vector<ql::rget_item_t> ret;
+        ret.reserve((cached->cache.size() - cached_index) +
+            (fresh == nullptr ? 0 : fresh->stream.size() - fresh_index));
+
+        while (cached_index < cached->cache.size()) {
+            ret.push_back(std::move(cached->cache[cached_index++]));
         }
+        if (fresh != nullptr) {
+            while (fresh_index < fresh->stream.size()) {
+                ret.push_back(std::move(fresh->stream[fresh_index++]));
+            }
+        }
+        return ret;
     }
+
 private:
     // We move out of `cached` and `fresh`, so we need to act like we have ownership.
     DISABLE_COPYING(pseudoshard_t);
@@ -293,7 +301,6 @@ raw_stream_t rget_response_reader_t::unshard(
         readgen->restrict_active_ranges(sorting, &*active_ranges);
     }
 
-    raw_stream_t ret;
     // Create the pseudoshards, which represent the cached, fresh, and
     // hypothetical `rget_item_t`s from the shards.  We also mark shards
     // exhausted in this step.
@@ -352,22 +359,15 @@ raw_stream_t rget_response_reader_t::unshard(
     }
     // ^ the above used to be a loop, with a continue statement.
  exit_loop:
+    std::vector<ql::rget_item_t> ret;
     if (!pseudoshards.has_value()) {
         r_sanity_check(shards_exhausted());
         return ret;
     }
 
     // Do the "unsharding" but there is one shard.
-    {
-        size_t num_iters = 0;
-        while (optional<ql::rget_item_t> maybe_item = pseudoshards->pop()) {
-            ret.push_back(std::move(*maybe_item));
-            const size_t YIELD_INTERVAL = 2000;
-            if (++num_iters % YIELD_INTERVAL == 0) {
-                coro_t::yield();
-            }
-        }
-    }
+    ret = pseudoshards->pop_all();
+
     // We should have aborted earlier if there was no data.  If this assert ever
     // becomes false, make sure that we can't get into a state where all shards
     // are marked saturated.
