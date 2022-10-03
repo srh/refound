@@ -334,14 +334,4 @@ constexpr int REQLFDB_commit_unknown_result = 1021;
 // This is retryable.  Maybe transaction_too_old is better?  Idk.
 constexpr int REQLFDB_not_committed = 1020;
 
-// TODO: Is this used?
-inline std::string REQLFDB_TABLE_CONFIG(namespace_id_t table_id) {
-    std::string ret;
-    ret.reserve(200);  // TODO: how much?
-    ret += "rethinkdb/table_config/";
-    uuid_onto_str(table_id.value, &ret);
-    ret += "/config";
-    return ret;
-}
-
 #endif  // RETHINKDB_FDB_REQL_FDB_HPP_
