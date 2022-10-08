@@ -27,6 +27,7 @@ Your code might break if you use:
 - change feeds (not supported, but could be)
 - system tables (some data is inapplicable, faked for compatibility, or missing)
 - shard configuration commands (which are inapplicable)
+- rows larger than 10 megabytes
 
 You might suffer performance regressions.  These would be addressable.
 
