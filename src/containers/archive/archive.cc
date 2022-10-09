@@ -58,58 +58,62 @@ int64_t force_read(read_stream_t *s, void *p, int64_t n) {
     return written_so_far;
 }
 
-write_message_t::~write_message_t() { }
-
-void write_message_t::append(const void *p, int64_t n) {
+template <size_t N>
+void write_message_template<N>::append(const void *p, int64_t n) {
     while (n > 0) {
-        if (buffers_.empty() || buffers_.back()->size == write_buffer_t::DATA_SIZE) {
-            buffers_.emplace_back(new write_buffer_t);
+        size_t last_buf_size = size_ % write_message_buffer_t<N>::DATA_SIZE;
+        if (last_buf_size == 0) {
+            buffers_.emplace_back(new write_message_buffer_t<N>);
         }
 
-        write_buffer_t *b = buffers_.back().get();
-        int64_t k = std::min<int64_t>(n, write_buffer_t::DATA_SIZE - b->size);
+        write_message_buffer_t<N> *b = buffers_.back().get();
+        int64_t k = std::min<int64_t>(n, write_message_buffer_t<N>::DATA_SIZE - last_buf_size);
 
-        memcpy(b->data + b->size, p, k);
-        b->size += k;
+        memcpy(b->data + last_buf_size, p, k);
+        size_ += k;
         p = static_cast<const char *>(p) + k;
         n = n - k;
     }
 }
 
-size_t write_message_t::size() const {
-    size_t ret = 0;
-    for (const auto& p : buffers_) {
-        ret += p->size;
-    }
-    return ret;
-}
-
-std::string write_message_t::send_to_string() const {
+template <size_t N>
+std::string write_message_template<N>::send_to_string() const {
     std::string ret;
-    ret.reserve(size());
+    ret.reserve(size_);
+    size_t remaining = size_;
     for (const auto &p : buffers_) {
-        ret.append(p->data, p->size);
+        size_t written = std::min(size_t(write_message_buffer_t<N>::DATA_SIZE), remaining);
+        ret.append(p->data, written);
+        remaining -= written;
     }
     return ret;
 }
 
-std::vector<char> write_message_t::send_to_vector() const {
+template <size_t N>
+std::vector<char> write_message_template<N>::send_to_vector() const {
     std::vector<char> ret;
-    ret.reserve(size());
+    ret.reserve(size_);
+    size_t remaining = size_;
     for (const auto &p : buffers_) {
-        ret.insert(ret.end(), p->data, p->data + p->size);
+        size_t written = std::min(size_t(write_message_buffer_t<N>::DATA_SIZE), remaining);
+        ret.insert(ret.end(), p->data, p->data + written);
+        remaining -= written;
     }
     return ret;
 }
 
 int send_write_message(write_stream_t *s, const write_message_t *wm) {
-    const std::vector<scoped<write_buffer_t>> *bufs = wm->unsafe_expose_buffers();
+    constexpr size_t N = 4096;
+    const std::vector<scoped<write_message_buffer_t<N>>> *bufs = wm->unsafe_expose_buffers();
+    size_t remaining = wm->size();
     for (const auto &p : *bufs) {
-        int64_t res = s->write(p->data, p->size);
+        size_t written = std::min(size_t(write_message_buffer_t<N>::DATA_SIZE), remaining);
+        int64_t res = s->write(p->data, written);
         if (res == -1) {
             return -1;
         }
-        rassert(res == p->size);
+        rassert(res == static_cast<int64_t>(written));
+        remaining -= written;
     }
     return 0;
 }
@@ -171,3 +175,6 @@ INSTANTIATE_SERIALIZABLE_SINCE_v1_13(in6_addr);
 
 // Keep the struct keyword here to satisfy VC++
 RDB_IMPL_SERIALIZABLE_1_SINCE_v1_13(struct in_addr, s_addr);
+
+template class write_message_template<4096>;
+

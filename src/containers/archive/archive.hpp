@@ -71,16 +71,16 @@ private:
     DISABLE_COPYING(write_stream_t);
 };
 
-class write_buffer_t {
+template <size_t N>
+class write_message_buffer_t {
 public:
-    write_buffer_t() : size(0) { }
+    write_message_buffer_t() = default;
 
-    static const int DATA_SIZE = 4096;
-    int size;
+    static constexpr size_t DATA_SIZE = N;
     char data[DATA_SIZE];
 
 private:
-    DISABLE_COPYING(write_buffer_t);
+    DISABLE_COPYING(write_message_buffer_t);
 };
 
 // A set of buffers in which an atomic message to be sent on a stream
@@ -89,28 +89,30 @@ private:
 // flush.  This type can be extended to support holding references to
 // large buffers, to save copying.)  Generally speaking, you serialize
 // to a write_message_t, and then flush that to a write_stream_t.
-class write_message_t {
+template <size_t N>
+class write_message_template {
 public:
-    write_message_t() { }
-    explicit write_message_t(write_message_t &&) = default;
-    ~write_message_t();
+    write_message_template() : size_(0) {}
+    explicit write_message_template(write_message_template &&) = default;
+    ~write_message_template() = default;
 
     void append(const void *p, int64_t n);
 
-    size_t size() const;
+    size_t size() const { return size_; }
 
-    const std::vector<scoped<write_buffer_t>> *unsafe_expose_buffers() const { return &buffers_; }
+    const std::vector<scoped<write_message_buffer_t<N>>> *unsafe_expose_buffers() const { return &buffers_; }
 
     std::string send_to_string() const;
     std::vector<char> send_to_vector() const;
 
 private:
-    friend int send_write_message(write_stream_t *s, const write_message_t *wm);
+    std::vector<scoped<write_message_buffer_t<N>>> buffers_;
+    size_t size_;
 
-    std::vector<scoped<write_buffer_t>> buffers_;
-
-    DISABLE_COPYING(write_message_t);
+    DISABLE_COPYING(write_message_template);
 };
+
+class write_message_t : public write_message_template<4096> {};
 
 // Returns 0 upon success, -1 upon failure.
 MUST_USE int send_write_message(write_stream_t *s, const write_message_t *wm);
