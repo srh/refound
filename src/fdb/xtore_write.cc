@@ -596,7 +596,8 @@ batched_replace_response_t rdb_fdb_batched_replace(
         batched_replace_response_t stats = ql::datum_t::empty_object();
         std::set<std::string> conditions;
         size_t keys_complete = 0;
-        batch_size_calc calc(keys.size() - keys_complete);
+        const size_t INIT_SPLIT_SIZE = 128;  // TODO: This comes from real_table.cc.
+        batch_size_calc calc(std::min<size_t>(INIT_SPLIT_SIZE, keys.size() - keys_complete));
         while (keys_complete < keys.size()) {
             const size_t recommended_batch = std::min<size_t>(keys.size() - keys_complete, calc.recommended_batch());
 

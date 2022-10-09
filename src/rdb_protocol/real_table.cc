@@ -201,37 +201,6 @@ ql::datum_t real_table_t::read_nearest(
     return std::move(formatted_result).to_datum();
 }
 
-const size_t split_size = 128;
-template<class T>
-std::vector<std::vector<T> > split(std::vector<T> &&v) {
-    std::vector<std::vector<T> > out;
-    out.reserve(ceil_divide(v.size(), split_size));
-    size_t i = 0;
-    while (i < v.size()) {
-        size_t step = split_size;
-        size_t keys_left = v.size() - i;
-        if (step > keys_left) {
-            step = keys_left;
-        } else if (step < keys_left && keys_left < 2 * step) {
-            // Be less absurd if we have e.g. `split_size + 1` elements.  (In
-            // general it's better to send batches of size X and X+1 rather than
-            // 2X and 1 because the throughput is basically the same but the max
-            // latency is higher in the second case.  It probably doesn't matter
-            // too much, though, except for very large documents.)
-            step = keys_left / 2;
-        }
-        guarantee(step != 0);
-
-        std::vector<T> batch;
-        batch.reserve(step);
-        std::move(v.begin() + i, v.begin() + i + step, std::back_inserter(batch));
-        i += step;
-        out.push_back(std::move(batch));
-    }
-    guarantee(i == v.size());
-    return out;
-}
-
 ql::datum_t real_table_t::write_batched_replace(
     ql::env_t *env,
     const std::vector<ql::datum_t> &keys,
@@ -248,39 +217,23 @@ ql::datum_t real_table_t::write_batched_replace(
 
     ql::datum_t stats((std::map<datum_string_t, ql::datum_t>()));
     std::set<std::string> conditions;
-    std::vector<std::vector<store_key_t> > batches = split(std::move(store_keys));
-    bool batch_succeeded = false;
-    for (auto &&batch : batches) {
-        try {
-            // TODO: Does this really need a pkey field?
-            // QQQ: Given an out of date table config, performing computations on the documents with the pkey before we've done check_cv is wrong.
-            batched_replace_t write(
-                std::move(batch),
-                get_pkey(),
-                func,
-                ignore_write_hook,
-                env->get_serializable_env(),
-                return_changes);
-            write_t w(std::move(write), durability, env->profile(), env->limits());
-            write_response_t response;
-            write_with_profile(env, &w, &response);
-            auto dp = boost::get<ql::datum_t>(&response.response);
-            r_sanity_check(dp != NULL);
-            stats = stats.merge(*dp, ql::stats_merge, env->limits(), &conditions);
-        } catch (const ql::datum_exc_t &e) {
-            throw batch_succeeded
-                ? ql::datum_exc_t(ql::base_exc_t::OP_INDETERMINATE, e.what())
-                : e;
-        } catch (const ql::exc_t &e) {
-            throw batch_succeeded
-                ? ql::exc_t(ql::base_exc_t::OP_INDETERMINATE,
-                            e.what(),
-                            e.backtrace(),
-                            e.dummy_frames())
-                : e;
-        }
-        batch_succeeded = true;
-    }
+
+    // TODO: Does this really need a pkey field?
+    // QQQ: Given an out of date table config, performing computations on the documents with the pkey before we've done check_cv is wrong.  (But we did eval r.table here so this is actually a legit calculation.  Revisit what we do if cv is out of date, downstream from this.  Don't we have a non-provisional table id?  So it's just table config that's out of date (for sindex updates and such).)
+    batched_replace_t write(
+        std::move(store_keys),
+        get_pkey(),
+        func,
+        ignore_write_hook,
+        env->get_serializable_env(),
+        return_changes);
+    write_t w(std::move(write), durability, env->profile(), env->limits());
+    write_response_t response;
+    write_with_profile(env, &w, &response);
+    auto dp = boost::get<ql::datum_t>(&response.response);
+    r_sanity_check(dp != NULL);
+    stats = stats.merge(*dp, ql::stats_merge, env->limits(), &conditions);
+
     ql::datum_object_builder_t result(stats);
     result.add_warnings(conditions, env->limits());
     return std::move(result).to_datum();
@@ -298,25 +251,23 @@ ql::datum_t real_table_t::write_batched_insert(
 
     ql::datum_t stats((std::map<datum_string_t, ql::datum_t>()));
     std::set<std::string> conditions;
-    std::vector<std::vector<ql::datum_t> > batches = split(std::move(inserts));
-    for (auto &&batch : batches) {
-        // TODO: Does this really need a pkey field?
-        batched_insert_t write(
-            std::move(batch),
-            get_pkey(),
-            ignore_write_hook,
-            conflict_behavior,
-            conflict_func,
-            env->limits(),
-            env->get_serializable_env(),
-            return_changes);
-        write_t w(std::move(write), durability, env->profile(), env->limits());
-        write_response_t response;
-        write_with_profile(env, &w, &response);
-        auto dp = boost::get<ql::datum_t>(&response.response);
-        r_sanity_check(dp != NULL);
-        stats = stats.merge(*dp, ql::stats_merge, env->limits(), &conditions);
-    }
+
+    // TODO: Does this really need a pkey field?
+    batched_insert_t write(
+        std::move(inserts),
+        get_pkey(),
+        ignore_write_hook,
+        conflict_behavior,
+        conflict_func,
+        env->limits(),
+        env->get_serializable_env(),
+        return_changes);
+    write_t w(std::move(write), durability, env->profile(), env->limits());
+    write_response_t response;
+    write_with_profile(env, &w, &response);
+    auto dp = boost::get<ql::datum_t>(&response.response);
+    r_sanity_check(dp != NULL);
+    stats = stats.merge(*dp, ql::stats_merge, env->limits(), &conditions);
 
     ql::datum_object_builder_t result(stats);
     result.add_warnings(conditions, env->limits());
