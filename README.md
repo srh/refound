@@ -15,7 +15,8 @@ Useful commands:
 These expect you to have a FoundationDB instance running and a
 FoundationDB configuration file.
 
-This repo is built (forked) off of RethinkDB 2.4.x >= 2.4.2.
+This repo is built (forked) off of RethinkDB 2.4.x, at some point
+after 2.4.2.
 
 This is *sorely* lacking in documentation.  Questions are welcome.
 
