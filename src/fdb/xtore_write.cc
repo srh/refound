@@ -392,7 +392,9 @@ void rdb_fdb_set(
     mod_info->added = data;
 
     if (overwrite || !old_value.has_value()) {
-        ql::serialization_result_t res = rfdb::kv_location_set(txn, kv_location, data);
+        std::string str;
+        ql::serialization_result_t res = datum_serialize_to_string(data, &str);
+
         if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
             rfail_typed_target(&data, "Array too large for disk writes "
                                "(limit 100,000 elements).");
@@ -401,6 +403,7 @@ void rdb_fdb_set(
                                "written to disk.");
         }
         r_sanity_check(!ql::bad(res));  // TODO: Compile time assertion.
+        rfdb::kv_location_set(txn, kv_location, str);
     }
 
     response_out->result =
@@ -493,8 +496,9 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
             } else {
                 // TODO: Remove this sanity check, we already did rcheck_row_replacement.
                 r_sanity_check(new_val.get_field(primary_key, ql::NOTHROW).has());
-                ql::serialization_result_t res =
-                    rfdb::kv_location_set(txn, precomputed_kv_location, new_val);
+                std::string serialized_new_val;
+                ql::serialization_result_t res = datum_serialize_to_string(new_val, &serialized_new_val);
+
                 if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
                     rfail_typed_target(&new_val, "Array too large for disk writes "
                                        "(limit 100,000 elements).");
@@ -503,6 +507,7 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
                                        "written to disk.");
                 }
                 r_sanity_check(!ql::bad(res));
+                rfdb::kv_location_set(txn, precomputed_kv_location, serialized_new_val);
             }
 
             /* Report the changes for sindex and change-feed purposes */

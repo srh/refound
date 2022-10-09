@@ -83,10 +83,11 @@ struct secondary_range_fut {
     fdb_future future;
 };
 
-MUST_USE ql::serialization_result_t
-kv_location_set(
+
+
+void kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
-        const ql::datum_t &data);
+        const std::string &serialized_datum);
 
 void kv_location_delete(FDBTransaction *txn, const std::string &kv_location);
 

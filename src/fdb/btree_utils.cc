@@ -94,15 +94,11 @@ unique_pkey_suffix generate_unique_pkey_suffix() {
 }
 
 // The signature will need to change with large values because we'll need to wipe out the old value (if it's larger and uses more keys).
-MUST_USE ql::serialization_result_t
-kv_location_set(
+void kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
-        const ql::datum_t &data) {
-    std::string str;
-    ql::serialization_result_t res = datum_serialize_to_string(data, &str);
-    if (bad(res)) {
-        return res;
-    }
+        const std::string &str /* datum_serialize_to_string result */) {
+    // TODO: It would be cool if we took a write_message_t instead of a str.  It would
+    // also be cool if the write_message_t chunks were sized by LARGE_VALUE_SPLIT_SIZE.
 
     // Wipe out old value.
     std::string prefix = kv_prefix(kv_location);
@@ -141,8 +137,6 @@ kv_location_set(
         transaction_set_buf(txn, prefix, str.data() + front, back - front);
         prefix.resize(prefix_size);
     }
-
-    return res;
 }
 
 void kv_location_delete(
