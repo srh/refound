@@ -87,7 +87,7 @@ struct forced_index_lower_bound {
     ql::datum_t value;
 };
 
-void update_fdb_sindexes(
+approx_txn_size update_fdb_sindexes(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
         const table_config_t &table_config,
@@ -100,6 +100,8 @@ void update_fdb_sindexes(
 
     // TODO: We only need to block on jobstates whose sindexes have a mutation.
     const auto &jobstates = jobstate_futs->block_on_jobstates(interruptor);
+
+    approx_txn_size txn_size{0};
 
     for (const auto &pair : table_config.sindexes) {
         const sindex_metaconfig_t &fdb_sindex_config = pair.second;
@@ -177,6 +179,7 @@ void update_fdb_sindexes(
                 // TODO: Make sure fdb key limits are followed.
                 rdbtable_sindex_fdb_key_onto(&fdb_key, key);
                 transaction_clear_std_str(txn, fdb_key);
+                txn_size.value += fdb_key.size();
                 fdb_key.resize(index_prefix_size);
             } else {
                 addition_keys.erase(add_it);
@@ -190,9 +193,12 @@ void update_fdb_sindexes(
             fdb_transaction_set(txn,
                 as_uint8(fdb_key.data()), int(fdb_key.size()),
                 value, 0);
+            txn_size.value += fdb_key.size();
             fdb_key.resize(index_prefix_size);
         }
     }  // for each sindex
+
+    return txn_size;
 }
 
 optional<store_key_t> convert_upper_bound_to_store_key(const optional<ukey_string> &k) {
@@ -392,6 +398,7 @@ void rdb_fdb_set(
     mod_info->added = data;
 
     if (overwrite || !old_value.has_value()) {
+        // OOO: This does duplicate code with the other place that calls kv_location_set.
         std::string str;
         ql::serialization_result_t res = datum_serialize_to_string(data, &str);
 
@@ -403,6 +410,12 @@ void rdb_fdb_set(
                                "written to disk.");
         }
         r_sanity_check(!ql::bad(res));  // TODO: Compile time assertion.
+
+        if (str.size() > REQLFDB_MAX_LARGE_VALUE_SIZE) {
+            rfail_typed_target(&data,
+                "Document too large for disk writes (limit " REQLFDB_MAX_LARGE_VALUE_SIZE_STR ")");
+        }
+
         rfdb::kv_location_set(txn, kv_location, str);
     }
 
@@ -441,7 +454,10 @@ void rdb_fdb_delete(
 
 // Note that "and_return_superblock" in the name is just to explain how the code evolved
 // from pre-fdb functions.  There is no superblock.
-batched_replace_response_t rdb_fdb_replace_and_return_superblock(
+//
+// Returns nullopt if serialized_size_limit would overflow.
+// The return value's approx_txn_size is some vaguely approximate size we increase the transaction by.
+optional<std::pair<batched_replace_response_t, approx_txn_size>> rdb_fdb_replace_and_return_superblock(
         FDBTransaction *txn,
         const datum_string_t &primary_key,
         const store_key_t &key,
@@ -449,6 +465,7 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
         const btree_batched_replacer_t *replacer,
         const size_t index,
         rfdb::datum_fut &&old_value_fut,
+        size_t serialized_size_limit,
         rdb_modification_info_t *mod_info_out,
         const signal_t *interruptor) {
     const return_changes_t return_changes = replacer->should_return_changes();
@@ -487,12 +504,14 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
             ql::datum_t resp = make_row_replacement_stats(
                 primary_key, key, old_val, new_val, return_changes, &was_changed);
             if (!was_changed) {
-                return resp;
+                return make_optional(std::make_pair(std::move(resp), approx_txn_size{0}));
             }
+
+            approx_txn_size our_size{0};
 
             /* Now that the change has passed validation, write it to ~disk~ fdb */
             if (new_val.get_type() == ql::datum_t::R_NULL) {
-                rfdb::kv_location_delete(txn, precomputed_kv_location);
+                our_size = rfdb::kv_location_delete(txn, precomputed_kv_location);
             } else {
                 // TODO: Remove this sanity check, we already did rcheck_row_replacement.
                 r_sanity_check(new_val.get_field(primary_key, ql::NOTHROW).has());
@@ -507,7 +526,16 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
                                        "written to disk.");
                 }
                 r_sanity_check(!ql::bad(res));
-                rfdb::kv_location_set(txn, precomputed_kv_location, serialized_new_val);
+                if (serialized_new_val.size() > REQLFDB_MAX_LARGE_VALUE_SIZE) {
+                    rfail_typed_target(&new_val,
+                        "Document too large for disk writes (limit " REQLFDB_MAX_LARGE_VALUE_SIZE_STR ")");
+                }
+
+                if (serialized_new_val.size() > serialized_size_limit) {
+                    return r_nullopt;
+                }
+
+                our_size = rfdb::kv_location_set(txn, precomputed_kv_location, serialized_new_val);
             }
 
             /* Report the changes for sindex and change-feed purposes */
@@ -519,13 +547,13 @@ batched_replace_response_t rdb_fdb_replace_and_return_superblock(
                 mod_info_out->added = new_val;
             }
 
-            return resp;
+            return make_optional(std::make_pair(std::move(resp), our_size));
 
         } catch (const ql::base_exc_t &e) {
-            return make_row_replacement_error_stats(old_val,
-                                                    new_val,
-                                                    return_changes,
-                                                    e.what());
+            return make_optional(std::make_pair(
+                make_row_replacement_error_stats(
+                    old_val, new_val, return_changes, e.what()),
+                approx_txn_size{0}));
         }
     }
 }
@@ -609,30 +637,58 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                 std::unordered_map<std::string, forced_index_lower_bound> sindex_max_claimkeys;
 
+                size_t keys_processed = 0;
+
+                approx_txn_size size_processed{0};
+
                 // TODO: Might we perform too many concurrent reads from fdb?  We had
                 // MAX_CONCURRENT_REPLACES=8 before.
-                for (size_t i = keys_complete; i < keys_complete + keys_to_process; ++i) {
+                for (size_t i2 = 0; i2 < keys_to_process; ++i2) {
                     rdb_modification_info_t mod_info;
 
-                    ql::datum_t res = rdb_fdb_replace_and_return_superblock(
+                    if (size_processed.value >= REQLFDB_WRITE_TXN_SOFT_LIMIT) {
+                        // Break if the previous writes put us over the soft transaction
+                        // size limit.  We may do this later in the loop if the _current_
+                        // write puts us over the soft limit.
+                        break;
+                    }
+
+                    /* We know REQLFDB_WRITE_TXN_SOFT_LIMIT - size_processed.value is
+                       positive because of the preceding comparison.  We pass in
+                       effectively no size limit for the first document --
+                       rdb_fdb_replace_and_return_superblock respeects the hard limit,
+                       which is REQLFDB_MAX_LARGE_VALUE_SIZE. */
+                    const size_t soft_limit = i2 == 0 ? REQLFDB_MAX_LARGE_VALUE_SIZE * 2 :
+                        REQLFDB_WRITE_TXN_SOFT_LIMIT - size_processed.value;
+
+                    optional<std::pair<ql::datum_t, approx_txn_size>> res = rdb_fdb_replace_and_return_superblock(
                         txn,
                         primary_key_column,
-                        keys[i],
-                        kv_locations[i],
+                        keys[keys_complete + i2],
+                        kv_locations[i2],
                         replacer,
-                        i,
-                        std::move(old_value_futs[i]),
+                        keys_complete + i2,
+                        std::move(old_value_futs[i2]),
+                        soft_limit,
                         &mod_info,
                         interruptor);
 
+                    if (!res.has_value()) {
+                        // Break if the current write would put us over the soft limit
+                        break;
+                    }
+
+                    size_processed.value += res->second.value;
                     if (mod_info.has_any()) {
-                        update_fdb_sindexes(txn, table_id, table_config, keys[i],
+                        approx_txn_size sz = update_fdb_sindexes(txn, table_id, table_config, keys[keys_complete + i2],
                             std::move(mod_info), &jobstate_futs, &sindex_max_claimkeys,
                             interruptor);
+                        size_processed.value += sz.value;
                     }
 
                     // TODO: This is just going to be shitty performance.
-                    stats = stats.merge(res, ql::stats_merge, limits, &conditions);
+                    stats = stats.merge(res->first, ql::stats_merge, limits, &conditions);
+                    keys_processed += 1;
                 }
 
                 if (!sindex_max_claimkeys.empty()) {
@@ -645,7 +701,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                 ql::datum_object_builder_t out(stats);
                 out.add_warnings(conditions, limits);
-                return std::make_tuple(std::move(out).to_datum(), std::move(conditions), keys_to_process);
+                return std::make_tuple(std::move(out).to_datum(), std::move(conditions), keys_processed);
             });
 
             conditions.insert(std::get<1>(p).begin(), std::get<1>(p).end());

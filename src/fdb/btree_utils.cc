@@ -94,7 +94,7 @@ unique_pkey_suffix generate_unique_pkey_suffix() {
 }
 
 // The signature will need to change with large values because we'll need to wipe out the old value (if it's larger and uses more keys).
-void kv_location_set(
+approx_txn_size kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
         const std::string &str /* datum_serialize_to_string result */) {
     // TODO: It would be cool if we took a write_message_t instead of a str.  It would
@@ -120,6 +120,8 @@ void kv_location_set(
     const size_t prefix_size = prefix.size();
     unique_pkey_suffix unique_suffix = generate_unique_pkey_suffix();
 
+    approx_txn_size ret{0};
+
     for (size_t i = 0; i < num_parts; ++i) {
         static_assert(25 == LARGE_VALUE_SUFFIX_LENGTH, "Expecting 1 + 8 + 16 pkey format");
         if (i == 0) {
@@ -134,15 +136,21 @@ void kv_location_set(
         btubugf("kls '%s', writing key '%s'\n", debug_str(prefix).c_str(), debug_str(key).c_str());
         const size_t front = i * LARGE_VALUE_SPLIT_SIZE;
         const size_t back = std::min(front + LARGE_VALUE_SPLIT_SIZE, str.size());
-        transaction_set_buf(txn, prefix, str.data() + front, back - front);
+        const size_t sz = back - front;
+        transaction_set_buf(txn, prefix, str.data() + front, sz);
+        ret.value += prefix.size() + sz;
+
         prefix.resize(prefix_size);
     }
+
+    return ret;
 }
 
-void kv_location_delete(
+// Returns vague txn size.
+approx_txn_size kv_location_delete(
         FDBTransaction *txn, const std::string &kv_location) {
     std::string prefix = kv_prefix(kv_location);
-    transaction_clear_prefix_range(txn, prefix);
+    return transaction_clear_prefix_range(txn, prefix);
 }
 
 rfdb::datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_location) {

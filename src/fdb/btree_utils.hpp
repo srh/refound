@@ -85,11 +85,11 @@ struct secondary_range_fut {
 
 
 
-void kv_location_set(
+approx_txn_size kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
         const std::string &serialized_datum);
 
-void kv_location_delete(FDBTransaction *txn, const std::string &kv_location);
+approx_txn_size kv_location_delete(FDBTransaction *txn, const std::string &kv_location);
 
 datum_fut kv_location_get(FDBTransaction *txn, const std::string &kv_location);
 

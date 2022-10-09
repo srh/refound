@@ -161,10 +161,11 @@ void transaction_set_buf(FDBTransaction *txn, const std::string &key,
 }
 
 
-void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix) {
+approx_txn_size transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix) {
     std::string end = prefix_end(prefix);
     fdb_transaction_clear_range(txn, as_uint8(prefix.data()), int(prefix.size()),
         as_uint8(end.data()), int(end.size()));
+    return approx_txn_size{prefix.size() + end.size()};
 }
 
 fdb_value future_block_on_value(FDBFuture *fut, const signal_t *interruptor) {

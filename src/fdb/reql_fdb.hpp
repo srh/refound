@@ -1,6 +1,7 @@
 #ifndef RETHINKDB_FDB_REQL_FDB_HPP_
 #define RETHINKDB_FDB_REQL_FDB_HPP_
 
+#include "config/args.hpp"
 #include "containers/uuid.hpp"
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
@@ -200,13 +201,18 @@ inline fdb_future transaction_get_c_str(FDBTransaction *txn, const char *key) {
         false)};
 }
 
+// Used to hold _our_ approximation that certain txn operations add to the size.
+struct approx_txn_size {
+    size_t value = 0;
+};
+
 fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key, bool snapshot);
 fdb_future transaction_get_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_clear_std_str(FDBTransaction *txn, const std::string &key);
 void transaction_set_std_str(FDBTransaction *txn, const std::string &key, const std::string &vaue);
 void transaction_set_buf(FDBTransaction *txn, const std::string &key,
         const char *value, size_t value_length);
-void transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix);
+approx_txn_size transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix);
 
 
 // TODO: Rename to "maybe_value_view" or "fdb_view" or something
@@ -333,5 +339,11 @@ constexpr uint64_t REQLFDB_TIMESTEP_MS = 5000;
 constexpr int REQLFDB_commit_unknown_result = 1021;
 // This is retryable.  Maybe transaction_too_old is better?  Idk.
 constexpr int REQLFDB_not_committed = 1020;
+
+// FoundationDB txn limit is 10 MB, and they recommend keeping below more like 1 MB for
+// general transactions.
+constexpr size_t REQLFDB_MAX_LARGE_VALUE_SIZE = 9 * MEGABYTE;
+#define REQLFDB_MAX_LARGE_VALUE_SIZE_STR "9,437,184 bytes"
+constexpr size_t REQLFDB_WRITE_TXN_SOFT_LIMIT = 1 * MEGABYTE;
 
 #endif  // RETHINKDB_FDB_REQL_FDB_HPP_
