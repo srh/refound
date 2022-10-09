@@ -22,14 +22,16 @@ This is *sorely* lacking in documentation.  Questions are welcome.
 Missing Features/Differences
 ============================
 
-Your code might break if you use:
+Your code will encounter errors if you use:
 
-- change feeds (not supported, but could be)
-- system tables (some data is inapplicable, faked for compatibility, or missing)
-- shard configuration commands (which are inapplicable)
-- rows larger than 10 megabytes
+- change feeds (not supported, but could be),
+- system tables (some data is inapplicable, faked for compatibility, or missing),
+- shard configuration commands (which are inapplicable), or
+- rows larger than 9 megabytes
 
 You might suffer performance regressions.  These would be addressable.
+The document size limit of 9 megabytes could also be removed with some
+further development.
 
 License
 =======
