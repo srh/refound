@@ -15,8 +15,9 @@ struct fdb_index_jobstate {
        unindexed_upper_bound) is "prohibited" to writes.
 
        There is a loophole -- the write transaction may proceed if it includes in its
-       transaction change to move sindex building forward such that sindex building
-       completion is guaranteed.
+       transaction some changes to move sindex building forward such that sindex building
+       completion is guaranteed.  The write transaction is then responsible for updating
+       this jobstate value.
 
        If a write includes keys k1, ..., kN that intersect the prohibited interval, let
        `k` be the maximum such key.  Then the write may proceed if in the same

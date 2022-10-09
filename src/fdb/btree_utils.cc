@@ -107,15 +107,13 @@ approx_txn_size kv_location_set(
 
     // Write new value.
     size_t total_size = str.size();
+    guarantee(total_size <= REQLFDB_MAX_LARGE_VALUE_SIZE);
     size_t num_parts;
     if (total_size == 0) {
         num_parts = 1;
     } else {
         num_parts = ceil_divide(total_size, LARGE_VALUE_SPLIT_SIZE);
     }
-
-    // TODO: Declare this constant.  We have it because of the file format.
-    guarantee(num_parts < 1048576);  // OOO: Fail more gracefully.
 
     const size_t prefix_size = prefix.size();
     unique_pkey_suffix unique_suffix = generate_unique_pkey_suffix();

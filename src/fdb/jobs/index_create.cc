@@ -14,120 +14,6 @@
 // #define icdbf(...) debugf(__VA_ARGS__)
 #define icdbf(...)
 
-/* Please note that we build secondary indexes in reverse order now, but this discussion
-talks as if we build it in forward order.
-
-We encounter a question of conflict resolution when building a secondary index.  The
-problem is, with a naive implementation:
-
-1. When performing a table write (key W), we must read the jobstate info for
-unindexed_lower_bound (called min_pkey here) and unindexed_upper_bound (called end_pkey
-here).
-
-2. Every sindex building operation requires that min_pkey be read from the jobstate --
-suppose its value is named K1 -- and then min_pkey written, with some value named K2.  The
-sindex building operation also reads all the pkey rows with values (K1, K2].
-
-There are four primary key regions involved.  A. [-infinity, K1], B. (K1, K2], C. (K2,
-end_pkey), D. [end_pkey, +infinity)
-
-Our table write W, occurring at the same time as the sindex building operation, only knows
-the value K1, because K2 is TBD.
-
-- If W is in region A or D, our write will need to insert into the new index.
-
-- If W is in region C (whatever that turns out to be), then our write will not need to
-  insert into the new index.
-
-- If W is in region B, then it will conflict with the index building operation.
-
-Generally, a write operation in region B unavoidably causes a conflict.
-
-(Why do we have region D and end_pkey at all?  So that if active table inserts are
-increasing by value (e.g. with an incrementing primary key or timestamp primary key) at
-the end of the table -- a common use case -- we'll finish building the index when we hit
-end_pkey, instead of chasing the table inserts.  We have more mitigations of chasing inserts
-described below.)
-
-The basic technique we might use is as follows:
-
-> If we just use normal transactions including table writes to region B, we would get such
-> a conflict, because the table write causes a write to happen in region B, conflicting
-> with the sindex building operation's read.  The sindex building operation would have to
-> retry -- maybe it would be less ambitious about what a large chunk of keys it takes on
-> the next attempt.  That would be okay.  But we get another conflict every time the
-> sindex build transaction commits, because it updates the jobstate's min_pkey field, with
-> _all_ write transactions ongoing at its commit time having to retry because they've read
-> that field.
-
-For now we go with a simple improvement: Have table write operations read the jobstate
-with a snapshot read.  And have the sindex building operation set a conflict range on region B?
-
-Wait, let me work this out...
-
-Suppose txn S (for Sindex build) reads the jobstate, reads a key range (which turns out to
-be B), and then writes the jobstate and adds sindex entries for those keys, and adds a
-WRITE conflict range for those keys
-
-And suppose txn T (for Table write) snapshot reads the jobstate, seeing min_pkey = K1, and has a key in:
-
- 1.1. Region A, and T commits before S:
-
-    - T writes the pkey and updates the index.
-
- 1.2. Region A, and S commits before T:
-
-    - T writes the pkey and updates the index.  No conflict on the jobstate because of
-      the snapshot read.
-
- 2.1. Region C, and T commits before S:
-
-    - T writes the pkey and doesn't update the index.
-
- 2.2. Region C, and S commits before T:
-
-    - T writes the pkey and doesn't update the index.  No conflict on the jobstate
-      because of the snapshot read.
-
- 3.1. Region B, and T commits before S:
-
-    - T writes the pkey and doesn't update the index.  The commit of S fails because its
-      read conflicted with T's write.
-
- 3.2. Region B, and S commits before T:
-
-    - T writes the pkey and doesn't update the index.  The commit of S succeeds because
-      it's first, and T fails because its read of the pkey in region B conflicts with the
-      conflict range set by S.
-
-      Note that if we used ordinary transactions, then T would fail because it read an out
-      of date version of jobstate and based its behavior on that.
-
-Now, what we'd like is for index building to win every conflict it has.  We want index
-building to be able to make progress.  We _could_ give it the ability to "ask" write
-transactions to help it update a certain key range, which is Region B.  Then incoming
-table write operations, along with the index build operation, could all attempt to
-complete that update themselves, if they touch Region B, in the same transaction.  One of
-them will succeed, and the rest will get a conflict, just once.  The Sindex build
-operation would still try smaller update intervals on its own attempts, reducing the size
-of the "ask" interval, to avoid getting stuck on a too-large "ask" interval.  (For
-example, suppose a million keys were written into the "ask" interval after it were
-created.)
-
-Another problem we face is that of chasing behind high-volume table inserts.  We mitigate
-this at the end of the table simply with unindexed_upper_bound.
-
-OOO: We can fail to ever create an index job in the first place, because we race on
-inserts when scanning for unindexed_upper_bound.
-
-But we can still end up having inserts serially increasing by primary key before the upper
-bound.  One way to reduce (but not theoretically eliminate) this problem is to just flip
-our index building logic to build the index in reverse order -- because usually, keys
-increase.
-
-
-*/
-
 /* How things work:
 
 Whenever we perform a write (to a table), we "read" the table config metadata --
@@ -137,8 +23,9 @@ to update the table config more then twice: when index building begins, and when
 ends.  So the table config's sindex_config_t holds a shared task id, that's it, until
 the index is done being built.
 
-The information about the in-progress construction of the index changes frequently, so
-it needs to be stored elsewhere.  It gets stored in index_jobstate_by_task.
+The information about the in-progress construction of the index changes frequently, so it
+needs to be stored elsewhere.  It gets stored in index_jobstate_by_task.  See
+fdb_index_jobstate for more info.
 */
 
 std::unordered_map<std::string, sindex_metaconfig_t>::iterator

@@ -36,7 +36,6 @@ struct node_info_by_lease_expiration {
     using pkey_type = fdb_node_id;
     static constexpr const char *prefix = REQLFDB_NODES_BY_LEASE_EXPIRATION;
 
-    // NNN: Use same parsing function of key format as jobs table.
     static skey_string skey_str(const skey_type &k) {
         return reqlfdb_clock_sindex_key(k);
     }
