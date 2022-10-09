@@ -8,7 +8,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "containers/intrusive_list.hpp"
+#include "containers/scoped.hpp"
 #include "containers/printf_buffer.hpp"
 #include "version.hpp"
 #include "valgrind.hpp"
@@ -71,7 +71,7 @@ private:
     DISABLE_COPYING(write_stream_t);
 };
 
-class write_buffer_t : public intrusive_list_node_t<write_buffer_t> {
+class write_buffer_t {
 public:
     write_buffer_t() : size(0) { }
 
@@ -99,7 +99,7 @@ public:
 
     size_t size() const;
 
-    intrusive_list_t<write_buffer_t> *unsafe_expose_buffers() { return &buffers_; }
+    std::vector<scoped<write_buffer_t>> *unsafe_expose_buffers() { return &buffers_; }
 
     std::string send_to_string() const;
     std::vector<char> send_to_vector() const;
@@ -107,7 +107,7 @@ public:
 private:
     friend int send_write_message(write_stream_t *s, const write_message_t *wm);
 
-    intrusive_list_t<write_buffer_t> buffers_;
+    std::vector<scoped<write_buffer_t>> buffers_;
 
     DISABLE_COPYING(write_message_t);
 };
