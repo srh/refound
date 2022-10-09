@@ -99,7 +99,7 @@ public:
 
     size_t size() const;
 
-    std::vector<scoped<write_buffer_t>> *unsafe_expose_buffers() { return &buffers_; }
+    const std::vector<scoped<write_buffer_t>> *unsafe_expose_buffers() const { return &buffers_; }
 
     std::string send_to_string() const;
     std::vector<char> send_to_vector() const;

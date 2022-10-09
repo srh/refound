@@ -103,7 +103,7 @@ std::vector<char> write_message_t::send_to_vector() const {
 }
 
 int send_write_message(write_stream_t *s, const write_message_t *wm) {
-    const std::vector<scoped<write_buffer_t>> *bufs = const_cast<write_message_t *>(wm)->unsafe_expose_buffers();
+    const std::vector<scoped<write_buffer_t>> *bufs = wm->unsafe_expose_buffers();
     for (const auto &p : *bufs) {
         int64_t res = s->write(p->data, p->size);
         if (res == -1) {
