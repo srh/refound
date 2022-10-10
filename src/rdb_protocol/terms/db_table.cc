@@ -1132,6 +1132,7 @@ scoped<table_t> provisional_to_table(
                 txn, prov_table.prov_db.db_name, prov_table.table_name, interruptor);
         });
         rcheck_fdb_datum(loop_err, "looking up database and table by name");
+        // NNN: It is actually possible that with a very slow transaction, we are on an out-of-date version here (and elsewhere) that is behind our config cache.  This means that add_db and other config cache functions must take a reqlfdb_config_version value.
         cc->note_version(result.ci_cv);
 
         if (!result.ci_value.has_value()) {
