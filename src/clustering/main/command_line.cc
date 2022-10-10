@@ -1800,6 +1800,13 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         }
 
         {
+            name_string_t test_db_name = name_string_t::guarantee_valid("test");
+            database_id_t test_db_id{generate_uuid()};
+
+            transaction_create_db(txn, test_db_name, test_db_id);
+        }
+
+        {
             reqlfdb_config_version cv;
             cv.value = { 0 };
             transaction_set_config_version(txn, cv);

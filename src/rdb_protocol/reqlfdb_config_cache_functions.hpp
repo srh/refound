@@ -64,6 +64,10 @@ config_cache_retrieve_user_by_name(
     const reqlfdb_config_version config_cache_cv, FDBTransaction *txn,
     const auth::username_t &username, const signal_t *interruptor);
 
+void transaction_create_db(
+        FDBTransaction *txn, const name_string_t &db_name,
+        const database_id_t &new_db_id);
+
 MUST_USE bool config_cache_db_create(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,

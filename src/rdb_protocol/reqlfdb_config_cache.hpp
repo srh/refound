@@ -129,6 +129,4 @@ public:
     MOVABLE_BUT_NOT_COPYABLE(reqlfdb_config_cache);
 };
 
-// Returns r_nullopt if the cache doesn't have it.
-
 #endif  // RETHINKDB_RDB_PROTOCOL_REQLFDB_CONFIG_CACHE_HPP_

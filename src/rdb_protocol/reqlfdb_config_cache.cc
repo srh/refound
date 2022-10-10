@@ -336,6 +336,13 @@ config_cache_retrieve_user_by_name(
     return ret;
 }
 
+void transaction_create_db(
+        FDBTransaction *txn, const name_string_t &db_name,
+        const database_id_t &new_db_id) {
+    transaction_set_uq_index<db_config_by_id>(txn, new_db_id, db_name);
+    transaction_set_uq_index<db_config_by_name>(txn, db_name, new_db_id);
+}
+
 bool config_cache_db_create(
         FDBTransaction *txn,
         const auth::user_context_t &user_context,
@@ -364,8 +371,7 @@ bool config_cache_db_create(
 
     ASSERT_NO_CORO_WAITING;
 
-    transaction_set_uq_index<db_config_by_id>(txn, new_db_id, db_name);
-    transaction_set_uq_index<db_config_by_name>(txn, db_name, new_db_id);
+    transaction_create_db(txn, db_name, new_db_id);
 
     cv.value++;
     transaction_set_config_version(txn, cv);
