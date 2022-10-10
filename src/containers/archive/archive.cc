@@ -103,7 +103,7 @@ std::vector<char> write_message_template<N>::send_to_vector() const {
 }
 
 int send_write_message(write_stream_t *s, const write_message_t *wm) {
-    constexpr size_t N = 4096;
+    constexpr size_t N = WRITE_MESSAGE_BUF_SIZE;
     const std::vector<scoped<write_message_buffer_t<N>>> *bufs = wm->unsafe_expose_buffers();
     size_t remaining = wm->size();
     for (const auto &p : *bufs) {
@@ -176,5 +176,5 @@ INSTANTIATE_SERIALIZABLE_SINCE_v1_13(in6_addr);
 // Keep the struct keyword here to satisfy VC++
 RDB_IMPL_SERIALIZABLE_1_SINCE_v1_13(struct in_addr, s_addr);
 
-template class write_message_template<4096>;
+template class write_message_template<WRITE_MESSAGE_BUF_SIZE>;
 

@@ -106,13 +106,16 @@ public:
     std::vector<char> send_to_vector() const;
 
 private:
+    // Each buffer is full except the last one.
     std::vector<scoped<write_message_buffer_t<N>>> buffers_;
     size_t size_;
 
     DISABLE_COPYING(write_message_template);
 };
 
-class write_message_t : public write_message_template<4096> {};
+// The same as rfdb::LARGE_VALUE_SPLIT_SIZE.
+static constexpr size_t WRITE_MESSAGE_BUF_SIZE = 16384;
+class write_message_t : public write_message_template<WRITE_MESSAGE_BUF_SIZE> {};
 
 // Returns 0 upon success, -1 upon failure.
 MUST_USE int send_write_message(write_stream_t *s, const write_message_t *wm);
