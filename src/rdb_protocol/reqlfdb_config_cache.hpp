@@ -108,15 +108,16 @@ public:
     void wipe();
 
     void note_version(reqlfdb_config_version cv) {
-        rassert(cv.value >= config_version.value);
+        // It is possible for cv to come from an out-of-date transaction, making it _less_
+        // than config_version.value.
         if (cv.value > config_version.value) {
             wipe();
+            config_version = cv;
         }
-        config_version = cv;
     }
 
-    void add_db(const database_id_t &db_id, const name_string_t &db_name);
-    void add_table(const namespace_id_t &table_id, counted_t<const rc_wrapper<table_config_t>> config);
+    void add_db(reqlfdb_config_version cv, const database_id_t &db_id, const name_string_t &db_name);
+    void add_table(reqlfdb_config_version cv, const namespace_id_t &table_id, counted_t<const rc_wrapper<table_config_t>> config);
 
     optional<config_info<database_id_t>>
     try_lookup_cached_db(const name_string_t &db_name) const;

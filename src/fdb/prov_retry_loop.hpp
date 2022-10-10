@@ -50,10 +50,9 @@ MUST_USE fdb_error_t txn_retry_loop_table(
                     table = expect_retrieve_table(txn.txn, prov_table, interruptor);
 
                 // Update the cache.
-                cc->note_version(table.ci_cv);
-                cc->add_db(table.ci_value.second.basic.database, prov_table.prov_db.db_name);
+                cc->add_db(table.ci_cv, table.ci_value.second.basic.database, prov_table.prov_db.db_name);
                 auto ptr = make_counted<const rc_wrapper<table_config_t>>(std::move(table.ci_value.second));
-                cc->add_table(table.ci_value.first, ptr);
+                cc->add_table(table.ci_cv, table.ci_value.first, ptr);
 
                 table_info info;
                 info.table_id = table.ci_value.first;
@@ -145,10 +144,9 @@ MUST_USE fdb_error_t txn_retry_loop_table_id(
                     db_id = table.ci_value.second.basic.database;
 
                     // Update the cache.
-                    cc->note_version(table.ci_cv);
-                    cc->add_db(table.ci_value.second.basic.database, prov_table.prov_db.db_name);
+                    cc->add_db(table.ci_cv, table.ci_value.second.basic.database, prov_table.prov_db.db_name);
                     auto ptr = make_counted<const rc_wrapper<table_config_t>>(std::move(table.ci_value.second));
-                    cc->add_table(table.ci_value.first, std::move(ptr));
+                    cc->add_table(table.ci_cv, table.ci_value.first, std::move(ptr));
                 }
                 fn(txn.txn, db_id, table_id, cv_check_fut());
             }

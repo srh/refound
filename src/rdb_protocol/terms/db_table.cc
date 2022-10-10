@@ -188,7 +188,7 @@ counted_t<const db_t> provisional_to_db(
 
     if (result.ci_value.has_value()) {
         database_id_t db_id = *result.ci_value;
-        cc->add_db(db_id, prov_db.db_name);
+        cc->add_db(result.ci_cv, db_id, prov_db.db_name);
 
         return make_counted<const db_t>(
             *result.ci_value, prov_db.db_name,
@@ -1132,14 +1132,13 @@ scoped<table_t> provisional_to_table(
                 txn, prov_table.prov_db.db_name, prov_table.table_name, interruptor);
         });
         rcheck_fdb_datum(loop_err, "looking up database and table by name");
-        // NNN: It is actually possible that with a very slow transaction, we are on an out-of-date version here (and elsewhere) that is behind our config cache.  This means that add_db and other config cache functions must take a reqlfdb_config_version value.
         cc->note_version(result.ci_cv);
 
         if (!result.ci_value.has_value()) {
             // Database was not found.
             rfail_db_not_found(prov_table.prov_db.bt, prov_table.prov_db.db_name);
         }
-        cc->add_db(result.ci_value->first, prov_table.prov_db.db_name);
+        cc->add_db(result.ci_cv, result.ci_value->first, prov_table.prov_db.db_name);
 
         if (!result.ci_value->second.has_value()) {
             // Table was not found.
@@ -1147,7 +1146,7 @@ scoped<table_t> provisional_to_table(
                 prov_table.table_name);
         }
         auto config = make_counted<const rc_wrapper<table_config_t>>(std::move(result.ci_value->second->second));
-        cc->add_table(result.ci_value->second->first, config);
+        cc->add_table(result.ci_cv, result.ci_value->second->first, config);
 
         // Both were found!
         table.reset(new real_table_t(result.ci_value->second->first,

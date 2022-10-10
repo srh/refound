@@ -123,17 +123,25 @@ void reqlfdb_config_cache::wipe() {
 }
 
 void reqlfdb_config_cache::add_db(
+        reqlfdb_config_version cv,
         const database_id_t &db_id, const name_string_t &db_name) {
-    db_id_index.emplace(db_id, db_name);
-    db_name_index.emplace(db_name, db_id);
+    note_version(cv);
+    if (cv.value == config_version.value) {
+        db_id_index.emplace(db_id, db_name);
+        db_name_index.emplace(db_name, db_id);
+    }
 }
 
 void reqlfdb_config_cache::add_table(
+        reqlfdb_config_version cv,
         const namespace_id_t &table_id, counted_t<const rc_wrapper<table_config_t>> config) {
-    table_name_index.emplace(
-        std::make_pair(config->basic.database, config->basic.name),
-        table_id);
-    table_id_index.emplace(table_id, std::move(config));
+    note_version(cv);
+    if (cv.value == config_version.value) {
+        table_name_index.emplace(
+            std::make_pair(config->basic.database, config->basic.name),
+            table_id);
+        table_id_index.emplace(table_id, std::move(config));
+    }
 }
 
 std::string unserialize_table_by_name_table_name_part(key_view table_name_part) {
