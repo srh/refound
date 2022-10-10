@@ -399,8 +399,8 @@ void rdb_fdb_set(
 
     if (overwrite || !old_value.has_value()) {
         // OOO: This does duplicate code with the other place that calls kv_location_set.
-        std::string str;
-        ql::serialization_result_t res = datum_serialize_to_string(data, &str);
+        write_message_t wm;
+        ql::serialization_result_t res = datum_serialize_to_write_message(data, &wm);
 
         if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
             rfail_typed_target(&data, "Array too large for disk writes "
@@ -411,12 +411,12 @@ void rdb_fdb_set(
         }
         r_sanity_check(!ql::bad(res));  // TODO: Compile time assertion.
 
-        if (str.size() > REQLFDB_MAX_LARGE_VALUE_SIZE) {
+        if (wm.size() > REQLFDB_MAX_LARGE_VALUE_SIZE) {
             rfail_typed_target(&data,
                 "Document too large for disk writes (limit " REQLFDB_MAX_LARGE_VALUE_SIZE_STR ")");
         }
 
-        rfdb::kv_location_set(txn, kv_location, str);
+        rfdb::kv_location_set(txn, kv_location, wm);
     }
 
     response_out->result =
@@ -515,8 +515,8 @@ optional<std::pair<batched_replace_response_t, approx_txn_size>> rdb_fdb_replace
             } else {
                 // TODO: Remove this sanity check, we already did rcheck_row_replacement.
                 r_sanity_check(new_val.get_field(primary_key, ql::NOTHROW).has());
-                std::string serialized_new_val;
-                ql::serialization_result_t res = datum_serialize_to_string(new_val, &serialized_new_val);
+                write_message_t serialized_new_val;
+                ql::serialization_result_t res = datum_serialize_to_write_message(new_val, &serialized_new_val);
 
                 if (res & ql::serialization_result_t::ARRAY_TOO_BIG) {
                     rfail_typed_target(&new_val, "Array too large for disk writes "

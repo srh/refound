@@ -105,6 +105,8 @@ public:
     std::string send_to_string() const;
     std::vector<char> send_to_vector() const;
 
+    static constexpr size_t DATA_SIZE = N;
+
 private:
     // Each buffer is full except the last one.
     std::vector<scoped<write_message_buffer_t<N>>> buffers_;

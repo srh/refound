@@ -96,10 +96,7 @@ unique_pkey_suffix generate_unique_pkey_suffix() {
 // The signature will need to change with large values because we'll need to wipe out the old value (if it's larger and uses more keys).
 approx_txn_size kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
-        const std::string &str /* datum_serialize_to_string result */) {
-    // TODO: It would be cool if we took a write_message_t instead of a str.  It would
-    // also be cool if the write_message_t chunks were sized by LARGE_VALUE_SPLIT_SIZE.
-
+        const write_message_t &str /* datum_serialize_to_write_message result */) {
     // Wipe out old value.
     std::string prefix = kv_prefix(kv_location);
     transaction_clear_prefix_range(txn, prefix);
@@ -115,8 +112,12 @@ approx_txn_size kv_location_set(
         num_parts = ceil_divide(total_size, LARGE_VALUE_SPLIT_SIZE);
     }
 
+    static_assert(LARGE_VALUE_SPLIT_SIZE == write_message_t::DATA_SIZE, "Expecting bufs to match");
+
     const size_t prefix_size = prefix.size();
     unique_pkey_suffix unique_suffix = generate_unique_pkey_suffix();
+
+    const std::vector<scoped<write_message_buffer_t<LARGE_VALUE_SPLIT_SIZE>>> *wm_bufs = str.unsafe_expose_buffers();
 
     approx_txn_size ret{0};
 
@@ -132,10 +133,12 @@ approx_txn_size kv_location_set(
         prefix.append(unique_suffix.data, unique_suffix.size);
 
         btubugf("kls '%s', writing key '%s'\n", debug_str(prefix).c_str(), debug_str(key).c_str());
-        const size_t front = i * LARGE_VALUE_SPLIT_SIZE;
-        const size_t back = std::min(front + LARGE_VALUE_SPLIT_SIZE, str.size());
-        const size_t sz = back - front;
-        transaction_set_buf(txn, prefix, str.data() + front, sz);
+
+
+        const size_t sz = std::min(LARGE_VALUE_SPLIT_SIZE, str.size() - i * LARGE_VALUE_SPLIT_SIZE);
+        // In total_size == 0 case, we have i == 0 and wm_bufs->size() == 0.
+        char emptydata[0];
+        transaction_set_buf(txn, prefix, i < wm_bufs->size() ? (*wm_bufs)[i]->data : emptydata, sz);
         ret.value += prefix.size() + sz;
 
         prefix.resize(prefix_size);

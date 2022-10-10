@@ -50,4 +50,7 @@ void compute_keys(const store_key_t &primary_key,
 
 ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, std::string *out);
 
+// Seems superfluous, no?  This does hard-code ql::check_datum_serialization_errors_t::YES.
+ql::serialization_result_t datum_serialize_to_write_message(const ql::datum_t &datum, write_message_t *out);
+
 #endif /* RDB_PROTOCOL_BTREE_HPP_ */

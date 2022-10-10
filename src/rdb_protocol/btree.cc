@@ -28,8 +28,6 @@
 
 
 ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, std::string *out) {
-    // TODO: We can avoid double-copying or something, because the write_message_t does
-    // get preallocated to one buffer, we can use a rocksdb::Slice.
     write_message_t wm;
     ql::serialization_result_t res =
         datum_serialize(&wm, datum, ql::check_datum_serialization_errors_t::YES);
@@ -38,6 +36,10 @@ ql::serialization_result_t datum_serialize_to_string(const ql::datum_t &datum, s
     }
     *out = wm.send_to_string();
     return res;
+}
+
+ql::serialization_result_t datum_serialize_to_write_message(const ql::datum_t &datum, write_message_t *out) {
+    return datum_serialize(out, datum, ql::check_datum_serialization_errors_t::YES);
 }
 
 ql::datum_t btree_batched_replacer_t::apply_write_hook(
