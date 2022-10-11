@@ -1707,6 +1707,32 @@ file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, op
         file_direct_io_mode_t::buffered_desired;
 }
 
+void append_littleendian_bit32(std::vector<uint8_t> *vec, uint64_t x) {
+    // The "& 0xFF" expression is for clarity.
+    vec->push_back(x & 0xFF);
+    vec->push_back((x >> 8) & 0xFF);
+    vec->push_back((x >> 16) & 0xFF);
+    vec->push_back((x >> 24) & 0xFF);
+}
+
+void append_littleendian_bit64(std::vector<uint8_t> *vec, uint64_t x) {
+    append_littleendian_bit32(vec, static_cast<uint32_t>(x));
+    append_littleendian_bit32(vec, static_cast<uint32_t>(x >> 32));
+}
+
+
+std::vector<uint8_t> little_endian_uint64(uint64_t x) {
+    // We're all using two's complement, right?
+    std::vector<uint8_t> ret;
+    ret.reserve(8);
+    append_littleendian_bit64(&ret, x);
+    return ret;
+}
+std::vector<uint8_t> little_endian_int64(int64_t x) {
+    // We're all using two's complement, right?
+    return little_endian_uint64(x);
+}
+
 int main_rethinkdb_create_fdb_blocking_pthread(
         FDBDatabase *fdb, bool wipe, const std::string &initial_password) {
     // TODO: Don't return int from this.
@@ -1719,11 +1745,16 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 
     printf("Connecting to FoundationDB to initialize RethinkDB instance...\n");
     fflush(stdout);
+
+    std::vector<std::pair<FDBTransactionOption, std::vector<uint8_t>>> create_txn_options = {
+        { FDB_TR_OPTION_TIMEOUT, little_endian_int64(5000) /* millis */ }
+    };
+
+
     std::string print_out;
-    size_t retry_count = 0;
-    fdb_error_t loop_err = txn_retry_loop_pthread(fdb,
-        [wipe, &failure, initial_password, &print_out, &retry_count](FDBTransaction *txn) {
-        printf("Attempting initialization (%zu)...\n", ++retry_count);
+    fdb_error_t loop_err = txn_retry_loop_pthread(fdb, create_txn_options,
+        [wipe, &failure, initial_password, &print_out](FDBTransaction *txn) {
+        printf("Attempting initialization...\n");
         printf_buffer_t print;
         // TODO: Prefix key option.
 

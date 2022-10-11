@@ -45,7 +45,6 @@ std::string kv_prefix_end(std::string &&kv_location) {
     return ret;
 }
 
-
 void append_bigendian_hex32(std::string *str, uint32_t val) {
     push_hex(str, val >> 24);
     push_hex(str, val >> 16);

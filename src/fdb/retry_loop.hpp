@@ -7,8 +7,15 @@
 template <class C>
 MUST_USE fdb_error_t txn_retry_loop_pthread(
         FDBDatabase *fdb,
+        const std::vector<std::pair<FDBTransactionOption, std::vector<uint8_t>>> &options,
         C &&fn) {
     fdb_transaction txn{fdb};
+    for (const auto &opt : options) {
+        fdb_error_t err = fdb_transaction_set_option(txn.txn,
+            opt.first,
+            opt.second.data(), static_cast<int>(opt.second.size()));
+        guarantee_fdb(err, "fdb_transaction_set_option");
+    }
     for (;;) {
         fdb_error_t orig_err;
         try {
