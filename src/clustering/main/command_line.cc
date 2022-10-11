@@ -1717,9 +1717,13 @@ int main_rethinkdb_create_fdb_blocking_pthread(
 
     bool failure = false;
 
+    printf("Connecting to FoundationDB to initialize RethinkDB instance...\n");
+    fflush(stdout);
     std::string print_out;
+    size_t retry_count = 0;
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb,
-        [wipe, &failure, initial_password, &print_out](FDBTransaction *txn) {
+        [wipe, &failure, initial_password, &print_out, &retry_count](FDBTransaction *txn) {
+        printf("Attempting initialization (%zu)...\n", ++retry_count);
         printf_buffer_t print;
         // TODO: Prefix key option.
 
@@ -1742,17 +1746,17 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
         // for an empty database.
         if (sized_strcmp(key.data, key.length, end_key, end_key_length) < 0) {
-            print.appendf("Attempted rethinkdb db creation on non-empty FoundationDB database.\n");
+            print.appendf("Attempted RethinkDB initialization on non-empty FoundationDB database.\n");
             // TODO: Report error properly.
-            print.appendf("First key is: '%.*s'\n", key.length, reinterpret_cast<const char *>(key.data));
+            print.appendf("Its first key (length %d) is: '%.*s'\n", key.length, key.length, reinterpret_cast<const char *>(key.data));
             if (!wipe) {
                 // TODO: Report error properly.
-                print.appendf("Failing to create fdb db\n");
+                print.appendf("Failed to initialize RethinkDB instance.\n");
                 failure = true;
                 print_out.append(print.data(), size_t(print.size()));
                 return;
             } else {
-                print.appendf("Wiping fdb db\n");
+                print.appendf("Wiping FoundationDB as requested.\n");
                 // TODO: Test that key/value is valid reqlfdb version key/value.
                 fdb_transaction_clear_range(txn,
                     empty_key, empty_key_length,
@@ -1824,7 +1828,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     });
     if (loop_err != 0) {
         // TODO: stderr?
-        printf("Error when creating FoundationDB database: %s\n", fdb_get_error(loop_err));
+        printf("Error in FoundationDB transaction: %s\n", fdb_get_error(loop_err));
         return EXIT_FAILURE;
     }
     printf("%s", print_out.c_str());
@@ -1833,7 +1837,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         return EXIT_FAILURE;
     } else {
         // TODO: Proper message.
-        printf("Successfully created fdb database\n");
+        printf("Successfully initialized RethinkDB instance in FoundationDB\n");
         return EXIT_SUCCESS;
     }
 }
