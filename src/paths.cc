@@ -121,10 +121,6 @@ const std::string& base_path_t::path() const {
     return path_;
 }
 
-std::string temporary_directory_path(const base_path_t& base_path) {
-    return base_path.path() + "/tmp";
-}
-
 bool is_rw_directory(const base_path_t& path) {
 #ifdef _WIN32
     if (_access(path.path().c_str(), 06 /* read and write */) != 0)
@@ -137,29 +133,6 @@ bool is_rw_directory(const base_path_t& path) {
     if (stat(path.path().c_str(), &details) != 0)
         return false;
     return (details.st_mode & S_IFDIR) > 0;
-}
-
-void recreate_temporary_directory(const base_path_t& base_path) {
-    const base_path_t path(temporary_directory_path(base_path));
-
-    if (is_rw_directory(path) && check_dir_emptiness(path))
-        return;
-    remove_directory_recursive(path.path().c_str());
-
-    int res;
-#ifdef _WIN32
-    res = _mkdir(path.path().c_str());
-#else
-    do {
-        res = mkdir(path.path().c_str(), 0755);
-    } while (res == -1 && get_errno() == EINTR);
-#endif
-    guarantee_err(res == 0, "mkdir of temporary directory %s failed",
-                  path.path().c_str());
-
-    // Call fsync() on the parent directory to guarantee that the newly
-    // created directory's directory entry is persisted to disk.
-    warn_fsync_parent_directory(path.path().c_str());
 }
 
 bool blocking_read_file(const char *path, std::string *contents_out) {

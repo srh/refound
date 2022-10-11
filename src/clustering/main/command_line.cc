@@ -1921,8 +1921,6 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
 
         initialize_logfile(opts, base_path);
 
-        recreate_temporary_directory(base_path);
-
         // QQQ: For fdb, remove the direct_io mode options.
         // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
@@ -2040,8 +2038,6 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
 
         base_path.make_absolute();
         initialize_logfile(opts, base_path);
-
-        recreate_temporary_directory(base_path);
 
         if (check_pid_file(opts) != EXIT_SUCCESS) {
             return EXIT_FAILURE;

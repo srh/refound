@@ -27,8 +27,6 @@ void run_with_namespace_interface(
             )> fun,
         bool oversharding,
         int num_restarts) {
-    recreate_temporary_directory(base_path_t("."));
-
     /* Pick shards */
     std::vector<region_t> store_shards;
     if (oversharding) {
