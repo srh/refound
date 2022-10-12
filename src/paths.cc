@@ -93,27 +93,30 @@ void remove_directory_recursive(const char *dirpath) {
 
 base_path_t::base_path_t(const std::string &_path) : path_(_path) { }
 
-void base_path_t::make_absolute() {
+std::string make_absolute(const std::string &path) {
 #ifdef _WIN32
     char absolute_path[MAX_PATH];
-    DWORD size = GetFullPathName(path_.c_str(), sizeof(absolute_path), absolute_path, nullptr);
+    DWORD size = GetFullPathName(path.c_str(), sizeof(absolute_path), absolute_path, nullptr);
     guarantee_winerr(size != 0, "GetFullPathName failed");
     if (size < sizeof(absolute_path)) {
-      path_.assign(absolute_path);
-      return;
+        return absolute_path;
     }
     std::string long_absolute_path;
     long_absolute_path.resize(size);
     DWORD new_size = GetFullPathName(path_.c_str(), size, &long_absolute_path[0], nullptr);
     guarantee_winerr(size != 0, "GetFullPathName failed");
     guarantee(new_size < size, "GetFullPathName: name too long");
-    path_ = std::move(long_absolute_path);
+    return long_absolute_path;
 #else
     char absolute_path[PATH_MAX];
-    char *res = realpath(path_.c_str(), absolute_path);
-    guarantee_err(res != nullptr, "Failed to determine absolute path for '%s'", path_.c_str());
-    path_.assign(absolute_path);
+    char *res = realpath(path.c_str(), absolute_path);
+    guarantee_err(res != nullptr, "Failed to determine absolute path for '%s'", path.c_str());
+    return absolute_path;
 #endif
+}
+
+base_path_t base_path_t::make_absolute() const {
+    return base_path_t(::make_absolute(path_));
 }
 
 const std::string& base_path_t::path() const {

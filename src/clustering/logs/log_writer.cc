@@ -379,7 +379,7 @@ void fallback_log_writer_t::install(const std::string &logfile_name) {
 
     // Get the absolute path for the log file, so it will still be valid if
     //  the working directory changes
-    filename.make_absolute();
+    filename = filename.make_absolute();
 
     // For the case that the log file was newly created,
     // call fsync() on the parent directory to guarantee that its

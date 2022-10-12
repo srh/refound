@@ -493,7 +493,7 @@ std::string get_web_path(optional<std::string> web_static_directory) {
                                            abs_path.path().c_str()).c_str());
     }
 
-    abs_path.make_absolute();
+    abs_path = abs_path.make_absolute();
     return abs_path.path();
 }
 
@@ -2091,7 +2091,7 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
         directory_lock_t data_directory_lock(base_path, false, &is_new_directory);
         guarantee(!is_new_directory);
 
-        base_path.make_absolute();
+        base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
 
         if (check_pid_file(opts) != EXIT_SUCCESS) {

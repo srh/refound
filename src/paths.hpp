@@ -21,10 +21,13 @@ public:
 
     // Make this base_path_t into an absolute path (useful for daemonizing)
     // This can only be done if the path already exists, which is why we don't do it at construction
-    void make_absolute();
+    MUST_USE base_path_t make_absolute() const;
 private:
     std::string path_;
 };
+
+// This can only be done if the path already exists.
+std::string make_absolute(const std::string &path);
 
 void remove_directory_recursive(const char *path);
 
