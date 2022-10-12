@@ -127,19 +127,29 @@ scoped_fd_t create_file(const char *filepath, bool excl) {
     return fd;
 }
 
-scoped_fd_t open_file_for_read(const char *filepath, std::string *error_out) noexcept {
+scoped_fd_t open_file_for_read(const char *filepath, std::string *error_out, bool *file_not_found_out) noexcept {
     scoped_fd_t fd;
 #ifdef _WIN32
     fd.reset(CreateFile(filepath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
     if (fd.get() == INVALID_FD) {
-        *error_out = winerr_string(GetLastError());
+        DWORD err = GetLastError();
+        *file_not_found_out = (err == ERROR_FILE_NOT_FOUND);
+        *error_out = winerr_string(err);
+    } else {
+        *file_not_found_out = false;
+        error_out->clear();
     }
 #else
     do {
         fd.reset(open(filepath, O_RDONLY));
     } while (fd.get() == INVALID_FD && get_errno() == EINTR);
     if (fd.get() == INVALID_FD) {
-        *error_out = errno_string(get_errno());
+        int errsv = get_errno();
+        *file_not_found_out = (errsv == ENOENT);
+        *error_out = errno_string(errsv);
+    } else {
+        *file_not_found_out = false;
+        error_out->clear();
     }
 #endif
     return fd;
@@ -176,21 +186,14 @@ bool write_all(fd_t fd, const void *data, size_t count, std::string *error_out) 
 #endif
 }
 
-bool try_read_file(const char *filepath, std::vector<char> *out, std::string *error_msg_out) {
-    std::string error_msg;
-    scoped_fd_t fd = io_utils::open_file_for_read(filepath, &error_msg);
-    if (fd.get() == INVALID_FD) {
-        *error_msg_out = std::move(error_msg);
-        return false;
-    }
-
+bool read_entire_file(fd_t fd, std::vector<char> *out, std::string *error_msg_out) {
     constexpr size_t bufsize = 8 * MEGABYTE;
     std::vector<char> ret;
     scoped_array_t<char> array(bufsize);
     for (;;) {
         ssize_t res;
         do {
-            res = ::pread(fd.get(), array.data(), array.size(), ret.size());
+            res = ::pread(fd, array.data(), array.size(), ret.size());
         } while (res == -1 && get_errno() == EINTR);
         if (res == -1) {
             *error_msg_out = errno_string(get_errno());
@@ -204,6 +207,18 @@ bool try_read_file(const char *filepath, std::vector<char> *out, std::string *er
 
     *out = std::move(ret);
     return true;
+}
+
+bool try_read_file(const char *filepath, std::vector<char> *out, std::string *error_msg_out) {
+    std::string error_msg;
+    bool not_found_ignore;
+    scoped_fd_t fd = io_utils::open_file_for_read(filepath, &error_msg, &not_found_ignore);
+    if (fd.get() == INVALID_FD) {
+        *error_msg_out = std::move(error_msg);
+        return false;
+    }
+
+    return read_entire_file(fd.get(), out, error_msg_out);
 }
 
 std::vector<char> read_file(const char *filepath) {

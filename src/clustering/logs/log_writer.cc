@@ -627,7 +627,8 @@ void thread_pool_log_writer_t::tail_blocking(
         bool *ok_out) {
     try {
         std::string open_error;
-        scoped_fd_t fd = io_utils::open_file_for_read(fallback_log_writer.filename.c_str(), &open_error);
+        bool file_not_found_ignore;
+        scoped_fd_t fd = io_utils::open_file_for_read(fallback_log_writer.filename.c_str(), &open_error, &file_not_found_ignore);
         throw_unless(fd.get() != INVALID_FD,
             strprintf("could not open '%s' for reading: %s",
                 fallback_log_writer.filename.c_str(), open_error.c_str()));

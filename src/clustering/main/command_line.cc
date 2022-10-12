@@ -454,6 +454,33 @@ std::string cluster_id_path(const base_path_t &dirpath) {
     return dirpath.path() + "/cluster_id";
 }
 
+optional<uuid_u> read_cluster_id_file(const base_path_t &dirpath) {
+    std::string filename = cluster_id_path(dirpath);
+    std::string error_msg;
+    bool not_found;
+    scoped_fd_t fd = io_utils::open_file_for_read(filename.c_str(), &error_msg, &not_found);
+    // TODO: Shouldn't we actually, say, try creating the file?  If it existed, and we had
+    // bad permissions, we'd falsely "succeed" in failing to read the cluster id file (in
+    // cases where we want it to not exist).  I'm saying we should check the EEXIST case specially.
+    if (fd.get() == INVALID_FD) {
+        if (not_found) {
+            return r_nullopt;
+        } else {
+            throw std::runtime_error("I/O error when opening cluster_id file '" + filename + "': " + error_msg);
+        }
+    }
+
+    std::vector<char> data;
+    if (!io_utils::try_read_file(filename.c_str(), &data, &error_msg)) {
+        throw std::runtime_error("I/O error when reading cluster_id file '" + filename + "': " + error_msg);
+    }
+    uuid_u cluster_id;
+    if (!str_to_uuid(data.data(), data.size(), &cluster_id)) {
+        throw std::runtime_error("Parse failure of cluster_id file '" + filename + "'");
+    }
+    return make_optional(cluster_id);
+}
+
 void initialize_cluster_id_file(const base_path_t &dirpath, const uuid_u &cluster_id) {
     std::string filename = cluster_id_path(dirpath);
     scoped_fd_t fd = io_utils::create_file(filename.c_str());
@@ -1963,8 +1990,12 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
         bool is_new_directory = false;
         directory_lock_t data_directory_lock(base_path, true, &is_new_directory);
 
-        if (!is_new_directory) {
-            fprintf(stderr, "The path '%s' already exists.  Delete it and try again.\n", base_path.path().c_str());
+        if (optional<uuid_u> cluster_id = read_cluster_id_file(base_path)) {
+            fprintf(stderr,
+                "The data directory '%s' is already used for the cluster '%s'.  "
+                "Delete the directory or use another location.\n",
+                base_path.path().c_str(),
+                uuid_to_str(*cluster_id).c_str());
             return EXIT_FAILURE;
         }
 
