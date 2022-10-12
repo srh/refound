@@ -1091,8 +1091,6 @@ bool configure_tls(
 #endif /* ENABLE_TLS */
 
 
-// TODO: With porcelain creation, make sure we create 'test' db.
-
 // OOO: Remove config_version_exc_t?
 
 void run_rethinkdb_serve(FDBDatabase *fdb,
