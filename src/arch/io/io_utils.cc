@@ -176,13 +176,12 @@ bool write_all(fd_t fd, const void *data, size_t count, std::string *error_out) 
 #endif
 }
 
-std::vector<char> read_file(const char *filepath) {
+bool try_read_file(const char *filepath, std::vector<char> *out, std::string *error_msg_out) {
     std::string error_msg;
     scoped_fd_t fd = io_utils::open_file_for_read(filepath, &error_msg);
     if (fd.get() == INVALID_FD) {
-        throw std::runtime_error(
-            strprintf("Opening file '%s' failed: %s",
-                filepath, error_msg.c_str()));
+        *error_msg_out = std::move(error_msg);
+        return false;
     }
 
     constexpr size_t bufsize = 8 * MEGABYTE;
@@ -194,9 +193,8 @@ std::vector<char> read_file(const char *filepath) {
             res = ::pread(fd.get(), array.data(), array.size(), ret.size());
         } while (res == -1 && get_errno() == EINTR);
         if (res == -1) {
-            throw std::runtime_error(
-                strprintf("Opening file '%s' failed: %s",
-                    filepath, errno_string(get_errno()).c_str()));
+            *error_msg_out = errno_string(get_errno());
+            return false;
         }
         if (res == 0) {
             break;
@@ -204,6 +202,18 @@ std::vector<char> read_file(const char *filepath) {
         ret.insert(ret.end(), array.data(), array.data() + res);
     }
 
+    *out = std::move(ret);
+    return true;
+}
+
+std::vector<char> read_file(const char *filepath) {
+    std::vector<char> ret;
+    std::string error_msg;
+    if (!try_read_file(filepath, &ret, &error_msg)) {
+        throw std::runtime_error(
+            strprintf("Opening file '%s' failed: %s",
+                filepath, error_msg.c_str()));
+    }
     return ret;
 }
 
