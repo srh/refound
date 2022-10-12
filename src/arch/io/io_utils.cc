@@ -99,10 +99,10 @@ void fill_bufs_from_source(iovec *dest_vecs, const size_t dest_size,
 
 namespace io_utils {
 
-scoped_fd_t create_file(const char *filepath) {
+scoped_fd_t create_file(const char *filepath, bool excl) {
     scoped_fd_t fd;
 #ifdef _WIN32
-    HANDLE h = CreateFile(filename.path().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE h = CreateFile(filename.path().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, (excl ? CREATE_ALWAYS : OPEN_ALWAYS), FILE_ATTRIBUTE_NORMAL, NULL);
     fd.reset(h);
 
     if (fd.get() == INVALID_FD) {
@@ -113,7 +113,7 @@ scoped_fd_t create_file(const char *filepath) {
 #else
     int res;
     do {
-        res = ::open(filepath, O_WRONLY|O_APPEND|O_CREAT, 0644);
+        res = ::open(filepath, O_WRONLY|O_APPEND|O_CREAT | (excl ? O_EXCL : 0), 0644);
     } while (res == INVALID_FD && get_errno() == EINTR);
 
     fd.reset(res);

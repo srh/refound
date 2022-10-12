@@ -335,6 +335,7 @@ private:
 
     bool write(const log_message_t &msg, std::string *error_out);
     void initiate_write(log_level_t level, const std::string &message);
+    // TODO: The type "base_path_t" is not supposed to hold an arbitrary filename; it's the data dir path only.
     base_path_t filename;
     struct timespec uptime_reference;
     struct timespec last_msg_timestamp;

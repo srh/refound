@@ -450,8 +450,23 @@ bool handle_help_or_version_option(const std::map<std::string, options::values_t
     return false;
 }
 
+std::string cluster_id_path(const base_path_t &dirpath) {
+    return dirpath.path() + "/cluster_id";
+}
+
+void initialize_cluster_id_file(const base_path_t &dirpath, const uuid_u &cluster_id) {
+    std::string filename = cluster_id_path(dirpath);
+    scoped_fd_t fd = io_utils::create_file(filename.c_str());
+    std::string str = uuid_to_str(cluster_id);
+    std::string error;
+    bool res = io_utils::write_all(fd.get(), str.data(), str.size(), &error);
+    if (!res) {
+        throw std::runtime_error("Failed to write cluster_id file '" + filename + "': " + error);
+    }
+}
+
 void initialize_logfile(const std::map<std::string, options::values_t> &opts,
-                        const base_path_t& dirpath) {
+                        const base_path_t &dirpath) {
     std::string filename;
     if (exists_option(opts, "--log-file")) {
         filename = get_single_option(opts, "--log-file");
@@ -1751,7 +1766,7 @@ bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, c
     return 0 == memcmp(value_data, REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX, preflen);
 }
 
-int main_rethinkdb_create_fdb_blocking_pthread(
+optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
         FDBDatabase *fdb, bool wipe, const std::string &initial_password) {
     // TODO: Don't return int from this.
 
@@ -1896,16 +1911,18 @@ int main_rethinkdb_create_fdb_blocking_pthread(
     if (loop_err != 0) {
         // TODO: stderr?
         printf("Error in FoundationDB transaction: %s\n", fdb_get_error(loop_err));
-        return EXIT_FAILURE;
+        return r_nullopt;
     }
     printf("%s", print_out.c_str());
 
     if (failure) {
-        return EXIT_FAILURE;
+        return r_nullopt;
     } else {
-        // TODO: Proper message.
-        printf("Successfully initialized RethinkDB instance in FoundationDB\n");
-        return EXIT_SUCCESS;
+        // TODO: Proper message.  Include cluster id
+        printf("Successfully initialized RethinkDB instance '%s' in FoundationDB\n",
+            uuid_to_str(cluster_id).c_str());
+        fflush(stdout);
+        return make_optional(cluster_id);
     }
 }
 
@@ -1960,9 +1977,11 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
         // QQQ: For fdb, remove the direct_io mode options.
         // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
-        int result2 = main_rethinkdb_create_fdb_blocking_pthread(
+        optional<uuid_u> result2 = main_rethinkdb_create_fdb_blocking_pthread(
             db, wipe, initial_password);
-        if (result2 == 0) {
+        if (result2.has_value()) {
+            initialize_cluster_id_file(base_path, *result2);
+
             // Tell the directory lock that the directory is now good to go, as it
             //  will otherwise delete an uninitialized directory
             data_directory_lock.directory_initialized();
