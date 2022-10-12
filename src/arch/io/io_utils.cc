@@ -102,8 +102,7 @@ namespace io_utils {
 scoped_fd_t create_file(const char *filepath, bool excl) {
     scoped_fd_t fd;
 #ifdef _WIN32
-    // TODO: Wtf?  filename.path()???
-    HANDLE h = CreateFile(filename.path().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, (excl ? CREATE_ALWAYS : OPEN_ALWAYS), FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE h = CreateFile(filepath, FILE_APPEND_DATA, FILE_SHARE_READ, NULL, (excl ? CREATE_ALWAYS : OPEN_ALWAYS), FILE_ATTRIBUTE_NORMAL, NULL);
     fd.reset(h);
 
     if (fd.get() == INVALID_FD) {
