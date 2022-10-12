@@ -1748,10 +1748,11 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         { FDB_TR_OPTION_TIMEOUT, little_endian_int64(5000) /* millis */ }
     };
 
+    const uuid_u cluster_id = generate_uuid();
 
     std::string print_out;
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb, create_txn_options,
-        [wipe, &failure, initial_password, &print_out](FDBTransaction *txn) {
+        [wipe, &failure, &initial_password, &print_out, &cluster_id](FDBTransaction *txn) {
         printf("Attempting initialization...\n");
         printf_buffer_t print;
         // TODO: Prefix key option.
@@ -1796,7 +1797,7 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         {
             const char *version_key = REQLFDB_VERSION_KEY;
             std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
-            version_value += uuid_to_str(generate_uuid());
+            version_value += uuid_to_str(cluster_id);
 
             fdb_transaction_set(txn,
                 as_uint8(version_key),
