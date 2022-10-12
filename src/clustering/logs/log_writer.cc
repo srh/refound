@@ -335,8 +335,8 @@ private:
 
     bool write(const log_message_t &msg, std::string *error_out);
     void initiate_write(log_level_t level, const std::string &message);
-    // TODO: The type "base_path_t" is not supposed to hold an arbitrary filename; it's the data dir path only.
-    base_path_t filename;
+
+    std::string filename;
     struct timespec uptime_reference;
     struct timespec last_msg_timestamp;
     spinlock_t last_msg_timestamp_lock;
@@ -372,25 +372,25 @@ fallback_log_writer_t::fallback_log_writer_t() :
 }
 
 void fallback_log_writer_t::install(const std::string &logfile_name) {
-    guarantee(filename.path() == "-", "Attempted to install a fallback_log_writer_t that was already installed.");
-    filename = base_path_t(logfile_name);
+    guarantee(filename == "-", "Attempted to install a fallback_log_writer_t that was already installed.");
+    filename = logfile_name;
 
-    fd = io_utils::create_file(filename.path().c_str());
+    fd = io_utils::create_file(filename.c_str());
 
     // Get the absolute path for the log file, so it will still be valid if
     //  the working directory changes
-    filename = filename.make_absolute();
+    filename = make_absolute(filename);
 
     // For the case that the log file was newly created,
     // call fsync() on the parent directory to guarantee that its
     // directory entry is persisted to disk.
-    int sync_res = fsync_parent_directory(filename.path().c_str());
+    int sync_res = fsync_parent_directory(filename.c_str());
     if (sync_res != 0) {
         char errno_str_buf[250];
         const char *errno_str = errno_string_maybe_using_buffer(sync_res,
             errno_str_buf, sizeof(errno_str_buf));
         logWRN("Parent directory of log file (%s) could not be synced. (%s)\n",
-            filename.path().c_str(), errno_str);
+            filename.c_str(), errno_str);
     }
 }
 
@@ -627,10 +627,10 @@ void thread_pool_log_writer_t::tail_blocking(
         bool *ok_out) {
     try {
         std::string open_error;
-        scoped_fd_t fd = io_utils::open_file_for_read(fallback_log_writer.filename.path().c_str(), &open_error);
+        scoped_fd_t fd = io_utils::open_file_for_read(fallback_log_writer.filename.c_str(), &open_error);
         throw_unless(fd.get() != INVALID_FD,
             strprintf("could not open '%s' for reading: %s",
-                fallback_log_writer.filename.path().c_str(), open_error.c_str()));
+                fallback_log_writer.filename.c_str(), open_error.c_str()));
 
         file_reverse_reader_t reader(std::move(fd));
         std::string line;
