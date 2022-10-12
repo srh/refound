@@ -1731,6 +1731,26 @@ std::vector<uint8_t> little_endian_int64(int64_t x) {
     return little_endian_uint64(x);
 }
 
+std::string make_version_value(const uuid_u &cluster_id) {
+    std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
+    version_value += uuid_to_str(cluster_id);
+    return version_value;
+}
+
+bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
+    if (0 != sized_strcmp(key_data, key_size, as_uint8(REQLFDB_VERSION_KEY), strlen(REQLFDB_VERSION_KEY))) {
+        return false;
+    }
+
+    size_t preflen = strlen(REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX);
+    // REQLFDB_VERSION_KEY is just the empty string, so we need to check the value
+    if (value_size < preflen) {
+        return false;
+    }
+
+    return 0 == memcmp(value_data, REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX, preflen);
+}
+
 int main_rethinkdb_create_fdb_blocking_pthread(
         FDBDatabase *fdb, bool wipe, const std::string &initial_password) {
     // TODO: Don't return int from this.
@@ -1773,12 +1793,31 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         uint8_t end_key[1] = { 0xFF };
         int end_key_length = 1;
 
+        std::string version_key = REQLFDB_VERSION_KEY;
+
         // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
         // for an empty database.
         if (sized_strcmp(key.data, key.length, end_key, end_key_length) < 0) {
-            print.appendf("Attempted RethinkDB initialization on non-empty FoundationDB database.\n");
-            // TODO: Report error properly.
-            print.appendf("Its first key (length %d) is: '%.*s'\n", key.length, key.length, reinterpret_cast<const char *>(key.data));
+            // If the database is non-empty, let's handle the case where it's populated by
+            // a ReQL-on-FDB instance more informatively.
+
+            fdb_future smallest_key_fut{fdb_transaction_get(txn, key.data, key.length, false)};
+            smallest_key_fut.block_pthread();
+            fdb_value value;
+            fdb_error_t err = future_get_value(smallest_key_fut.fut, &value);
+            check_for_fdb_transaction(err);
+            guarantee(value.present);  // TODO: fdb, graceful -- fdb transaction semantics guarantees value exists
+
+            if (looks_like_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+                print.appendf("Attempted RethinkDB initialization when existing instance exists.\n");
+                print.appendf("RethinkDB instance identity: %.*s\n", value.length, as_char(value.data));
+            } else {
+                print.appendf("Attempted RethinkDB initialization on non-empty, unrecognized FoundationDB database.\n");
+                print.appendf("Its first key (length %d) is: '%.*s'\n", key.length, key.length, as_char(key.data));
+                print.appendf("Its first value (length %d) is: '%.*s'\n", value.length, value.length, as_char(value.data));
+            }
+
+
             if (!wipe) {
                 // TODO: Report error properly.
                 print.appendf("Failed to initialize RethinkDB instance.\n");
@@ -1795,13 +1834,11 @@ int main_rethinkdb_create_fdb_blocking_pthread(
         }
 
         {
-            const char *version_key = REQLFDB_VERSION_KEY;
-            std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
-            version_value += uuid_to_str(cluster_id);
+            std::string version_value = make_version_value(cluster_id);
 
             fdb_transaction_set(txn,
-                as_uint8(version_key),
-                strlen(version_key),
+                as_uint8(version_key.data()),
+                version_key.size(),
                 as_uint8(version_value.data()),
                 version_value.size());
         }

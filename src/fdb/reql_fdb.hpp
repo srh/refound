@@ -117,6 +117,7 @@ public:
         return *this;
     }
 
+    // TODO: Pass back the error, fdb, graceful?
     void block_pthread() const {
         fdb_error_t err = fdb_future_block_until_ready(fut);
         guarantee_fdb(err, "fdb_future_block_until_ready");
@@ -279,6 +280,8 @@ inline void commit(FDBTransaction *txn, const signal_t *interruptor) {
 // database.
 constexpr const char *REQLFDB_VERSION_KEY = "";
 constexpr const char *REQLFDB_VERSION_VALUE_PREFIX = "reqlfdb 0.1.0 ";
+// This is the version value prefix _all_ reql-on-fdb clusters have (i.e. without the version number)
+constexpr const char *REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX = "reqlfdb ";
 constexpr const char *REQLFDB_CLOCK_KEY = "rethinkdb/clock";
 
 constexpr const char *REQLFDB_NODES_BY_ID = "rethinkdb/nodes//";
