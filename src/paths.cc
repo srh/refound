@@ -129,7 +129,7 @@ bool is_rw_directory(const base_path_t& path) {
     if (_access(path.path().c_str(), 06 /* read and write */) != 0)
         return false;
 #else
-    if (access(path.path().c_str(), R_OK | F_OK | W_OK) != 0)
+    if (access(path.path().c_str(), R_OK | W_OK) != 0)
         return false;
 #endif
     struct stat details;
