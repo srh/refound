@@ -124,18 +124,26 @@ const std::string& base_path_t::path() const {
     return path_;
 }
 
-bool is_rw_directory(const base_path_t& path) {
+bool is_rw_with_mode(const std::string &path, mode_t st_mode_mask) {
 #ifdef _WIN32
-    if (_access(path.path().c_str(), 06 /* read and write */) != 0)
+    if (_access(path.c_str(), 06 /* read and write */) != 0)
         return false;
 #else
-    if (access(path.path().c_str(), R_OK | W_OK) != 0)
+    if (access(path.c_str(), R_OK | W_OK) != 0)
         return false;
 #endif
     struct stat details;
-    if (stat(path.path().c_str(), &details) != 0)
+    if (stat(path.c_str(), &details) != 0)
         return false;
-    return (details.st_mode & S_IFDIR) > 0;
+    return (details.st_mode & st_mode_mask) != 0;
+}
+
+bool is_rw_file(const std::string &path) {
+    return is_rw_with_mode(path, S_IFREG);
+}
+
+bool is_rw_directory(const base_path_t& path) {
+    return is_rw_with_mode(path.path(), S_IFDIR);
 }
 
 bool blocking_read_file(const char *path, std::string *contents_out) {

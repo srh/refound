@@ -63,6 +63,7 @@
 #include "fdb/reql_fdb.hpp"
 #include "fdb/retry_loop.hpp"
 #include "fdb/reql_fdb_utils.hpp"
+#include "fdb/startup_shutdown.hpp"
 #include "fdb/typed.hpp"
 #include "rdb_protocol/reqlfdb_config_cache.hpp"
 #include "rdb_protocol/reqlfdb_config_cache_functions.hpp"
@@ -1953,7 +1954,7 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
     }
 }
 
-int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
+int main_rethinkdb_create(int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_create_options(&help, &options);
@@ -2005,11 +2006,20 @@ int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]) {
 
         initialize_logfile(opts, base_path);
 
+        std::string fdb_cluster_file_param = base_path.path() + "/fdb.cluster";
+        if (!is_rw_file(fdb_cluster_file_param)) {
+            // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
+            fdb_cluster_file_param = "";
+        }
+
         // QQQ: For fdb, remove the direct_io mode options.
         // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
+        fdb_startup_shutdown fdb_startup_shutdown;
+        fdb_database fdb(fdb_cluster_file_param.c_str());
+
         optional<uuid_u> result2 = main_rethinkdb_create_fdb_blocking_pthread(
-            db, wipe, initial_password);
+            fdb.db, wipe, initial_password);
         if (result2.has_value()) {
             initialize_cluster_id_file(base_path, *result2);
 
@@ -2070,7 +2080,7 @@ bool maybe_daemonize(const std::map<std::string, options::values_t> &opts) {
     return true;
 }
 
-int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
+int main_rethinkdb_serve(int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
     get_rethinkdb_serve_options(&help, &options);
@@ -2125,6 +2135,12 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
         base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
 
+        std::string fdb_cluster_file_param = base_path.path() + "/fdb.cluster";
+        if (!is_rw_file(fdb_cluster_file_param)) {
+            // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
+            fdb_cluster_file_param = "";
+        }
+
         if (check_pid_file(opts) != EXIT_SUCCESS) {
             return EXIT_FAILURE;
         }
@@ -2160,9 +2176,12 @@ int main_rethinkdb_serve(FDBDatabase *fdb, int argc, char *argv[]) {
         // QQQ: Remove this option and such for fdb.
         // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
+        fdb_startup_shutdown fdb_startup_shutdown;
+        fdb_database fdb(fdb_cluster_file_param.c_str());
+
         bool result;
         run_in_thread_pool(std::bind(&run_rethinkdb_serve,
-                                     fdb,
+                                     fdb.db,
                                      base_path,
                                      &serve_info,
                                      initial_password,

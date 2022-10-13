@@ -34,4 +34,6 @@ void remove_directory_recursive(const char *path);
 std::string blocking_read_file(const char *path);
 bool blocking_read_file(const char *path, std::string *contents_out);
 
+bool is_rw_file(const std::string &path);
+
 #endif  // PATHS_HPP_

@@ -134,9 +134,10 @@ public:
 
 class fdb_database {
 public:
-    fdb_database() : db(nullptr) {
-        // nullptr as the cluster file path means the default cluster file gets used.
-        fdb_error_t err = fdb_create_database(nullptr, &db);
+    explicit fdb_database(const char *cluster_file_param) : db(nullptr) {
+        // nullptr or "" as the cluster file path means the default cluster file or an
+        // environment variable or the current directory cluster file gets used.
+        fdb_error_t err = fdb_create_database(cluster_file_param, &db);
         if (err != 0) {
             const char *msg = fdb_get_error(err);
             fprintf(stderr, "ERROR: fdb_create_database failed: %s\n", msg);

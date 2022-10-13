@@ -9,71 +9,10 @@
 #include "clustering/main/command_line.hpp"
 #include "crypto/initialization_guard.hpp"
 #include "fdb/reql_fdb.hpp"
+#include "fdb/startup_shutdown.hpp"
 #include "utils.hpp"
 #include "config/args.hpp"
 #include "extproc/extproc_spawner.hpp"
-
-void *fdb_thread(void *ctx) {
-    (void)ctx;
-    fdb_error_t err = fdb_run_network();
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_run_network failed: %s\n", msg);
-        return (void *)1;
-    }
-
-    printf("fdb_run_network completed.\n");
-    return nullptr;
-}
-
-bool setup_fdb(pthread_t *thread) {
-    fdb_error_t err = fdb_select_api_version(FDB_API_VERSION);
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("ERROR: Could not initialize FoundationDB client library: %s\n", msg);
-        return false;
-    }
-    err = fdb_setup_network();
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_setup_network failed: %s\n", msg);
-        return false;
-    }
-
-    int result = pthread_create(thread, nullptr, fdb_thread, nullptr);
-    guarantee_xerr(result == 0, result, "Could not create thread: %d", result);
-
-    return true;
-}
-
-bool join_fdb(pthread_t thread) {
-    fdb_error_t err = fdb_stop_network();
-    if (err != 0) {
-        const char *msg = fdb_get_error(err);
-        printf("ERROR: fdb_stop_network failed: %s\n", msg);
-        return false;
-    }
-
-    void *thread_return;
-    int res = pthread_join(thread, &thread_return);
-    guarantee_xerr(res == 0, res, "Could not join thread.");
-    printf("fdb network thread has been joined.\n");
-    return true;
-}
-
-struct fdb_startup_shutdown {
-    fdb_startup_shutdown() {
-        guarantee(setup_fdb(&fdb_network_thread),
-            "Failed to setup FoundationDB");
-    }
-    ~fdb_startup_shutdown() {
-        guarantee(join_fdb(fdb_network_thread),
-            "Failed to join FoundationDB network thread");
-    }
-    pthread_t fdb_network_thread;
-
-    DISABLE_COPYING(fdb_startup_shutdown);
-};
 
 int main(int argc, char *argv[]) {
 
@@ -94,10 +33,7 @@ int main(int argc, char *argv[]) {
     // TODO: For each command, make sure all options work.
 
     if (argc == 1 || (argv[1][0] == '-' && subcommands_that_look_like_flags.count(argv[1]) == 0)) {
-        fdb_startup_shutdown fdb_startup_shutdown;
-        fdb_database db;
-
-        return main_rethinkdb_serve(db.db, argc - 1, argv + 1);
+        return main_rethinkdb_serve(argc - 1, argv + 1);
 
     } else {
         std::string subcommand = argv[1];
@@ -152,14 +88,11 @@ int main(int argc, char *argv[]) {
             }
 
         } else {
-            fdb_startup_shutdown fdb_startup_shutdown;
-            fdb_database db;
-
             // TODO: Update --version/--help for reqlfdb.
             if (subcommand == "create") {
-                return main_rethinkdb_create(db.db, argc - 2, argv + 2);
+                return main_rethinkdb_create(argc - 2, argv + 2);
             } else if (subcommand == "serve") {
-                return main_rethinkdb_serve(db.db, argc - 2, argv + 2);
+                return main_rethinkdb_serve(argc - 2, argv + 2);
             } else if (subcommand == "proxy") {
                 printf("ERROR: Subcommand 'proxy' is no longer supported in reql-on-fdb.\n");  // TODO: Product name
                 return 1;

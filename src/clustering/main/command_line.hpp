@@ -8,8 +8,8 @@ void print_version_message();
 
 // TODO: For consistency, make all these functions take argc/argv without command prefix.
 
-int main_rethinkdb_create(FDBDatabase *db, int argc, char *argv[]);  // argc/argv passed without command prefix.
-int main_rethinkdb_serve(FDBDatabase *db, int argc, char *argv[]);  // argc/argv passed without command prefix.
+int main_rethinkdb_create(int argc, char *argv[]);  // argc/argv passed without command prefix.
+int main_rethinkdb_serve(int argc, char *argv[]);  // argc/argv passed without command prefix.
 int main_rethinkdb_export(int argc, char *argv[]);
 int main_rethinkdb_import(int argc, char *argv[]);
 int main_rethinkdb_dump(int argc, char *argv[]);
