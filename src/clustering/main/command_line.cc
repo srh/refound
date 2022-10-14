@@ -1694,6 +1694,8 @@ void get_rethinkdb_serve_options(std::vector<options::help_section_t> *help_out,
     help_out->push_back(get_config_file_options(options_out));
 }
 
+// We no longer have a porcelain command, but to avoid excessive refactoring, we retain
+// this function for its uses (such as configuration file validation).
 void get_rethinkdb_porcelain_options(std::vector<options::help_section_t> *help_out,
                                      std::vector<options::option_t> *options_out) {
     help_out->push_back(get_fdb_options(options_out));
@@ -1832,8 +1834,6 @@ bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, c
 
 optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
         FDBDatabase *fdb, bool wipe, const std::string &initial_password) {
-    // TODO: Don't return int from this.
-
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
     // there fdb conventions for "claiming" your database?
