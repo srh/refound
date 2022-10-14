@@ -497,6 +497,22 @@ void initialize_cluster_id_file(const base_path_t &dirpath, const uuid_u &cluste
     }
 }
 
+// Returns the string we pass to fdb_create_database.
+std::string get_fdb_client_cluster_file_param(
+        const base_path_t &dirpath, const std::map<std::string, options::values_t> &opts) {
+    std::string filepath;
+    if (exists_option(opts, "--fdb-cluster-file")) {
+        return get_single_option(opts, "--fdb-cluster-file");
+    } else {
+        std::string ret = dirpath.path() + "/" + FDB_CLUSTER_DEFAULT_FILENAME;
+        if (!is_rw_file(ret)) {
+            // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
+            ret = "";
+        }
+        return ret;
+    }
+}
+
 void initialize_logfile(const std::map<std::string, options::values_t> &opts,
                         const base_path_t &dirpath) {
     std::string filename;
@@ -1255,8 +1271,21 @@ options::help_section_t get_log_options(std::vector<options::option_t> *options_
     return help;
 }
 
+options::help_section_t get_fdb_options(std::vector<options::option_t> *options_out) {
+    options::help_section_t help("FoundationDB options");
+    options_out->push_back(options::option_t(options::names_t("--fdb-cluster-file"),
+                                             options::OPTIONAL));
+    help.add("--fdb-cluster-file file",
+        "specify the fdb cluster file to use, defaults to 'fdb.custer'.  If unspecified, "
+        "and if the data dir has no 'fdb.cluster' file, falls back to default "
+        "FoundationDB client behavior: The value of the FDB_CLUSTER_FILE environment "
+        "variable is used if present, then 'fdb.cluster' in the local working directory "
+        "if present, then the default file at its system-dependent location.");
+    return help;
+}
+
 options::help_section_t get_fdb_create_options(std::vector<options::option_t> *options_out) {
-    options::help_section_t help("FDB creation options");
+    options::help_section_t help("FoundationDB-related creation options");
     options_out->push_back(options::option_t(options::names_t("--fdb-wipe"),
                                              options::OPTIONAL_NO_PARAMETER));
     help.add("--fdb-wipe", "wipe out fdb on creation, if it has an existing reqlfdb db");
@@ -1636,6 +1665,7 @@ options::help_section_t get_help_options(std::vector<options::option_t> *options
 
 void get_rethinkdb_create_options(std::vector<options::help_section_t> *help_out,
                                   std::vector<options::option_t> *options_out) {
+    help_out->push_back(get_fdb_options(options_out));
     help_out->push_back(get_fdb_create_options(options_out));
     help_out->push_back(get_file_options(options_out));
     help_out->push_back(get_server_options(options_out));
@@ -1648,6 +1678,7 @@ void get_rethinkdb_create_options(std::vector<options::help_section_t> *help_out
 
 void get_rethinkdb_serve_options(std::vector<options::help_section_t> *help_out,
                                  std::vector<options::option_t> *options_out) {
+    help_out->push_back(get_fdb_options(options_out));
     help_out->push_back(get_file_options(options_out));
     help_out->push_back(get_network_options(false, options_out));
 #ifdef ENABLE_TLS
@@ -1665,6 +1696,7 @@ void get_rethinkdb_serve_options(std::vector<options::help_section_t> *help_out,
 
 void get_rethinkdb_porcelain_options(std::vector<options::help_section_t> *help_out,
                                      std::vector<options::option_t> *options_out) {
+    help_out->push_back(get_fdb_options(options_out));
     help_out->push_back(get_file_options(options_out));
     help_out->push_back(get_server_options(options_out));
     help_out->push_back(get_network_options(false, options_out));
@@ -1995,6 +2027,9 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         bool is_new_directory = false;
         directory_lock_t data_directory_lock(base_path, true, &is_new_directory);
 
+        /* This is redundant with check_dir_emptiness below, but distinguishes between
+           having an existing node's data directory and a nonsensically initialized data
+           directory, for better error output. */
         if (optional<uuid_u> cluster_id = read_cluster_id_file(base_path)) {
             fprintf(stderr,
                 "The data directory '%s' is already used for the cluster '%s'.\n"
@@ -2019,11 +2054,7 @@ int main_rethinkdb_create(int argc, char *argv[]) {
 
         initialize_logfile(opts, base_path);
 
-        std::string fdb_cluster_file_param = base_path.path() + "/" + FDB_CLUSTER_DEFAULT_FILENAME;
-        if (!is_rw_file(fdb_cluster_file_param)) {
-            // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
-            fdb_cluster_file_param = "";
-        }
+        std::string fdb_cluster_file_param = get_fdb_client_cluster_file_param(base_path, opts);
 
         // QQQ: For fdb, remove the direct_io mode options.
         // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
@@ -2148,11 +2179,7 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
 
-        std::string fdb_cluster_file_param = base_path.path() + "/" + FDB_CLUSTER_DEFAULT_FILENAME;
-        if (!is_rw_file(fdb_cluster_file_param)) {
-            // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
-            fdb_cluster_file_param = "";
-        }
+        std::string fdb_cluster_file_param = get_fdb_client_cluster_file_param(base_path, opts);
 
         if (check_pid_file(opts) != EXIT_SUCCESS) {
             return EXIT_FAILURE;
