@@ -16,7 +16,7 @@
 #endif
 
 bool check_existence(const base_path_t& base_path);
-bool check_dir_emptiness(const base_path_t& base_path);
+bool check_dir_emptiness(const base_path_t& base_path, const std::vector<std::string> &whitelist);
 
 class directory_lock_t {
 public:

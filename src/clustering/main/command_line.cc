@@ -79,6 +79,10 @@ namespace cluster_defaults {
 const int reconnect_timeout = (24 * 60 * 60);    // 24 hours (in secs)
 }  // namespace cluster_defaults
 
+constexpr const char *CLUSTER_ID_FILENAME = "cluster_id";
+constexpr const char *LOG_FILE_DEFAULT_FILENAME = "log_file";
+constexpr const char *FDB_CLUSTER_DEFAULT_FILENAME = "fdb.cluster";
+
 MUST_USE bool numwrite(const char *path, int number) {
     // Try to figure out what this function does.
     FILE *fp1 = fopen(path, "w");
@@ -452,7 +456,7 @@ bool handle_help_or_version_option(const std::map<std::string, options::values_t
 }
 
 std::string cluster_id_path(const base_path_t &dirpath) {
-    return dirpath.path() + "/cluster_id";
+    return dirpath.path() + "/" + CLUSTER_ID_FILENAME;
 }
 
 optional<uuid_u> read_cluster_id_file(const base_path_t &dirpath) {
@@ -499,7 +503,7 @@ void initialize_logfile(const std::map<std::string, options::values_t> &opts,
     if (exists_option(opts, "--log-file")) {
         filename = get_single_option(opts, "--log-file");
     } else {
-        filename = dirpath.path() + "/log_file";
+        filename = dirpath.path() + "/" + LOG_FILE_DEFAULT_FILENAME;
     }
     install_fallback_log_writer(filename);
 }
@@ -1993,10 +1997,19 @@ int main_rethinkdb_create(int argc, char *argv[]) {
 
         if (optional<uuid_u> cluster_id = read_cluster_id_file(base_path)) {
             fprintf(stderr,
-                "The data directory '%s' is already used for the cluster '%s'.  "
+                "The data directory '%s' is already used for the cluster '%s'.\n"
                 "Delete the directory or use another location.\n",
                 base_path.path().c_str(),
                 uuid_to_str(*cluster_id).c_str());
+            return EXIT_FAILURE;
+        }
+
+        if (!check_dir_emptiness(base_path, {LOG_FILE_DEFAULT_FILENAME, FDB_CLUSTER_DEFAULT_FILENAME})) {
+            fprintf(stderr,
+                "The data directory '%s', if it already exists, must be\n"
+                "empty upon creation, except for the files '%s' and '%s'.\n"
+                "Clean up the directory or use another location.\n",
+                base_path.path().c_str(), LOG_FILE_DEFAULT_FILENAME, FDB_CLUSTER_DEFAULT_FILENAME);
             return EXIT_FAILURE;
         }
 
@@ -2006,7 +2019,7 @@ int main_rethinkdb_create(int argc, char *argv[]) {
 
         initialize_logfile(opts, base_path);
 
-        std::string fdb_cluster_file_param = base_path.path() + "/fdb.cluster";
+        std::string fdb_cluster_file_param = base_path.path() + "/" + FDB_CLUSTER_DEFAULT_FILENAME;
         if (!is_rw_file(fdb_cluster_file_param)) {
             // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
             fdb_cluster_file_param = "";
@@ -2135,7 +2148,7 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
 
-        std::string fdb_cluster_file_param = base_path.path() + "/fdb.cluster";
+        std::string fdb_cluster_file_param = base_path.path() + "/" + FDB_CLUSTER_DEFAULT_FILENAME;
         if (!is_rw_file(fdb_cluster_file_param)) {
             // TODO: Maybe precisely allow RW files and noent, fail on any weird stuff.
             fdb_cluster_file_param = "";
