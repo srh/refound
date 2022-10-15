@@ -1238,13 +1238,13 @@ options::help_section_t get_server_options(std::vector<options::option_t> *optio
     help.add("-n [ --server-name ] arg",
              "the name for this server (as will appear in the metadata).  If not"
              " specified, one will be generated from the hostname and a random "
-             "alphanumeric string.  Unsupported (for now) in RefoundDB.");  // TODO: Product name
+             "alphanumeric string.  Unsupported (for now) in RefoundDB.");
 
     options_out->push_back(options::option_t(options::names_t("--server-tag", "-t"),
                                              options::OPTIONAL_REPEAT,
                                              obsolescence::UNSUPPORTED_IGNORED));
     help.add("-t [ --server-tag ] arg",
-             "a tag for this server. Can be specified multiple times.  Unsupported (for now) in RefoundDB.");  // TODO: Product name
+             "a tag for this server. Can be specified multiple times.  Unsupported (for now) in RefoundDB.");
 
     return help;
 }
@@ -1292,10 +1292,11 @@ options::help_section_t get_fdb_create_options(std::vector<options::option_t> *o
     options::help_section_t help("FoundationDB-related creation options");
     options_out->push_back(options::option_t(options::names_t("--fdb-wipe"),
                                              options::OPTIONAL_NO_PARAMETER));
-    help.add("--fdb-wipe", "wipe out FoundationDB on creation, if it has an existing RefoundDB instance");  // TODO: Product name
+    help.add("--fdb-wipe", "wipe out FoundationDB on creation, if it has an existing RefoundDB instance");
     return help;
 }
 
+// TODO: Product name (every use of "RefoundDB" in this file)
 options::help_section_t get_file_options(std::vector<options::option_t> *options_out) {
     options::help_section_t help("File path options");
     options_out->push_back(options::option_t(options::names_t("--directory", "-d"),
@@ -1304,18 +1305,21 @@ options::help_section_t get_file_options(std::vector<options::option_t> *options
     help.add("-d [ --directory ] path", "specify directory to store data and metadata");
     options_out->push_back(options::option_t(options::names_t("--io-threads"),
                                              options::OPTIONAL,
-                                             strprintf("%d", DEFAULT_MAX_CONCURRENT_IO_REQUESTS)));
+                                             strprintf("%d", DEFAULT_MAX_CONCURRENT_IO_REQUESTS),
+                                             obsolescence::OBSOLETE_IGNORED));
     help.add("--io-threads n",
-             "how many simultaneous I/O operations can happen at the same time");
+             "obsolete in RefoundDB. how many simultaneous I/O operations can happen at the same time");
 #ifndef _WIN32
     // TODO WINDOWS: accept this option, but error out if it is passed
     options_out->push_back(options::option_t(options::names_t("--direct-io"),
-                                             options::OPTIONAL_NO_PARAMETER));
-    help.add("--direct-io", "use direct I/O for file access");
+                                             options::OPTIONAL_NO_PARAMETER,
+                                             obsolescence::OBSOLETE_IGNORED));
+    help.add("--direct-io", "obsolete in RefoundDB.  use direct I/O for file access");
 #endif
     options_out->push_back(options::option_t(options::names_t("--cache-size"),
-                                             options::OPTIONAL));
-    help.add("--cache-size mb", "total cache size (in megabytes) for the process. Can "
+                                             options::OPTIONAL,
+                                             obsolescence::OBSOLETE_IGNORED));
+    help.add("--cache-size mb", "obsolete in RefoundDB.  total cache size (in megabytes) for the process. Can "
         "be 'auto'.");
     return help;
 }
