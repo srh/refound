@@ -48,8 +48,10 @@ TEST(OptionsTest, CommandLineParsing) {
 
     const std::vector<options::option_t> options = make_options();
 
+    bool fail;
     const std::map<std::string, std::vector<std::string> > opts
-        = without_source(options::parse_command_line(command_line.size(), command_line.data(), options));
+        = without_source(options::parse_command_line(command_line.size(), command_line.data(), options, &fail));
+    ASSERT_FALSE(fail);
 
     const std::map<std::string, std::vector<std::string> > expected_parse = make_map<std::string, std::vector<std::string> >(
         std::make_pair("--no-parameter", make_vector<std::string>("")),
@@ -67,15 +69,19 @@ TEST(OptionsTest, CommandLineMissingParameter) {
     const std::vector<options::option_t> options = make_options();
 
     std::vector<const char *> command_line = make_vector<const char *>("--optional", "");
+    bool fail;
     ASSERT_THROW(options::parse_command_line(command_line.size(),
                                              command_line.data(),
-                                             options),
+                                             options,
+                                             &fail),
                  options::option_error_t);
+    ASSERT_FALSE(fail);
 
     command_line = make_vector<const char *>("--optional", "--no-parameter");
     ASSERT_THROW(options::parse_command_line(command_line.size(),
                                              command_line.data(),
-                                             options),
+                                             options,
+                                             &fail),
                  options::option_error_t);
 }
 

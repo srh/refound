@@ -47,9 +47,10 @@ positional_parameter_error_t::positional_parameter_error_t(std::string _source,
       parameter_value_(_parameter_value) { }
 
 
-option_t::option_t(const names_t _names, const appearance_t appearance)
+option_t::option_t(const names_t _names, const appearance_t appearance, obsolescence obs)
     : names(_names.names),
-      default_values() {
+      default_values(),
+      obsolete(obs) {
     switch (appearance) {
     case MANDATORY:
         min_appearances = 1;
@@ -82,9 +83,10 @@ option_t::option_t(const names_t _names, const appearance_t appearance)
 }
 
 
-option_t::option_t(const names_t _names, const appearance_t appearance, std::string default_value)
+option_t::option_t(const names_t _names, const appearance_t appearance, std::string default_value, obsolescence obs)
     : names(_names.names),
-      default_values(1, default_value) {
+      default_values(1, default_value),
+      obsolete(obs)  {
     switch (appearance) {
     case OPTIONAL:
         min_appearances = 0;
@@ -145,8 +147,10 @@ std::map<std::string, values_t> merge(const std::map<std::string, values_t> &hig
 
 std::map<std::string, values_t> do_parse_command_line(
     const int argc, const char *const *const argv, const std::vector<option_t> &options,
-    std::vector<std::string> *const unrecognized_out) {
+    std::vector<std::string> *const unrecognized_out,
+    bool *fail_out) {
     guarantee(argc >= 0);
+    *fail_out = false;
 
     const std::string source = "the command line";
 
@@ -173,6 +177,22 @@ std::map<std::string, values_t> do_parse_command_line(
         }
 
         const std::string official_name = option->names[0];
+
+        // TODO: printfs this deep into parsing is not ideal.
+        // TODO: Product name (multiple places here)
+        if (option->unsupported_ignored()) {
+            fprintf(stderr, "The option '%s' is unsupported in RefoundDB and is ignored.\n", official_name.c_str());
+        } else if (option->unsupported_disallowed()) {
+            fprintf(stderr, "The option '%s' is unsupported in RefoundDB and is disallowed.\n", official_name.c_str());
+            *fail_out = true;
+            return std::map<std::string, values_t>();
+        } else if (option->obsolete_ignored()) {
+            fprintf(stderr, "The option '%s' is obsolete in RefoundDB and is ignored.\n", official_name.c_str());
+        } else if (option->obsolete_disallowed()) {
+            fprintf(stderr, "The option '%s' is obsolete in RefoundDB and is disallowed.\n", official_name.c_str());
+            *fail_out = true;
+            return std::map<std::string, values_t>();
+        }
 
         if (option->no_parameter) {
             // Push an empty parameter value -- in particular, this makes our
@@ -204,18 +224,18 @@ std::map<std::string, values_t> do_parse_command_line(
     return names_by_values;
 }
 
-std::map<std::string, values_t> parse_command_line(const int argc, const char *const *const argv, const std::vector<option_t> &options) {
-    return do_parse_command_line(argc, argv, options, nullptr);
+std::map<std::string, values_t> parse_command_line(const int argc, const char *const *const argv, const std::vector<option_t> &options, bool *fail_out) {
+    return do_parse_command_line(argc, argv, options, nullptr, fail_out);
 }
 
 std::map<std::string, values_t> parse_command_line_and_collect_unrecognized(
     int argc, const char *const *argv, const std::vector<option_t> &options,
-    std::vector<std::string> *unrecognized_out) {
+    std::vector<std::string> *unrecognized_out, bool *fail_out) {
     // We check that unrecognized_out is not NULL because do_parse_command_line
     // throws some exceptions depending on the nullness of that value.
     guarantee(unrecognized_out != nullptr);
 
-    return do_parse_command_line(argc, argv, options, unrecognized_out);
+    return do_parse_command_line(argc, argv, options, unrecognized_out, fail_out);
 }
 
 void verify_option_counts(const std::vector<option_t> &options,

@@ -1735,8 +1735,9 @@ std::map<std::string, options::values_t> parse_config_file_flat(const std::strin
 }
 
 std::map<std::string, options::values_t> parse_commands_deep(int argc, char **argv,
-                                                             std::vector<options::option_t> options) {
-    std::map<std::string, options::values_t> opts = options::parse_command_line(argc, argv, options);
+                                                             std::vector<options::option_t> options,
+                                                             bool *fail_out) {
+    std::map<std::string, options::values_t> opts = options::parse_command_line(argc, argv, options, fail_out);
     const optional<std::string> config_file_name = get_optional_option(opts, "--config-file");
     if (config_file_name.has_value()) {
         opts = options::merge(opts, parse_config_file_flat(*config_file_name, options));
@@ -1996,8 +1997,12 @@ int main_rethinkdb_create(int argc, char *argv[]) {
     get_rethinkdb_create_options(&help, &options);
 
     try {
+        bool fail;
         std::map<std::string, options::values_t> opts
-            = parse_commands_deep(argc, argv, options);
+            = parse_commands_deep(argc, argv, options, &fail);
+        if (fail) {
+            return EXIT_FAILURE;
+        }
 
         // TODO: Copy/paste boilerplate.
         if (handle_help_or_version_option(opts, &help_rethinkdb_create)) {
@@ -2130,7 +2135,11 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
     get_rethinkdb_serve_options(&help, &options);
 
     try {
-        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options);
+        bool fail;
+        std::map<std::string, options::values_t> opts = parse_commands_deep(argc, argv, options, &fail);
+        if (fail) {
+            return EXIT_FAILURE;
+        }
 
         if (handle_help_or_version_option(opts, &help_rethinkdb_serve)) {
             return EXIT_SUCCESS;

@@ -122,6 +122,14 @@ enum appearance_t {
     OPTIONAL_NO_PARAMETER
 };
 
+enum class obsolescence {
+    OK,
+    UNSUPPORTED_IGNORED,
+    UNSUPPORTED_DISALLOWED,
+    OBSOLETE_IGNORED,
+    OBSOLETE_DISALLOWED,
+};
+
 // A command line option with a name, specification of how many times it may appear, and whether it
 // takes a parameter.
 //
@@ -137,17 +145,17 @@ class option_t {
 public:
     // Creates an option with the appropriate name and appearance specifier,
     // with a default value being the empty vector.
-    explicit option_t(names_t names, appearance_t appearance);
+    explicit option_t(names_t names, appearance_t appearance, obsolescence obs = obsolescence::OK);
     // Creates an option with the appropriate name and appearance specifier,
     // with the default value being a vector of size 1.  OPTIONAL and
     // OPTIONAL_REPEAT are the only valid appearance specifiers.
-    explicit option_t(names_t names, appearance_t appearance, std::string default_value);
+    explicit option_t(names_t names, appearance_t appearance, std::string default_value, obsolescence obs = obsolescence::OK);
 
 private:
     friend std::map<std::string, values_t> default_values_map(const std::vector<option_t> &options);
     friend std::map<std::string, values_t> do_parse_command_line(
         const int argc, const char *const *const argv, const std::vector<option_t> &options,
-        std::vector<std::string> *const unrecognized_out);
+        std::vector<std::string> *const unrecognized_out, bool *fail_out);
     friend const option_t *find_option(const char *const option_name, const std::vector<option_t> &options);
     friend void verify_option_counts(const std::vector<option_t> &options,
                                      const std::map<std::string, values_t> &names_by_values);
@@ -178,13 +186,20 @@ private:
     // The value(s) to use if no appearances of the command line option are
     // available.  This is only relevant if min_appearances == 0.
     std::vector<std::string> default_values;
+
+    obsolescence obsolete = obsolescence::OK;
+
+    bool unsupported_ignored() const { return obsolete == obsolescence::UNSUPPORTED_IGNORED; }
+    bool unsupported_disallowed() const { return obsolete == obsolescence::UNSUPPORTED_DISALLOWED; }
+    bool obsolete_ignored() const { return obsolete == obsolescence::OBSOLETE_IGNORED; }
+    bool obsolete_disallowed() const { return obsolete == obsolescence::OBSOLETE_DISALLOWED; }
 };
 
 // Parses options from a command line into a return value.  Uses empty-string parameter values for
 // appearances of OPTIONAL_NO_PARAMETER options.  Uses the *official name* of the option (the first
 // parameter passed to names_t) for map keys.  Does not do any verification that we have the right
 // number of option values.  (That only happens in `verify_option_counts`.)
-std::map<std::string, values_t> parse_command_line(int argc, const char *const *argv, const std::vector<option_t> &options);
+std::map<std::string, values_t> parse_command_line(int argc, const char *const *argv, const std::vector<option_t> &options, bool *fail_out);
 
 // Like `parse_command_line`, except that it tolerates unrecognized options, instead of throwing.
 // Out-of-place positional parameters and unrecognized options are output to `*unrecognized_out`, in
@@ -193,7 +208,7 @@ std::map<std::string, values_t> parse_command_line(int argc, const char *const *
 // would get ["--unrecognized", "5"] in `*unrecognized_out`.
 std::map<std::string, values_t> parse_command_line_and_collect_unrecognized(
     int argc, const char *const *argv, const std::vector<option_t> &options,
-    std::vector<std::string> *unrecognized_out);
+    std::vector<std::string> *unrecognized_out, bool *fail_out);
 
 // Merges option values from two different sources together, with higher precedence going to the
 // left-hand argument.  Example usage:
