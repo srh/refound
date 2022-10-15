@@ -75,6 +75,8 @@
 #define RETHINKDB_INDEX_REBUILD_SCRIPT "rethinkdb-index-rebuild"
 #define RETHINKDB_REPL_SCRIPT "rethinkdb-repl"
 
+using options::obsolescence;
+
 namespace cluster_defaults {
 const int reconnect_timeout = (24 * 60 * 60);    // 24 hours (in secs)
 }  // namespace cluster_defaults
@@ -1231,16 +1233,18 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
 options::help_section_t get_server_options(std::vector<options::option_t> *options_out) {
     options::help_section_t help("Server options");
     options_out->push_back(options::option_t(options::names_t("--server-name", "-n"),
-                                             options::OPTIONAL));
+                                             options::OPTIONAL,
+                                             obsolescence::UNSUPPORTED_IGNORED));
     help.add("-n [ --server-name ] arg",
              "the name for this server (as will appear in the metadata).  If not"
              " specified, one will be generated from the hostname and a random "
-             "alphanumeric string.");
+             "alphanumeric string.  Unsupported (for now) in RefoundDB.");  // TODO: Product name
 
     options_out->push_back(options::option_t(options::names_t("--server-tag", "-t"),
-                                             options::OPTIONAL_REPEAT));
+                                             options::OPTIONAL_REPEAT,
+                                             obsolescence::UNSUPPORTED_IGNORED));
     help.add("-t [ --server-tag ] arg",
-             "a tag for this server. Can be specified multiple times.");
+             "a tag for this server. Can be specified multiple times.  Unsupported (for now) in RefoundDB.");  // TODO: Product name
 
     return help;
 }
@@ -1288,7 +1292,7 @@ options::help_section_t get_fdb_create_options(std::vector<options::option_t> *o
     options::help_section_t help("FoundationDB-related creation options");
     options_out->push_back(options::option_t(options::names_t("--fdb-wipe"),
                                              options::OPTIONAL_NO_PARAMETER));
-    help.add("--fdb-wipe", "wipe out fdb on creation, if it has an existing reqlfdb db");
+    help.add("--fdb-wipe", "wipe out FoundationDB on creation, if it has an existing RefoundDB instance");  // TODO: Product name
     return help;
 }
 
