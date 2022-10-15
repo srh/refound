@@ -9,7 +9,6 @@ void *fdb_thread(void *ctx) {
         return (void *)1;
     }
 
-    printf("fdb_run_network completed.\n");
     return nullptr;
 }
 
@@ -44,6 +43,6 @@ bool join_fdb(pthread_t thread) {
     void *thread_return;
     int res = pthread_join(thread, &thread_return);
     guarantee_xerr(res == 0, res, "Could not join thread.");
-    printf("fdb network thread has been joined.\n");
+    printf("FoundationDB network thread has been joined.\n");
     return true;
 }
