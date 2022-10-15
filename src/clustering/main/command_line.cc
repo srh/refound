@@ -1219,7 +1219,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
         //  otherwise delete an uninitialized directory
         data_directory_lock->directory_initialized();
 
-        serve_info->look_up_peers();
         *result_out = serve(fdb,
                             *serve_info,
                             &sigint_cond);
@@ -1302,13 +1301,13 @@ options::help_section_t get_file_options(std::vector<options::option_t> *options
     options_out->push_back(options::option_t(options::names_t("--directory", "-d"),
                                              options::OPTIONAL,
                                              "rethinkdb_data"));
-    help.add("-d [ --directory ] path", "specify directory to store data and metadata");
+    help.add("-d [ --directory ] path", "specify directory in which to read and write metadata");
     options_out->push_back(options::option_t(options::names_t("--io-threads"),
                                              options::OPTIONAL,
                                              strprintf("%d", DEFAULT_MAX_CONCURRENT_IO_REQUESTS),
                                              obsolescence::OBSOLETE_IGNORED));
     help.add("--io-threads n",
-             "obsolete in RefoundDB. how many simultaneous I/O operations can happen at the same time");
+             "obsolete in RefoundDB.");
 #ifndef _WIN32
     // TODO WINDOWS: accept this option, but error out if it is passed
     options_out->push_back(options::option_t(options::names_t("--direct-io"),
@@ -1472,13 +1471,14 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
     options_out->push_back(options::option_t(options::names_t("--bind"),
                                              options::OPTIONAL_REPEAT));
     options_out->push_back(options::option_t(options::names_t("--bind-cluster"),
-                                             options::OPTIONAL_REPEAT));
+                                             options::OPTIONAL_REPEAT,
+                                             obsolescence::UNUSED_IGNORED));
     options_out->push_back(options::option_t(options::names_t("--bind-driver"),
                                              options::OPTIONAL_REPEAT));
     options_out->push_back(options::option_t(options::names_t("--bind-http"),
                                              options::OPTIONAL_REPEAT));
     help.add("--bind {all | addr}", "add the address of a local interface to listen on when accepting connections, loopback addresses are enabled by default. Can be overridden by the following three options.");
-    help.add("--bind-cluster {all | addr}", "override the behavior specified by --bind for cluster connections.");
+    help.add("--bind-cluster {all | addr}", "unused in RefoundDB.  override the behavior specified by --bind for cluster connections.");
     help.add("--bind-driver {all | addr}", "override the behavior specified by --bind for client driver connections.");
     help.add("--bind-http {all | addr}", "override the behavior specified by --bind for web console connections.");
     options_out->push_back(options::option_t(options::names_t("--no-default-bind"),
@@ -1487,8 +1487,9 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
 
     options_out->push_back(options::option_t(options::names_t("--cluster-port"),
                                              options::OPTIONAL,
-                                             strprintf("%d", port_defaults::peer_port)));
-    help.add("--cluster-port port", "port for receiving connections from other servers");
+                                             strprintf("%d", port_defaults::peer_port),
+                                             obsolescence::UNUSED_IGNORED));
+    help.add("--cluster-port port", "unused in RefoundDB.  port for receiving connections from other servers");
 
     options_out->push_back(options::option_t(options::names_t("--client-port"),
                                              options::OPTIONAL,
@@ -1508,26 +1509,31 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
     help.add("-o [ --port-offset ] offset", "all ports used locally will have this value added");
 
     options_out->push_back(options::option_t(options::names_t("--join", "-j"),
-                                             join_required ? options::MANDATORY_REPEAT : options::OPTIONAL_REPEAT));
-    help.add("-j [ --join ] host[:port]", "host and port of a rethinkdb server to connect to");
+                                             join_required ? options::MANDATORY_REPEAT : options::OPTIONAL_REPEAT,
+                                             obsolescence::OBSOLETE_DISALLOWED));
+    help.add("-j [ --join ] host[:port]", "obsolete and disallowed in RefoundDB.  Clusters are now "
+        "joined by connecting to FoundationDB.");
 
     options_out->push_back(options::option_t(options::names_t("--reql-http-proxy"),
                                              options::OPTIONAL));
     help.add("--reql-http-proxy [protocol://]host[:port]", "HTTP proxy to use for performing `r.http(...)` queries, default port is 1080");
 
     options_out->push_back(options::option_t(options::names_t("--canonical-address"),
-                                             options::OPTIONAL_REPEAT));
-    help.add("--canonical-address host[:port]", "address that other rethinkdb instances will use to connect to us, can be specified multiple times");
+                                             options::OPTIONAL_REPEAT,
+                                             obsolescence::UNUSED_IGNORED));
+    help.add("--canonical-address host[:port]", "unused in RefoundDB.  address that other rethinkdb instances will use to connect to us, can be specified multiple times");
 
     options_out->push_back(options::option_t(options::names_t("--join-delay"),
-                                             options::OPTIONAL));
-    help.add("--join-delay seconds", "hold the TCP connection open for these many "
+                                             options::OPTIONAL,
+                                             obsolescence::OBSOLETE_IGNORED));
+    help.add("--join-delay seconds", "obsolete in RefoundDB.  hold the TCP connection open for these many "
              "seconds before joining with another server");
 
     options_out->push_back(options::option_t(options::names_t("--cluster-reconnect-timeout"),
                                              options::OPTIONAL,
-                                             strprintf("%d", cluster_defaults::reconnect_timeout)));
-    help.add("--cluster-reconnect-timeout seconds", "maximum number of seconds to "
+                                             strprintf("%d", cluster_defaults::reconnect_timeout),
+                                             obsolescence::OBSOLETE_IGNORED));
+    help.add("--cluster-reconnect-timeout seconds", "obsolete in RefoundDB.  maximum number of seconds to "
                                                     "attempt reconnecting to a server "
                                                     "before giving up, the default is "
                                                     "24 hours");
@@ -1615,20 +1621,23 @@ options::help_section_t get_tls_options(std::vector<options::option_t> *options_
 
     // Client Driver TLS options.
     options_out->push_back(options::option_t(options::names_t("--cluster-tls-key"),
-                                             options::OPTIONAL));
+                                             options::OPTIONAL,
+                                             obsolescence::UNUSED_IGNORED));
     options_out->push_back(options::option_t(options::names_t("--cluster-tls-cert"),
-                                             options::OPTIONAL));
+                                             options::OPTIONAL,
+                                             obsolescence::UNUSED_IGNORED));
     options_out->push_back(options::option_t(options::names_t("--cluster-tls-ca"),
-                                             options::OPTIONAL));
+                                             options::OPTIONAL,
+                                             obsolescence::UNUSED_IGNORED));
     help.add(
         "--cluster-tls-key key_filename",
-        "private key to use for intra-cluster connection TLS");
+        "unused in RefoundDB.  private key to use for intra-cluster connection TLS");
     help.add(
         "--cluster-tls-cert cert_filename",
-        "certificate to use for intra-cluster connection TLS");
+        "unused in RefoundDB.  certificate to use for intra-cluster connection TLS");
     help.add(
         "--cluster-tls-ca ca_filename",
-        "CA certificate bundle used to verify cluster peer certificates");
+        "unused in RefoundDB.  CA certificate bundle used to verify cluster peer certificates");
 
     // Generic TLS options, for customizing the supported protocols and cipher suites.
     options_out->push_back(options::option_t(options::names_t("--tls-min-protocol"),
@@ -2163,7 +2172,7 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
 
         std::string initial_password = parse_initial_password_option(opts);
 
-        std::vector<host_and_port_t> joins = parse_join_options(opts, port_defaults::peer_port);
+        UNUSED std::vector<host_and_port_t> joins = parse_join_options(opts, port_defaults::peer_port);
 
         service_address_ports_t address_ports = get_service_address_ports(opts);
 
@@ -2184,7 +2193,7 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         UNUSED optional<optional<uint64_t> > total_cache_size =
             parse_total_cache_size_option(opts);
 
-        optional<int> join_delay_secs = parse_join_delay_secs_option(opts);
+        UNUSED optional<int> join_delay_secs = parse_join_delay_secs_option(opts);
         optional<int> node_reconnect_timeout_secs =
             parse_node_reconnect_timeout_secs_option(opts);
 
@@ -2220,13 +2229,11 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         }
 #endif
 
-        serve_info_t serve_info(std::move(joins),
-                                get_reql_http_proxy_option(opts),
+        serve_info_t serve_info(get_reql_http_proxy_option(opts),
                                 std::move(web_path),
                                 address_ports,
                                 get_optional_option(opts, "--config-file"),
                                 std::vector<std::string>(argv, argv + argc),
-                                join_delay_secs.value_or(0),
                                 node_reconnect_timeout_secs.value_or(cluster_defaults::reconnect_timeout),
                                 tls_configs);
 

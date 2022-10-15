@@ -124,6 +124,7 @@ enum appearance_t {
 
 enum class obsolescence {
     OK,
+    UNUSED_IGNORED,
     UNSUPPORTED_IGNORED,
     UNSUPPORTED_DISALLOWED,
     OBSOLETE_IGNORED,
@@ -189,6 +190,7 @@ private:
 
     obsolescence obsolete = obsolescence::OK;
 
+    bool unused_ignored() const { return obsolete == obsolescence::UNUSED_IGNORED; }
     bool unsupported_ignored() const { return obsolete == obsolescence::UNSUPPORTED_IGNORED; }
     bool unsupported_disallowed() const { return obsolete == obsolescence::UNSUPPORTED_DISALLOWED; }
     bool obsolete_ignored() const { return obsolete == obsolescence::OBSOLETE_IGNORED; }

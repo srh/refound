@@ -180,7 +180,9 @@ std::map<std::string, values_t> do_parse_command_line(
 
         // TODO: printfs this deep into parsing is not ideal.
         // TODO: Product name (multiple places here)
-        if (option->unsupported_ignored()) {
+        if (option->unused_ignored()) {
+            fprintf(stderr, "The option '%s' is unused in RefoundDB and is ignored.\n", official_name.c_str());
+        } else if (option->unsupported_ignored()) {
             fprintf(stderr, "The option '%s' is unsupported in RefoundDB and is ignored.\n", official_name.c_str());
         } else if (option->unsupported_disallowed()) {
             fprintf(stderr, "The option '%s' is unsupported in RefoundDB and is disallowed.\n", official_name.c_str());
