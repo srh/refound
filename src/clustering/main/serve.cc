@@ -165,14 +165,20 @@ bool do_serve(FDBDatabase *fdb,
                                admin_server_ptr->get_port());
                     }
 
+#if 0
+                    // We don't listen on "cluster" addresses -- for peer node connections
+                    // -- in ReFound.  At least, not yet (maybe dynamic query eval could
+                    // be distributed over nodes that register themselves in
+                    // FoundationDB), so this code is still left commented out.
                     std::string addresses_string =
                         serve_info.ports.get_addresses_string(
                             serve_info.ports.local_addresses_cluster);
                     logNTC("Listening on cluster address%s: %s\n",
                            serve_info.ports.local_addresses_cluster.size() == 1 ? "" : "es",
                            addresses_string.c_str());
+#endif
 
-                    addresses_string =
+                    std::string addresses_string =
                         serve_info.ports.get_addresses_string(
                             serve_info.ports.local_addresses_driver);
                     logNTC("Listening on driver address%s: %s\n",
@@ -187,7 +193,7 @@ bool do_serve(FDBDatabase *fdb,
                            addresses_string.c_str());
 
                     if (!service_address_ports_t::is_bind_all(serve_info.ports.local_addresses)) {
-                        if(serve_info.config_file.has_value()) {
+                        if (serve_info.config_file.has_value()) {
                             logNTC("To fully expose RethinkDB on the network, bind to "
                                    "all addresses by adding `bind=all' to the config "
                                    "file (%s).", (*serve_info.config_file).c_str());

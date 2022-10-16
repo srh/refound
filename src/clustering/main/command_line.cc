@@ -833,9 +833,10 @@ service_address_ports_t get_service_address_ports(const std::map<std::string, op
         all_options(opts, "--bind");
     return service_address_ports_t(
         get_local_addresses(default_options, default_options, filter),
-        get_local_addresses(all_options(opts, "--bind-cluster"),
+        // We don't have this in ReFound... yet.
+        /* get_local_addresses(all_options(opts, "--bind-cluster"),
                             default_options,
-                            filter),
+                            filter), */
         get_local_addresses(all_options(opts, "--bind-driver"),
                             default_options,
                             filter),
