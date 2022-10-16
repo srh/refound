@@ -1,5 +1,8 @@
-ReQL-on-FDB
-===========
+ReFound (ReQL-on-FoundationDB)
+==============================
+
+This implements RethinkDB's query language as a stateless layer in
+front of FoundationDB.
 
 This is a port of RethinkDB that uses FoundationDB as the clustering
 layer.  To build, install FoundationDB client libraries onto your
@@ -8,12 +11,26 @@ system (e.g. your Linux system) and then use the usual RethinkDB
 
 Useful commands:
 
+    # create now connects to an empty FoundationDB cluster and sets up
+    # a RethinkDB instance.
     rethinkdb create
     rethinkdb create --fdb-wipe
+
+    # `serve` then acts as a quasi-stateless node
     rethinkdb serve
 
 These expect you to have a FoundationDB instance running and a
-FoundationDB configuration file.
+FoundationDB configuration file in the default system location.  You
+may also pass `--fdb-cluster-file file`, or you may put an
+`fdb.cluster` file into the data directory before creation:
+
+    mkdir path/to/datadir
+    cp my_fdb.cluster path/to/datadir/fdb.cluster
+    rethinkdb create -d path/to/datadir
+
+The nodes are "stateless" but they still do carry a `log_file` and
+`cluster_id` file, and possibly an `fdb.cluster` file, in the data
+directory.
 
 This repo is built (forked) off of RethinkDB 2.4.x, at some point
 after 2.4.2.
@@ -38,18 +55,14 @@ License
 =======
 
 This is licensed under the Affero GPL v3 (unlike RethinkDB, which is
-Apache 2).
+Apache 2).  Right now, all post-Apache 2 modifications are copyrighted
+Sam Hughes, so flexibility on this is possbile.
 
 Contributing
 ============
 
-Please contact me before working on this, if you want your
-contributions not to go to waste.  I might reject all PR's, or require
-a CLA much like the one at RethinkDB.com which allows me to relicense
-under Apache 2.
+See CONTRIBUTING.md.
 
-Want to see further development on this project?  Email me at
-sam@samuelhughes.com.
 
 
 
