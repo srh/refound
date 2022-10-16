@@ -2369,9 +2369,10 @@ void help_rethinkdb_create() {
         get_rethinkdb_create_options(&help_sections, &options);
     }
 
-    printf("'rethinkdb create' is used to prepare a directory to act"
-                " as the storage location for a RethinkDB server.\n");
-    printf("The directory may pre-exist and contain an 'fdb.cluster' file.\n");
+    printf(
+        "'rethinkdb create' is used to prepare a directory to act as the\n"
+        "storage location for a RethinkDB server.  The directory may\n"
+        "pre-exist and contain an 'fdb.cluster' file.\n");
     printf("%s", format_help(help_sections).c_str());
 }
 
