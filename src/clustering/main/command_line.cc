@@ -1281,7 +1281,7 @@ options::help_section_t get_fdb_options(std::vector<options::option_t> *options_
     options_out->push_back(options::option_t(options::names_t("--fdb-cluster-file"),
                                              options::OPTIONAL));
     help.add("--fdb-cluster-file file",
-        "specify the fdb cluster file to use, defaults to 'fdb.custer'.  If unspecified, "
+        "specify the fdb cluster file to use, defaults to 'fdb.cluster'.  If unspecified, "
         "and if the data dir has no 'fdb.cluster' file, falls back to default "
         "FoundationDB client behavior: The value of the FDB_CLUSTER_FILE environment "
         "variable is used if present, then 'fdb.cluster' in the local working directory "
@@ -1719,6 +1719,7 @@ void get_rethinkdb_serve_options(std::vector<options::help_section_t> *help_out,
 void get_rethinkdb_porcelain_options(std::vector<options::help_section_t> *help_out,
                                      std::vector<options::option_t> *options_out) {
     help_out->push_back(get_fdb_options(options_out));
+    help_out->push_back(get_fdb_create_options(options_out));
     help_out->push_back(get_file_options(options_out));
     help_out->push_back(get_server_options(options_out));
     help_out->push_back(get_network_options(false, options_out));
@@ -2336,8 +2337,11 @@ void help_rethinkdb_porcelain() {
         get_rethinkdb_porcelain_options(&help_sections, &options);
     }
 
-    printf("Running 'rethinkdb' will create a new data directory or use an existing one,\n");
-    printf("  and serve as a RethinkDB server.\n");
+    // TODO: Product name (but of course all reFound and ReFound usages as well).
+    printf(
+        "Running 'rethinkdb' without a command is the same as running 'rethinkdb serve'.\n"
+        "You must now, in ReFound, manually create a new metadata directory (or adopt a\n"
+        "prepared directory) using 'rethinkdb create'.\n");
     printf("%s", format_help(help_sections).c_str());
     printf("\n");
     printf("There are a number of subcommands for more specific tasks:\n");
@@ -2367,6 +2371,7 @@ void help_rethinkdb_create() {
 
     printf("'rethinkdb create' is used to prepare a directory to act"
                 " as the storage location for a RethinkDB server.\n");
+    printf("The directory may pre-exist and contain an 'fdb.cluster' file.\n");
     printf("%s", format_help(help_sections).c_str());
 }
 
