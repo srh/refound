@@ -53,8 +53,8 @@ inline void sanitize_port(int port, const char *name, int port_offset) {
 
 struct service_address_ports_t {
     service_address_ports_t() :
-        port(0),
-        client_port(0),
+        // port(0),
+        // client_port(0),
         http_port(0),
         reql_port(0),
         port_offset(0) { }
@@ -64,9 +64,9 @@ struct service_address_ports_t {
         // const std::set<ip_address_t> &_local_addresses_cluster,
                             const std::set<ip_address_t> &_local_addresses_driver,
                             const std::set<ip_address_t> &_local_addresses_http,
-                            const peer_address_t &_canonical_addresses,
-                            int _port,
-                            int _client_port,
+        // const peer_address_t &_canonical_addresses,
+        // int _port,
+        // int _client_port,
                             bool _http_admin_is_disabled,
                             int _http_port,
                             int _reql_port,
@@ -75,16 +75,17 @@ struct service_address_ports_t {
         // local_addresses_cluster(_local_addresses_cluster),
         local_addresses_driver(_local_addresses_driver),
         local_addresses_http(_local_addresses_http),
-        canonical_addresses(_canonical_addresses),
-        port(_port),
-        client_port(_client_port),
+        // canonical_addresses(_canonical_addresses),
+        // `port` is the intra-cluster port
+        // port(_port),
+        // client_port(_client_port),
         http_admin_is_disabled(_http_admin_is_disabled),
         http_port(_http_port),
         reql_port(_reql_port),
         port_offset(_port_offset)
     {
-            sanitize_port(port, "port", port_offset);
-            sanitize_port(client_port, "client_port", port_offset);
+            // sanitize_port(port, "port", port_offset);
+            // sanitize_port(client_port, "client_port", port_offset);
             sanitize_port(http_port, "http_port", port_offset);
             sanitize_port(reql_port, "reql_port", port_offset);
     }
@@ -101,9 +102,9 @@ struct service_address_ports_t {
 
     // We're keeping around canonical addresses as a concept -- at some point they might
     // be registered in the FoundationDB cluster if nodes need to talk to one another.
-    peer_address_t canonical_addresses;
-    int port;
-    int client_port;
+    // peer_address_t canonical_addresses;
+    // int port;
+    // int client_port;
     bool http_admin_is_disabled;
     int http_port;
     int reql_port;

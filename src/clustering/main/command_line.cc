@@ -822,7 +822,8 @@ peer_address_t get_canonical_addresses(const std::map<std::string, options::valu
 
 service_address_ports_t get_service_address_ports(const std::map<std::string, options::values_t> &opts) {
     const int port_offset = get_single_int(opts, "--port-offset");
-    const int cluster_port = offseted_port(get_single_int(opts, "--cluster-port"), port_offset);
+    // const int cluster_port = offseted_port(get_single_int(opts, "--cluster-port"), port_offset);
+    // const int client_port = get_single_int(opts, "--client-port");
 
     local_ip_filter_t filter =
         exists_option(opts, "--no-default-bind") ?
@@ -843,9 +844,9 @@ service_address_ports_t get_service_address_ports(const std::map<std::string, op
         get_local_addresses(all_options(opts, "--bind-http"),
                             default_options,
                             filter),
-        get_canonical_addresses(opts, cluster_port),
-        cluster_port,
-        get_single_int(opts, "--client-port"),
+        /* get_canonical_addresses(opts, cluster_port), */
+        /* cluster_port, */
+        /* client_port, */
         exists_option(opts, "--no-http-admin"),
         offseted_port(get_single_int(opts, "--http-port"), port_offset),
         offseted_port(get_single_int(opts, "--driver-port"), port_offset),
@@ -1494,9 +1495,10 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
 
     options_out->push_back(options::option_t(options::names_t("--client-port"),
                                              options::OPTIONAL,
-                                             strprintf("%d", port_defaults::client_port)));
+                                             strprintf("%d", port_defaults::client_port),
+                                             obsolescence::OBSOLETE_DISALLOWED));
 #ifndef NDEBUG
-    help.add("--client-port port", "port to use when connecting to other servers (for development)");
+    help.add("--client-port port", "obsolete and disallowed in RefoundDB.  port to use when connecting to other servers (for development)");
 #endif  // NDEBUG
 
     options_out->push_back(options::option_t(options::names_t("--driver-port"),
