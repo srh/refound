@@ -5,6 +5,7 @@
 #include "containers/uuid.hpp"
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
+#include "logger.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "rpc/equality_macros.hpp"
 
@@ -20,7 +21,7 @@ ownership. */
         fdb_error_t reql_fdb_guarantee_err_var = (err); \
         if (reql_fdb_guarantee_err_var != 0) { \
             const char *msg = fdb_get_error(reql_fdb_guarantee_err_var); \
-            printf("ERROR: %s failed: %s\n", (fn), msg); \
+            logERR("%s failed: %s\n", (fn), msg); \
             abort(); \
         } \
     } while (false)
@@ -140,7 +141,7 @@ public:
         fdb_error_t err = fdb_create_database(cluster_file_param, &db);
         if (err != 0) {
             const char *msg = fdb_get_error(err);
-            fprintf(stderr, "ERROR: fdb_create_database failed: %s\n", msg);
+            logERR("fdb_create_database failed: %s\n", msg);
             abort();  // TODO: abort?
         }
     }
@@ -182,7 +183,7 @@ public:
         fdb_error_t err = fdb_database_create_transaction(db, &txn);
         if (err != 0) {
             const char *msg = fdb_get_error(err);
-            printf("ERROR: fdb_database_create_transaction failed: %s", msg);
+            logERR("fdb_database_create_transaction failed: %s", msg);
             abort();  // TODO: abort?
         }
     }

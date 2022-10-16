@@ -87,7 +87,7 @@ MUST_USE fdb_error_t write_node_entry(
                 throw;
             }
             if (timer.is_pulsed()) {
-                printf("Trouble registering node... Is FoundationDB running? Is the config correct?\n"
+                logERR("Node registration timed out.  Is FoundationDB running?  Is the config correct?  "
                        "Retrying...\n");
             }
             continue;
@@ -191,7 +191,7 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
         {
             fdb_error_t err = read_node_count(fdb_, interruptor, &node_count);
             if (err != 0) {
-                logERR("Node presence routine encountered FoundationDB error: %s", fdb_get_error(err));
+                logERR("Node presence routine encountered FoundationDB error: %s\n", fdb_get_error(err));
                 nap(error_nap_value, interruptor);
                 continue;
             }
@@ -235,7 +235,7 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
 
             fdb_error_t write_err = write_node_entry(fdb_, node_id_, interruptor);
             if (write_err != 0) {
-                logERR("Node presence registration encountered FoundationDB error: %s", fdb_get_error(write_err));
+                logERR("Node presence registration encountered FoundationDB error: %s\n", fdb_get_error(write_err));
                 nap(error_nap_value, interruptor);
                 continue;
             }
@@ -255,14 +255,14 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
         });
 
         if (loop_err != 0) {
-            logERR("Node presence clock update operation encountered FoundationDB error: %s", fdb_get_error(loop_err));
+            logERR("Node presence clock update operation encountered FoundationDB error: %s\n", fdb_get_error(loop_err));
             nap(error_nap_value, interruptor);
             continue;
         }
 
         fdb_error_t gc_err = incrementally_gc_node_info(fdb_, interruptor);
         if (gc_err != 0) {
-            logERR("Node garbage collection operation encountered FoundationDB error: %s", fdb_get_error(gc_err));
+            logERR("Node garbage collection operation encountered FoundationDB error: %s\n", fdb_get_error(gc_err));
             nap(error_nap_value, interruptor);
             continue;
 

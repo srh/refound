@@ -1851,26 +1851,25 @@ bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, c
 }
 
 optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
-        FDBDatabase *fdb, bool wipe, const std::string &initial_password) {
+        FDBDatabase *fdb, const bool wipe, const std::string &initial_password) {
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
     // there fdb conventions for "claiming" your database?
 
     bool failure = false;
 
-    printf("Connecting to FoundationDB to initialize RethinkDB instance...\n");
-    fflush(stdout);
-
     std::vector<std::pair<FDBTransactionOption, std::vector<uint8_t>>> create_txn_options = {
         { FDB_TR_OPTION_TIMEOUT, little_endian_int64(5000) /* millis */ }
     };
 
     const uuid_u cluster_id = generate_uuid();
+    std::string cluster_id_str = uuid_to_str(cluster_id);
+    logNTC("Connecting to FoundationDB to initialize RethinkDB instance %s...", cluster_id_str.c_str());
 
     std::string print_out;
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb, create_txn_options,
-        [wipe, &failure, &initial_password, &print_out, &cluster_id](FDBTransaction *txn) {
-        printf("Attempting initialization...\n");
+        [&](FDBTransaction *txn) {
+        logNTC("Attempting initialization of cluster %s...", cluster_id_str.c_str());
         printf_buffer_t print;
         // TODO: Prefix key option.
 
@@ -1991,19 +1990,17 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
         return;
     });
     if (loop_err != 0) {
-        // TODO: stderr?
-        printf("Error in FoundationDB transaction: %s\n", fdb_get_error(loop_err));
+        logERR("Error in FoundationDB transaction: %s\n", fdb_get_error(loop_err));
         return r_nullopt;
     }
-    printf("%s", print_out.c_str());
 
     if (failure) {
+        logERR("%s", print_out.c_str());
         return r_nullopt;
     } else {
-        // TODO: Proper message.  Include cluster id
-        printf("Successfully initialized RethinkDB instance '%s' in FoundationDB\n",
-            uuid_to_str(cluster_id).c_str());
-        fflush(stdout);
+        logNTC("%s", print_out.c_str());
+        logNTC("Successfully initialized RethinkDB instance '%s' in FoundationDB\n",
+            cluster_id_str.c_str());
         return make_optional(cluster_id);
     }
 }
