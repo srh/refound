@@ -1160,6 +1160,29 @@ bool configure_tls(
 
 // OOO: Remove config_version_exc_t?
 
+MUST_USE bool set_initial_password(FDBTransaction *txn, const signal_t *non_interruptor, const std::string &initial_password) {
+    guarantee(!initial_password.empty());
+    fdb_value_fut<auth::user_t> user_fut
+        = transaction_get_user(txn, auth::username_t("admin"));
+    auth::user_t user;
+    if (!user_fut.block_and_deserialize(non_interruptor, &user)) {
+        crash("admin user not found in fdb");  // TODO: fdb error, msg, etc.
+    }
+    bool needs_configuration = user.get_password().is_empty();
+    if (needs_configuration) {
+        uint32_t iterations = auth::password_t::default_iteration_count;
+        auth::password_t pw(initial_password, iterations);
+        auth::user_t new_user = auth::user_t(std::move(pw));
+        transaction_modify_user(txn, auth::username_t("admin"),
+            user, new_user);
+    }
+    return needs_configuration;
+}
+
+constexpr const char *initial_password_msg =
+    "Ignoring --initial-password option because the admin "
+    "password is already configured.";
+
 void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
                          serve_info_t *serve_info,
@@ -1184,23 +1207,12 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                 // TODO: Is there some sort of sigint interruptor we can set up earlier?
                 bool already_configured = false;
                 fdb_error_t loop_err = txn_retry_loop_coro(fdb, &non_interruptor, [&](FDBTransaction *txn) {
-                    fdb_value_fut<auth::user_t> user_fut = transaction_get_user(txn, auth::username_t("admin"));
-                    auth::user_t user;
-                    if (!user_fut.block_and_deserialize(&non_interruptor, &user)) {
-                        crash("admin user not found in fdb");  // TODO: fdb error, msg, etc.
-                    }
-                    bool not_configured = user.get_password().is_empty();
-                    if (not_configured) {
-                        uint32_t iterations = auth::password_t::default_iteration_count;
-                        auth::password_t pw(initial_password, iterations);
-                        auth::user_t new_user = auth::user_t(std::move(pw));
-                        transaction_modify_user(txn, auth::username_t("admin"),
-                            user, new_user);
-
+                    bool mutated = set_initial_password(txn, &non_interruptor, initial_password);
+                    if (mutated) {
                         // We have changes, so commit.
                         commit(txn, &non_interruptor);
                     }
-                    already_configured = !not_configured;
+                    already_configured = !mutated;
                 });
                 if (loop_err != 0) {
                     logERR("FoundationDB error when processing --initial-password option: %s",
@@ -1210,8 +1222,7 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                 }
 
                 if (already_configured) {
-                    logNTC("Ignoring --initial-password option because the admin "
-                           "password is already configured.");
+                    logNTC(initial_password_msg);
                 }
             }
         }
@@ -2080,8 +2091,11 @@ optional<uuid_u> main_rethinkdb_init_fdb_blocking_pthread(
     }
 }
 
-optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb) {
+optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb,
+    const std::string &initial_password) {
     // All we do is connect to FDB, read and parse the first key.
+
+    cond_t non_interruptor;
 
     bool failure = false;
 
@@ -2092,6 +2106,8 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb) {
     uuid_u cluster_id = nil_uuid();
 
     logNTC("Connecting to FoundationDB to retrieve RethinkDB instance information...");
+
+    bool initial_password_already_configured = false;
 
     std::string print_out;
     fdb_error_t loop_err = txn_retry_loop_pthread(fdb, create_txn_options,
@@ -2136,6 +2152,8 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb) {
                 print.appendf("Its first key (length %d) is: '%.*s'\n", key.length, key.length, as_char(key.data));
                 print.appendf("Its first value (length %d) is: '%.*s'\n", value.length, value.length, as_char(value.data));
                 failure = true;
+                print_out.append(print.data(), size_t(print.size()));
+                return;
             }
         } else {
             print.appendf("Attempted RethinkDB creation (without initializing) while connecting to an empty FoundationDB database.\n");
@@ -2143,6 +2161,15 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb) {
             print_out.append(print.data(), size_t(print.size()));
             return;
         }
+        if (!initial_password.empty()) {
+            bool mutated = set_initial_password(txn, &non_interruptor, initial_password);
+            if (mutated) {
+                // We have changes, so commit.
+                commit(txn, &non_interruptor);
+            }
+            initial_password_already_configured = !mutated;
+        }
+
         print_out.append(print.data(), size_t(print.size()));
         return;
     });
@@ -2155,6 +2182,9 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb) {
         logERR("%s", print_out.c_str());
         return r_nullopt;
     } else {
+        if (initial_password_already_configured) {
+            logNTC(initial_password_msg);
+        }
         logNTC("%s", print_out.c_str());
         return make_optional(cluster_id);
     }
@@ -2241,12 +2271,11 @@ int main_rethinkdb_create(int argc, char *argv[]) {
 
         optional<uuid_u> result2;
         if (init) {
-            // NNN: Don't allow initial_password without `init`.
             result2 = main_rethinkdb_init_fdb_blocking_pthread(
                 fdb.db, wipe, initial_password);
         } else {
             result2 = main_rethinkdb_create_fdb_blocking_pthread(
-                fdb.db);
+                fdb.db, initial_password);
         }
 
         if (result2.has_value()) {
