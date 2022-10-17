@@ -1191,7 +1191,6 @@ void run_rethinkdb_serve(FDBDatabase *fdb,
                     }
                     bool not_configured = user.get_password().is_empty();
                     if (not_configured) {
-                        // TODO: Do we use this when setting up in 'rethinkdb create'?
                         uint32_t iterations = auth::password_t::default_iteration_count;
                         auth::password_t pw(initial_password, iterations);
                         auth::user_t new_user = auth::user_t(std::move(pw));
