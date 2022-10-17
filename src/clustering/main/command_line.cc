@@ -1291,9 +1291,14 @@ options::help_section_t get_fdb_options(std::vector<options::option_t> *options_
 
 options::help_section_t get_fdb_create_options(std::vector<options::option_t> *options_out) {
     options::help_section_t help("FoundationDB-related creation options");
-    options_out->push_back(options::option_t(options::names_t("--fdb-wipe"),
+    options_out->push_back(options::option_t(options::names_t("--fdb-force-wipe"),
                                              options::OPTIONAL_NO_PARAMETER));
-    help.add("--fdb-wipe", "wipe out FoundationDB on creation, if it has an existing RefoundDB instance");
+    help.add("--fdb-force-wipe",
+        "used with --fdb-init.  wipe out FoundationDB on creation, if it has "
+        "an existing RefoundDB instance");
+    options_out->push_back(options::option_t(options::names_t("--fdb-init"),
+                                             options::OPTIONAL_NO_PARAMETER));
+    help.add("--fdb-init", "initialize RethinkDB instance in FoundationDB");
     return help;
 }
 
@@ -1344,8 +1349,14 @@ std::vector<host_and_port_t> parse_join_options(const std::map<std::string, opti
     return joins;
 }
 
-bool parse_wipe_option(const std::map<std::string, options::values_t> &opts) {
-    return exists_option(opts, "--fdb-wipe");
+bool parse_init_options(const std::map<std::string, options::values_t> &opts, bool *init_out, bool *wipe_out) {
+    *init_out = exists_option(opts, "--fdb-init");
+    *wipe_out = exists_option(opts, "--fdb-force-wipe");
+    if (*wipe_out && !*init_out) {
+        fprintf(stderr, "--fdb-force-wipe cannot be used without --fdb-init\n");
+        return false;
+    }
+    return true;
 }
 
 name_string_t parse_server_name_option(
@@ -1854,27 +1865,49 @@ bool parse_reqlfdb_version_value_version_number(const uint8_t *value_data, size_
     return true;
 }
 
-// Parses and returns cluster id.
-optional<uuid_u> looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
+bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
     if (0 != sized_strcmp(key_data, key_size, as_uint8(REQLFDB_VERSION_KEY), strlen(REQLFDB_VERSION_KEY))) {
-        return r_nullopt;
+        return false;
     }
 
     size_t pos = strlen(REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX);
     // REQLFDB_VERSION_KEY is just the empty string, so we need to check the value
     if (!(pos <= value_size && 0 == memcmp(value_data, REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX, pos))) {
-        return r_nullopt;
+        return false;
     }
 
     // Now we parse the version number (but don't use it).
     std::string version_number;
     if (!parse_reqlfdb_version_value_version_number(value_data, value_size, &pos)) {
-        return r_nullopt;
+        return false;
     }
 
     if (!(pos < value_size && value_data[pos] == ' ')) {
+        return false;
+    }
+
+    size_t nextpos = pos + uuid_u::kStringSize;
+    uuid_u cluster_id;
+    if (!(nextpos <= value_size && str_to_uuid(as_char(value_data + pos), uuid_u::kStringSize, &cluster_id))) {
+        return false;
+    }
+
+    // That's as far as we parse it -- future versions might have more info afterwards.
+    return true;
+}
+
+// Parses and returns cluster id.
+optional<uuid_u> looks_like_usable_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
+    if (0 != sized_strcmp(key_data, key_size, as_uint8(REQLFDB_VERSION_KEY), strlen(REQLFDB_VERSION_KEY))) {
         return r_nullopt;
     }
+
+    size_t pos = strlen(REQLFDB_VERSION_VALUE_PREFIX);
+    if (!(pos <= value_size && 0 == memcmp(value_data, REQLFDB_VERSION_VALUE_PREFIX, pos))) {
+        return r_nullopt;
+    }
+
+    // That parses "reqlfdb 0.1.0 ".  Now for the cluster id.
 
     size_t nextpos = pos + uuid_u::kStringSize;
     uuid_u cluster_id;
@@ -1882,11 +1915,16 @@ optional<uuid_u> looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t
         return r_nullopt;
     }
 
+    // Since we're looking for our exact instance, we know there must be nothing past the cluster id.
+    if (nextpos != value_size) {
+        return r_nullopt;
+    }
+
     // That's as far as we parse it -- future versions might have more info afterwards.
     return make_optional(cluster_id);
 }
 
-optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
+optional<uuid_u> main_rethinkdb_init_fdb_blocking_pthread(
         FDBDatabase *fdb, const bool wipe, const std::string &initial_password) {
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
@@ -1917,7 +1955,6 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
             false)};
         get_fut.block_pthread();
 
-        // Okay, we have an empty db.  Now what?
         key_view key;
         fdb_error_t err = future_get_key(get_fut.fut, &key);
         check_for_fdb_transaction(err);
@@ -1940,7 +1977,7 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
             check_for_fdb_transaction(err);
             guarantee(value.present);  // TODO: fdb, graceful -- fdb transaction semantics guarantees value exists
 
-            if (optional<uuid_u> cluster_id = looks_like_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+            if (looks_like_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
                 // Right, we don't use the parsed cluster_id here.
                 print.appendf("Attempted RethinkDB initialization when existing instance exists.\n");
                 print.appendf("RethinkDB instance identity: %.*s\n", value.length, as_char(value.data));
@@ -1965,6 +2002,8 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
                     end_key, end_key_length);
             }
         }
+
+        // Okay, now we have an empty db.
 
         {
             std::string version_value = make_version_value(cluster_id);
@@ -2042,6 +2081,86 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
     }
 }
 
+optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb) {
+    // All we do is connect to FDB, read and parse the first key.
+
+    bool failure = false;
+
+    std::vector<std::pair<FDBTransactionOption, std::vector<uint8_t>>> create_txn_options = {
+        { FDB_TR_OPTION_TIMEOUT, little_endian_int64(5000) /* millis */ }
+    };
+
+    uuid_u cluster_id = nil_uuid();
+
+    logNTC("Connecting to FoundationDB to retrieve RethinkDB instance information...");
+
+    std::string print_out;
+    fdb_error_t loop_err = txn_retry_loop_pthread(fdb, create_txn_options,
+        [&](FDBTransaction *txn) {
+        printf_buffer_t print;
+
+        uint8_t empty_key[1];
+        int empty_key_length = 0;
+        fdb_key_fut get_fut{fdb_transaction_get_key(
+            txn,
+            FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, empty_key_length),
+            false)};
+        get_fut.block_pthread();
+
+        key_view key;
+        fdb_error_t err = future_get_key(get_fut.fut, &key);
+        check_for_fdb_transaction(err);
+
+        uint8_t end_key[1] = { 0xFF };
+        int end_key_length = 1;
+
+        std::string version_key = REQLFDB_VERSION_KEY;
+
+        // Whether we have access to fdb system keys or not, "\xFF" or "\xFF..." is returned
+        // for an empty database.
+        if (sized_strcmp(key.data, key.length, end_key, end_key_length) < 0) {
+            // If the database is non-empty, let's see what we've got.
+
+            fdb_future smallest_key_fut{fdb_transaction_get(txn, key.data, key.length, false)};
+            smallest_key_fut.block_pthread();
+            fdb_value value;
+            fdb_error_t err = future_get_value(smallest_key_fut.fut, &value);
+            check_for_fdb_transaction(err);
+            guarantee(value.present);  // TODO: fdb, graceful -- fdb transaction semantics guarantees value exists
+
+            if (optional<uuid_u> cluster_id_opt = looks_like_usable_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+                // Okay, we parsed and got the cluster id.
+                cluster_id = *cluster_id_opt;
+                failure = false;
+            } else {
+                print.appendf("Attempted RethinkDB creation while connecting to a non-empty, unrecognized FoundationDB database.\n");
+                print.appendf("Its first key (length %d) is: '%.*s'\n", key.length, key.length, as_char(key.data));
+                print.appendf("Its first value (length %d) is: '%.*s'\n", value.length, value.length, as_char(value.data));
+                failure = true;
+            }
+        } else {
+            print.appendf("Attempted RethinkDB creation (without initializing) while connecting to an empty FoundationDB database.\n");
+            failure = true;
+            print_out.append(print.data(), size_t(print.size()));
+            return;
+        }
+        print_out.append(print.data(), size_t(print.size()));
+        return;
+    });
+    if (loop_err != 0) {
+        logERR("Error in FoundationDB transaction: %s\n", fdb_get_error(loop_err));
+        return r_nullopt;
+    }
+
+    if (failure) {
+        logERR("%s", print_out.c_str());
+        return r_nullopt;
+    } else {
+        logNTC("%s", print_out.c_str());
+        return make_optional(cluster_id);
+    }
+}
+
 int main_rethinkdb_create(int argc, char *argv[]) {
     std::vector<options::option_t> options;
     std::vector<options::help_section_t> help;
@@ -2062,7 +2181,10 @@ int main_rethinkdb_create(int argc, char *argv[]) {
 
         options::verify_option_counts(options, opts);
 
-        const bool wipe = parse_wipe_option(opts);
+        bool init, wipe;
+        if (!parse_init_options(opts, &init, &wipe)) {
+            return EXIT_FAILURE;
+        }
 
         base_path_t base_path(get_single_option(opts, "--directory"));
 
@@ -2118,8 +2240,16 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database fdb(fdb_cluster_file_param.c_str());
 
-        optional<uuid_u> result2 = main_rethinkdb_create_fdb_blocking_pthread(
-            fdb.db, wipe, initial_password);
+        optional<uuid_u> result2;
+        if (init) {
+            // NNN: Don't allow initial_password without `init`.
+            result2 = main_rethinkdb_init_fdb_blocking_pthread(
+                fdb.db, wipe, initial_password);
+        } else {
+            result2 = main_rethinkdb_create_fdb_blocking_pthread(
+                fdb.db);
+        }
+
         if (result2.has_value()) {
             initialize_cluster_id_file(base_path, *result2);
 

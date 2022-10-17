@@ -11,12 +11,22 @@ system (e.g. your Linux system) and then use the usual RethinkDB
 
 Useful commands:
 
-    # create now connects to an empty FoundationDB cluster and sets up
-    # a RethinkDB instance.
-    rethinkdb create
-    rethinkdb create --fdb-wipe
+    # Connects to an empty FoundationDB instance and sets up a
+    # RethinkDB instance in that FoundationDB cluster.  Also,
+    # initializes the local metadata directory (with `cluster_id` and
+    # `log_file` files).
 
-    # `serve` then acts as a quasi-stateless node
+    rethinkdb create --fdb-init
+    rethinkdb create --fdb-init --fdb-force-wipe
+
+    # Connects to existing FoundationDB instance (that was initialized
+    # with `--fdb-init`) and initializes the local metadata directory.
+
+    rethinkdb create
+
+    # `serve` then acts as a quasi-stateless node once the local
+    # metadata directory has been created.
+
     rethinkdb serve
 
 These expect you to have a FoundationDB instance running and a
