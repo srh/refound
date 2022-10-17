@@ -1840,18 +1840,50 @@ std::string make_version_value(const uuid_u &cluster_id) {
     return version_value;
 }
 
-bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
+bool parse_reqlfdb_version_value_version_number(const uint8_t *value_data, size_t value_size, size_t *pos) {
+    // We don't actually have any requirements on version number -- maybe 2.3.4a or
+    // 2.3.5-f48a0cf48 are possible formats.
+    size_t p = *pos;
+    while (p < value_size && value_data[p] != ' ') {
+        ++p;
+    }
+    if (p == *pos) {
+        return false;
+    }
+    *pos = p;
+    return true;
+}
+
+// Parses and returns cluster id.
+optional<uuid_u> looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
     if (0 != sized_strcmp(key_data, key_size, as_uint8(REQLFDB_VERSION_KEY), strlen(REQLFDB_VERSION_KEY))) {
-        return false;
+        return r_nullopt;
     }
 
-    size_t preflen = strlen(REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX);
+    size_t pos = strlen(REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX);
     // REQLFDB_VERSION_KEY is just the empty string, so we need to check the value
-    if (value_size < preflen) {
-        return false;
+    if (!(pos <= value_size && 0 == memcmp(value_data, REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX, pos))) {
+        return r_nullopt;
     }
 
-    return 0 == memcmp(value_data, REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX, preflen);
+    // Now we parse the version number (but don't use it).
+    std::string version_number;
+    if (!parse_reqlfdb_version_value_version_number(value_data, value_size, &pos)) {
+        return r_nullopt;
+    }
+
+    if (!(pos < value_size && value_data[pos] == ' ')) {
+        return r_nullopt;
+    }
+
+    size_t nextpos = pos + uuid_u::kStringSize;
+    uuid_u cluster_id;
+    if (!(nextpos <= value_size && str_to_uuid(as_char(value_data + pos), uuid_u::kStringSize, &cluster_id))) {
+        return r_nullopt;
+    }
+
+    // That's as far as we parse it -- future versions might have more info afterwards.
+    return make_optional(cluster_id);
 }
 
 optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
@@ -1908,7 +1940,8 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(
             check_for_fdb_transaction(err);
             guarantee(value.present);  // TODO: fdb, graceful -- fdb transaction semantics guarantees value exists
 
-            if (looks_like_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+            if (optional<uuid_u> cluster_id = looks_like_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+                // Right, we don't use the parsed cluster_id here.
                 print.appendf("Attempted RethinkDB initialization when existing instance exists.\n");
                 print.appendf("RethinkDB instance identity: %.*s\n", value.length, as_char(value.data));
             } else {
