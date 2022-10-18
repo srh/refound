@@ -63,27 +63,77 @@ void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interr
             sizeof(value),
             FDB_MUTATION_TYPE_ADD);
     }
+}
 
-    commit(txn, interruptor);
+// TODO: Declare and even define somewhere common.
+optional<fdb_cluster_id> looks_like_usable_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size);
+
+bool check_cluster_id(const signal_t *interruptor, FDBTransaction *txn,
+        const fdb_cluster_id &expected_cluster_id, std::pair<std::string, std::string> *bad_ent) {
+    static_assert(REQLFDB_KEY_PREFIX_NOT_IMPLEMENTED, "FDB key prefix assumed not implemented here.");
+    uint8_t empty_key[1];
+    int empty_key_length = 0;
+    fdb_key_fut get_fut{fdb_transaction_get_key(
+            txn,
+            FDB_KEYSEL_FIRST_GREATER_OR_EQUAL(empty_key, empty_key_length),
+            false)};
+    key_view key = get_fut.block_and_get_key(interruptor);
+
+    uint8_t end_key[1] = { 0xFF };
+    int end_key_length = 1;
+
+    std::string version_key = REQLFDB_VERSION_KEY;
+
+    if (sized_strcmp(key.data, key.length, end_key, end_key_length) < 0) {
+        fdb_future smallest_key_fut{fdb_transaction_get(txn, key.data, key.length, false)};
+        fdb_value value = future_block_on_value(smallest_key_fut.fut, interruptor);
+        guarantee(value.present);  // TODO: fdb, graceful -- fdb transaction semantics guarantees value exists
+
+        if (optional<fdb_cluster_id> cluster_id_opt = looks_like_usable_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+            if (cluster_id_opt->value != expected_cluster_id.value) {
+                *bad_ent = {std::string(as_char(key.data), key.length), std::string(as_char(value.data), value.length)};
+                return false;
+            }
+            return true;
+        } else {
+            *bad_ent = {std::string(as_char(key.data), key.length), std::string(as_char(value.data), value.length)};
+            return false;
+        }
+
+    } else {
+        *bad_ent = {"\xFF", ""};
+        return false;
+    }
 }
 
 MUST_USE fdb_error_t write_node_entry(
         const signal_t *interruptor, FDBDatabase *fdb, fdb_node_id node_id,
-        optional<fdb_cluster_id> expected_cluster_id) {
+        const optional<fdb_cluster_id> &expected_cluster_id,
+        optional<std::pair<std::string, std::string>> *first_kv_out) {
     // TODO: Make use.
     (void)expected_cluster_id;
     for (;;) {
         signal_timer_t timer(REQLFDB_CONNECTIVITY_COMPLAINT_TIMEOUT_MS);
         wait_any_t waiter(&timer, interruptor);
         try {
+            optional<std::pair<std::string, std::string>> first_kv;
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, &waiter,
-                [&node_id, &waiter](FDBTransaction *txn) {
+                [&node_id, &waiter, &expected_cluster_id, &first_kv](FDBTransaction *txn) {
+                if (expected_cluster_id.has_value()) {
+                    std::pair<std::string, std::string> first_ent;
+                    if (!check_cluster_id(&waiter, txn, *expected_cluster_id, &first_ent)) {
+                        first_kv.set(first_ent);
+                        return;
+                    }
+                }
                 write_body(txn, node_id, &waiter);
+                commit(txn, &waiter);
             });
             if (op_indeterminate(loop_err)) {
                 // Just try again.
                 continue;
             }
+            *first_kv_out = std::move(first_kv);
             return loop_err;
         } catch (const interrupted_exc_t &ex) {
             if (interruptor->is_pulsed()) {
@@ -236,7 +286,8 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                 }
             }
 
-            fdb_error_t write_err = write_node_entry(interruptor, fdb_, node_id_, r_nullopt);
+            optional<std::pair<std::string, std::string>> bad_cluster_version_ignore;
+            fdb_error_t write_err = write_node_entry(interruptor, fdb_, node_id_, r_nullopt, &bad_cluster_version_ignore);
             if (write_err != 0) {
                 logERR("Node presence registration encountered FoundationDB error: %s\n", fdb_get_error(write_err));
                 nap(error_nap_value, interruptor);
@@ -293,7 +344,8 @@ fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, 
         : fdb_(fdb), node_id_(node_id),
           supplied_job_sem_(1),
           supplied_job_sem_holder_(&supplied_job_sem_, 1) {
-    fdb_error_t err = write_node_entry(interruptor, fdb, node_id_, make_optional(expected_cluster_id));
+    optional<std::pair<std::string, std::string>> bad_cluster_version;
+    fdb_error_t err = write_node_entry(interruptor, fdb, node_id_, make_optional(expected_cluster_id), &bad_cluster_version);
     if (err != 0) {
         logERR("Initial node presence registration encountered FoundationDB error: %s", fdb_get_error(err));
         // TODO: This is a bit of a hack -- we just happen to know the exception handler
@@ -301,6 +353,22 @@ fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, 
         throw startup_failed_exc_t();
     }
 
+    if (bad_cluster_version.has_value()) {
+        if (bad_cluster_version->first == REQLFDB_VERSION_KEY &&
+            bad_cluster_version->second.substr(strlen(REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX)) == REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX) {
+            logERR("Cluster doesn't match the expected cluster_id '%s'.\n",
+                uuid_to_str(expected_cluster_id.value).c_str());
+            logERR("RethinkDB instance identity: %.*s\n", int(bad_cluster_version->second.size()), bad_cluster_version->second.data());
+        } else {
+            logERR("Cluster doesn't look like a RethinkDB cluster.\n");
+            // TODO: This duplicates messaging in command_line.cc, maybe we could dedup.
+            logERR("Its first key (length %zu) is: '%.*s'\n", bad_cluster_version->first.size(), int(bad_cluster_version->first.size()), bad_cluster_version->first.data());
+            logERR("Its first value (length %zu) is: '%.*s'\n", bad_cluster_version->second.size(), int(bad_cluster_version->second.size()), bad_cluster_version->second.data());
+        }
+
+        // TODO: Same "bit of a hack" comment as above.
+        throw startup_failed_exc_t();
+    }
 
     coro_t::spawn_later_ordered([this, lock = drainer_.lock()]() {
         try {

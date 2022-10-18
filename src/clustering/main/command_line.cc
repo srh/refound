@@ -2114,6 +2114,7 @@ optional<fdb_cluster_id> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase 
         [&](FDBTransaction *txn) {
         printf_buffer_t print;
 
+        static_assert(REQLFDB_KEY_PREFIX_NOT_IMPLEMENTED, "FDB key prefix assumed not implemented here.");
         uint8_t empty_key[1];
         int empty_key_length = 0;
         fdb_key_fut get_fut{fdb_transaction_get_key(
