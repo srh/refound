@@ -2259,6 +2259,8 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         get_and_set_user_group_and_directory(opts, &data_directory_lock);
 #endif
 
+        // NNN: Did we not use make_absolute for base_path in the create case before?
+        // This is an inconsistency.
         initialize_logfile(opts, base_path);
 
         std::string fdb_cluster_file_param = get_fdb_client_cluster_file_param(base_path, opts);
@@ -2392,7 +2394,17 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         // Open and lock the directory, but do not create it
         bool is_new_directory = false;
         directory_lock_t data_directory_lock(base_path, false, &is_new_directory);
+
         guarantee(!is_new_directory);
+
+        optional<fdb_cluster_id> cluster_id = read_cluster_id_file(base_path);
+        if (!cluster_id.has_value()) {
+            fprintf(stderr,
+                "The data directory '%s' is missing its cluster_id file.\n"
+                "You need to use 'rethinkdb create' to initialize the directory.\n",
+                base_path.path().c_str());
+            return EXIT_FAILURE;
+        }
 
         base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
@@ -2422,7 +2434,8 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
 #endif
 
         fdb_node_id node_id{generate_uuid()};
-        serve_info_t serve_info(node_id,
+        serve_info_t serve_info(*cluster_id,
+                                node_id,
                                 get_reql_http_proxy_option(opts),
                                 std::move(web_path),
                                 address_ports,

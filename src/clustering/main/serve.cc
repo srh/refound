@@ -93,7 +93,7 @@ bool serve(FDBDatabase *fdb,
         log messages will be written using the event loop instead of blocking. */
         thread_pool_log_writer_t log_writer;
 
-        fdb_node_holder node_holder{fdb, stop_cond, serve_info.node_id};
+        fdb_node_holder node_holder{fdb, stop_cond, serve_info.node_id, serve_info.expected_cluster_id};
 
         // The node id could be non-ephemeral (we could reuse it after a node goes down
         // and back up) for what it's worth.

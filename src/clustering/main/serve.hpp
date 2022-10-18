@@ -125,7 +125,8 @@ peer_address_set_t look_up_peers_addresses(const std::vector<host_and_port_t> &n
 
 class serve_info_t {
 public:
-    serve_info_t(const fdb_node_id &_node_id,
+    serve_info_t(const fdb_cluster_id &_expected_cluster_id,
+                 const fdb_node_id &_node_id,
                  std::string &&_reql_http_proxy,
                  std::string &&_web_assets,
                  service_address_ports_t _ports,
@@ -133,6 +134,7 @@ public:
                  std::vector<std::string> &&_argv,
                  const int _node_reconnect_timeout_secs,
                  tls_configs_t _tls_configs) :
+        expected_cluster_id(_expected_cluster_id),
         node_id(_node_id),
         reql_http_proxy(std::move(_reql_http_proxy)),
         web_assets(std::move(_web_assets)),
@@ -144,6 +146,7 @@ public:
         tls_configs = _tls_configs;
     }
 
+    fdb_cluster_id expected_cluster_id;
     fdb_node_id node_id;
     std::string reql_http_proxy;
     std::string web_assets;

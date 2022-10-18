@@ -14,7 +14,8 @@ struct fdb_job_info;
 
 class fdb_node_holder : public home_thread_mixin_t {
 public:
-    explicit fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id);
+    explicit fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id,
+                             const fdb_cluster_id &expected_cluster_id);
     ~fdb_node_holder();
 
     // Tells the node holder to (try to) claim and start executing a job that has been

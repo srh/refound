@@ -68,7 +68,10 @@ void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interr
 }
 
 MUST_USE fdb_error_t write_node_entry(
-        FDBDatabase *fdb, fdb_node_id node_id, const signal_t *interruptor) {
+        const signal_t *interruptor, FDBDatabase *fdb, fdb_node_id node_id,
+        optional<fdb_cluster_id> expected_cluster_id) {
+    // TODO: Make use.
+    (void)expected_cluster_id;
     for (;;) {
         signal_timer_t timer(REQLFDB_CONNECTIVITY_COMPLAINT_TIMEOUT_MS);
         wait_any_t waiter(&timer, interruptor);
@@ -233,7 +236,7 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                 }
             }
 
-            fdb_error_t write_err = write_node_entry(fdb_, node_id_, interruptor);
+            fdb_error_t write_err = write_node_entry(interruptor, fdb_, node_id_, r_nullopt);
             if (write_err != 0) {
                 logERR("Node presence registration encountered FoundationDB error: %s\n", fdb_get_error(write_err));
                 nap(error_nap_value, interruptor);
@@ -286,11 +289,11 @@ void fdb_node_holder::supply_job(fdb_job_info job) {
     supplied_job_sem_holder_.change_count(0);  // Possibly already released.
 }
 
-fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id)
+fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id, const fdb_cluster_id &expected_cluster_id)
         : fdb_(fdb), node_id_(node_id),
           supplied_job_sem_(1),
           supplied_job_sem_holder_(&supplied_job_sem_, 1) {
-    fdb_error_t err = write_node_entry(fdb, node_id_, interruptor);
+    fdb_error_t err = write_node_entry(interruptor, fdb, node_id_, make_optional(expected_cluster_id));
     if (err != 0) {
         logERR("Initial node presence registration encountered FoundationDB error: %s", fdb_get_error(err));
         // TODO: This is a bit of a hack -- we just happen to know the exception handler
