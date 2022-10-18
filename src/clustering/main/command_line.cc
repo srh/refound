@@ -461,7 +461,7 @@ std::string cluster_id_path(const base_path_t &dirpath) {
     return dirpath.path() + "/" + CLUSTER_ID_FILENAME;
 }
 
-optional<uuid_u> read_cluster_id_file(const base_path_t &dirpath) {
+optional<fdb_cluster_id> read_cluster_id_file(const base_path_t &dirpath) {
     std::string filename = cluster_id_path(dirpath);
     std::string error_msg;
     bool not_found;
@@ -485,13 +485,13 @@ optional<uuid_u> read_cluster_id_file(const base_path_t &dirpath) {
     if (!str_to_uuid(data.data(), data.size(), &cluster_id)) {
         throw std::runtime_error("Parse failure of cluster_id file '" + filename + "'");
     }
-    return make_optional(cluster_id);
+    return make_optional(fdb_cluster_id{cluster_id});
 }
 
-void initialize_cluster_id_file(const base_path_t &dirpath, const uuid_u &cluster_id) {
+void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id &cluster_id) {
     std::string filename = cluster_id_path(dirpath);
     scoped_fd_t fd = io_utils::create_file(filename.c_str());
-    std::string str = uuid_to_str(cluster_id);
+    std::string str = uuid_to_str(cluster_id.value);
     std::string error;
     bool res = io_utils::write_all(fd.get(), str.data(), str.size(), &error);
     if (!res) {
@@ -1855,9 +1855,9 @@ std::vector<uint8_t> little_endian_int64(int64_t x) {
     return little_endian_uint64(x);
 }
 
-std::string make_version_value(const uuid_u &cluster_id) {
+std::string make_version_value(const fdb_cluster_id &cluster_id) {
     std::string version_value = REQLFDB_VERSION_VALUE_PREFIX;
-    version_value += uuid_to_str(cluster_id);
+    version_value += uuid_to_str(cluster_id.value);
     return version_value;
 }
 
@@ -1907,7 +1907,7 @@ bool looks_like_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, c
 }
 
 // Parses and returns cluster id.
-optional<uuid_u> looks_like_usable_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
+optional<fdb_cluster_id> looks_like_usable_reql_on_fdb_instance(const uint8_t *key_data, size_t key_size, const uint8_t *value_data, size_t value_size) {
     if (0 != sized_strcmp(key_data, key_size, as_uint8(REQLFDB_VERSION_KEY), strlen(REQLFDB_VERSION_KEY))) {
         return r_nullopt;
     }
@@ -1931,10 +1931,10 @@ optional<uuid_u> looks_like_usable_reql_on_fdb_instance(const uint8_t *key_data,
     }
 
     // That's as far as we parse it -- future versions might have more info afterwards.
-    return make_optional(cluster_id);
+    return make_optional(fdb_cluster_id{cluster_id});
 }
 
-optional<uuid_u> main_rethinkdb_init_fdb_blocking_pthread(
+optional<fdb_cluster_id> main_rethinkdb_init_fdb_blocking_pthread(
         FDBDatabase *fdb, const bool wipe, const std::string &initial_password) {
     // Don't do fancy setup, just connect to FDB, check that it's empty (besides system
     // keys starting with \xFF), and then initialize the rethinkdb database.  TODO: Are
@@ -1946,8 +1946,8 @@ optional<uuid_u> main_rethinkdb_init_fdb_blocking_pthread(
         { FDB_TR_OPTION_TIMEOUT, little_endian_int64(5000) /* millis */ }
     };
 
-    const uuid_u cluster_id = generate_uuid();
-    std::string cluster_id_str = uuid_to_str(cluster_id);
+    const fdb_cluster_id cluster_id{generate_uuid()};
+    std::string cluster_id_str = uuid_to_str(cluster_id.value);
     logNTC("Connecting to FoundationDB to initialize RethinkDB instance %s...", cluster_id_str.c_str());
 
     std::string print_out;
@@ -2091,7 +2091,7 @@ optional<uuid_u> main_rethinkdb_init_fdb_blocking_pthread(
     }
 }
 
-optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb,
+optional<fdb_cluster_id> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb,
     const std::string &initial_password) {
     // All we do is connect to FDB, read and parse the first key.
 
@@ -2103,7 +2103,7 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb,
         { FDB_TR_OPTION_TIMEOUT, little_endian_int64(5000) /* millis */ }
     };
 
-    uuid_u cluster_id = nil_uuid();
+    fdb_cluster_id cluster_id{nil_uuid()};
 
     logNTC("Connecting to FoundationDB to retrieve RethinkDB instance information...");
 
@@ -2143,7 +2143,7 @@ optional<uuid_u> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase *fdb,
             check_for_fdb_transaction(err);
             guarantee(value.present);  // TODO: fdb, graceful -- fdb transaction semantics guarantees value exists
 
-            if (optional<uuid_u> cluster_id_opt = looks_like_usable_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
+            if (optional<fdb_cluster_id> cluster_id_opt = looks_like_usable_reql_on_fdb_instance(key.data, key.length, value.data, value.length)) {
                 // Okay, we parsed and got the cluster id.
                 cluster_id = *cluster_id_opt;
                 failure = false;
@@ -2237,12 +2237,12 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         /* This is redundant with check_dir_emptiness below, but distinguishes between
            having an existing node's data directory and a nonsensically initialized data
            directory, for better error output. */
-        if (optional<uuid_u> cluster_id = read_cluster_id_file(base_path)) {
+        if (optional<fdb_cluster_id> cluster_id = read_cluster_id_file(base_path)) {
             fprintf(stderr,
                 "The data directory '%s' is already used for the cluster '%s'.\n"
                 "Delete the directory or use another location.\n",
                 base_path.path().c_str(),
-                uuid_to_str(*cluster_id).c_str());
+                uuid_to_str(cluster_id->value).c_str());
             return EXIT_FAILURE;
         }
 
@@ -2269,7 +2269,7 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database fdb(fdb_cluster_file_param.c_str());
 
-        optional<uuid_u> result2;
+        optional<fdb_cluster_id> result2;
         if (init) {
             result2 = main_rethinkdb_init_fdb_blocking_pthread(
                 fdb.db, wipe, initial_password);

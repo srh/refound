@@ -2,7 +2,6 @@
 #define RETHINKDB_FDB_REQL_FDB_HPP_
 
 #include "config/args.hpp"
-#include "containers/uuid.hpp"
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
 #include "logger.hpp"

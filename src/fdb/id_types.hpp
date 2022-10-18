@@ -32,6 +32,12 @@ struct fdb_node_id {
 RDB_MAKE_SERIALIZABLE_1(fdb_node_id, value);
 RDB_MAKE_EQUALITY_COMPARABLE_1(fdb_node_id, value);
 
+struct fdb_cluster_id {
+    uuid_u value;
+};
+/* cluster_id has no serialization implementation because (as it happens) it's stored in
+   string form in FDB and in the local `cluster_id` file. */
+
 // Not an id type, so maybe this file is misnamed.  Well, maybe it identifies the
 // version.
 struct reqlfdb_config_version {
