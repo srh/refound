@@ -66,9 +66,9 @@ std::string windows_version_string();
 std::string run_uname(const std::string &flags);
 #endif
 
-bool do_serve(FDBDatabase *fdb,
-              const serve_info_t &serve_info,
-              os_signal_cond_t *stop_cond) {
+bool serve(FDBDatabase *fdb,
+        const serve_info_t &serve_info,
+        os_signal_cond_t *stop_cond) {
     // Vestigial proxy code exists.
     const bool i_am_a_server = true;
     /* This coroutine is responsible for creating and destroying most of the important
@@ -242,12 +242,4 @@ bool do_serve(FDBDatabase *fdb,
     }
 
     return true;
-}
-
-bool serve(FDBDatabase *fdb,
-           const serve_info_t &serve_info,
-           os_signal_cond_t *stop_cond) {
-    return do_serve(fdb,
-                    serve_info,
-                    stop_cond);
 }
