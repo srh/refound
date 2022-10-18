@@ -286,8 +286,8 @@ void fdb_node_holder::supply_job(fdb_job_info job) {
     supplied_job_sem_holder_.change_count(0);  // Possibly already released.
 }
 
-fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor)
-        : fdb_(fdb), node_id_{generate_uuid()},
+fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id)
+        : fdb_(fdb), node_id_(node_id),
           supplied_job_sem_(1),
           supplied_job_sem_holder_(&supplied_job_sem_, 1) {
     fdb_error_t err = write_node_entry(fdb, node_id_, interruptor);

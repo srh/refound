@@ -93,14 +93,12 @@ bool serve(FDBDatabase *fdb,
         log messages will be written using the event loop instead of blocking. */
         thread_pool_log_writer_t log_writer;
 
-        fdb_node_holder node_holder{fdb, stop_cond};
+        fdb_node_holder node_holder{fdb, stop_cond, serve_info.node_id};
 
-#ifndef NDEBUG
         // The node id could be non-ephemeral (we could reuse it after a node goes down
         // and back up) for what it's worth.
-        logNTC("Ephemeral node ID is %s",
+        logNTC("Node ID is %s",
             uuid_to_str(node_holder.get_node_id().value).c_str());
-#endif
 
         perfmon_collection_repo_t perfmon_collection_repo(
             &get_global_perfmon_collection());

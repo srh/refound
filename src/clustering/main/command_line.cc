@@ -1185,7 +1185,7 @@ constexpr const char *initial_password_msg =
 
 void run_rethinkdb_serve(FDBDatabase *fdb,
                          const base_path_t &base_path,
-                         serve_info_t *serve_info,
+                         const serve_info_t *serve_info,
                          const std::string &initial_password,
                          directory_lock_t *data_directory_lock,
                          bool *const result_out) {
@@ -2421,7 +2421,9 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         }
 #endif
 
-        serve_info_t serve_info(get_reql_http_proxy_option(opts),
+        fdb_node_id node_id{generate_uuid()};
+        serve_info_t serve_info(node_id,
+                                get_reql_http_proxy_option(opts),
                                 std::move(web_path),
                                 address_ports,
                                 get_optional_option(opts, "--config-file"),
