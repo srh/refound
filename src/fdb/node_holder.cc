@@ -13,6 +13,8 @@
 #include "logger.hpp"
 #include "utils.hpp"
 
+// NNN: Add logic to detect that there are duplicate nodes with the same node_id.
+
 fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint64_t *out) {
     fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [interruptor, out](FDBTransaction *txn) {
         fdb_future nodes_count_fut = transaction_get_c_str(txn, REQLFDB_NODES_COUNT_KEY);

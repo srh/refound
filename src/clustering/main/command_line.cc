@@ -82,6 +82,7 @@ const int reconnect_timeout = (24 * 60 * 60);    // 24 hours (in secs)
 }  // namespace cluster_defaults
 
 constexpr const char *CLUSTER_ID_FILENAME = "cluster_id";
+constexpr const char *NODE_ID_FILENAME = "cluster_id";
 constexpr const char *LOG_FILE_DEFAULT_FILENAME = "log_file";
 constexpr const char *FDB_CLUSTER_DEFAULT_FILENAME = "fdb.cluster";
 
@@ -461,14 +462,15 @@ std::string cluster_id_path(const base_path_t &dirpath) {
     return dirpath.path() + "/" + CLUSTER_ID_FILENAME;
 }
 
+std::string node_id_path(const base_path_t &dirpath) {
+    return dirpath.path() + "/" + NODE_ID_FILENAME;
+}
+
 optional<fdb_cluster_id> read_cluster_id_file(const base_path_t &dirpath) {
     std::string filename = cluster_id_path(dirpath);
     std::string error_msg;
     bool not_found;
     scoped_fd_t fd = io_utils::open_file_for_read(filename.c_str(), &error_msg, &not_found);
-    // TODO: Shouldn't we actually, say, try creating the file?  If it existed, and we had
-    // bad permissions, we'd falsely "succeed" in failing to read the cluster id file (in
-    // cases where we want it to not exist).  I'm saying we should check the EEXIST case specially.
     if (fd.get() == INVALID_FD) {
         if (not_found) {
             return r_nullopt;
@@ -488,6 +490,31 @@ optional<fdb_cluster_id> read_cluster_id_file(const base_path_t &dirpath) {
     return make_optional(fdb_cluster_id{cluster_id});
 }
 
+fdb_node_id read_node_id_file(const base_path_t &dirpath) {
+    std::string filename = node_id_path(dirpath);
+    std::string error_msg;
+    bool not_found;
+    scoped_fd_t fd = io_utils::open_file_for_read(filename.c_str(), &error_msg, &not_found);
+    if (fd.get() == INVALID_FD) {
+        if (not_found) {
+            throw std::runtime_error("node_id file '" + filename + "' not found");
+        } else {
+            throw std::runtime_error("I/O error when opening node_id file '" + filename + "': " + error_msg);
+        }
+    }
+
+    std::vector<char> data;
+    if (!io_utils::try_read_file(filename.c_str(), &data, &error_msg)) {
+        throw std::runtime_error("I/O error when reading node_id file '" + filename + "': " + error_msg);
+    }
+    uuid_u node_id;
+    if (!str_to_uuid(data.data(), data.size(), &node_id)) {
+        throw std::runtime_error("Parse failure of node_id file '" + filename + "'");
+    }
+    return fdb_node_id{node_id};
+}
+
+// NNN: We should be fsyncing the data directory after this.
 void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id &cluster_id) {
     std::string filename = cluster_id_path(dirpath);
     scoped_fd_t fd = io_utils::create_file(filename.c_str());
@@ -496,6 +523,18 @@ void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id
     bool res = io_utils::write_all(fd.get(), str.data(), str.size(), &error);
     if (!res) {
         throw std::runtime_error("Failed to write cluster_id file '" + filename + "': " + error);
+    }
+}
+
+// NNN: We should be fsyncing the data directory after this.
+void initialize_node_id_file(const base_path_t &dirpath, const fdb_node_id &node_id) {
+    std::string filename = node_id_path(dirpath);
+    scoped_fd_t fd = io_utils::create_file(filename.c_str());
+    std::string str = uuid_to_str(node_id.value);
+    std::string error;
+    bool res = io_utils::write_all(fd.get(), str.data(), str.size(), &error);
+    if (!res) {
+        throw std::runtime_error("Failed to write node_id file '" + filename + "': " + error);
     }
 }
 
@@ -2282,6 +2321,11 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         }
 
         if (result2.has_value()) {
+            // We'll initialize our node_id file first to make stronger our expectation
+            // that cluster_id file existence implies node_id cluster file existence.
+            fdb_node_id our_node_id{generate_uuid()};
+            initialize_node_id_file(base_path, our_node_id);
+
             initialize_cluster_id_file(base_path, *result2);
 
             // Tell the directory lock that the directory is now good to go, as it
@@ -2407,6 +2451,8 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
 
+        fdb_node_id node_id = read_node_id_file(base_path);
+
         base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
 
@@ -2434,7 +2480,6 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
         }
 #endif
 
-        fdb_node_id node_id{generate_uuid()};
         serve_info_t serve_info(*cluster_id,
                                 node_id,
                                 get_reql_http_proxy_option(opts),
