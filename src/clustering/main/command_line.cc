@@ -82,7 +82,7 @@ const int reconnect_timeout = (24 * 60 * 60);    // 24 hours (in secs)
 }  // namespace cluster_defaults
 
 constexpr const char *CLUSTER_ID_FILENAME = "cluster_id";
-constexpr const char *NODE_ID_FILENAME = "cluster_id";
+constexpr const char *NODE_ID_FILENAME = "node_id";
 constexpr const char *LOG_FILE_DEFAULT_FILENAME = "log_file";
 constexpr const char *FDB_CLUSTER_DEFAULT_FILENAME = "fdb.cluster";
 
@@ -516,7 +516,7 @@ fdb_node_id read_node_id_file(const base_path_t &dirpath) {
 
 void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id &cluster_id) {
     std::string filename = cluster_id_path(dirpath);
-    scoped_fd_t fd = io_utils::create_file(filename.c_str());
+    scoped_fd_t fd = io_utils::create_file(filename.c_str(), true);
     std::string str = uuid_to_str(cluster_id.value);
     std::string error;
     bool res = io_utils::write_all(fd.get(), str.data(), str.size(), &error);
@@ -529,7 +529,7 @@ void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id
 
 void initialize_node_id_file(const base_path_t &dirpath, const fdb_node_id &node_id) {
     std::string filename = node_id_path(dirpath);
-    scoped_fd_t fd = io_utils::create_file(filename.c_str());
+    scoped_fd_t fd = io_utils::create_file(filename.c_str(), true);
     std::string str = uuid_to_str(node_id.value);
     std::string error;
     bool res = io_utils::write_all(fd.get(), str.data(), str.size(), &error);
@@ -1290,13 +1290,13 @@ options::help_section_t get_server_options(std::vector<options::option_t> *optio
     help.add("-n [ --server-name ] arg",
              "the name for this server (as will appear in the metadata).  If not"
              " specified, one will be generated from the hostname and a random "
-             "alphanumeric string.  Unsupported (for now) in RefoundDB.");
+             "alphanumeric string.  Unsupported (for now) in ReFound.");
 
     options_out->push_back(options::option_t(options::names_t("--server-tag", "-t"),
                                              options::OPTIONAL_REPEAT,
                                              obsolescence::UNSUPPORTED_IGNORED));
     help.add("-t [ --server-tag ] arg",
-             "a tag for this server. Can be specified multiple times.  Unsupported (for now) in RefoundDB.");
+             "a tag for this server. Can be specified multiple times.  Unsupported (for now) in ReFound.");
 
     return help;
 }
@@ -1346,14 +1346,13 @@ options::help_section_t get_fdb_create_options(std::vector<options::option_t> *o
                                              options::OPTIONAL_NO_PARAMETER));
     help.add("--fdb-force-wipe",
         "used with --fdb-init.  wipe out FoundationDB on creation, if it has "
-        "an existing RefoundDB instance");
+        "an existing ReFound instance");
     options_out->push_back(options::option_t(options::names_t("--fdb-init"),
                                              options::OPTIONAL_NO_PARAMETER));
     help.add("--fdb-init", "initialize RethinkDB instance in FoundationDB");
     return help;
 }
 
-// TODO: Product name (every use of "RefoundDB" in this file)
 options::help_section_t get_file_options(std::vector<options::option_t> *options_out) {
     options::help_section_t help("File path options");
     options_out->push_back(options::option_t(options::names_t("--directory", "-d"),
@@ -1365,18 +1364,18 @@ options::help_section_t get_file_options(std::vector<options::option_t> *options
                                              strprintf("%d", DEFAULT_MAX_CONCURRENT_IO_REQUESTS),
                                              obsolescence::OBSOLETE_IGNORED));
     help.add("--io-threads n",
-             "obsolete in RefoundDB.");
+             "obsolete in ReFound.");
 #ifndef _WIN32
     // TODO WINDOWS: accept this option, but error out if it is passed
     options_out->push_back(options::option_t(options::names_t("--direct-io"),
                                              options::OPTIONAL_NO_PARAMETER,
                                              obsolescence::OBSOLETE_IGNORED));
-    help.add("--direct-io", "obsolete in RefoundDB.  use direct I/O for file access");
+    help.add("--direct-io", "obsolete in ReFound.  use direct I/O for file access");
 #endif
     options_out->push_back(options::option_t(options::names_t("--cache-size"),
                                              options::OPTIONAL,
                                              obsolescence::OBSOLETE_IGNORED));
-    help.add("--cache-size mb", "obsolete in RefoundDB.  total cache size (in megabytes) for the process. Can "
+    help.add("--cache-size mb", "obsolete in ReFound.  total cache size (in megabytes) for the process. Can "
         "be 'auto'.");
     return help;
 }
@@ -1542,7 +1541,7 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
     options_out->push_back(options::option_t(options::names_t("--bind-http"),
                                              options::OPTIONAL_REPEAT));
     help.add("--bind {all | addr}", "add the address of a local interface to listen on when accepting connections, loopback addresses are enabled by default. Can be overridden by the following three options.");
-    help.add("--bind-cluster {all | addr}", "unused in RefoundDB.  override the behavior specified by --bind for cluster connections.");
+    help.add("--bind-cluster {all | addr}", "unused in ReFound.  override the behavior specified by --bind for cluster connections.");
     help.add("--bind-driver {all | addr}", "override the behavior specified by --bind for client driver connections.");
     help.add("--bind-http {all | addr}", "override the behavior specified by --bind for web console connections.");
     options_out->push_back(options::option_t(options::names_t("--no-default-bind"),
@@ -1553,14 +1552,14 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
                                              options::OPTIONAL,
                                              strprintf("%d", port_defaults::peer_port),
                                              obsolescence::UNUSED_IGNORED));
-    help.add("--cluster-port port", "unused in RefoundDB.  port for receiving connections from other servers");
+    help.add("--cluster-port port", "unused in ReFound.  port for receiving connections from other servers");
 
     options_out->push_back(options::option_t(options::names_t("--client-port"),
                                              options::OPTIONAL,
                                              strprintf("%d", port_defaults::client_port),
                                              obsolescence::OBSOLETE_DISALLOWED));
 #ifndef NDEBUG
-    help.add("--client-port port", "obsolete and disallowed in RefoundDB.  port to use when connecting to other servers (for development)");
+    help.add("--client-port port", "obsolete and disallowed in ReFound.  port to use when connecting to other servers (for development)");
 #endif  // NDEBUG
 
     options_out->push_back(options::option_t(options::names_t("--driver-port"),
@@ -1576,7 +1575,7 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
     options_out->push_back(options::option_t(options::names_t("--join", "-j"),
                                              join_required ? options::MANDATORY_REPEAT : options::OPTIONAL_REPEAT,
                                              obsolescence::OBSOLETE_DISALLOWED));
-    help.add("-j [ --join ] host[:port]", "obsolete and disallowed in RefoundDB.  Clusters are now "
+    help.add("-j [ --join ] host[:port]", "obsolete and disallowed in ReFound.  Clusters are now "
         "joined by connecting to FoundationDB.");
 
     options_out->push_back(options::option_t(options::names_t("--reql-http-proxy"),
@@ -1586,19 +1585,19 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
     options_out->push_back(options::option_t(options::names_t("--canonical-address"),
                                              options::OPTIONAL_REPEAT,
                                              obsolescence::UNUSED_IGNORED));
-    help.add("--canonical-address host[:port]", "unused in RefoundDB.  address that other rethinkdb instances will use to connect to us, can be specified multiple times");
+    help.add("--canonical-address host[:port]", "unused in ReFound.  address that other rethinkdb instances will use to connect to us, can be specified multiple times");
 
     options_out->push_back(options::option_t(options::names_t("--join-delay"),
                                              options::OPTIONAL,
                                              obsolescence::OBSOLETE_IGNORED));
-    help.add("--join-delay seconds", "obsolete in RefoundDB.  hold the TCP connection open for these many "
+    help.add("--join-delay seconds", "obsolete in ReFound.  hold the TCP connection open for these many "
              "seconds before joining with another server");
 
     options_out->push_back(options::option_t(options::names_t("--cluster-reconnect-timeout"),
                                              options::OPTIONAL,
                                              strprintf("%d", cluster_defaults::reconnect_timeout),
                                              obsolescence::OBSOLETE_IGNORED));
-    help.add("--cluster-reconnect-timeout seconds", "obsolete in RefoundDB.  maximum number of seconds to "
+    help.add("--cluster-reconnect-timeout seconds", "obsolete in ReFound.  maximum number of seconds to "
                                                     "attempt reconnecting to a server "
                                                     "before giving up, the default is "
                                                     "24 hours");
@@ -1696,13 +1695,13 @@ options::help_section_t get_tls_options(std::vector<options::option_t> *options_
                                              obsolescence::UNUSED_IGNORED));
     help.add(
         "--cluster-tls-key key_filename",
-        "unused in RefoundDB.  private key to use for intra-cluster connection TLS");
+        "unused in ReFound.  private key to use for intra-cluster connection TLS");
     help.add(
         "--cluster-tls-cert cert_filename",
-        "unused in RefoundDB.  certificate to use for intra-cluster connection TLS");
+        "unused in ReFound.  certificate to use for intra-cluster connection TLS");
     help.add(
         "--cluster-tls-ca ca_filename",
-        "unused in RefoundDB.  CA certificate bundle used to verify cluster peer certificates");
+        "unused in ReFound.  CA certificate bundle used to verify cluster peer certificates");
 
     // Generic TLS options, for customizing the supported protocols and cipher suites.
     options_out->push_back(options::option_t(options::names_t("--tls-min-protocol"),
@@ -2591,7 +2590,6 @@ void help_rethinkdb_porcelain() {
         get_rethinkdb_porcelain_options(&help_sections, &options);
     }
 
-    // TODO: Product name (but of course all reFound and ReFound usages as well).
     printf(
         "Running 'rethinkdb' without a command is the same as running 'rethinkdb serve'.\n"
         "You must now, in ReFound, manually create a new metadata directory (or adopt a\n"
@@ -2601,7 +2599,7 @@ void help_rethinkdb_porcelain() {
     printf("There are a number of subcommands for more specific tasks:\n");
     printf("    'rethinkdb create': prepare files on disk for a new server instance\n");
     printf("    'rethinkdb serve': use an existing data directory to host data and serve queries\n");
-    printf("    'rethinkdb proxy': serve queries from an existing cluster but don't host data\n");
+    printf("    'rethinkdb proxy': not supported in ReFound.  Use 'rethinkdb serve'.\n");
     printf("    'rethinkdb export': export data from an existing cluster into a file or directory\n");
     printf("    'rethinkdb import': import data from from a file or directory into an existing cluster\n");
     printf("    'rethinkdb dump': export and compress data from an existing cluster\n");
@@ -2642,7 +2640,7 @@ void help_rethinkdb_serve() {
 }
 
 void help_rethinkdb_proxy() {
-    printf("'rethinkdb proxy' is not supported in reqlfdb (now every node is a proxy).\n");  // TODO: product name
+    printf("'rethinkdb proxy' is not supported in ReFound.  Now every node is a proxy.\n");
 }
 
 void help_rethinkdb_export() {

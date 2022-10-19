@@ -179,19 +179,18 @@ std::map<std::string, values_t> do_parse_command_line(
         const std::string official_name = option->names[0];
 
         // TODO: printfs this deep into parsing is not ideal.
-        // TODO: Product name (multiple places here)
         if (option->unused_ignored()) {
-            fprintf(stderr, "The option '%s' is unused in RefoundDB and is ignored.\n", official_name.c_str());
+            fprintf(stderr, "The option '%s' is unused in ReFound and is ignored.\n", official_name.c_str());
         } else if (option->unsupported_ignored()) {
-            fprintf(stderr, "The option '%s' is unsupported in RefoundDB and is ignored.\n", official_name.c_str());
+            fprintf(stderr, "The option '%s' is unsupported in ReFound and is ignored.\n", official_name.c_str());
         } else if (option->unsupported_disallowed()) {
-            fprintf(stderr, "The option '%s' is unsupported in RefoundDB and is disallowed.\n", official_name.c_str());
+            fprintf(stderr, "The option '%s' is unsupported in ReFound and is disallowed.\n", official_name.c_str());
             *fail_out = true;
             return std::map<std::string, values_t>();
         } else if (option->obsolete_ignored()) {
-            fprintf(stderr, "The option '%s' is obsolete in RefoundDB and is ignored.\n", official_name.c_str());
+            fprintf(stderr, "The option '%s' is obsolete in ReFound and is ignored.\n", official_name.c_str());
         } else if (option->obsolete_disallowed()) {
-            fprintf(stderr, "The option '%s' is obsolete in RefoundDB and is disallowed.\n", official_name.c_str());
+            fprintf(stderr, "The option '%s' is obsolete in ReFound and is disallowed.\n", official_name.c_str());
             *fail_out = true;
             return std::map<std::string, values_t>();
         }

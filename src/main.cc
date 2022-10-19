@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
             } else if (subcommand == "serve") {
                 return main_rethinkdb_serve(argc - 2, argv + 2);
             } else if (subcommand == "proxy") {
-                printf("ERROR: Subcommand 'proxy' is no longer supported in reql-on-fdb.\n");  // TODO: Product name
+                printf("ERROR: Subcommand 'proxy' is no longer supported in ReFound.\n");
                 return 1;
             } else if (subcommand == "export") {
                 return main_rethinkdb_export(argc, argv);

@@ -117,7 +117,7 @@ static inline std::string time2str(const time_t &t) {
 
 #define RETHINKDB_VERSION_STR_TRAILER " (" BUILD_MACHINE ")" " (" COMPILER_STR ")"
 
-// TODO: Product Name
+// NNN: Product version value of RETHINKDB_VERSION.
 #ifndef NDEBUG
 #define RETHINKDB_VERSION_STR "ReFound " RETHINKDB_VERSION " (debug)" RETHINKDB_VERSION_STR_TRAILER
 #else

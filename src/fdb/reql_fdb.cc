@@ -16,7 +16,7 @@
 
 fdb storage format:
 
-    "" => "reqlfdb 2.4.0 <uuid>" -- the reqlfdb version we're on and a random UUID
+    "" => "ReFound 2.4.0 <uuid>" -- the reqlfdb version we're on and a random string UUID, the fdb_cluster_id.
 
     rethinkdb/... => rethinkdb system db
 

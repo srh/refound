@@ -280,9 +280,10 @@ inline void commit(FDBTransaction *txn, const signal_t *interruptor) {
 // REQLFDB_VERSION_KEY is guaranteed to be the smallest key that appears in a reqlfdb
 // database.
 constexpr const char *REQLFDB_VERSION_KEY = "";
-constexpr const char *REQLFDB_VERSION_VALUE_PREFIX = "reqlfdb 0.2.0 ";
+#define REQLFDB_VERSION_STRING "0.2.0"
+constexpr const char *REQLFDB_VERSION_VALUE_PREFIX = "ReFound " REQLFDB_VERSION_STRING " ";
 // This is the version value prefix _all_ reql-on-fdb clusters have (i.e. without the version number)
-constexpr const char *REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX = "reqlfdb ";
+constexpr const char *REQLFDB_VERSION_VALUE_UNIVERSAL_PREFIX = "ReFound ";
 constexpr const char *REQLFDB_CLOCK_KEY = "rethinkdb/clock";
 
 constexpr const char *REQLFDB_NODES_BY_ID = "rethinkdb/nodes//";

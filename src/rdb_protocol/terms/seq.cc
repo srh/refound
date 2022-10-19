@@ -660,9 +660,8 @@ private:
             auto selection = std::move(*v).as_selection(env->env);
         }
 
-        // TODO: Check new rfail "not supported in reqlfdb" code to ensure they use base_exc_t::LOGIC.
         rfail(base_exc_t::LOGIC,
-              ".changes() is not supported in reqlfdb.");  // TODO: Product name
+              ".changes() is not supported in ReFound.");
     }
     virtual const char *name() const { return "changes"; }
 };

@@ -27,7 +27,7 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
     builder.overwrite("id", ql::datum_t(nai.id_string));
 
     const int64_t fake_time_started = 0;
-    const std::string fake_version = "3.0";  // TODO: Product name / product version
+    const std::string fake_version = REQLFDB_VERSION_STRING;
     const double fake_pid = 0;
     const double fake_cache_size_mb = 1;
 

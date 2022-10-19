@@ -655,7 +655,7 @@ private:
         rcheck_fdb(loop_err, "retrieving table in `status`");
 
         admin_err_t error{
-            "The `status` term is not supported in reql-on-fdb.",  // TODO: Product name
+            "The `status` term is not supported in ReFound.",
                 query_state_t::FAILED};
         REQL_RETHROW(error);
     }
@@ -861,7 +861,7 @@ private:
             admin_err_t error;
             try {
                 /* Perform the operation */
-                rfail(base_exc_t::OP_FAILED, "Per-table reconfiguration is not supported on Reql-on-FDB");  // TODO: Product name
+                rfail(base_exc_t::LOGIC, "Per-table reconfiguration is not supported on ReFound");
             } catch (auth::permission_error_t const &permission_error) {
                 rfail(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
             }
@@ -906,7 +906,7 @@ private:
 
             // We of course ignore the parameter after parsing it.
             (void)mode;
-            rfail(base_exc_t::OP_FAILED, "Per-table reconfiguration is not supported on Reql-on-FDB");  // TODO: Product name
+            rfail(base_exc_t::LOGIC, "Per-table reconfiguration is not supported on ReFound");
         }
     }
     const char *name() const final { return "reconfigure"; }
@@ -921,7 +921,7 @@ private:
             scope_env_t *env, args_t *args, eval_flags_t) const override {
         auto args_pair = parse_args(env, args);
 
-        rfail(base_exc_t::OP_FAILED, "Rebalancing is not supported (and unnecessary) on Reql-on-FDB");  // TODO: Product name
+        rfail(base_exc_t::LOGIC, "Rebalancing is not supported (and unnecessary) on ReFound");
     }
     const char *name() const final { return "rebalance"; }
 };
