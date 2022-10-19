@@ -21,7 +21,6 @@ const int MAXIMUM_MAX_CONCURRENT_IO_REQUESTS = MILLION;
 // Makes blocking syscalls.  Upon error, returns the errno value.
 int perform_datasync(fd_t fd);
 
-// TODO: Might we need to fsync the parent of the rockstore directory?
 // Calls fsync() on the parent directory of the given path.
 // Returns the errno value in case of an error and 0 otherwise.
 MUST_USE int fsync_parent_directory(const char *path);

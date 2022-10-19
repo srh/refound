@@ -100,7 +100,7 @@ void warn_fsync_parent_directory(const char *path) {
     int sync_res = fsync_parent_directory(path);
     if (sync_res != 0) {
         logWRN("Failed to sync parent directory of \"%s\" (errno: %d - %s). "
-               "You may encounter data loss in case of a system failure. "
+               "You may be unable to relaunch this node in case of a system failure. "
                "(Is the file located on a filesystem that doesn't support directory sync? "
                "e.g. VirtualBox shared folders)",
                path, sync_res, errno_string(sync_res).c_str());

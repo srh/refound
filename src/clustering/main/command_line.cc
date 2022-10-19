@@ -514,7 +514,6 @@ fdb_node_id read_node_id_file(const base_path_t &dirpath) {
     return fdb_node_id{node_id};
 }
 
-// NNN: We should be fsyncing the data directory after this.
 void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id &cluster_id) {
     std::string filename = cluster_id_path(dirpath);
     scoped_fd_t fd = io_utils::create_file(filename.c_str());
@@ -524,9 +523,10 @@ void initialize_cluster_id_file(const base_path_t &dirpath, const fdb_cluster_id
     if (!res) {
         throw std::runtime_error("Failed to write cluster_id file '" + filename + "': " + error);
     }
+
+    warn_fsync_parent_directory(filename.c_str());
 }
 
-// NNN: We should be fsyncing the data directory after this.
 void initialize_node_id_file(const base_path_t &dirpath, const fdb_node_id &node_id) {
     std::string filename = node_id_path(dirpath);
     scoped_fd_t fd = io_utils::create_file(filename.c_str());
@@ -536,6 +536,8 @@ void initialize_node_id_file(const base_path_t &dirpath, const fdb_node_id &node
     if (!res) {
         throw std::runtime_error("Failed to write node_id file '" + filename + "': " + error);
     }
+
+    warn_fsync_parent_directory(filename.c_str());
 }
 
 // Returns the string we pass to fdb_create_database.
