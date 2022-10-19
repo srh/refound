@@ -1,13 +1,13 @@
-ReFound (ReQL-on-FoundationDB)
-==============================
+ReFound
+=======
 
 This implements RethinkDB's query language as a stateless layer in
-front of FoundationDB.
+front of FoundationDB.  Forked from RethinkDB, this is a precise (but
+not complete) implementation meant as a drop-in replacement.
 
-This is a port of RethinkDB that uses FoundationDB as the clustering
-layer.  To build, install FoundationDB client libraries onto your
-system (e.g. your Linux system) and then use the usual RethinkDB
-`./configure --allow-fetch` and `make -j8` commands.
+To build, install the FoundationDB client libraries onto your system
+(e.g. your Linux system) and then use the usual RethinkDB `./configure
+--allow-fetch` and `make -j8` commands.
 
 Useful commands:
 
@@ -38,38 +38,39 @@ may also pass `--fdb-cluster-file file`, or you may put an
     cp my_fdb.cluster path/to/datadir/fdb.cluster
     rethinkdb create -d path/to/datadir
 
-The nodes are "stateless" but they still do carry a `log_file` and
-`cluster_id` file, and possibly an `fdb.cluster` file, in the data
-directory.
+The nodes are "stateless."  The data directory contains `log_file`, a
+`cluster_id` file to prevent mistakenly reconnecting to the wrong
+cluster, and a `node_id` file, which is used to reuse the same node id
+upon restart, which allows background jobs to be restarted more
+quickly.
 
-This repo is built (forked) off of RethinkDB 2.4.x, at some point
-after 2.4.2.
+This repo is forked off of RethinkDB 2.4.x, at some point after 2.4.2.
 
-This is *sorely* lacking in documentation.  Questions are welcome.
 
 Missing Features/Differences
-============================
+----------------------------
 
 Your code will encounter errors if you use:
 
-- change feeds (not supported, but could be),
+- change feeds
 - system tables (some data is inapplicable, faked for compatibility, or missing),
 - shard configuration commands (which are inapplicable), or
 - rows larger than 9 megabytes
 
-You might suffer performance regressions.  These would be addressable.
-The document size limit of 9 megabytes could also be removed with some
-further development.
+Change feeds and arbitrarily large documents could be implemented, if
+there is demand.
+
 
 License
-=======
+-------
 
 This is licensed under the Affero GPL v3 (unlike RethinkDB, which is
-Apache 2).  Right now, all post-Apache 2 modifications are copyrighted
-Sam Hughes, so flexibility on this is possbile.
+Apache 2).  Right now, all of the post-Apache 2 modifications are
+copyrighted Sam Hughes, so flexibility on this is possbile.
+
 
 Contributing
-============
+------------
 
 See CONTRIBUTING.md.
 
