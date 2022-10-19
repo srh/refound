@@ -112,8 +112,6 @@ MUST_USE fdb_error_t write_node_entry(
         const signal_t *interruptor, FDBDatabase *fdb, fdb_node_id node_id,
         const optional<fdb_cluster_id> &expected_cluster_id,
         optional<std::pair<std::string, std::string>> *first_kv_out) {
-    // TODO: Make use.
-    (void)expected_cluster_id;
     for (;;) {
         signal_timer_t timer(REQLFDB_CONNECTIVITY_COMPLAINT_TIMEOUT_MS);
         wait_any_t waiter(&timer, interruptor);
