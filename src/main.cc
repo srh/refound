@@ -4,6 +4,8 @@
 #include <sys/resource.h>
 #endif
 
+#include <stdio.h>
+
 #include <set>
 
 #include "clustering/main/command_line.hpp"

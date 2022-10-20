@@ -1,5 +1,7 @@
 #include "arch/types.hpp"
 
+#include <errno.h>
+
 #include "arch/address.hpp"
 #include "utils.hpp"
 
