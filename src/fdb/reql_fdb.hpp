@@ -321,6 +321,8 @@ RDB_DECLARE_SERIALIZABLE(reqlfdb_clock);
 RDB_MAKE_EQUALITY_COMPARABLE_1(reqlfdb_clock, value);
 
 constexpr size_t REQLFDB_NODES_COUNT_SIZE = 8;
+// TODO: Why not make this 10?  (Do that in the Pro version...)
+constexpr size_t REQLFDB_TABLE_COUNT_SIZE = 8;
 constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 
 constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;

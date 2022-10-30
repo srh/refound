@@ -43,6 +43,14 @@ inline std::string table_pkey_prefix(
     return ret;
 }
 
+inline std::string table_count_location(
+        const namespace_id_t &table_id) {
+    std::string ret = table_key_prefix(table_id);
+    ret += "_count";
+    return ret;
+}
+
+
 inline const std::string &table_pkey_keystr(const store_key_t &key) {
     return key.str();
 }
@@ -176,6 +184,9 @@ inline sindex_disk_info_t sindex_config_to_disk_info(const sindex_config_t &sind
         sindex_config.geo};
     return sindex_info;
 }
+
+void transaction_increment_count(
+    FDBTransaction *txn, const namespace_id_t &table_id, int64_t count_delta);
 
 }  // namespace rfdb
 

@@ -88,24 +88,24 @@ TODO: (For impling large values.)
 
 ----
 
-    Given a table prefix like "tables/uuid/",
+    Given a table prefix like "tables/<uuid>/",
 
     We use a new primary key encoding that lets us append to it (like the secondary keys have)
 
     Primary kv prefix:
 
-    <table prefix>/<store_key_t>\00
+    tables/<uuid>//<store_key_t>\00
 
-    (^^ <table prefix> includes a trailing slash, so there are two slashes)
+    (^^ <table prefix> includes a trailing slash, so we add one more slash)
     (^^ store_key_t is the primary key as a store_key_t, which already never has nul characters)
 
     Secondary index kv:
     <table prefix><index id>/<secondary_key_t><store_key_t> => <empty>
 
-    Underneath the primary kv prefix:
+    Underneath the primary kv prefix (maybe out-of-date, see btree_utils.cc):
 
-    <prefix>\x30<number of entries u16 in big-endian hex> => first part
-    <prefix>\x31<u16 in big-endian hex> => remaining parts
+    <prefix>\x30<number of entries u16 in big-endian hex><more stuff...> => first part
+    <prefix>\x31<u16 in big-endian hex><more stuff...> => remaining parts
 
     (^^ every part but the last has size MAX_PART_SIZE)
     (^^ just concatenate them to get the serialized value)
@@ -116,7 +116,14 @@ TODO: (For impling large values.)
     // hexadecimal (from everything).  Perhaps replace \x00 with \x00\x00 for "nice"
     // extensibility, though idk how that would help.
 
-    Count index: TODO
+    Count: The table count value is stored at "tables/<uuid>/_count" and is atomically
+    incremented.  The underscore represents that as of some later refactoring we want some
+    prefix code to distinguish us from UUID's.  This is just a handy informative value.
+
+    Count index: TODO.  Would allow efficient .between().count() queries.
+
+    General aggregate indexes: TODO.  They don't exist, but they'd just be at
+    "tables/<uuid>/<index id>/" like regular secondary indexes.
 
     Changefeed index:  TODO
 
@@ -253,4 +260,3 @@ bool is_node_expired(reqlfdb_clock current_clock, reqlfdb_clock node_lease_expir
 bool is_node_expired(reqlfdb_clock current_clock, const node_info& info) {
     return is_node_expired(current_clock, info.lease_expiration);
 }
-

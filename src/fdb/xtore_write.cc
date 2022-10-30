@@ -642,6 +642,8 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                 approx_txn_size size_processed{0};
 
+                int64_t count_delta = 0;
+
                 // TODO: Might we perform too many concurrent reads from fdb?  We had
                 // MAX_CONCURRENT_REPLACES=8 before.
                 for (size_t i2 = 0; i2 < keys_to_process; ++i2) {
@@ -681,6 +683,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
 
                     size_processed.value += res->second.value;
                     if (mod_info.has_any()) {
+                        count_delta += mod_info.count_delta();
                         approx_txn_size sz = update_fdb_sindexes(txn, table_id, table_config, keys[keys_complete + i2],
                             std::move(mod_info), &jobstate_futs, &sindex_max_claimkeys,
                             interruptor);
@@ -688,9 +691,12 @@ batched_replace_response_t rdb_fdb_batched_replace(
                     }
 
                     // TODO: This is just going to be shitty performance.
+                    // TODO: If we improve perf here, maybe we don't want to redundantly track count_delta in this loop.
                     stats = stats.merge(res->first, ql::stats_merge, limits, &conditions);
                     keys_processed += 1;
                 }
+
+                rfdb::transaction_increment_count(txn, table_id, count_delta);
 
                 if (!sindex_max_claimkeys.empty()) {
                     push_along_sindex_creation(interruptor, txn,
@@ -881,10 +887,13 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             // Might as well check auths here too.
             cva.block_and_check_auths(interruptor);
 
-            // TODO: Force sindex update?  This is only used in unit tests though.
+            int64_t count_delta = mod_info.count_delta();
             std::unordered_map<std::string, forced_index_lower_bound> sindex_max_claimkeys;
             update_fdb_sindexes(txn, table_id_, *table_config_, w.key, std::move(mod_info),
                 &jobstate_futs, &sindex_max_claimkeys, interruptor);
+
+            rfdb::transaction_increment_count(txn, table_id_, count_delta);
+
             commit(txn, interruptor);
             return res;
         });
@@ -910,10 +919,12 @@ struct fdb_write_visitor : public boost::static_visitor<void> {
             cva.cvc.block_and_check(interruptor);
             cva.block_and_check_auths(interruptor);
 
-            // TODO: Force sindex update?  This is only used in unit tests though.
+            int64_t count_delta = mod_info.count_delta();
             std::unordered_map<std::string, forced_index_lower_bound> sindex_max_claimkeys;
             update_fdb_sindexes(txn, table_id_, *table_config_, d.key, std::move(mod_info),
                 &jobstate_futs, &sindex_max_claimkeys, interruptor);
+
+            rfdb::transaction_increment_count(txn, table_id_, count_delta);
 
             commit(txn, interruptor);
             return res;

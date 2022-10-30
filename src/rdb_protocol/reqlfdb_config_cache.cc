@@ -658,6 +658,12 @@ bool config_cache_table_create(
 
     transaction_set_uq_index<table_config_by_id>(txn, new_table_id, config);
     transaction_set_uq_index<table_config_by_name>(txn, table_index_key, new_table_id);
+    static_assert(8 == REQLFDB_TABLE_COUNT_SIZE, "array initializer must match array size");
+    uint8_t value[REQLFDB_TABLE_COUNT_SIZE] = {
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+    };
+    transaction_set_buf(txn, rfdb::table_count_location(new_table_id), as_char(value), sizeof(value));
 
     cv.value++;
     transaction_set_config_version(txn, cv);

@@ -1,5 +1,8 @@
 #include "fdb/btree_utils.hpp"
 
+#include "errors.hpp"
+#include <boost/detail/endian.hpp>
+
 #include "debug.hpp"
 #include "math.hpp"
 #include "rdb_protocol/btree.hpp"
@@ -92,7 +95,8 @@ unique_pkey_suffix generate_unique_pkey_suffix() {
     return ret;
 }
 
-// The signature will need to change with large values because we'll need to wipe out the old value (if it's larger and uses more keys).
+// The signature will need to change with large values because we'll need to wipe out the
+// old value (if it's larger and uses more keys).
 approx_txn_size kv_location_set(
         FDBTransaction *txn, const std::string &kv_location,
         const write_message_t &str /* datum_serialize_to_write_message result */) {
@@ -497,6 +501,31 @@ secondary_range_fut secondary_prefix_get_range(FDBTransaction *txn,
         iteration,
         snapshot,
         reverse)};
+}
+
+void transaction_increment_count(
+        FDBTransaction *txn, const namespace_id_t &table_id, int64_t count_delta) {
+    if (count_delta == 0) {
+        // Let's not waste our time.
+        return;
+    }
+
+    std::string location = table_count_location(table_id);
+
+#if !defined(BOOST_LITTLE_ENDIAN)
+#error "transaction_increment_count broken on big endian"
+#endif
+
+    static_assert(8 == REQLFDB_TABLE_COUNT_SIZE, "array initializer must match array size");
+    uint8_t value[REQLFDB_TABLE_COUNT_SIZE];
+    memcpy(value, &count_delta, sizeof(count_delta));
+
+    fdb_transaction_atomic_op(txn,
+        as_uint8(location.data()),
+        int(location.size()),
+        value,
+        sizeof(value),
+        FDB_MUTATION_TYPE_ADD);
 }
 
 }  // namespace rfdb

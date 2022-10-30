@@ -39,6 +39,9 @@ struct rdb_modification_info_t {
     ql::datum_t added;
 
     bool has_any() const { return deleted.has() || added.has(); }
+    int64_t count_delta() const {
+        return static_cast<int64_t>(added.has()) - static_cast<int64_t>(deleted.has());
+    }
 };
 
 // Exposed now for fdb.
