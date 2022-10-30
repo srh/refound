@@ -1,8 +1,5 @@
 #include "fdb/btree_utils.hpp"
 
-#include "errors.hpp"
-#include <boost/detail/endian.hpp>
-
 #include "debug.hpp"
 #include "math.hpp"
 #include "rdb_protocol/btree.hpp"
@@ -512,13 +509,9 @@ void transaction_increment_count(
 
     std::string location = table_count_location(table_id);
 
-#if !defined(BOOST_LITTLE_ENDIAN)
-#error "transaction_increment_count broken on big endian"
-#endif
-
     static_assert(8 == REQLFDB_TABLE_COUNT_SIZE, "array initializer must match array size");
     uint8_t value[REQLFDB_TABLE_COUNT_SIZE];
-    memcpy(value, &count_delta, sizeof(count_delta));
+    write_LE_uint64(count_delta, value);
 
     fdb_transaction_atomic_op(txn,
         as_uint8(location.data()),

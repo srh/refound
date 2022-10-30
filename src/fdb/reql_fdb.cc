@@ -268,8 +268,7 @@ void read_8byte_count(const signal_t *interruptor, FDBTransaction *txn, const ch
     fdb_error_t err = future_get_value(count_fut.fut, &count);
     check_for_fdb_transaction(err);
     guarantee(count.present);
-    guarantee(count.length == 8);   // TODO deal with problem gracefully
-    // NNN: Use this function's sibling when writing table counts
+    guarantee(count.length == 8);   // TODO fdb, graceful
     *out = read_LE_uint64(count.data);
 }
 
