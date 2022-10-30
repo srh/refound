@@ -509,7 +509,12 @@ fdb_future transaction_get_table_range(
         false)};
 }
 
-// NNN: What about index jobstates?
+void remove_sindex_task_and_jobs(const signal_t *interruptor, FDBTransaction *txn,
+    const fdb_shared_task_id &task) {
+    remove_fdb_task_and_jobs(txn, task, interruptor);
+    transaction_erase_uq_index<index_jobstate_by_task>(txn, task);
+}
+
 void help_remove_table(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
@@ -525,7 +530,7 @@ void help_remove_table(
     for (auto &&pair : config.sindexes) {
         fdb_shared_task_id task = pair.second.creation_task_or_nil;
         if (!task.value.is_nil()) {
-            remove_fdb_task_and_jobs(txn, task, interruptor);
+            remove_sindex_task_and_jobs(interruptor, txn, task);
         }
     }
 
@@ -810,8 +815,7 @@ void help_erase_sindex_content(
         const sindex_metaconfig_t &cfg,
         const signal_t *interruptor) {
     if (!cfg.creation_task_or_nil.value.is_nil()) {
-        remove_fdb_task_and_jobs(txn, cfg.creation_task_or_nil, interruptor);
-        transaction_erase_uq_index<index_jobstate_by_task>(txn, cfg.creation_task_or_nil);
+        remove_sindex_task_and_jobs(interruptor, txn, cfg.creation_task_or_nil);
     }
 
     transaction_clear_prefix_range(txn, rfdb::table_index_prefix(table_id, cfg.sindex_id));
