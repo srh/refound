@@ -29,6 +29,15 @@ const std::string &real_table_t::get_pkey() const {
 
 // QQQ: Verify that these functions are called in a context that handles config_version_exc_t.
 
+uint64_t real_table_t::read_count(ql::env_t *env, read_mode_t read_mode) const {
+    read_t read(count_read_t{}, env->profile(), read_mode);
+    read_response_t res;
+    read_with_profile(env, read, &res);
+    count_read_response_t *c_res = boost::get<count_read_response_t>(&res.response);
+    r_sanity_check(c_res);
+    return c_res->value;
+}
+
 ql::datum_t real_table_t::read_row(
     ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) const {
     read_t read(point_read_t(store_key_t(pval.print_primary())),

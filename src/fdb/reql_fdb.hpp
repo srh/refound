@@ -216,7 +216,6 @@ void transaction_set_buf(FDBTransaction *txn, const std::string &key,
         const char *value, size_t value_length);
 approx_txn_size transaction_clear_prefix_range(FDBTransaction *txn, const std::string &prefix);
 
-
 // TODO: Rename to "maybe_value_view" or "fdb_view" or something
 struct fdb_value {
     fdb_bool_t present;
@@ -264,6 +263,10 @@ MUST_USE inline fdb_error_t future_get_key(FDBFuture *fut, key_view *out) {
 
 // Throws fdb_transaction_exception.
 key_view future_block_on_key(FDBFuture *fut, const signal_t *interruptor);
+
+// Throws fdb_transaction_exception and guarantee()s (non-gracefully) the row exists
+void read_8byte_count(const signal_t *interruptor, FDBTransaction *txn,
+    const char *key, size_t key_size, uint64_t *out);
 
 // TODO: Remove (except for commit) and make callers use retry loop.
 MUST_USE fdb_error_t commit_fdb_block_coro(

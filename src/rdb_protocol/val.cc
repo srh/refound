@@ -554,6 +554,10 @@ datum_t table_t::get_row(env_t *env, datum_t pval) {
     return tbl->read_row(env, pval, read_mode);
 }
 
+uint64_t table_t::get_count(env_t *env) {
+    return tbl->read_count(env, read_mode);
+}
+
 scoped_ptr_t<reader_t> table_t::get_all_with_sindexes(
         env_t *env,
         const datumspec_t &datumspec,

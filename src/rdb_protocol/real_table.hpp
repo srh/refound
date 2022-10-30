@@ -58,6 +58,7 @@ public:
     namespace_id_t get_id() const override;
     const std::string &get_pkey() const override;
 
+    uint64_t read_count(ql::env_t *env, read_mode_t read_mode) const override;
     ql::datum_t read_row(ql::env_t *env, ql::datum_t pval, read_mode_t read_mode) const override;
     scoped<ql::datum_stream_t> read_all(
         ql::env_t *env,

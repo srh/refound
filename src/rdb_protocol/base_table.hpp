@@ -50,6 +50,8 @@ public:
         sorting_t,
         read_mode_t) const = 0;
 
+    virtual uint64_t read_count(ql::env_t *env, read_mode_t read_mode) const = 0;
+
     virtual ql::datum_t read_row(ql::env_t *env,
         ql::datum_t pval, read_mode_t read_mode) const = 0;
     virtual scoped<ql::datum_stream_t> read_all(

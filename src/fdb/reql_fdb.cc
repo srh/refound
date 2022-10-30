@@ -260,3 +260,16 @@ bool is_node_expired(reqlfdb_clock current_clock, reqlfdb_clock node_lease_expir
 bool is_node_expired(reqlfdb_clock current_clock, const node_info& info) {
     return is_node_expired(current_clock, info.lease_expiration);
 }
+
+void read_8byte_count(const signal_t *interruptor, FDBTransaction *txn, const char *key, size_t key_size, uint64_t *out) {
+    fdb_future count_fut{fdb_transaction_get(txn, as_uint8(key), static_cast<int>(key_size), false)};
+    count_fut.block_coro(interruptor);
+    fdb_value count;
+    fdb_error_t err = future_get_value(count_fut.fut, &count);
+    check_for_fdb_transaction(err);
+    guarantee(count.present);
+    guarantee(count.length == 8);   // TODO deal with problem gracefully
+    // NNN: Use this function's sibling when writing table counts
+    *out = read_LE_uint64(count.data);
+}
+

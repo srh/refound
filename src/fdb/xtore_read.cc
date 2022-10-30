@@ -40,6 +40,14 @@ protected:
 using transform_variant_t = ql::transform_variant_t;
 using terminal_variant_t = ql::terminal_variant_t;
 
+uint64_t rdb_fdb_get_count(FDBTransaction *txn, const namespace_id_t &table_id,
+        const signal_t *interruptor) {
+    std::string location = rfdb::table_count_location(table_id);
+    uint64_t value;
+    read_8byte_count(interruptor, txn, location.data(), location.size(), &value);
+    return value;
+}
+
 void rdb_fdb_get(FDBTransaction *txn, const namespace_id_t &table_id,
         const store_key_t &store_key, point_read_response_t *response,
         const signal_t *interruptor) {
@@ -1312,6 +1320,20 @@ struct fdb_read_visitor : public boost::static_visitor<void> {
         }
     }
 #endif  // RDB_CF
+
+    void operator()(const count_read_t &) {
+        *response_ = perform_read_operation<read_response_t>(fdb_, interruptor, prior_cv_, *user_context_, table_id_, *table_config_,
+            [&](const signal_t *interruptor, FDBTransaction *txn, cv_auth_check_fut_read&& cva) {
+                read_response_t ret;
+                ret.response = count_read_response_t();
+                count_read_response_t *res = boost::get<count_read_response_t>(&ret.response);
+                // TODO: Do cva roundtrip concurrently with rdb_fdb_get_count's roundtrip.
+                cva.cvc.block_and_check(interruptor);
+                cva.auth_fut.block_and_check(interruptor);
+                res->value = rdb_fdb_get_count(txn, table_id_, interruptor);
+                return ret;
+            });
+    }
 
     // Dedups code between our operator() and apply_point_read.
     static void do_point_read(FDBTransaction *txn, cv_check_fut *cvc, const namespace_id_t &table_id,

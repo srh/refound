@@ -126,7 +126,6 @@ public:
     auth::fdb_user_fut<auth::read_permission> get_read_permission(
         FDBTransaction *, const auth::user_context_t &);
 
-private:
     // Takes an FDBDatabase, not txn, because it might need to break range read up into
     // separate txns.  Hypothetically.
     virtual bool read_all_rows_as_vector(
@@ -136,6 +135,7 @@ private:
         std::vector<ql::datum_t> *rows_out,
         admin_err_t *error_out) = 0;
 
+private:
     const name_string_t m_table_name;
     const namespace_id_t m_table_id;
 };

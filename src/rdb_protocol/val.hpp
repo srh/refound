@@ -41,6 +41,7 @@ public:
     namespace_id_t get_id() const;
     const std::string &get_pkey() const;
     datum_t get_row(env_t *env, datum_t pval);
+    uint64_t get_count(env_t *env);
     scoped<datum_stream_t> get_all(
             env_t *env,
             const datumspec_t &datumspec,

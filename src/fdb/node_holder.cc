@@ -17,15 +17,8 @@
 
 fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint64_t *out) {
     fdb_error_t err = txn_retry_loop_coro(fdb, interruptor, [interruptor, out](FDBTransaction *txn) {
-        fdb_future nodes_count_fut = transaction_get_c_str(txn, REQLFDB_NODES_COUNT_KEY);
-        nodes_count_fut.block_coro(interruptor);
-        fdb_value nodes_count;
-        fdb_error_t err = future_get_value(nodes_count_fut.fut, &nodes_count);
-        check_for_fdb_transaction(err);
-        guarantee(nodes_count.present);
-        guarantee(nodes_count.length == REQLFDB_NODES_COUNT_SIZE);   // TODO deal with problem gracefully?
         static_assert(REQLFDB_NODES_COUNT_SIZE == 8, "Expecting size 8 for uint64");
-        *out = read_LE_uint64(nodes_count.data);
+        read_8byte_count(interruptor, txn, REQLFDB_NODES_COUNT_KEY, strlen(REQLFDB_NODES_COUNT_KEY), out);
     });
 
     return err;

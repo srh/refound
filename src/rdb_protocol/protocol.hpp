@@ -120,10 +120,13 @@ struct nearest_geo_read_response_t {
         : results_or_error(_error) { }
 };
 
+struct count_read_response_t {
+    uint64_t value;
+};
+
 struct dummy_read_response_t {
     // dummy read always succeeds
 };
-
 
 struct serializable_env_t {
     // The global optargs values passed to .run(...) in the Python, Ruby, and JS
@@ -144,6 +147,7 @@ struct read_response_t {
     typedef boost::variant<point_read_response_t,
                            rget_read_response_t,
                            nearest_geo_read_response_t,
+                           count_read_response_t,
                            dummy_read_response_t> variant_t;
     variant_t response;
     profile::event_log_t event_log;
@@ -161,14 +165,17 @@ public:
     store_key_t key;
 };
 
+// Reads the table's solitary `count` field.
+class count_read_t { };
+
 // `dummy_read_t` can be used to poll for table readiness - it will go through all
 // the clustering layers, but is a no-op in the protocol layer.
 class dummy_read_t {
 public:
     dummy_read_t() : region(region_t::universe()) { }
+    // NNN: is region used?
     region_t region;
 };
-
 
 struct sindex_rangespec_t {
     sindex_rangespec_t() { }
@@ -310,6 +317,7 @@ struct read_t {
                            rget_read_t,
                            intersecting_geo_read_t,
                            nearest_geo_read_t,
+                           count_read_t,
                            dummy_read_t> variant_t;
 
     variant_t read;

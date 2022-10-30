@@ -66,6 +66,25 @@ const std::string &artificial_table_fdb_t::get_pkey() const {
     return m_primary_key_name;
 }
 
+uint64_t artificial_table_fdb_t::read_count(ql::env_t *env, read_mode_t) const {
+    try {
+        admin_err_t error;
+        // TODO: We could make count more efficient for different backends.
+        std::vector<ql::datum_t> rows;
+        if (!m_backend->read_all_rows_as_vector(
+            env->get_rdb_ctx()->fdb,
+            env->get_user_context(),
+            env->interruptor,
+            &rows,
+            &error)) {
+            REQL_RETHROW_DATUM(error);
+        }
+        return rows.size();
+    } catch (auth::permission_error_t const &permission_error) {
+        rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", permission_error.what());
+    }
+}
+
 ql::datum_t artificial_table_fdb_t::read_row(
         ql::env_t *env,
         ql::datum_t pval, UNUSED read_mode_t read_mode) const {

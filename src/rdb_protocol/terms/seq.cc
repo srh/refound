@@ -151,8 +151,13 @@ private:
                     break;
                 }
             }
-            return std::move(*v0).as_seq(env->env)
-                ->run_terminal(env->env, count_wire_func_t());
+            if (v0->get_type().is_convertible(val_t::type_t::TABLE)) {
+                uint64_t count = std::move(*v0).as_table(env->env)->get_count(env->env);
+                return new_val(datum_t(static_cast<double>(count)));
+            } else {
+                return std::move(*v0).as_seq(env->env)
+                    ->run_terminal(env->env, count_wire_func_t());
+            }
         } else {
             scoped_ptr_t<val_t> v1 = args->arg(env, 1);
             if (v1->get_type().is_convertible(val_t::type_t::FUNC)) {
