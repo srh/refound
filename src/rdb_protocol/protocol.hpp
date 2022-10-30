@@ -172,9 +172,7 @@ class count_read_t { };
 // the clustering layers, but is a no-op in the protocol layer.
 class dummy_read_t {
 public:
-    dummy_read_t() : region(region_t::universe()) { }
-    // NNN: is region used?
-    region_t region;
+    dummy_read_t() { }
 };
 
 struct sindex_rangespec_t {
