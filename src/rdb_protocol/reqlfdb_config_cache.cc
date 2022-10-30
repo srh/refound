@@ -509,6 +509,7 @@ fdb_future transaction_get_table_range(
         false)};
 }
 
+// NNN: What about index jobstates?
 void help_remove_table(
         FDBTransaction *txn,
         const namespace_id_t &table_id,
