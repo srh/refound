@@ -1,6 +1,7 @@
 #include "fdb/node_holder.hpp"
 
 #include "arch/runtime/coroutines.hpp"
+#include "arch/process.hpp"
 #include "arch/timing.hpp"
 #include "clustering/main/serve.hpp"
 #include "concurrency/wait_any.hpp"
@@ -35,6 +36,9 @@ void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interr
 
     node_info info;
     info.lease_expiration = reqlfdb_clock{clock.value + REQLFDB_NODE_LEASE_DURATION};
+    // TODO: I'd rather pass this in -- don't like accessing global state in the middle here.
+    // The cast is for the signed->unsigned narrowing conversion warning.
+    info.status_info = system_table_info{static_cast<uint64_t>(current_process())};
 
     if (old_node_present && info.lease_expiration == old_node_value.lease_expiration) {
         // No change.

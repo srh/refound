@@ -28,7 +28,6 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
 
     const int64_t fake_time_started = 0;
     const std::string fake_version = REQLFDB_VERSION_STRING;
-    const double fake_pid = 0;
     const double fake_cache_size_mb = 1;
 
     ql::datum_object_builder_t proc_builder;
@@ -36,7 +35,7 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
         convert_microtime_to_datum(fake_time_started));
     proc_builder.overwrite("version",
         ql::datum_t(datum_string_t(fake_version)));
-    proc_builder.overwrite("pid", ql::datum_t(fake_pid));
+    proc_builder.overwrite("pid", ql::datum_t(static_cast<double>(info.status_info.pid)));
     proc_builder.overwrite("argv", ql::datum_t(std::vector<ql::datum_t>(), ql::datum_t::no_array_size_limit_check_t{}));
     proc_builder.overwrite("cache_size_mb", ql::datum_t(fake_cache_size_mb));
     builder.overwrite("process", std::move(proc_builder).to_datum());

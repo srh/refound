@@ -330,8 +330,15 @@ constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 
 constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;
 
+struct system_table_info {
+    uint64_t pid;
+};
+RDB_DECLARE_SERIALIZABLE(system_table_info);
+
 struct node_info {
     reqlfdb_clock lease_expiration;
+    // used by rethinkdb.server_config or rethinkdb.server_status tables
+    system_table_info status_info;
 };
 RDB_DECLARE_SERIALIZABLE(node_info);
 
