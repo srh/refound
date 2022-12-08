@@ -26,9 +26,7 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
     builder.overwrite("name", ql::datum_t(nai.name));
     builder.overwrite("id", ql::datum_t(nai.id_string));
 
-    const int64_t fake_time_started = 0;
-    const std::string fake_version = REQLFDB_VERSION_STRING;
-    const double fake_cache_size_mb = 1;
+    double cache_size = 0;
 
     ql::datum_object_builder_t proc_builder;
     proc_builder.overwrite("time_started",
@@ -38,15 +36,27 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
     proc_builder.overwrite("pid", ql::datum_t(static_cast<double>(info.proc_metadata.pid)));
     proc_builder.overwrite("argv",
         convert_vector_to_datum<std::string>(&convert_string_to_datum, info.proc_metadata.argv));
-    proc_builder.overwrite("cache_size_mb", ql::datum_t(fake_cache_size_mb));
+    proc_builder.overwrite("cache_size_mb", ql::datum_t(cache_size));
     builder.overwrite("process", std::move(proc_builder).to_datum());
+
+    ql::datum_object_builder_t net_builder;
+    net_builder.overwrite("connected_to", ql::datum_object_builder_t().to_datum());
+    net_builder.overwrite("hostname", ql::datum_t(datum_string_t(info.proc_metadata.hostname)));
+    net_builder.overwrite("cluster_port", ql::datum_t::null());
+    net_builder.overwrite("reql_port", convert_port_to_datum(info.proc_metadata.reql_port));
+    net_builder.overwrite("http_admin_port", info.proc_metadata.http_admin_port.has_value()
+        ? convert_port_to_datum(*info.proc_metadata.http_admin_port)
+        : ql::datum_t("<no http admin>"));
+    net_builder.overwrite("canonical_addresses", ql::datum_t::null());
+    net_builder.overwrite("time_connected", ql::datum_t::null());
+
+    builder.overwrite("network", std::move(net_builder).to_datum());
 
     ql::datum_object_builder_t fdb;
     fdb.overwrite("lease_expiration", ql::datum_t(std::to_string(info.lease_expiration.value)));
     fdb.overwrite("current_clock", ql::datum_t(std::to_string(current_clock.value)));
     builder.overwrite("fdb", std::move(fdb).to_datum());
 
-    // TODO: This doesn't include the network information.  Maybe we can put that off.
     return std::move(builder).to_datum();
 }
 
