@@ -32,11 +32,12 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
 
     ql::datum_object_builder_t proc_builder;
     proc_builder.overwrite("time_started",
-        convert_microtime_to_datum(fake_time_started));
+        convert_microtime_to_datum(info.proc_metadata.time_started));
     proc_builder.overwrite("version",
-        ql::datum_t(datum_string_t(fake_version)));
+        ql::datum_t(datum_string_t(info.proc_metadata.version)));
     proc_builder.overwrite("pid", ql::datum_t(static_cast<double>(info.proc_metadata.pid)));
-    proc_builder.overwrite("argv", ql::datum_t(std::vector<ql::datum_t>(), ql::datum_t::no_array_size_limit_check_t{}));
+    proc_builder.overwrite("argv",
+        convert_vector_to_datum<std::string>(&convert_string_to_datum, info.proc_metadata.argv));
     proc_builder.overwrite("cache_size_mb", ql::datum_t(fake_cache_size_mb));
     builder.overwrite("process", std::move(proc_builder).to_datum());
 
