@@ -9,6 +9,8 @@
 #include "concurrency/cond_var.hpp"
 #include "concurrency/interruptor.hpp"
 #include "concurrency/wait_any.hpp"
+#include "containers/archive/optional.hpp"
+#include "containers/archive/stl_types.hpp"
 #include "containers/death_runner.hpp"
 #include "do_on_thread.hpp"
 
@@ -250,8 +252,9 @@ void future_block_coro(FDBFuture *fut, const signal_t *interruptor) {
 #endif
 
 RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(reqlfdb_clock, value);
-RDB_IMPL_SERIALIZABLE_1_SINCE_v2_5(system_table_info, pid);
-RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(node_info, lease_expiration, status_info);
+RDB_IMPL_SERIALIZABLE_7_SINCE_v2_5(proc_metadata_info,
+    version, time_started, pid, hostname, reql_port, http_admin_port, argv);
+RDB_IMPL_SERIALIZABLE_2_SINCE_v2_5(node_info, lease_expiration, proc_metadata);
 
 // Do these really belong.. here?
 bool is_node_expired(reqlfdb_clock current_clock, reqlfdb_clock node_lease_expiration) {

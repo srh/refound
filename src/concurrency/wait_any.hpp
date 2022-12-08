@@ -34,7 +34,7 @@ private:
         DISABLE_COPYING(wait_any_subscription_t);
     };
 
-    static const size_t default_preallocated_subs = 3;
+    static const size_t default_preallocated_subs = 4;
 
     void pulse_if_not_already_pulsed();
 
@@ -45,8 +45,8 @@ private:
     DISABLE_COPYING(wait_any_t);
 };
 
-// These two don't use variadic templates because (a) there's only two of them, and (b)
-// default_preallocated_subs is 3.
+// These two don't use variadic templates because (a) there are only three of them, and (b)
+// default_preallocated_subs is 4.
 inline void wait_any(const signal_t *arg1, const signal_t *arg2) {
     wait_any_t waiter{arg1, arg2};
     waiter.wait();
@@ -54,6 +54,11 @@ inline void wait_any(const signal_t *arg1, const signal_t *arg2) {
 
 inline void wait_any(const signal_t *arg1, const signal_t *arg2, const signal_t *arg3) {
     wait_any_t waiter{arg1, arg2, arg3};
+    waiter.wait();
+}
+
+inline void wait_any(const signal_t *arg1, const signal_t *arg2, const signal_t *arg3, const signal_t *arg4) {
+    wait_any_t waiter{arg1, arg2, arg3, arg4};
     waiter.wait();
 }
 

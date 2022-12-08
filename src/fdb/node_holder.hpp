@@ -9,13 +9,16 @@
 #include "containers/uuid.hpp"
 #include "fdb/fdb.hpp"
 #include "fdb/id_types.hpp"
+#include "fdb/reql_fdb.hpp"
 
 struct fdb_job_info;
 
 class fdb_node_holder : public home_thread_mixin_t {
 public:
-    explicit fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id,
-                             const fdb_cluster_id &expected_cluster_id);
+    explicit fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor,
+        const proc_metadata_info &proc_metadata,
+        const fdb_node_id &node_id,
+        const fdb_cluster_id &expected_cluster_id);
     ~fdb_node_holder();
 
     // Tells the node holder to (try to) claim and start executing a job that has been
@@ -27,12 +30,24 @@ public:
 
     fdb_node_id get_node_id() const { return node_id_; }
 
+    template <class Callable>
+    void update_proc_metadata(Callable&& callable) {
+        bool mutated = callable(&proc_metadata_);
+        if (mutated) {
+            proc_metadata_cond_.pulse_if_not_already_pulsed();
+        }
+    }
+
 private:
     void run_node_coro(auto_drainer_t::lock_t lock);
 
     FDBDatabase *fdb_;
     // TODO: Remove server_id_t entirely, or pass it in.
     const fdb_node_id node_id_;
+
+    proc_metadata_info proc_metadata_;
+
+    cond_t proc_metadata_cond_;
 
     // Supplied_jobs_ and supplied_job_sem_holder_ are 'protected' from concurrent
     // access by an "ASSERT_NO_CORO_WAITING" implicit mutex.

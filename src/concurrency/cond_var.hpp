@@ -14,10 +14,16 @@ class cond_t : public signal_t {
 public:
     cond_t() { }
     cond_t(cond_t &&movee) : signal_t(std::move(movee)) { }
-    void pulse_if_not_already_pulsed();
-
     using signal_t::pulse;
     using signal_t::reset;
+    using signal_t::rethread;
+
+    void pulse_if_not_already_pulsed() {
+        assert_thread();
+        if (!is_pulsed()) {
+            pulse();
+        }
+    }
 
 private:
     DISABLE_COPYING(cond_t);

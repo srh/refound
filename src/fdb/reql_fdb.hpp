@@ -2,11 +2,13 @@
 #define RETHINKDB_FDB_REQL_FDB_HPP_
 
 #include "config/args.hpp"
+#include "containers/optional.hpp"
 #include "errors.hpp"
 #include "fdb/fdb.hpp"
 #include "logger.hpp"
 #include "rpc/serialize_macros.hpp"
 #include "rpc/equality_macros.hpp"
+#include "time.hpp"
 
 class signal_t;
 
@@ -330,15 +332,27 @@ constexpr size_t REQLFDB_CONFIG_VERSION_COUNT_SIZE = 8;
 
 constexpr uint64_t REQLFDB_NODE_LEASE_DURATION = 10;
 
-struct system_table_info {
-    uint64_t pid;
+// Parallels proc_directory_metadata_t from o.g. RethinkDB, sometimes with exact choices
+// of datatype (e.g. microtime_t time_start) to reproduce exact o.g. RethinkDB system
+// table behavior (because some of this data is used for rethinkdb.server_status or
+// rethinkdb.server_config system tables).
+struct proc_metadata_info {
+    std::string version;   /* server version string, e.g. "rethinkdb 1.X.Y ..." */
+    microtime_t time_started;
+    int64_t pid;
+    std::string hostname;
+    // uint16_t cluster_port;  /* n/a for now, unless nodes directly communicate for distributed query execution */
+    uint16_t reql_port;
+    optional<uint16_t> http_admin_port;
+    // std::set<host_and_port_t> canonical_addresses;  /* n/a for now, unless nodes directly communicate for distributed query execution */
+    std::vector<std::string> argv;
 };
-RDB_DECLARE_SERIALIZABLE(system_table_info);
+RDB_DECLARE_SERIALIZABLE(proc_metadata_info);
 
 struct node_info {
     reqlfdb_clock lease_expiration;
     // used by rethinkdb.server_config or rethinkdb.server_status tables
-    system_table_info status_info;
+    proc_metadata_info proc_metadata;
 };
 RDB_DECLARE_SERIALIZABLE(node_info);
 

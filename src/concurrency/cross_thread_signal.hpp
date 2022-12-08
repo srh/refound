@@ -47,7 +47,7 @@ private:
     be run after `drainer`'s destructor. */
     class rethreader_t {
     public:
-        rethreader_t(signal_t *s, threadnum_t dest) :
+        rethreader_t(cross_thread_signal_t *s, threadnum_t dest) :
             signal(s), original(signal->home_thread())
         {
             signal->rethread(dest);
@@ -56,7 +56,7 @@ private:
             signal->rethread(original);
         }
     private:
-        signal_t *const signal;
+        cross_thread_signal_t *const signal;
         const threadnum_t original;
     } rethreader;
 

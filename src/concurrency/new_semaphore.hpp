@@ -29,11 +29,11 @@ private:
 
     void pulse_waiters();
 
+    // "current_" as in "current number of acquirers"
     // Normally, current_ <= capacity_, and capacity_ doesn't change.  current_ can
     // exceed capacity_ for three reasons.
-    //   1. A call to change_acquired_count could force it to overflow.
+    //   1. A call to change_acquired_count or set_capacity could force it to overflow.
     //   2. An acquirer will never be blocked while current_ is 0.
-    //   3. An act of God could change capacity_ (currently unimplemented; hail Satan).
     int64_t capacity_;
     int64_t current_;
 

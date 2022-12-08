@@ -26,7 +26,9 @@ fdb_error_t read_node_count(FDBDatabase *fdb, const signal_t *interruptor, uint6
 }
 
 
-void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interruptor) {
+void write_body(FDBTransaction *txn, fdb_node_id node_id,
+    const proc_metadata_info &proc_metadata,
+    const signal_t *interruptor) {
     fdb_value_fut<reqlfdb_clock> clock_fut = transaction_get_clock(txn);
     fdb_value_fut<node_info> old_node_fut = transaction_lookup_uq_index<node_info_by_id>(txn, node_id);
 
@@ -36,9 +38,8 @@ void write_body(FDBTransaction *txn, fdb_node_id node_id, const signal_t *interr
 
     node_info info;
     info.lease_expiration = reqlfdb_clock{clock.value + REQLFDB_NODE_LEASE_DURATION};
-    // TODO: I'd rather pass this in -- don't like accessing global state in the middle here.
     // The cast is for the signed->unsigned narrowing conversion warning.
-    info.status_info = system_table_info{static_cast<uint64_t>(current_process())};
+    info.proc_metadata = proc_metadata;
 
     if (old_node_present && info.lease_expiration == old_node_value.lease_expiration) {
         // No change.
@@ -107,6 +108,7 @@ bool check_cluster_id(const signal_t *interruptor, FDBTransaction *txn,
 
 MUST_USE fdb_error_t write_node_entry(
         const signal_t *interruptor, FDBDatabase *fdb, fdb_node_id node_id,
+        const proc_metadata_info &proc_metadata,
         const optional<fdb_cluster_id> &expected_cluster_id,
         optional<std::pair<std::string, std::string>> *first_kv_out) {
     for (;;) {
@@ -115,7 +117,7 @@ MUST_USE fdb_error_t write_node_entry(
         try {
             optional<std::pair<std::string, std::string>> first_kv;
             fdb_error_t loop_err = txn_retry_loop_coro(fdb, &waiter,
-                [&node_id, &waiter, &expected_cluster_id, &first_kv](FDBTransaction *txn) {
+                [&](FDBTransaction *txn) {
                 if (expected_cluster_id.has_value()) {
                     std::pair<std::string, std::string> first_ent;
                     if (!check_cluster_id(&waiter, txn, *expected_cluster_id, &first_ent)) {
@@ -123,7 +125,7 @@ MUST_USE fdb_error_t write_node_entry(
                         return;
                     }
                 }
-                write_body(txn, node_id, &waiter);
+                write_body(txn, node_id, proc_metadata, &waiter);
                 commit(txn, &waiter);
             });
             if (op_indeterminate(loop_err)) {
@@ -261,30 +263,43 @@ void fdb_node_holder::run_node_coro(auto_drainer_t::lock_t lock) {
                     new_semaphore_in_line_t sem_acq(&supplied_job_sem_, 1);
                     const signal_t *sem_signal = sem_acq.acquisition_signal();
 
-                    wait_any(&timer, sem_signal, interruptor);
+                    wait_any(&timer, sem_signal, &proc_metadata_cond_, interruptor);
                     if (interruptor->is_pulsed()) {
                         throw interrupted_exc_t();
                     }
                     if (timer.is_pulsed()) {
                         break;
                     }
-                    rassert(sem_signal->is_pulsed());
+                    if (proc_metadata_cond_.is_pulsed()) {
+                        proc_metadata_cond_.reset();
 
-                    std::vector<fdb_job_info> job_infos;
-                    {
-                        ASSERT_NO_CORO_WAITING;
-                        rassert(!supplied_jobs_.empty());
-                        job_infos = std::move(supplied_jobs_);
-                        supplied_jobs_.clear();  // Don't trust std::move (on principle).
-                        supplied_job_sem_holder_.transfer_in(std::move(sem_acq));
+                        optional<std::pair<std::string, std::string>> bad_cluster_version_ignore;
+                        fdb_error_t write_err = write_node_entry(interruptor, fdb_, node_id_, proc_metadata_, r_nullopt, &bad_cluster_version_ignore);
+                        if (write_err != 0) {
+                            logERR("Node presence registration encountered FoundationDB error: %s\n", fdb_get_error(write_err));
+                            nap(error_nap_value, interruptor);
+                            continue;
+                        }
+
+                    } else {
+                        rassert(sem_signal->is_pulsed());
+
+                        std::vector<fdb_job_info> job_infos;
+                        {
+                            ASSERT_NO_CORO_WAITING;
+                            rassert(!supplied_jobs_.empty());
+                            job_infos = std::move(supplied_jobs_);
+                            supplied_jobs_.clear();  // Don't trust std::move (on principle).
+                            supplied_job_sem_holder_.transfer_in(std::move(sem_acq));
+                        }
+
+                        try_start_supplied_jobs(fdb_, std::move(job_infos), lock);
                     }
-
-                    try_start_supplied_jobs(fdb_, std::move(job_infos), lock);
                 }
             }
 
             optional<std::pair<std::string, std::string>> bad_cluster_version_ignore;
-            fdb_error_t write_err = write_node_entry(interruptor, fdb_, node_id_, r_nullopt, &bad_cluster_version_ignore);
+            fdb_error_t write_err = write_node_entry(interruptor, fdb_, node_id_, proc_metadata_, r_nullopt, &bad_cluster_version_ignore);
             if (write_err != 0) {
                 logERR("Node presence registration encountered FoundationDB error: %s\n", fdb_get_error(write_err));
                 nap(error_nap_value, interruptor);
@@ -337,12 +352,15 @@ void fdb_node_holder::supply_job(fdb_job_info job) {
     supplied_job_sem_holder_.change_count(0);  // Possibly already released.
 }
 
-fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor, const fdb_node_id &node_id, const fdb_cluster_id &expected_cluster_id)
+fdb_node_holder::fdb_node_holder(FDBDatabase *fdb, const signal_t *interruptor,
+    const proc_metadata_info &proc_metadata,
+    const fdb_node_id &node_id, const fdb_cluster_id &expected_cluster_id)
         : fdb_(fdb), node_id_(node_id),
+          proc_metadata_(proc_metadata),
           supplied_job_sem_(1),
           supplied_job_sem_holder_(&supplied_job_sem_, 1) {
     optional<std::pair<std::string, std::string>> bad_cluster_version;
-    fdb_error_t err = write_node_entry(interruptor, fdb, node_id_, make_optional(expected_cluster_id), &bad_cluster_version);
+    fdb_error_t err = write_node_entry(interruptor, fdb, node_id_, proc_metadata_, make_optional(expected_cluster_id), &bad_cluster_version);
     if (err != 0) {
         logERR("Initial node presence registration encountered FoundationDB error: %s", fdb_get_error(err));
         // TODO: This is a bit of a hack -- we just happen to know the exception handler

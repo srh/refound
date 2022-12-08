@@ -4,13 +4,6 @@
 #include "arch/runtime/coroutines.hpp"
 #include "do_on_thread.hpp"
 
-void cond_t::pulse_if_not_already_pulsed() {
-    assert_thread();
-    if (!is_pulsed()) {
-        pulse();
-    }
-}
-
 void one_waiter_cond_t::pulse() {
     rassert(!pulsed_);
     pulsed_ = true;

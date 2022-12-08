@@ -8,7 +8,9 @@
 /* A `signal_t` is a boolean variable, combined with a way to be notified if
 that boolean variable becomes true. Typically you will construct a concrete
 subclass of `signal_t`, then pass a pointer to the underlying `signal_t` to
-another object which will read from or listen to it.
+another object which will read from or listen to it.  The base class, `signal_t`,
+has effectively a read-only public interface, which allows waiting for the
+signal to be pulsed, but does not allow pulsing or unpulsing.
 
 To check if a `signal_t` has already been pulsed, call `is_pulsed()`
 on it. To be notified when it gets pulsed, construct a
@@ -16,15 +18,17 @@ on it. To be notified when it gets pulsed, construct a
 watch. The callback will be called when the signal is pulsed. If the
 signal is already pulsed at the time you construct the
 `signal_t::subscription_t`, then the callback will be called
-immediately.
+immediately.  (That is low-level; you will probably want to use `wait()`,
+`wait_any()`, or `wait_interruptible()` functions.)
 
 `signal_t` is not thread-safe.
 
-Although you may be tempted to, please do not add a method that "unpulses" a
-`signal_t`. Part of the definition of a `signal_t` is that it does not return to
-the unpulsed state after being pulsed, and some things may depend on that
-property. If you want something like that, maybe you should look at something
-other than `signal_t`. */
+Although you may be tempted to, please do not add an ordinary method that "unpulses" a
+`signal_t` while other users hold references to it.  The implicit contract behind the
+receiving end (the non-owning, waiting end) of a `signal_t` is that it will not go from a
+pulsed state to an unpulsed state.  But if you are the sole owner and can destruct a
+`signal_t`, then it is acceptable to reset the object with `reset`, which would be via
+some subclass (such as `cond_t`). */
 
 class signal_t : public home_thread_mixin_t {
 public:
@@ -86,12 +90,6 @@ public:
         wait_lazily_ordered();
     }
 
-    void rethread(threadnum_t new_thread) {
-        real_home_thread = new_thread;
-        publisher_controller.rethread(new_thread);
-        lock.rethread(new_thread);
-    }
-
 protected:
     signal_t() : pulsed(false) { }
     signal_t(signal_t &&movee);
@@ -106,6 +104,12 @@ protected:
     }
 
     void reset();
+
+    void rethread(threadnum_t new_thread) {
+        real_home_thread = new_thread;
+        publisher_controller.rethread(new_thread);
+        lock.rethread(new_thread);
+    }
 
 private:
     static void call(subscription_t *subscription) THROWS_NOTHING {

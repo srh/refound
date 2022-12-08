@@ -66,6 +66,31 @@ std::string windows_version_string();
 std::string run_uname(const std::string &flags);
 #endif
 
+proc_metadata_info make_proc_metadata(const serve_info_t &serve_info) {
+    return proc_metadata_info{
+        RETHINKDB_VERSION_STR,
+        current_microtime(),
+        getpid(),
+        str_gethostname(),
+        /* Note we'll update `reql_port` and `http_port` later, once final values
+           are available */
+
+        // NNN: We need to do this, with the value of rdb_query_server_t::get_port() and
+        // administrative_http_server_manager_t::get_port() once they get constructed
+        // later.  Maybe we should open their sockets early, then pass those sockets into
+        // the query server classes, so we can one-time construct this serve_info port
+        // value (avoiding logic to update it later).
+
+
+        // TODO: Why is the serve_info value an int, and not a uint16_t?
+        static_cast<uint16_t>(serve_info.ports.reql_port),
+        serve_info.ports.http_admin_is_disabled
+            ? optional<uint16_t>()
+            : optional<uint16_t>(static_cast<uint16_t>(serve_info.ports.http_port)),
+        serve_info.argv,
+    };
+}
+
 bool serve(FDBDatabase *fdb,
         const serve_info_t &serve_info,
         os_signal_cond_t *stop_cond) {
@@ -93,7 +118,9 @@ bool serve(FDBDatabase *fdb,
         log messages will be written using the event loop instead of blocking. */
         thread_pool_log_writer_t log_writer;
 
-        fdb_node_holder node_holder{fdb, stop_cond, serve_info.node_id, serve_info.expected_cluster_id};
+        proc_metadata_info proc_metadata = make_proc_metadata(serve_info);
+        fdb_node_holder node_holder{fdb, stop_cond, proc_metadata,
+            serve_info.node_id, serve_info.expected_cluster_id};
 
         // The node id could be non-ephemeral (we could reuse it after a node goes down
         // and back up) for what it's worth.
@@ -143,6 +170,11 @@ bool serve(FDBDatabase *fdb,
                     serve_info.tls_configs.driver.get());
                 logNTC("Listening for client driver connections on port %d\n",
                        rdb_query_server.get_port());
+                node_holder.update_proc_metadata([&](proc_metadata_info *info) -> bool {
+                    auto old = info->reql_port;
+                    info->reql_port = rdb_query_server.get_port();
+                    return old != info->reql_port;
+                });
 
                 {
                     /* The `administrative_http_server_manager_t` serves the web UI. */
@@ -161,6 +193,11 @@ bool serve(FDBDatabase *fdb,
                                 serve_info.tls_configs.web.get()));
                         logNTC("Listening for administrative HTTP connections on port %d\n",
                                admin_server_ptr->get_port());
+                        node_holder.update_proc_metadata([&](proc_metadata_info *info) -> bool {
+                            auto old = info->http_admin_port;
+                            info->http_admin_port = optional<uint16_t>(admin_server_ptr->get_port());
+                            return old != info->http_admin_port;
+                        });
                     }
 
 #if 0
