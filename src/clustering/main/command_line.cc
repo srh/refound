@@ -897,8 +897,7 @@ service_address_ports_t get_service_address_ports(const std::map<std::string, op
         // Using "http_port" and "reql_port" spellings because we blindly moved logic from
         // service_address_ports_t ctor.
         offseted_port("http_port", get_single_int(opts, "--http-port"), port_offset),
-        offseted_port("reql_port", get_single_int(opts, "--driver-port"), port_offset),
-        port_offset);
+        offseted_port("reql_port", get_single_int(opts, "--driver-port"), port_offset));
 }
 
 #ifdef ENABLE_TLS

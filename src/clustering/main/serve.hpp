@@ -51,8 +51,7 @@ struct service_address_ports_t {
         // port(0),
         // client_port(0),
         http_port{0},
-        reql_port{0},
-        port_offset(0) { }
+        reql_port{0} { }
 
     service_address_ports_t(const std::set<ip_address_t> &_local_addresses,
         // We don't have this in ReFound... yet.
@@ -64,8 +63,7 @@ struct service_address_ports_t {
         // int _client_port,
                             bool _http_admin_is_disabled,
                             port_t _http_port,
-                            port_t _reql_port,
-                            int _port_offset) :
+                            port_t _reql_port) :
         local_addresses(_local_addresses),
         // local_addresses_cluster(_local_addresses_cluster),
         local_addresses_driver(_local_addresses_driver),
@@ -76,8 +74,7 @@ struct service_address_ports_t {
         // client_port(_client_port),
         http_admin_is_disabled(_http_admin_is_disabled),
         http_port(_http_port),
-        reql_port(_reql_port),
-        port_offset(_port_offset)
+        reql_port(_reql_port)
     {
     }
 
@@ -99,8 +96,6 @@ struct service_address_ports_t {
     bool http_admin_is_disabled;
     port_t http_port;
     port_t reql_port;
-    // NNN: Unused now?
-    int port_offset;
 };
 
 typedef std::shared_ptr<tls_ctx_t> shared_ssl_ctx_t;
