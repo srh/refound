@@ -411,25 +411,23 @@ bool ip_address_t::is_any() const {
 port_t::port_t(int _value)
     : value_(_value) { }
 
-port_t::port_t(sockaddr const *sa) {
+port_t port_from_sockaddr(const struct sockaddr *sa) {
+    uint16_t value;
     switch (sa->sa_family) {
     case AF_INET:
-        value_ = ntohs(reinterpret_cast<sockaddr_in const *>(sa)->sin_port);
+        value = ntohs(reinterpret_cast<sockaddr_in const *>(sa)->sin_port);
         break;
     case AF_INET6:
-        value_ = ntohs(reinterpret_cast<sockaddr_in6 const *>(sa)->sin6_port);
+        value = ntohs(reinterpret_cast<sockaddr_in6 const *>(sa)->sin6_port);
         break;
     default:
         crash("port_t constructed with unexpected address family: %d", sa->sa_family);
     }
+    return port_t{value};
 }
 
 uint16_t port_t::value() const {
     return value_;
-}
-
-std::string port_t::to_string() const {
-    return std::to_string(value_);
 }
 
 ip_and_port_t::ip_and_port_t()
@@ -441,7 +439,7 @@ ip_and_port_t::ip_and_port_t(const ip_address_t &_ip, port_t _port)
 { }
 
 ip_and_port_t::ip_and_port_t(sockaddr const *sa)
-    : ip_(sa), port_(sa)
+    : ip_(sa), port_(port_from_sockaddr(sa))
 { }
 
 bool ip_and_port_t::operator < (const ip_and_port_t &other) const {

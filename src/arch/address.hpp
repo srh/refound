@@ -117,11 +117,8 @@ public:
     static constexpr int max_port = MAX_PORT;
 
     explicit port_t(int _port);
-    explicit port_t(struct sockaddr const *);
 
     uint16_t value() const;
-
-    std::string to_string() const;
 
     RDB_MAKE_ME_SERIALIZABLE_1(port_t, value_);
 
