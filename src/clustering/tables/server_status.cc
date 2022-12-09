@@ -43,9 +43,9 @@ ql::datum_t format_server_status_row(const fdb_node_id &node_id, const node_info
     net_builder.overwrite("connected_to", ql::datum_object_builder_t().to_datum());
     net_builder.overwrite("hostname", ql::datum_t(datum_string_t(info.proc_metadata.hostname)));
     net_builder.overwrite("cluster_port", ql::datum_t::null());
-    net_builder.overwrite("reql_port", convert_port_to_datum(info.proc_metadata.reql_port));
+    net_builder.overwrite("reql_port", convert_port_to_datum(info.proc_metadata.reql_port.value));
     net_builder.overwrite("http_admin_port", info.proc_metadata.http_admin_port.has_value()
-        ? convert_port_to_datum(*info.proc_metadata.http_admin_port)
+        ? convert_port_to_datum(info.proc_metadata.http_admin_port->value)
         : ql::datum_t("<no http admin>"));
     net_builder.overwrite("canonical_addresses", ql::datum_t::null());
     net_builder.overwrite("time_connected", ql::datum_t::null());

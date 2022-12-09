@@ -112,18 +112,12 @@ enum class local_ip_filter_t {
 std::set<ip_address_t> get_local_ips(const std::set<ip_address_t> &filter,
                                      local_ip_filter_t filter_type);
 
-class port_t {
-public:
-    static constexpr int max_port = MAX_PORT;
+struct port_t {
+    uint16_t value;
 
-    explicit port_t(int _port);
-
-    uint16_t value() const;
-
-    RDB_MAKE_ME_SERIALIZABLE_1(port_t, value_);
-
-private:
-    uint16_t value_;
+    bool operator==(const port_t &other) const { return value == other.value; }
+    bool operator!=(const port_t &other) const { return !(*this == other); }
+    RDB_MAKE_ME_SERIALIZABLE_1(port_t, value);
 };
 
 class ip_and_port_t {

@@ -99,13 +99,13 @@ public:
     query_server_t(
         rdb_context_t *rdb_ctx,
         const std::set<ip_address_t> &local_addresses,
-        int port,
+        port_t port,
         query_handler_t *_handler,
         uint32_t http_timeout_sec,
         tls_ctx_t* tls_ctx);
     ~query_server_t();
 
-    int get_port() const;
+    port_t get_port() const;
 
 private:
     void make_error_response(bool is_draining,

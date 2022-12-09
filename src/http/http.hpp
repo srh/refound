@@ -154,9 +154,9 @@ class http_server_t {
 public:
     http_server_t(
         tls_ctx_t *tls_ctx, const std::set<ip_address_t> &local_addresses,
-        int port, http_app_t *application);
+        port_t port, http_app_t *application);
     ~http_server_t();
-    int get_port() const;
+    port_t get_port() const;
 private:
     void handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &conn, auto_drainer_t::lock_t);
     http_app_t *application;

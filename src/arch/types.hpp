@@ -12,6 +12,7 @@
 
 template <class> class scoped_array_t;
 struct iovec;
+struct port_t;
 
 #define DEFAULT_DISK_ACCOUNT (static_cast<file_account_t *>(0))
 #define UNLIMITED_OUTSTANDING_REQUESTS (-1)
@@ -21,7 +22,7 @@ struct iovec;
 // The linux_tcp_listener_t constructor can throw this exception
 class address_in_use_exc_t : public std::exception {
 public:
-    address_in_use_exc_t(const char* hostname, int port) throw ();
+    address_in_use_exc_t(const char* hostname, port_t port) throw ();
     explicit address_in_use_exc_t(const std::string &msg) throw ()
         : info(msg) { }
 
@@ -37,7 +38,7 @@ private:
 
 class tcp_socket_exc_t : public std::exception {
 public:
-    explicit tcp_socket_exc_t(int err, int port);
+    explicit tcp_socket_exc_t(int err, port_t port);
 
     ~tcp_socket_exc_t() throw () { }
 

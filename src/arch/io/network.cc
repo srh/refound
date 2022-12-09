@@ -117,60 +117,60 @@ void async_connect(fd_t socket, sockaddr *sa, size_t sa_len,
 #endif
 }
 
-void connect_ipv4_internal(fd_t socket, int local_port, const in_addr &addr, int port, event_watcher_t *event_watcher, const signal_t *interuptor) {
+void connect_ipv4_internal(fd_t socket, port_t local_port, const in_addr &addr, port_t port, event_watcher_t *event_watcher, const signal_t *interuptor) {
     struct sockaddr_in sa;
     socklen_t sa_len(sizeof(sa));
     memset(&sa, 0, sa_len);
     sa.sin_family = AF_INET;
 
 #ifdef _WIN32
-    sa.sin_port = htons(local_port);
+    sa.sin_port = htons(local_port.value);
     sa.sin_addr.s_addr = INADDR_ANY;
     // TODO WINDOWS: can bind block when called like this?
     winsock_debugf("binding socket for connect %x\n", socket);
     if (bind(fd_to_socket(socket), reinterpret_cast<sockaddr *>(&sa), sa_len) != 0) {
-        logWRN("Failed to bind to local port %d: %s", local_port, winerr_string(GetLastError()).c_str());
+        logWRN("Failed to bind to local port %d: %s", local_port.value, winerr_string(GetLastError()).c_str());
     }
 #else
-    if (local_port != 0) {
-        sa.sin_port = htons(local_port);
+    if (local_port.value != 0) {
+        sa.sin_port = htons(local_port.value);
         sa.sin_addr.s_addr = INADDR_ANY;
         if (bind(socket, reinterpret_cast<sockaddr *>(&sa), sa_len) != 0) {
-            logWRN("Failed to bind to local port %d: %s", local_port, errno_string(get_errno()).c_str());
+            logWRN("Failed to bind to local port %d: %s", local_port.value, errno_string(get_errno()).c_str());
         }
     }
 #endif
 
-    sa.sin_port = htons(port);
+    sa.sin_port = htons(port.value);
     sa.sin_addr = addr;
 
     async_connect(socket, reinterpret_cast<sockaddr *>(&sa), sa_len, event_watcher, interuptor);
 }
 
-void connect_ipv6_internal(fd_t socket, int local_port, const in6_addr &addr, int port, uint32_t scope_id, event_watcher_t *event_watcher, const signal_t *interuptor) {
+void connect_ipv6_internal(fd_t socket, port_t local_port, const in6_addr &addr, port_t port, uint32_t scope_id, event_watcher_t *event_watcher, const signal_t *interuptor) {
     struct sockaddr_in6 sa;
     socklen_t sa_len(sizeof(sa));
     memset(&sa, 0, sa_len);
     sa.sin6_family = AF_INET6;
 
 #ifdef _WIN32
-    sa.sin6_port = htons(local_port);
+    sa.sin6_port = htons(local_port.value);
     sa.sin6_addr = in6addr_any;
     winsock_debugf("binding socket for connect %x\n", socket);
     if (bind(fd_to_socket(socket), reinterpret_cast<sockaddr *>(&sa), sa_len) != 0) {
-        logWRN("Failed to bind to local port %d: %s", local_port, winerr_string(GetLastError()).c_str());
+        logWRN("Failed to bind to local port %d: %s", local_port.value, winerr_string(GetLastError()).c_str());
     }
 #else
-    if (local_port != 0) {
-        sa.sin6_port = htons(local_port);
+    if (local_port.value != 0) {
+        sa.sin6_port = htons(local_port.value);
         sa.sin6_addr = in6addr_any;
         if (bind(socket, reinterpret_cast<sockaddr *>(&sa), sa_len) != 0) {
-            logWRN("Failed to bind to local port %d: %s", local_port, errno_string(get_errno()).c_str());
+            logWRN("Failed to bind to local port %d: %s", local_port.value, errno_string(get_errno()).c_str());
         }
     }
 #endif
 
-    sa.sin6_port = htons(port);
+    sa.sin6_port = htons(port.value);
     sa.sin6_addr = addr;
     sa.sin6_scope_id = scope_id;
 
@@ -203,9 +203,9 @@ fd_t create_socket_wrapper(int address_family) {
 
 // Network connection object
 linux_tcp_conn_t::linux_tcp_conn_t(const ip_address_t &peer,
-                                   int port,
+                                   port_t port,
                                    const signal_t *interruptor,
-                                   int local_port) THROWS_ONLY(connect_failed_exc_t, interrupted_exc_t) :
+                                   port_t local_port) THROWS_ONLY(connect_failed_exc_t, interrupted_exc_t) :
         write_perfmon(nullptr),
         sock(create_socket_wrapper(peer.get_address_family())),
         event_watcher(new event_watcher_t(sock.get(), this)),
@@ -221,7 +221,7 @@ linux_tcp_conn_t::linux_tcp_conn_t(const ip_address_t &peer,
     guarantee_err(fcntl(sock.get(), F_SETFL, O_NONBLOCK) == 0, "Could not make socket non-blocking");
 #endif
 
-    if (local_port != 0) {
+    if (local_port.value != 0) {
         // Set the socket to reusable so we don't block out other sockets from this port
         int reuse = 1;
         if (setsockopt(fd_to_socket(sock.get()), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&reuse), sizeof(reuse)) != 0)
@@ -905,8 +905,8 @@ void tls_conn_wrapper_t::set_fd(fd_t sock)
 will establish a TCP connection to the peer at the given host:port and then we
 wrap the tcp connection in TLS using the configuration in the given tls_ctx. */
 linux_secure_tcp_conn_t::linux_secure_tcp_conn_t(
-        SSL_CTX *tls_ctx, const ip_address_t &host, int port,
-        const signal_t *interruptor, int local_port)
+        SSL_CTX *tls_ctx, const ip_address_t &host, port_t port,
+        const signal_t *interruptor, port_t local_port)
         THROWS_ONLY(connect_failed_exc_t, crypto::openssl_error_t, interrupted_exc_t) :
     linux_tcp_conn_t(host, port, interruptor, local_port),
     conn(tls_ctx) {
@@ -1258,7 +1258,7 @@ void linux_tcp_conn_descriptor_t::make_server_connection(
 
 /* Network listener object */
 linux_nonthrowing_tcp_listener_t::linux_nonthrowing_tcp_listener_t(
-         const std::set<ip_address_t> &bind_addresses, int _port,
+         const std::set<ip_address_t> &bind_addresses, port_t _port,
          const std::function<void(scoped_ptr_t<linux_tcp_conn_descriptor_t> &)> &cb) :
     callback(cb),
     local_addresses(bind_addresses),
@@ -1314,7 +1314,7 @@ bool linux_nonthrowing_tcp_listener_t::is_bound() const {
     return bound;
 }
 
-int linux_nonthrowing_tcp_listener_t::get_port() const {
+port_t linux_nonthrowing_tcp_listener_t::get_port() const {
     return port;
 }
 
@@ -1391,12 +1391,12 @@ int linux_nonthrowing_tcp_listener_t::init_sockets() {
     return 0;
 }
 
-int bind_ipv4_interface(fd_t sock, int *port_out, const struct in_addr &addr) {
+int bind_ipv4_interface(fd_t sock, port_t *port_out, const struct in_addr &addr) {
     sockaddr_in serv_addr;
     socklen_t sa_len(sizeof(serv_addr));
     memset(&serv_addr, 0, sa_len);
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(*port_out);
+    serv_addr.sin_port = htons(port_out->value);
     serv_addr.sin_addr = addr;
 
     int res = bind(fd_to_socket(sock), reinterpret_cast<sockaddr *>(&serv_addr), sa_len);
@@ -1408,21 +1408,21 @@ int bind_ipv4_interface(fd_t sock, int *port_out, const struct in_addr &addr) {
 #else
         res = get_errno();
 #endif
-    } else if (*port_out == ANY_PORT) {
+    } else if (port_out->value == ANY_PORT) {
         res = ::getsockname(fd_to_socket(sock), reinterpret_cast<sockaddr *>(&serv_addr), &sa_len);
         guarantee_err(res != -1, "Could not determine socket local port number");
-        *port_out = ntohs(serv_addr.sin_port);
+        port_out->value = ntohs(serv_addr.sin_port);
     }
 
     return res;
 }
 
-int bind_ipv6_interface(fd_t sock, int *port_out, const ip_address_t &addr) {
+int bind_ipv6_interface(fd_t sock, port_t *port_out, const ip_address_t &addr) {
     sockaddr_in6 serv_addr;
     socklen_t sa_len(sizeof(serv_addr));
     memset(&serv_addr, 0, sa_len);
     serv_addr.sin6_family = AF_INET6;
-    serv_addr.sin6_port = htons(*port_out);
+    serv_addr.sin6_port = htons(port_out->value);
     serv_addr.sin6_addr = addr.get_ipv6_addr();
     serv_addr.sin6_scope_id = addr.get_ipv6_scope_id();
 
@@ -1434,16 +1434,16 @@ int bind_ipv6_interface(fd_t sock, int *port_out, const ip_address_t &addr) {
 #else
         res = get_errno();
 #endif
-    } else if (*port_out == ANY_PORT) {
+    } else if (port_out->value == ANY_PORT) {
         res = ::getsockname(fd_to_socket(sock), reinterpret_cast<sockaddr *>(&serv_addr), &sa_len);
         guarantee_err(res != -1, "Could not determine socket local port number");
-        *port_out = ntohs(serv_addr.sin6_port);
+        port_out->value = ntohs(serv_addr.sin6_port);
     }
 
     return res;
 }
 
-void fallback_to_ipv4(std::set<ip_address_t> *addrs, int err, int port) {
+void fallback_to_ipv4(std::set<ip_address_t> *addrs, int err, port_t port) {
     bool ipv6_address_found = false;
 
     // Fallback to IPv4 only - remove any IPv6 addresses and resize dependant arrays
@@ -1463,14 +1463,14 @@ void fallback_to_ipv4(std::set<ip_address_t> *addrs, int err, int port) {
         throw tcp_socket_exc_t(err, port);
     }
     logERR("Failed to create sockets for listener on port %d, "
-           "falling back to IPv4 only", port);
+           "falling back to IPv4 only", port.value);
 }
 
 void linux_nonthrowing_tcp_listener_t::bind_sockets() {
     // It may take multiple attempts to get all the sockets onto the same port
-    int local_port = port;
+    port_t local_port = port;
 
-    for (uint32_t attempts = (port == ANY_PORT) ? MAX_BIND_ATTEMPTS : 1;
+    for (uint32_t attempts = (port.value == ANY_PORT) ? MAX_BIND_ATTEMPTS : 1;
          attempts > 0; --attempts) {
         local_port = port;
         int res = init_sockets();
@@ -1667,17 +1667,17 @@ void linux_nonthrowing_tcp_listener_t::on_event(int) {
 
 void noop_fun(UNUSED const scoped_ptr_t<linux_tcp_conn_descriptor_t> &arg) { }
 
-linux_tcp_bound_socket_t::linux_tcp_bound_socket_t(const std::set<ip_address_t> &bind_addresses, int port) :
+linux_tcp_bound_socket_t::linux_tcp_bound_socket_t(const std::set<ip_address_t> &bind_addresses, port_t port) :
     listener(new linux_nonthrowing_tcp_listener_t(bind_addresses, port, noop_fun))
 {
     listener->bind_sockets();
 }
 
-int linux_tcp_bound_socket_t::get_port() const {
+port_t linux_tcp_bound_socket_t::get_port() const {
     return listener->get_port();
 }
 
-linux_tcp_listener_t::linux_tcp_listener_t(const std::set<ip_address_t> &bind_addresses, int port,
+linux_tcp_listener_t::linux_tcp_listener_t(const std::set<ip_address_t> &bind_addresses, port_t port,
     const std::function<void(scoped_ptr_t<linux_tcp_conn_descriptor_t> &)> &callback) :
         listener(new linux_nonthrowing_tcp_listener_t(bind_addresses, port, callback))
 {
@@ -1697,18 +1697,18 @@ linux_tcp_listener_t::linux_tcp_listener_t(
     }
 }
 
-int linux_tcp_listener_t::get_port() const {
+port_t linux_tcp_listener_t::get_port() const {
     return listener->get_port();
 }
 
 linux_repeated_nonthrowing_tcp_listener_t::linux_repeated_nonthrowing_tcp_listener_t(
     const std::set<ip_address_t> &bind_addresses,
-    int port,
+    port_t port,
     const std::function<void(scoped_ptr_t<linux_tcp_conn_descriptor_t> &)> &callback) :
         listener(bind_addresses, port, callback)
 { }
 
-int linux_repeated_nonthrowing_tcp_listener_t::get_port() const {
+port_t linux_repeated_nonthrowing_tcp_listener_t::get_port() const {
     return listener.get_port();
 }
 
@@ -1726,7 +1726,7 @@ void linux_repeated_nonthrowing_tcp_listener_t::retry_loop(auto_drainer_t::lock_
              !bound;
              retry_interval = std::min(10, retry_interval + 2)) {
             logNTC("Will retry binding to port %d in %d seconds.\n",
-                   listener.get_port(),
+                   listener.get_port().value,
                    retry_interval);
             nap(retry_interval * 1000, lock.get_drain_signal());
             bound = listener.begin_listening();

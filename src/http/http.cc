@@ -95,12 +95,12 @@ const char* http_req_t::resource_t::token_start_position(const http_req_t::resou
 }
 
 http_req_t::http_req_t() :
-    peer(ip_address_t::any(AF_INET), port_t(0)) {
+    peer(ip_address_t::any(AF_INET), port_t{0}) {
 }
 
 http_req_t::http_req_t(const std::string &resource_path) :
     resource(resource_path),
-    peer(ip_address_t::any(AF_INET), port_t(0)) {
+    peer(ip_address_t::any(AF_INET), port_t{0}) {
 }
 
 http_req_t::http_req_t(const http_req_t &from, const resource_t::iterator& resource_start)
@@ -350,7 +350,7 @@ http_res_t http_error_res(const std::string &content, http_status_code_t rescode
 
 http_server_t::http_server_t(
     tls_ctx_t *_tls_ctx, const std::set<ip_address_t> &local_addresses,
-    int port, http_app_t *_application
+    port_t port, http_app_t *_application
 ):
     application(_application),
     tls_ctx(_tls_ctx) {
@@ -368,7 +368,7 @@ http_server_t::http_server_t(
     }
 }
 
-int http_server_t::get_port() const {
+port_t http_server_t::get_port() const {
     return tcp_listener->get_port();
 }
 

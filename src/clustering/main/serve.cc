@@ -25,7 +25,7 @@ peer_address_set_t look_up_peers_addresses(const std::vector<host_and_port_t> &n
         peer_address_t peer(std::set<host_and_port_t>{names[i]});
         if (peers.find(peer) != peers.end()) {
             logWRN("Duplicate peer in --join parameters, ignoring: '%s:%d'",
-                   names[i].host().c_str(), names[i].port().value());
+                   names[i].host().c_str(), names[i].port().value);
         } else {
             peers.insert(peer);
         }
@@ -75,11 +75,10 @@ proc_metadata_info make_proc_metadata(const serve_info_t &serve_info) {
         /* Note we'll update `reql_port` and `http_port` later, once final values
            are available */
 
-        // TODO: Why is the serve_info value an int, and not a uint16_t?
-        static_cast<uint16_t>(serve_info.ports.reql_port),
+        serve_info.ports.reql_port,
         serve_info.ports.http_admin_is_disabled
-            ? optional<uint16_t>()
-            : optional<uint16_t>(static_cast<uint16_t>(serve_info.ports.http_port)),
+            ? optional<port_t>()
+            : optional<port_t>(serve_info.ports.http_port),
         serve_info.argv,
     };
 }
@@ -162,11 +161,11 @@ bool serve(FDBDatabase *fdb,
                     &rdb_ctx,
                     serve_info.tls_configs.driver.get());
                 logNTC("Listening for client driver connections on port %d\n",
-                       rdb_query_server.get_port());
+                       rdb_query_server.get_port().value);
                 node_holder.update_proc_metadata([&](proc_metadata_info *info) -> bool {
                     auto old = info->reql_port;
                     info->reql_port = rdb_query_server.get_port();
-                    return old != info->reql_port;
+                    return old.value != info->reql_port.value;
                 });
 
                 {
@@ -175,8 +174,6 @@ bool serve(FDBDatabase *fdb,
                     if (serve_info.ports.http_admin_is_disabled) {
                         logNTC("Administrative HTTP connections are disabled.\n");
                     } else {
-                        // TODO: Pardon me what, but is this how we fail here?
-                        guarantee(serve_info.ports.http_port < 65536);
                         admin_server_ptr.init(
                             new administrative_http_server_manager_t(
                                 serve_info.ports.local_addresses_http,
@@ -185,10 +182,10 @@ bool serve(FDBDatabase *fdb,
                                 serve_info.web_assets,
                                 serve_info.tls_configs.web.get()));
                         logNTC("Listening for administrative HTTP connections on port %d\n",
-                               admin_server_ptr->get_port());
+                               admin_server_ptr->get_port().value);
                         node_holder.update_proc_metadata([&](proc_metadata_info *info) -> bool {
                             auto old = info->http_admin_port;
-                            info->http_admin_port = optional<uint16_t>(admin_server_ptr->get_port());
+                            info->http_admin_port = optional<port_t>(admin_server_ptr->get_port());
                             return old != info->http_admin_port;
                         });
                     }

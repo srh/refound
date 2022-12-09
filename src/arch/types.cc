@@ -1,18 +1,19 @@
 #include "arch/types.hpp"
 
+#include "arch/address.hpp"
 #include "utils.hpp"
 
-tcp_socket_exc_t::tcp_socket_exc_t(int errsv, int port) {
+tcp_socket_exc_t::tcp_socket_exc_t(int errsv, port_t port) {
     info = strprintf("TCP socket creation failed for port %d: %s",
-                     port, errno_string(errsv).c_str());
+                     port.value, errno_string(errsv).c_str());
 }
 
 
-address_in_use_exc_t::address_in_use_exc_t(const char* hostname, int port) throw () {
-    if (port == 0) {
+address_in_use_exc_t::address_in_use_exc_t(const char* hostname, port_t port) throw () {
+    if (port.value == 0) {
         info = strprintf("Could not establish sockets on all selected local addresses using the same port");
     } else {
-        info = strprintf("The address at %s:%d is reserved or already in use", hostname, port);
+        info = strprintf("The address at %s:%d is reserved or already in use", hostname, port.value);
     }
 }
 

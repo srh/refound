@@ -82,11 +82,9 @@ bool convert_database_id_from_datum(
         admin_err_t *error_out);
 #endif  // STATS_REQUEST_IN_FDB
 
-ql::datum_t convert_port_to_datum(
-        uint16_t value);
+ql::datum_t convert_port_to_datum(int value);
 
-ql::datum_t convert_microtime_to_datum(
-        microtime_t value);
+ql::datum_t convert_microtime_to_datum(microtime_t value);
 
 template<class T, class Callable>
 ql::datum_t convert_vector_to_datum(

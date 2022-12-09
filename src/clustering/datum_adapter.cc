@@ -213,7 +213,7 @@ bool convert_database_id_from_datum(
 #endif  // STATS_REQUEST_IN_FDB
 
 ql::datum_t convert_port_to_datum(
-        uint16_t value) {
+        int value) {
     return ql::datum_t(static_cast<double>(value));
 }
 

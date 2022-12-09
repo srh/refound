@@ -684,7 +684,7 @@ optional<optional<uint64_t> > parse_total_cache_size_option(
 //  IPv4-mapped IPv6 addr only: [::ffff:192.168.0.1]
 //  IPv4-mapped IPv6 addr and port: [::ffff:192.168.0.1]:60435
 host_and_port_t parse_host_and_port(const std::string &source, const std::string &option_name,
-                                    const std::string &value, int default_port) {
+                                    const std::string &value, port_t default_port) {
     // First disambiguate IPv4 vs IPv6
     size_t colon_count = std::count(value.begin(), value.end(), ':');
 
@@ -694,11 +694,11 @@ host_and_port_t parse_host_and_port(const std::string &source, const std::string
         if (colon_loc != std::string::npos) {
             std::string host = value.substr(0, colon_loc);
             int port = atoi(value.substr(colon_loc + 1).c_str());
-            if (host.size() != 0 && port != 0 && port <= MAX_PORT) {
-                return host_and_port_t(host, port_t(port));
+            if (host.size() != 0 && port > 0 && port <= MAX_PORT) {
+                return host_and_port_t(host, port_t{static_cast<uint16_t>(port)});
             }
         } else if (value.size() != 0) {
-            return host_and_port_t(value, port_t(default_port));
+            return host_and_port_t(value, default_port);
         }
     } else {
         // IPv6 will have 2 or more colons
@@ -710,13 +710,13 @@ host_and_port_t parse_host_and_port(const std::string &source, const std::string
             // Error condition fallthrough
         } else if (start_bracket_loc == std::string::npos || end_bracket_loc == std::string::npos) {
             // No brackets, therefore no port, just parse the whole thing as a hostname
-            return host_and_port_t(value, port_t(default_port));
+            return host_and_port_t(value, default_port);
         } else if (last_colon_loc < end_bracket_loc) {
             // Brackets, but no port, verify no other characters outside the brackets
             if (value.find_last_not_of(" \t\r\n[", start_bracket_loc) == std::string::npos &&
                 value.find_first_not_of(" \t\r\n]", end_bracket_loc) == std::string::npos) {
                 std::string host = value.substr(start_bracket_loc + 1, end_bracket_loc - start_bracket_loc - 1);
-                return host_and_port_t(host, port_t(default_port));
+                return host_and_port_t(host, default_port);
             }
         } else {
             // Brackets and port
@@ -726,9 +726,9 @@ host_and_port_t parse_host_and_port(const std::string &source, const std::string
             int port = atoi(remainder.substr(remainder_colon_loc + 1).c_str());
 
             // Verify no characters before the brackets and up to the port colon
-            if (port != 0 && port <= MAX_PORT && remainder_colon_loc == 0 &&
+            if (port > 0 && port <= MAX_PORT && remainder_colon_loc == 0 &&
                 value.find_last_not_of(" \t\r\n[", start_bracket_loc) == std::string::npos) {
-                return host_and_port_t(host, port_t(port));
+                return host_and_port_t(host, port_t{static_cast<uint16_t>(port)});
             }
         }
     }
@@ -837,12 +837,16 @@ int get_single_int(const std::map<std::string, options::values_t> &opts, const s
                                        name.c_str(), value.c_str()));
 }
 
-int offseted_port(const int port, const int port_offset) {
-    return port == 0 ? 0 : port + port_offset;
+port_t offseted_port(const char *name, const int port, const int port_offset) {
+    int ret = port == 0 ? 0 : port + port_offset;
+    if (ret > 0 && ret <= MAX_PORT) {
+        return port_t{static_cast<uint16_t>(ret)};
+    }
+    throw invalid_port_exc_t(name, ret, port_offset);
 }
 
 peer_address_t get_canonical_addresses(const std::map<std::string, options::values_t> &opts,
-                                       int default_port) {
+                                       port_t default_port) {
     std::string source;
     std::vector<std::string> canonical_options = all_options(opts, "--canonical-address", &source);
     // Verify that all specified addresses are valid ip addresses
@@ -851,7 +855,7 @@ peer_address_t get_canonical_addresses(const std::map<std::string, options::valu
         host_and_port_t host_port = parse_host_and_port(source, "--canonical-address",
                                                         canonical_options[i], default_port);
 
-        if (host_port.port().value() == 0 && default_port != 0) {
+        if (host_port.port().value == 0 && default_port.value != 0) {
             // The cluster layer would probably swap this out with whatever port we were
             //  actually listening on, but since the user explicitly specified 0, it doesn't make sense
             throw std::logic_error("cannot specify a port of 0 in --canonical-address");
@@ -863,7 +867,8 @@ peer_address_t get_canonical_addresses(const std::map<std::string, options::valu
 
 service_address_ports_t get_service_address_ports(const std::map<std::string, options::values_t> &opts) {
     const int port_offset = get_single_int(opts, "--port-offset");
-    // const int cluster_port = offseted_port(get_single_int(opts, "--cluster-port"), port_offset);
+    // Passing "port" string because we blindly moved logic from service_address_ports_t ctor.
+    // const int cluster_port = offseted_port("port", get_single_int(opts, "--cluster-port"), port_offset);
     // const int client_port = get_single_int(opts, "--client-port");
 
     local_ip_filter_t filter =
@@ -889,8 +894,10 @@ service_address_ports_t get_service_address_ports(const std::map<std::string, op
         /* cluster_port, */
         /* client_port, */
         exists_option(opts, "--no-http-admin"),
-        offseted_port(get_single_int(opts, "--http-port"), port_offset),
-        offseted_port(get_single_int(opts, "--driver-port"), port_offset),
+        // Using "http_port" and "reql_port" spellings because we blindly moved logic from
+        // service_address_ports_t ctor.
+        offseted_port("http_port", get_single_int(opts, "--http-port"), port_offset),
+        offseted_port("reql_port", get_single_int(opts, "--driver-port"), port_offset),
         port_offset);
 }
 
@@ -1389,7 +1396,7 @@ options::help_section_t get_config_file_options(std::vector<options::option_t> *
 }
 
 std::vector<host_and_port_t> parse_join_options(const std::map<std::string, options::values_t> &opts,
-                                                int default_port) {
+                                                port_t default_port) {
     std::string source;
     const std::vector<std::string> join_strings = all_options(opts, "--join", &source);
     std::vector<host_and_port_t> joins;
@@ -1521,7 +1528,7 @@ options::help_section_t get_web_options(std::vector<options::option_t> *options_
     help.add("--web-static-directory directory", "the directory containing web resources for the http interface");
     options_out->push_back(options::option_t(options::names_t("--http-port"),
                                              options::OPTIONAL,
-                                             strprintf("%d", port_defaults::http_port)));
+                                             strprintf("%d", port_defaults::http_port.value)));
     help.add("--http-port port", "port for web administration console");
     options_out->push_back(options::option_t(options::names_t("--no-http-admin"),
                                              options::OPTIONAL_NO_PARAMETER));
@@ -1550,13 +1557,13 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
 
     options_out->push_back(options::option_t(options::names_t("--cluster-port"),
                                              options::OPTIONAL,
-                                             strprintf("%d", port_defaults::peer_port),
+                                             strprintf("%d", port_defaults::peer_port.value),
                                              obsolescence::UNUSED_IGNORED));
     help.add("--cluster-port port", "unused in ReFound.  port for receiving connections from other servers");
 
     options_out->push_back(options::option_t(options::names_t("--client-port"),
                                              options::OPTIONAL,
-                                             strprintf("%d", port_defaults::client_port),
+                                             strprintf("%d", port_defaults::client_port.value),
                                              obsolescence::OBSOLETE_DISALLOWED));
 #ifndef NDEBUG
     help.add("--client-port port", "obsolete and disallowed in ReFound.  port to use when connecting to other servers (for development)");
@@ -1564,7 +1571,7 @@ options::help_section_t get_network_options(const bool join_required, std::vecto
 
     options_out->push_back(options::option_t(options::names_t("--driver-port"),
                                              options::OPTIONAL,
-                                             strprintf("%d", port_defaults::reql_port)));
+                                             strprintf("%d", port_defaults::reql_port.value)));
     help.add("--driver-port port", "port for rethinkdb protocol client drivers");
 
     options_out->push_back(options::option_t(options::names_t("--port-offset", "-o"),

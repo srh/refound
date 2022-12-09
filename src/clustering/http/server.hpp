@@ -19,13 +19,13 @@ class administrative_http_server_manager_t {
 public:
     administrative_http_server_manager_t(
         const std::set<ip_address_t> &local_addresses,
-        int port,
+        port_t port,
         http_app_t *reql_app,
         std::string _path,
         tls_ctx_t *tls_ctx);
     ~administrative_http_server_manager_t();
 
-    int get_port() const;
+    port_t get_port() const;
 private:
 
     scoped_ptr_t<file_http_app_t> file_app;

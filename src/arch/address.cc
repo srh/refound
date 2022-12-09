@@ -408,9 +408,6 @@ bool ip_address_t::is_any() const {
     return false;
 }
 
-port_t::port_t(int _value)
-    : value_(_value) { }
-
 port_t port_from_sockaddr(const struct sockaddr *sa) {
     uint16_t value;
     switch (sa->sa_family) {
@@ -426,12 +423,8 @@ port_t port_from_sockaddr(const struct sockaddr *sa) {
     return port_t{value};
 }
 
-uint16_t port_t::value() const {
-    return value_;
-}
-
 ip_and_port_t::ip_and_port_t()
-    : port_(0)
+    : port_{0}
 { }
 
 ip_and_port_t::ip_and_port_t(const ip_address_t &_ip, port_t _port)
@@ -444,13 +437,13 @@ ip_and_port_t::ip_and_port_t(sockaddr const *sa)
 
 bool ip_and_port_t::operator < (const ip_and_port_t &other) const {
     if (ip_ == other.ip_) {
-        return port_.value() < other.port_.value();
+        return port_.value < other.port_.value;
     }
     return ip_ < other.ip_;
 }
 
 bool ip_and_port_t::operator == (const ip_and_port_t &other) const {
-    return ip_ == other.ip_ && port_.value() == other.port_.value();
+    return ip_ == other.ip_ && port_.value == other.port_.value;
 }
 
 const ip_address_t & ip_and_port_t::ip() const {
@@ -463,15 +456,15 @@ port_t ip_and_port_t::port() const {
 
 std::string ip_and_port_t::to_string() const {
     if (ip_.is_ipv6()) {
-        return strprintf("[%s]:%u", ip_.to_string().c_str(), port_.value());
+        return strprintf("[%s]:%u", ip_.to_string().c_str(), port_.value);
     } else {
-        return strprintf("%s:%u", ip_.to_string().c_str(), port_.value());
+        return strprintf("%s:%u", ip_.to_string().c_str(), port_.value);
     }
 }
 
 bool is_similar_ip_address(const ip_and_port_t &left,
                            const ip_and_port_t &right) {
-    if (left.port().value() != right.port().value() ||
+    if (left.port().value != right.port().value ||
         left.ip().get_address_family() != right.ip().get_address_family()) {
         return false;
     }
@@ -485,7 +478,7 @@ bool is_similar_ip_address(const ip_and_port_t &left,
 }
 
 host_and_port_t::host_and_port_t() :
-    port_(0)
+    port_{0}
 { }
 
 host_and_port_t::host_and_port_t(const std::string& _host, port_t _port) :
@@ -494,13 +487,13 @@ host_and_port_t::host_and_port_t(const std::string& _host, port_t _port) :
 
 bool host_and_port_t::operator < (const host_and_port_t &other) const {
     if (host_ == other.host_) {
-        return port_.value() < other.port_.value();
+        return port_.value < other.port_.value;
     }
     return host_ < other.host_;
 }
 
 bool host_and_port_t::operator == (const host_and_port_t &other) const {
-    return host_ == other.host_ && port_.value() == other.port_.value();
+    return host_ == other.host_ && port_.value == other.port_.value;
 }
 
 std::set<ip_and_port_t> host_and_port_t::resolve() const {
@@ -563,11 +556,11 @@ void debug_print(printf_buffer_t *buf, const ip_address_t &addr) {
 }
 
 void debug_print(printf_buffer_t *buf, const ip_and_port_t &addr) {
-    buf->appendf("%s:%d", addr.ip().to_string().c_str(), addr.port().value());
+    buf->appendf("%s:%d", addr.ip().to_string().c_str(), addr.port().value);
 }
 
 void debug_print(printf_buffer_t *buf, const host_and_port_t &addr) {
-    buf->appendf("%s:%d", addr.host().c_str(), addr.port().value());
+    buf->appendf("%s:%d", addr.host().c_str(), addr.port().value);
 }
 
 void debug_print(printf_buffer_t *buf, const peer_address_t &) {

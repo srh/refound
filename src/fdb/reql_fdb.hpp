@@ -1,6 +1,7 @@
 #ifndef RETHINKDB_FDB_REQL_FDB_HPP_
 #define RETHINKDB_FDB_REQL_FDB_HPP_
 
+#include "arch/address.hpp"
 #include "config/args.hpp"
 #include "containers/optional.hpp"
 #include "errors.hpp"
@@ -342,8 +343,8 @@ struct proc_metadata_info {
     int64_t pid;
     std::string hostname;
     // uint16_t cluster_port;  /* n/a for now, unless nodes directly communicate for distributed query execution */
-    uint16_t reql_port;
-    optional<uint16_t> http_admin_port;
+    port_t reql_port;
+    optional<port_t> http_admin_port;
     // std::set<host_and_port_t> canonical_addresses;  /* n/a for now, unless nodes directly communicate for distributed query execution */
     std::vector<std::string> argv;
 };

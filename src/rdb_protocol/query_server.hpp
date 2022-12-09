@@ -22,11 +22,11 @@ class rdb_query_server_t : public query_handler_t {
 public:
     rdb_query_server_t(
         fdb_node_id node_id,
-        const std::set<ip_address_t> &local_addresses, int port,
+        const std::set<ip_address_t> &local_addresses, port_t port,
         rdb_context_t *_rdb_ctx, tls_ctx_t *tls_ctx);
 
     http_app_t *get_http_app();
-    int get_port() const;
+    port_t get_port() const;
 
     void run_query(ql::query_params_t *query_params,
                    ql::response_t *response_out,

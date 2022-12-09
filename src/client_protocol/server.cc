@@ -189,7 +189,7 @@ size_t http_conn_cache_t::sha_hasher_t::operator()(const conn_key_t &x) const {
 
 query_server_t::query_server_t(rdb_context_t *_rdb_ctx,
                                const std::set<ip_address_t> &local_addresses,
-                               int port,
+                               port_t port,
                                query_handler_t *_handler,
                                uint32_t http_timeout_sec,
                                tls_ctx_t *_tls_ctx) :
@@ -211,7 +211,7 @@ query_server_t::query_server_t(rdb_context_t *_rdb_ctx,
 
 query_server_t::~query_server_t() { }
 
-int query_server_t::get_port() const {
+port_t query_server_t::get_port() const {
     return tcp_listener->get_port();
 }
 
@@ -449,7 +449,7 @@ void query_server_t::handle_conn(const scoped_ptr_t<tcp_conn_descriptor_t> &ncon
             }
         }
 
-        ip_and_port_t client_addr_port(ip_address_t::any(AF_INET), port_t(0));
+        ip_and_port_t client_addr_port(ip_address_t::any(AF_INET), port_t{0});
         UNUSED bool peer_res = conn->getpeername(&client_addr_port);
 
         guarantee(authenticator != nullptr);

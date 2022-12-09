@@ -8,7 +8,7 @@
 
 administrative_http_server_manager_t::administrative_http_server_manager_t(
         const std::set<ip_address_t> &local_addresses,
-        int port,
+        port_t port,
         http_app_t *reql_app,
         std::string path,
         tls_ctx_t *tls_ctx)
@@ -38,6 +38,6 @@ administrative_http_server_manager_t::~administrative_http_server_manager_t() {
     the `.hpp` file. */
 }
 
-int administrative_http_server_manager_t::get_port() const {
+port_t administrative_http_server_manager_t::get_port() const {
     return server->get_port();
 }
