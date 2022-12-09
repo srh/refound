@@ -75,13 +75,6 @@ proc_metadata_info make_proc_metadata(const serve_info_t &serve_info) {
         /* Note we'll update `reql_port` and `http_port` later, once final values
            are available */
 
-        // NNN: We need to do this, with the value of rdb_query_server_t::get_port() and
-        // administrative_http_server_manager_t::get_port() once they get constructed
-        // later.  Maybe we should open their sockets early, then pass those sockets into
-        // the query server classes, so we can one-time construct this serve_info port
-        // value (avoiding logic to update it later).
-
-
         // TODO: Why is the serve_info value an int, and not a uint16_t?
         static_cast<uint16_t>(serve_info.ports.reql_port),
         serve_info.ports.http_admin_is_disabled
