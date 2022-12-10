@@ -1376,7 +1376,7 @@ options::help_section_t get_file_options(std::vector<options::option_t> *options
     options_out->push_back(options::option_t(options::names_t("--direct-io"),
                                              options::OPTIONAL_NO_PARAMETER,
                                              obsolescence::OBSOLETE_IGNORED));
-    help.add("--direct-io", "obsolete in ReFound.  use direct I/O for file access");
+    help.add("--direct-io", "obsolete in ReFound.  use direct I/O for data file access");
 #endif
     options_out->push_back(options::option_t(options::names_t("--cache-size"),
                                              options::OPTIONAL,
@@ -1869,12 +1869,6 @@ MUST_USE bool parse_io_threads_option(const std::map<std::string, options::value
     return true;
 }
 
-file_direct_io_mode_t parse_direct_io_mode_option(const std::map<std::string, options::values_t> &opts) {
-    return exists_option(opts, "--direct-io") ?
-        file_direct_io_mode_t::direct_desired :
-        file_direct_io_mode_t::buffered_desired;
-}
-
 void append_littleendian_bit32(std::vector<uint8_t> *vec, uint64_t x) {
     // The "& 0xFF" expression is for clarity.
     vec->push_back(x & 0xFF);
@@ -2232,7 +2226,9 @@ optional<fdb_cluster_id> main_rethinkdb_create_fdb_blocking_pthread(FDBDatabase 
         if (initial_password_already_configured) {
             logNTC(initial_password_msg);
         }
-        logNTC("%s", print_out.c_str());
+        if (!print_out.empty()) {
+            logNTC("%s", print_out.c_str());
+        }
         return make_optional(cluster_id);
     }
 }
@@ -2316,9 +2312,6 @@ int main_rethinkdb_create(int argc, char *argv[]) {
 
         std::string fdb_cluster_file_param = get_fdb_client_cluster_file_param(base_path, opts);
 
-        // QQQ: For fdb, remove the direct_io mode options.
-        // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
-
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database fdb(fdb_cluster_file_param.c_str());
 
@@ -2342,6 +2335,11 @@ int main_rethinkdb_create(int argc, char *argv[]) {
             // Tell the directory lock that the directory is now good to go, as it
             //  will otherwise delete an uninitialized directory
             data_directory_lock.directory_initialized();
+
+            logNTC("Created data directory for new node '%s', cluster '%s'",
+                uuid_to_str(our_node_id.value).c_str(),
+                uuid_to_str(result2->value).c_str());
+
             return EXIT_SUCCESS;
         }
     } catch (const options::named_error_t &ex) {
@@ -2500,9 +2498,6 @@ int main_rethinkdb_serve(int argc, char *argv[]) {
                                 std::vector<std::string>(argv, argv + argc),
                                 node_reconnect_timeout_secs.value_or(cluster_defaults::reconnect_timeout),
                                 tls_configs);
-
-        // QQQ: Remove this option and such for fdb.
-        // const file_direct_io_mode_t direct_io_mode = parse_direct_io_mode_option(opts);
 
         fdb_startup_shutdown fdb_startup_shutdown;
         fdb_database fdb(fdb_cluster_file_param.c_str());
