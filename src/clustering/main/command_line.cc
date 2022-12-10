@@ -2306,8 +2306,12 @@ int main_rethinkdb_create(int argc, char *argv[]) {
         get_and_set_user_group_and_directory(opts, &data_directory_lock);
 #endif
 
-        // NNN: Did we not use make_absolute for base_path in the create case before?
-        // This is an inconsistency.
+        // We don't do make_absolute in o.g. RethinkDB on creation, _except_ in the
+        // porcelain command.  We use make_absolute, generally, for some
+        // daemonization-related reason (according to a cmoment). For consistency, and (I
+        // suppose) to catch any absolute path issues at create time rather than serve
+        // time, we do it here now in ReFound.
+        base_path = base_path.make_absolute();
         initialize_logfile(opts, base_path);
 
         std::string fdb_cluster_file_param = get_fdb_client_cluster_file_param(base_path, opts);
