@@ -32,7 +32,7 @@ std::string make_absolute(const std::string &path);
 void remove_directory_recursive(const char *path);
 
 std::string blocking_read_file(const char *path);
-bool blocking_read_file(const char *path, std::string *contents_out);
+MUST_USE bool blocking_read_file(const char *path, std::string *contents_out);
 
 bool is_rw_file(const std::string &path);
 
