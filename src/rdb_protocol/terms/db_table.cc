@@ -396,14 +396,14 @@ private:
         }
 
 
-        optional<database_id_t> fdb_result;
+        optional<std::pair<database_id_t, fdb_shared_task_id>> fdb_result;
 
         try {
             fdb_error_t loop_err = txn_retry_loop_coro(env->env->get_rdb_ctx()->fdb, env->env->interruptor, [&](FDBTransaction *txn) {
                 // TODO: What if we can't iterate the table list (for checking
                 // permissions) in a single fdb transaction?
                 database_id_t db_id_local;
-                optional<database_id_t> success
+                optional<std::pair<database_id_t, fdb_shared_task_id>> success
                     = config_cache_db_drop(txn,
                         env->env->get_user_context(),
                         db_name, env->env->interruptor);
@@ -425,14 +425,14 @@ private:
         // TODO: Wipe the config cache after the txn succeeds?  If the code doesn't bloat up too much.
 
         ql::datum_t old_config
-            = convert_db_or_table_config_and_name_to_datum(db_name, fdb_result->value);
+            = convert_db_or_table_config_and_name_to_datum(db_name, fdb_result->first.value);
         ql::datum_object_builder_t result_builder;
         result_builder.overwrite("dbs_dropped", ql::datum_t(1.0));
         result_builder.overwrite(
             "tables_dropped", ql::datum_t::null());  // TODO: Maybe a string, "unknown".
         // TODO: The db_drop term could wait for the job to complete.
-        // OOO: Or, the db_drop term should output the drop job id.
         // ql::datum_t(static_cast<double>(tables_dropped)));
+        result_builder.overwrite("task_id", ql::datum_t(uuid_to_str(fdb_result->second.value)));
         result_builder.overwrite(
             "config_changes",
             make_replacement_pair(std::move(old_config), ql::datum_t::null()));

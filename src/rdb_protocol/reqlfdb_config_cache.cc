@@ -410,7 +410,7 @@ void help_remove_user_uuid_references(
 // TODO: Use uniform reql datum primary key serialization, how about that idea?
 
 // db_name must come from the db (in the same txn).
-void config_cache_db_drop_uuid(
+MUST_USE fdb_shared_task_id config_cache_db_drop_uuid(
         FDBTransaction *txn, const auth::user_context_t &user_context,
         const database_id_t &db_id, const name_string_t &db_name,
         const signal_t *interruptor) {
@@ -468,9 +468,11 @@ void config_cache_db_drop_uuid(
 
     cv.value++;
     transaction_set_config_version(txn, cv);
+
+    return task_id;
 }
 
-optional<database_id_t> config_cache_db_drop(
+optional<std::pair<database_id_t, fdb_shared_task_id>> config_cache_db_drop(
         FDBTransaction *txn, const auth::user_context_t &user_context,
         const name_string_t &db_name, const signal_t *interruptor) {
     fdb_value_fut<database_id_t> fut = transaction_lookup_uq_index<db_config_by_name>(
@@ -482,8 +484,9 @@ optional<database_id_t> config_cache_db_drop(
         return r_nullopt;
     }
 
-    config_cache_db_drop_uuid(txn, user_context, db_id, db_name, interruptor);
-    return make_optional(db_id);
+    fdb_shared_task_id task_id =
+        config_cache_db_drop_uuid(txn, user_context, db_id, db_name, interruptor);
+    return make_optional(std::make_pair(db_id, task_id));
 }
 
 // Returns TABLE_CONFIG_BY_NAME range in database db_id, in [lower_bound_table_name,

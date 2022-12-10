@@ -111,14 +111,14 @@ MUST_USE optional<std::pair<namespace_id_t, table_config_t>> config_cache_table_
         const name_string_t &table_name,
         const signal_t *interruptor);
 
-MUST_USE optional<database_id_t> config_cache_db_drop(
+MUST_USE optional<std::pair<database_id_t, fdb_shared_task_id>> config_cache_db_drop(
     FDBTransaction *txn,
     const auth::user_context_t &user_context,
     const name_string_t &db_name, const signal_t *interruptor);
 
 // db_name MUST have come from the db_by_name or db_by_id index! (in the same txn of
 // course)
-void config_cache_db_drop_uuid(
+MUST_USE fdb_shared_task_id config_cache_db_drop_uuid(
         FDBTransaction *txn, const auth::user_context_t &user_context,
         const database_id_t &db_id, const name_string_t &db_name,
         const signal_t *interruptor);
