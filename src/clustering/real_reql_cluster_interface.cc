@@ -115,7 +115,6 @@ scoped<ql::val_t> make_single_selection(
     ql::datum_t row;
     fdb_error_t loop_err = txn_retry_loop_coro(env->get_rdb_ctx()->fdb, env->interruptor,
             [&](FDBTransaction *txn) {
-        fdb_value_fut<reqlfdb_config_version> cv_fut = transaction_get_config_version(txn);
         uuid_u primary_key = cfg_checker(txn);
         admin_err_t error;
         ql::datum_t tmp_row;
