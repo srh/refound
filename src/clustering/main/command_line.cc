@@ -1205,8 +1205,6 @@ bool configure_tls(
 #endif /* ENABLE_TLS */
 
 
-// OOO: Remove config_version_exc_t?
-
 MUST_USE bool set_initial_password(FDBTransaction *txn, const signal_t *non_interruptor, const std::string &initial_password) {
     guarantee(!initial_password.empty());
     fdb_value_fut<auth::user_t> user_fut

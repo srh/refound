@@ -297,8 +297,6 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
     /* propagate whether or not we're doing profiles */
     r_sanity_check(read.profile == env->profile());
 
-    // OOO: We'll need to handle config_version_exc_t coming out of this.
-
     /* Do the actual read. */
     try {
         *response = apply_read(
@@ -314,6 +312,8 @@ void real_table_t::read_with_profile(ql::env_t *env, const read_t &read,
         rfail_datum(ql::base_exc_t::OP_FAILED, "Cannot perform read: %s", e.what());
     } catch (auth::permission_error_t const &error) {
         rfail_datum(ql::base_exc_t::PERMISSION_ERROR, "%s", error.what());
+    } catch (const config_version_exc_t &ex) {
+        rfail_datum(ql::base_exc_t::OP_FAILED, "System configuration changed while performing read");
     }
 
     /* Append the results of the profile to the current task */

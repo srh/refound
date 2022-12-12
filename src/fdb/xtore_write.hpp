@@ -45,6 +45,7 @@ return_type perform_write_operation(FDBDatabase *fdb, const signal_t *interrupto
         });
         rcheck_fdb_datum(loop_err, "writing table");
     } catch (const provisional_assumption_exception &exc) {
+        // OOO: Remove config_version_exc_t?
         throw config_version_exc_t();
     }
     return ret;

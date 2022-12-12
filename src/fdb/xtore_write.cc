@@ -721,6 +721,7 @@ batched_replace_response_t rdb_fdb_batched_replace(
         tmp.add_warnings(conditions, limits);
         return std::move(tmp).to_datum();
     } catch (const provisional_assumption_exception &exc) {
+        // OOO: Remove config_version_exc_t?
         throw config_version_exc_t();
     }
 }

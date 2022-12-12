@@ -37,6 +37,7 @@ return_type perform_read_operation(FDBDatabase *fdb, const signal_t *interruptor
         });
         rcheck_fdb_datum(loop_err, "reading table");
     } catch (const provisional_assumption_exception &exc) {
+        // OOO: Remove config_version_exc_t?
         throw config_version_exc_t();
     }
     return ret;

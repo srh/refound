@@ -22,6 +22,8 @@
 /*
 Some ranting about the config cache and config versions...
 
+    # Note that the info in this rant may be out of date in its specifics #
+
 We suffer a basic problem: If we get a config_version_exc_t, we have to re-evaluate the
 query.  At which point do we have to reevaluate the query?  I suppose, the largest
 containing expression which contains both the r.table or r.db expression that carried
