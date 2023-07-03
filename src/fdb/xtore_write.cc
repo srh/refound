@@ -66,7 +66,7 @@ jobstate_futs get_jobstates(
                 transaction_lookup_uq_index<index_jobstate_by_task>(
                     txn,
                     second.creation_task_or_nil,
-                    false));
+                    true));
         }
     }
     return ret;
