@@ -319,4 +319,3 @@ MUST_USE fdb_error_t execute_index_create_job(
     return loop_err;
 }
 
-// QQQ: Improve index create behavior (make it serial, deal with contention, and such).
