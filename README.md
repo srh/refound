@@ -44,21 +44,51 @@ cluster, and a `node_id` file, which is used to reuse the same node id
 upon restart, which allows background jobs to be restarted more
 quickly.
 
-This repo is forked off of RethinkDB 2.4.x, at some point after 2.4.2.
+This repo is up to date with RethinkDB 2.4.4.  It is forked off of
+RethinkDB 2.4.x, at some point after 2.4.2 and cherry-picks in its
+most recent changes.
 
 
 Missing Features/Differences
 ----------------------------
 
-Your code will encounter errors if you use:
+Your code will encounter straightforward errors if you use:
 
 - change feeds
-- system tables (some data is inapplicable, faked for compatibility, or missing),
 - shard configuration commands (which are inapplicable), or
 - rows larger than 9 megabytes
 
+You might get less straightforward errors if you use:
+
+- system tables (some data is inapplicable, faked for compatibility, or missing),
+
 Change feeds and arbitrarily large documents could be implemented, if
 there is demand.
+
+
+Technical Notes
+---------------
+
+This does have some basics you'd hope any record store to have:
+
+- table configuration caching and optimistic (late-failing)
+  configuration version checking
+
+- background index building
+
+- automatic background job failover
+
+The only background jobs are index building and mass table deletion.
+
+Index building is over-engineered, over-generalized, to avoid
+starvation while supporting new types of indexes that are not present
+in RethinkDB and have not been implemented.
+
+The implementation effort was mostly oriented towards minimizing
+developer time and technical risk.  Thus the code still has some old
+RethinkDB cruft, such as its key types and how the structure of its
+query language code interacts with table configuration caching.  Also,
+there is a lot of headroom for better performance.
 
 
 License
@@ -66,13 +96,7 @@ License
 
 This is licensed under the Affero GPL v3 (unlike RethinkDB, which is
 Apache 2).  Right now, all of the post-Apache 2 modifications are
-copyrighted Sam Hughes, so flexibility on this is possbile.
-
-
-Contributing
-------------
-
-See CONTRIBUTING.md.
+copyrighted one person, so flexibility on this is possbile.
 
 
 
